@@ -5,3 +5,4 @@ node_modules/
 tests/drive/
 tests/*.png
 dist/
+.outils/
