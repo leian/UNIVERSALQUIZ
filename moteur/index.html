@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Mes quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
+<style>
+:root{
+  --bg:#fff8ef; --card:#ffffff; --ink:#2b2350; --soft:#6b6390; --line:#eadfce;
+  --fr:#7c3aed; --math:#ea580c; --sci:#0891b2; --en:#b91c1c; --hist:#a16207; --geo:#15803d; --mus:#db2777; --autre:#475569;
+}
+@media (prefers-color-scheme: dark){:root{
+  --bg:#17142a; --card:#221e3a; --ink:#f1edff; --soft:#b3abd6; --line:#342e55;
+}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:1220px;margin:0 auto;padding:32px 16px 48px;display:grid;grid-template-columns:minmax(0,1fr);gap:24px}
+@media (min-width:1100px){.wrap{grid-template-columns:minmax(0,1fr) 230px}#recompenses{position:sticky;top:16px;align-self:start}}
+#recompenses .badges-panel{background:var(--card);border:2px solid var(--line);color:var(--ink)}
+#recompenses .bp-count,#recompenses .bp-vide{color:var(--soft)}
+header{text-align:center;margin-bottom:28px}
+h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(2rem,6vw,3rem);margin:0}
+header p{color:var(--soft);margin:6px 0 0}
+.search{display:block;width:100%;max-width:420px;margin:20px auto 0;padding:12px 16px;border:2px solid var(--line);
+  border-radius:999px;background:var(--card);color:var(--ink);font:inherit}
+.filters{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin-top:14px}
+.filters button{border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;
+  padding:6px 14px;font:600 .95rem "Fredoka",sans-serif;cursor:pointer}
+.filters button.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+section{margin-top:32px}
+h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.4rem;margin:0 0 12px;display:flex;align-items:center;gap:10px}
+h2 .dot{width:14px;height:14px;border-radius:50%}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
+a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:2px solid var(--line);
+  border-left:8px solid var(--c);border-radius:16px;padding:16px;transition:transform .15s,box-shadow .15s}
+a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08);outline:none}
+.card .emo{font-size:1.8rem}
+.card .t{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.1rem;margin:4px 0 2px}
+.card .d{color:var(--soft);font-size:.9rem}
+.card{position:relative}
+.card .score{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:600 .82rem "Fredoka",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+.card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
+.serie{display:inline-block;margin-top:12px;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px 14px;font:600 .95rem "Fredoka",sans-serif}
+.ctrl-link{display:inline-flex;align-items:center;gap:6px;margin-top:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 16px;font:600 .95rem "Fredoka",sans-serif;text-decoration:none}
+.ctrl-link:hover{border-color:var(--soft)}
+.foot{text-align:center;margin-top:40px;font-size:.85rem}
+.foot a{color:var(--soft)}
+.empty{text-align:center;color:var(--soft);background:var(--card);border:2px dashed var(--line);border-radius:16px;padding:32px 16px;margin-top:32px}
+</style>
+</head>
+<body>
+<div class="wrap">
+ <div class="col">
+  <header>
+    <h1>📚 Mes quiz</h1>
+    <p>Choisis une matière et lance-toi, championne !</p>
+    <input class="search" id="q" type="search" placeholder="Chercher un quiz…" aria-label="Chercher un quiz">
+    <a class="ctrl-link" href="controles.html">🖨️ Mes contrôles papier</a>
+    <div id="serie"></div>
+    <div class="filters" id="filters"></div>
+  </header>
+  <main id="list"></main>
+  <p class="foot"><a href="tableau-de-bord.html">📊 Suivi des résultats (parents)</a></p>
+ </div>
+ <aside id="recompenses"></aside>
+</div>
+
+<script src="commun/catalogue.js"></script>
+<script src="commun/badges.js"></script>
+<script>
+/* La liste des quiz est dans commun/catalogue.js */
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+let filtre = "tout";
+
+function afficherFiltres(){
+  const presentes = [...new Set(QUIZ.map(q => q.matiere in MATIERES ? q.matiere : "autre"))];
+  const el = document.getElementById("filters");
+  if (presentes.length < 2) { el.innerHTML = ""; return; }
+  el.innerHTML = ["tout", ...Object.keys(MATIERES).filter(m => presentes.includes(m))]
+    .map(m => `<button data-m="${m}" class="${m === filtre ? "on" : ""}">${m === "tout" ? "Tout" : MATIERES[m].emo + " " + MATIERES[m].nom}</button>`).join("");
+  el.querySelectorAll("button").forEach(b => b.onclick = () => { filtre = b.dataset.m; afficherFiltres(); afficherListe(); });
+}
+
+function afficherListe(){
+  const texte = document.getElementById("q").value.trim().toLowerCase();
+  const list = document.getElementById("list");
+  if (!QUIZ.length) {
+    list.innerHTML = `<div class="empty">Aucun quiz pour l'instant… Les premiers arrivent bientôt ! 🚀</div>`;
+    return;
+  }
+  const visibles = QUIZ.filter(q => {
+    const m = q.matiere in MATIERES ? q.matiere : "autre";
+    return (filtre === "tout" || filtre === m) &&
+           (!texte || (q.titre + " " + (q.description || "")).toLowerCase().includes(texte));
+  });
+  if (!visibles.length) { list.innerHTML = `<div class="empty">Aucun quiz ne correspond à ta recherche.</div>`; return; }
+  list.innerHTML = Object.keys(MATIERES).map(m => {
+    const qs = visibles.filter(q => (q.matiere in MATIERES ? q.matiere : "autre") === m)
+                       .sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+    if (!qs.length) return "";
+    const M = MATIERES[m];
+    return `<section><h2><span class="dot" style="background:${M.c}"></span>${M.emo} ${M.nom}</h2><div class="grid">` +
+      qs.map(q => `<a class="card" style="--c:${M.c}" href="${encodeURI(q.fichier)}">
+        <div class="emo">${M.emo}</div><div class="t">${esc(q.titre)}</div>
+        <div class="d">${esc(q.description)}</div>${badge(q)}</a>`).join("") + `</div></section>`;
+  }).join("");
+}
+
+/* ---------- scores (suivi des résultats) ---------- */
+let STATS = {};
+const cle = f => String(f).split("/").pop().replace(/\.html$/i, "");
+function badge(q) {
+  const s = STATS[cle(q.fichier)];
+  if (!s) {
+    const recent = q.date && (Date.now() - new Date(q.date)) < 7 * 864e5;
+    return recent && /\.html$/i.test(q.fichier) ? `<span class="new">Nouveau !</span>` : "";
+  }
+  const etoiles = s.best >= 90 ? "⭐⭐⭐" : s.best >= 70 ? "⭐⭐" : s.best >= 50 ? "⭐" : "💪";
+  return `<span class="score" title="Meilleur score">${etoiles} ${s.best} % · ${s.n} partie${s.n > 1 ? "s" : ""}</span>`;
+}
+function calculerStats(liste) {
+  STATS = {};
+  const jours = new Set();
+  liste.forEach(r => {
+    if (!r.total) return;
+    const k = cle(r.quiz), p = Math.round(r.score / r.total * 100);
+    const s = STATS[k] = STATS[k] || { best: 0, n: 0 };
+    s.best = Math.max(s.best, p); s.n++;
+    if (r.date) jours.add(new Date(r.date).toLocaleDateString("fr-CA"));
+  });
+  // série de jours d'affilée (aujourd'hui ou hier compris)
+  let serie = 0; const d = new Date();
+  if (!jours.has(d.toLocaleDateString("fr-CA"))) d.setDate(d.getDate() - 1);
+  while (jours.has(d.toLocaleDateString("fr-CA"))) { serie++; d.setDate(d.getDate() - 1); }
+  document.getElementById("serie").innerHTML = serie >= 2 ? `<span class="serie">🔥 ${serie} jours d'affilée, bravo !</span>` : "";
+}
+async function chargerScores() {
+  let liste = null;
+  try {
+    const r = await fetch("/api/resultats", { cache: "no-store", credentials: "same-origin" });
+    if (r.ok) liste = (await r.json()).resultats;
+  } catch (e) {}
+  if (!liste) { try { liste = JSON.parse(localStorage.getItem("uqSuivi.local")) || []; } catch (e) { liste = []; } }
+  calculerStats(liste);
+  afficherListe();
+}
+
+document.getElementById("q").addEventListener("input", afficherListe);
+afficherFiltres();
+afficherListe();
+chargerScores();
+Badges.monter();
+</script>
+</body>
+</html>

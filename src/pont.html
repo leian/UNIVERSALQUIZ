@@ -1,0 +1,81 @@
+/* =====================================================================
+   PONT — relie une page du moteur à Google Apps Script
+   (inséré automatiquement en tête de chaque page par Code.gs)
+   1. les appels fetch('/api/resultats…') du moteur sont redirigés
+      vers google.script.run (Google Sheets) ;
+   2. les liens « xxx.html » deviennent « …/exec?page=xxx »,
+      les liens « xxx.pdf » pointent vers le fichier dans Drive.
+   ===================================================================== */
+(function () {
+  var CFG = /*__CFG__*/null;
+  window.__UQ = CFG;
+
+  /* ---------- 1. API des résultats ---------- */
+  var vraiFetch = window.fetch ? window.fetch.bind(window) : null;
+  function reponse(status, data) {
+    return {
+      ok: status >= 200 && status < 300, status: status,
+      json: function () { return Promise.resolve(data); },
+      text: function () { return Promise.resolve(JSON.stringify(data)); }
+    };
+  }
+  function appel(fn, arg, statutOk) {
+    return new Promise(function (ok) {
+      var run = window.google && google.script && google.script.run;
+      if (!run) return ok(reponse(503, { erreur: 'Connexion à Google indisponible' }));
+      run.withSuccessHandler(function (d) { ok(d && d.__status ? reponse(d.__status, d) : reponse(statutOk || 200, d)); })
+         .withFailureHandler(function (e) { ok(reponse(500, { erreur: String((e && e.message) || e) })); })[fn](arg);
+    });
+  }
+  function parametres(qs) {
+    var o = {};
+    (qs || '').split('&').forEach(function (p) {
+      if (!p) return;
+      var i = p.indexOf('=');
+      o[decodeURIComponent(i < 0 ? p : p.slice(0, i))] = i < 0 ? '' : decodeURIComponent(p.slice(i + 1).replace(/\+/g, ' '));
+    });
+    return o;
+  }
+  window.fetch = function (url, opts) {
+    var u = typeof url === 'string' ? url : (url && url.url) || String(url);
+    var m = u.match(/^(?:https?:\/\/[^\/]+)?\/api\/resultats\/?(?:\?(.*))?$/);
+    if (m) {
+      var methode = String((opts && opts.method) || 'GET').toUpperCase(), q = parametres(m[1]);
+      if (methode === 'POST') {
+        var corps = (opts && opts.body) || '{}';
+        try { var r = JSON.parse(corps); r.quiz = CFG.page; corps = JSON.stringify(r); } catch (e) {}
+        return appel('apiEnregistrer', corps, 201);
+      }
+      if (methode === 'DELETE') return appel('apiSupprimer', q.id || '');
+      return appel('apiLister', q);
+    }
+    return vraiFetch ? vraiFetch.apply(window, arguments) : Promise.reject(new TypeError('fetch indisponible'));
+  };
+
+  /* ---------- 2. liens ---------- */
+  function cible(href, telecharger) {
+    if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) return null;    // déjà absolu, ancre…
+    var nom = href.split('#')[0].split('?')[0].split('/').pop();
+    try { nom = decodeURIComponent(nom); } catch (e) {}
+    if (/\.pdf$/i.test(nom)) { var l = CFG.liens && CFG.liens[nom]; return l ? (telecharger ? l.dl : l.voir) : null; }
+    if (/\.html?$/i.test(nom) || nom === '') {
+      var page = nom.replace(/\.html?$/i, '');
+      return CFG.url + (page === '' || page === 'index' ? '' : '?page=' + encodeURIComponent(page));
+    }
+    return null;
+  }
+  function corriger(a) {
+    var href = a.getAttribute('href'), dl = a.hasAttribute('download');
+    var c = cible(href, dl);
+    if (!c) return;
+    a.setAttribute('href', c);
+    a.removeAttribute('download');
+    a.setAttribute('target', /\.pdf$/i.test(href.split('?')[0]) ? '_blank' : '_top');
+  }
+  function auClic(e) {
+    var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
+    if (a) corriger(a);
+  }
+  document.addEventListener('click', auClic, true);
+  document.addEventListener('auxclick', auClic, true);
+})();

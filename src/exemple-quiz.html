@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quiz – Les capitales d'Europe</title>
+<!-- Pool : 12 questions (QCM, vrai/faux, saisie) — 10 tirées au hasard à chaque partie -->
+<!-- QUIZ D'EXEMPLE : copie ce fichier, change les questions et le bloc MoteurQuiz.lancer, dépose-le dans le dossier Drive. -->
+<link rel="stylesheet" href="commun/moteur-quiz.css">
+<script src="commun/suivi.js"></script>
+<script src="commun/recompenses.js"></script>
+<script src="commun/moteur-quiz.js"></script>
+</head>
+<body>
+<div class="container" id="app"></div>
+<script>
+const QUESTIONS = [
+  { type:'qcm', cat:'Capitales', q:"Quelle est la capitale de l'Espagne ?", opts:["Madrid","Barcelone","Séville","Valence"], a:"Madrid",
+    exp:"Madrid est la capitale de l'Espagne depuis le XVIe siècle." },
+  { type:'qcm', cat:'Capitales', q:"Quelle est la capitale de l'Italie ?", opts:["Rome","Milan","Naples","Florence"], a:"Rome",
+    exp:"Rome est la capitale de l'Italie." },
+  { type:'qcm', cat:'Capitales', q:"Quelle est la capitale de l'Allemagne ?", opts:["Berlin","Munich","Francfort","Hambourg"], a:"Berlin",
+    exp:"Berlin est la capitale de l'Allemagne réunifiée depuis 1990." },
+  { type:'qcm', cat:'Capitales', q:"Quelle est la capitale du Portugal ?", opts:["Lisbonne","Porto","Faro","Coimbra"], a:"Lisbonne",
+    exp:"Lisbonne, au bord du Tage, est la capitale du Portugal." },
+  { type:'qcm', cat:'Capitales', q:"Quelle est la capitale de la Belgique ?", opts:["Bruxelles","Anvers","Liège","Bruges"], a:"Bruxelles",
+    exp:"Bruxelles est aussi le siège de plusieurs institutions européennes." },
+  { type:'vf', cat:'Vrai ou faux', q:"Vrai ou faux : la capitale de la Suisse est Genève.", a:false,
+    exp:"Faux : la capitale fédérale de la Suisse est Berne." },
+  { type:'vf', cat:'Vrai ou faux', q:"Vrai ou faux : Vienne est la capitale de l'Autriche.", a:true,
+    exp:"Vrai : Vienne est la capitale de l'Autriche, au bord du Danube." },
+  { type:'vf', cat:'Vrai ou faux', q:"Vrai ou faux : la capitale des Pays-Bas est Amsterdam.", a:true,
+    exp:"Vrai, même si le gouvernement siège à La Haye." },
+  { type:'input', cat:'À écrire', q:"Écris la capitale de la France.", ans:['Paris'], hint:"Une ville traversée par la Seine.",
+    exp:"Paris est la capitale de la France." },
+  { type:'input', cat:'À écrire', q:"Écris la capitale du Royaume-Uni.", ans:['Londres','London'], hint:"Une ville traversée par la Tamise.",
+    exp:"Londres (London en anglais) est la capitale du Royaume-Uni." },
+  { type:'input', cat:'À écrire', q:"Écris la capitale de la Grèce.", ans:['Athènes'], hint:"La ville de l'Acropole.",
+    exp:"Athènes est la capitale de la Grèce. Les accents ne sont pas obligatoires dans la réponse." },
+  { type:'input', cat:'À écrire', q:"Écris la capitale de l'Irlande.", ans:['Dublin'], hint:"Elle commence par un D.",
+    exp:"Dublin est la capitale de l'Irlande." }
+];
+
+MoteurQuiz.lancer({
+  titre: "Les capitales d'Europe",
+  sousTitre: "Quiz d'exemple<br>Un petit tour d'Europe pour tester le moteur !",
+  icone: "🗺️",
+  matiere: "geographie",
+  couleur: "#2563eb",
+  nbQuestions: 10,
+  questions: QUESTIONS,
+  pills: ["⌨️ QCM + réponses à taper"],
+  msgExcellent: "Excellent ! Tu connais l'Europe sur le bout des doigts.",
+  msgBien: "Bravo ! Encore un petit effort pour tout savoir.",
+  memo: `<div class="frise-section"><div class="frise-title">🗺️ Fiche mémo</div>
+    <div class="frise-subtitle">Espagne → Madrid · Italie → Rome · Allemagne → Berlin · Portugal → Lisbonne · Belgique → Bruxelles ·
+    Suisse → Berne · Autriche → Vienne · Pays-Bas → Amsterdam · France → Paris · Royaume-Uni → Londres · Grèce → Athènes · Irlande → Dublin</div></div>`
+});
+</script>
+</body>
+</html>

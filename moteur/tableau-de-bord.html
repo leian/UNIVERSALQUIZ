@@ -1,0 +1,267 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Suivi des résultats – Mes quiz</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
+<script src="commun/catalogue.js"></script>
+<script src="commun/suivi.js"></script>
+<style>
+:root{
+  --bg:#fff8ef; --card:#ffffff; --ink:#2b2350; --soft:#6b6390; --line:#eadfce;
+  --fr:#7c3aed; --math:#ea580c; --sci:#0891b2; --en:#b91c1c; --hist:#a16207; --geo:#15803d; --mus:#db2777; --autre:#475569;
+  --ok:#16a34a; --moy:#d97706; --ko:#dc2626;
+}
+@media (prefers-color-scheme: dark){:root{ --bg:#17142a; --card:#221e3a; --ink:#f1edff; --soft:#b3abd6; --line:#342e55; }}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-ui,sans-serif;line-height:1.5}
+.wrap{max-width:980px;margin:0 auto;padding:24px 14px 60px}
+header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
+h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(1.6rem,5vw,2.3rem);margin:0}
+h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.2rem;margin:0 0 10px}
+.btn{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .9rem "Fredoka",sans-serif;cursor:pointer;text-decoration:none}
+.btn:hover{border-color:var(--soft)}
+.btn.danger{border-color:#fecaca;color:var(--ko)}
+.box{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+.msg{border-radius:12px;padding:12px 14px;margin-top:12px;font-size:.95rem}
+.msg.warn{background:#fffbeb;border:1px solid #fcd34d;color:#78350f}
+.msg.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
+.msg code{background:rgba(0,0,0,.06);padding:1px 5px;border-radius:4px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.kpi{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px}
+.kpi .v{font:700 1.6rem "Fredoka",sans-serif}
+.kpi .l{color:var(--soft);font-size:.85rem}
+.bars{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px}
+.bars .b{flex:1;min-width:4px;border-radius:4px 4px 0 0;background:var(--line);position:relative}
+.bars .b span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.7rem;color:var(--soft)}
+.axis{display:flex;justify-content:space-between;font-size:.75rem;color:var(--soft);margin-top:4px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--soft);margin-top:8px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:4px;vertical-align:middle}
+.row{display:grid;grid-template-columns:150px 1fr 70px;gap:10px;align-items:center;padding:6px 0;border-top:1px solid var(--line);font-size:.92rem}
+.row:first-of-type{border-top:none}
+.track{height:10px;background:var(--line);border-radius:99px;overflow:hidden}
+.fill{height:10px;border-radius:99px}
+table{width:100%;border-collapse:collapse;font-size:.9rem}
+th{text-align:left;color:var(--soft);font-weight:600;font-size:.8rem;padding:6px}
+td{padding:7px 6px;border-top:1px solid var(--line);vertical-align:top}
+tr.click{cursor:pointer}
+tr.click:hover td{background:rgba(0,0,0,.03)}
+.pill{display:inline-block;border-radius:999px;padding:1px 9px;font:700 .8rem "Fredoka",sans-serif;color:#fff}
+.tablewrap{overflow-x:auto}
+.sess{border-top:1px solid var(--line);padding:10px 0}
+.sess-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:pointer}
+.sess-h .t{font-weight:700;flex:1;min-width:160px}
+.sess-h .m{color:var(--soft);font-size:.85rem}
+.det{margin-top:10px;padding:10px;background:var(--bg);border-radius:12px;font-size:.9rem}
+.det .q{padding:6px 0;border-top:1px dashed var(--line)}
+.det .q:first-child{border-top:none}
+.ko{color:var(--ko)} .okc{color:var(--ok)}
+.filtres{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card);color:var(--ink)}
+.small{font-size:.85rem;color:var(--soft)}
+@media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>📊 Suivi de {{PRENOM}}</h1>
+    <div class="filtres">
+      <a class="btn" href="index.html">📚 Mes quiz</a>
+      <button class="btn" onclick="charger()">🔄 Actualiser</button>
+    </div>
+  </header>
+  <div id="etat"></div>
+  <div class="box">
+    <div class="filtres">
+      <label class="small">Période :</label>
+      <select id="periode" onchange="afficher()">
+        <option value="7">7 derniers jours</option>
+        <option value="30" selected>30 derniers jours</option>
+        <option value="90">3 mois</option>
+        <option value="0">Tout</option>
+      </select>
+      <label class="small">Matière :</label>
+      <select id="fmat" onchange="afficher()"></select>
+      <span id="fjoueur-wrap" style="display:none"><label class="small">Joueur :</label> <select id="fjoueur" onchange="afficher()"></select></span>
+    </div>
+  </div>
+  <div id="contenu"></div>
+  <div class="box">
+    <h2>⚙️ Cet appareil</h2>
+    <div id="appareil"></div>
+  </div>
+</div>
+
+<script>
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const cle = f => String(f || "").split("/").pop().replace(/\.html$/i, "");
+const CAT = {}; (window.QUIZ || []).forEach(q => CAT[cle(q.fichier)] = q);
+const couleur = p => p >= 70 ? "var(--ok)" : p >= 40 ? "var(--moy)" : "var(--ko)";
+const jour = d => new Date(d).toLocaleDateString("fr-CA");               // AAAA-MM-JJ (heure locale)
+const fmtDate = d => new Date(d).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+const fmtDuree = s => s == null ? "—" : s < 60 ? s + " s" : Math.floor(s / 60) + " min" + (s % 60 ? " " + (s % 60) + " s" : "");
+let TOUT = [], ouverts = new Set(), aSupprimer = null;
+
+function infos(r) {
+  const c = CAT[cle(r.quiz)];
+  const titre = c ? c.titre : (r.titre || cle(r.quiz)).replace(/^Quiz\s*[–-]\s*/, "");
+  const matiere = (c && c.matiere) || r.matiere || "autre";
+  return { titre, matiere, pct: r.total ? Math.round(r.score / r.total * 100) : 0 };
+}
+const nomMat = m => (window.MATIERES && MATIERES[m]) ? MATIERES[m].emo + " " + MATIERES[m].nom : m;
+
+async function charger() {
+  const etat = document.getElementById("etat");
+  etat.innerHTML = `<div class="msg info">Chargement…</div>`;
+  try {
+    const res = await fetch("/api/resultats?details=1", { cache: "no-store", credentials: "same-origin" });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.erreur || ("Erreur " + res.status));
+    TOUT = (data.resultats || []).map(r => Object.assign(r, infos(r)));
+    etat.innerHTML = "";
+  } catch (e) {
+    TOUT = [];
+    etat.innerHTML = `<div class="msg warn"><b>Impossible de lire les résultats.</b><br>${esc(e.message)}<br>
+      <span class="small">Vérifie que le Google Sheets « Universal Quiz – Résultats » existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
+  }
+  const n = window.Suivi ? Suivi.enAttente() : 0;
+  if (n) etat.innerHTML += `<div class="msg info">${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""} sur cet appareil ${n > 1 ? "sont" : "est"} en attente d'envoi. <button class="btn" onclick="Suivi.envoyerFile().then(charger)">Envoyer maintenant</button></div>`;
+  remplirFiltres();
+  afficher();
+  afficherAppareil();
+}
+
+function remplirFiltres() {
+  const mats = [...new Set(TOUT.map(r => r.matiere))];
+  const fm = document.getElementById("fmat"), v = fm.value;
+  fm.innerHTML = `<option value="">Toutes</option>` + mats.map(m => `<option value="${esc(m)}">${esc(nomMat(m))}</option>`).join("");
+  fm.value = mats.includes(v) ? v : "";
+  const joueurs = [...new Set(TOUT.map(r => r.joueur).filter(Boolean))];
+  document.getElementById("fjoueur-wrap").style.display = joueurs.length > 1 ? "" : "none";
+  const fj = document.getElementById("fjoueur"), vj = fj.value;
+  fj.innerHTML = `<option value="">Tous</option>` + joueurs.map(j => `<option>${esc(j)}</option>`).join("");
+  fj.value = joueurs.includes(vj) ? vj : "";
+}
+
+function filtrer() {
+  const jours = +document.getElementById("periode").value, m = document.getElementById("fmat").value, j = document.getElementById("fjoueur").value;
+  const lim = jours ? Date.now() - jours * 864e5 : 0;
+  return TOUT.filter(r => (!lim || new Date(r.date) >= lim) && (!m || r.matiere === m) && (!j || r.joueur === j));
+}
+
+function afficher() {
+  const L = filtrer(), C = document.getElementById("contenu");
+  if (!TOUT.length) { C.innerHTML = `<div class="box small">Aucune partie enregistrée pour l'instant. Les résultats apparaîtront ici dès que {{PRENOM}} aura terminé un quiz.</div>`; return; }
+  if (!L.length) { C.innerHTML = `<div class="box small">Aucune partie sur cette période / ce filtre.</div>`; return; }
+
+  // --- chiffres clés
+  const nq = L.reduce((s, r) => s + r.total, 0), nok = L.reduce((s, r) => s + r.score, 0);
+  const temps = L.reduce((s, r) => s + (r.duree || 0), 0);
+  const joursActifs = new Set(L.map(r => jour(r.date))).size;
+  const tousJours = new Set(TOUT.map(r => jour(r.date)));
+  let serie = 0; const d = new Date();
+  if (!tousJours.has(jour(d))) d.setDate(d.getDate() - 1);
+  while (tousJours.has(jour(d))) { serie++; d.setDate(d.getDate() - 1); }
+  const kpis = `<div class="kpis" style="margin-top:16px">
+    <div class="kpi"><div class="v">${L.length}</div><div class="l">parties terminées</div></div>
+    <div class="kpi"><div class="v">${nq}</div><div class="l">questions répondues</div></div>
+    <div class="kpi"><div class="v" style="color:${couleur(Math.round(nok / nq * 100))}">${Math.round(nok / nq * 100)} %</div><div class="l">de bonnes réponses</div></div>
+    <div class="kpi"><div class="v">${fmtDuree(temps).replace(/ \d+ s$/, "")}</div><div class="l">de travail</div></div>
+    <div class="kpi"><div class="v">${joursActifs}</div><div class="l">jours d'entraînement</div></div>
+    <div class="kpi"><div class="v">🔥 ${serie}</div><div class="l">jours d'affilée</div></div>
+  </div>`;
+
+  // --- activité par jour
+  const nbJ = Math.min(+document.getElementById("periode").value || 60, 60);
+  const parJour = {};
+  L.forEach(r => { const k = jour(r.date); (parJour[k] = parJour[k] || { n: 0, ok: 0, t: 0 }); parJour[k].n++; parJour[k].ok += r.score; parJour[k].t += r.total; });
+  const jl = []; for (let i = nbJ - 1; i >= 0; i--) { const x = new Date(); x.setDate(x.getDate() - i); jl.push(jour(x)); }
+  const maxN = Math.max(1, ...jl.map(k => parJour[k] ? parJour[k].n : 0));
+  const bars = jl.map(k => { const p = parJour[k]; if (!p) return `<div class="b" style="height:3px" title="${k} : aucune partie"></div>`;
+    const pc = Math.round(p.ok / p.t * 100);
+    return `<div class="b" style="height:${Math.max(8, p.n / maxN * 100)}%;background:${couleur(pc)}" title="${k} : ${p.n} partie(s), ${pc} %">${nbJ <= 31 ? `<span>${p.n}</span>` : ""}</div>`; }).join("");
+  const activite = `<div class="box"><h2>📅 Activité</h2><div class="bars">${bars}</div>
+    <div class="axis"><span>${new Date(jl[0]).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
+    <div class="legend"><span>Hauteur = nombre de parties ; couleur = réussite du jour :</span><span><i style="background:var(--ok)"></i>≥ 70 %</span><span><i style="background:var(--moy)"></i>40–69 %</span><span><i style="background:var(--ko)"></i>&lt; 40 %</span></div></div>`;
+
+  // --- par matière
+  const pm = {};
+  L.forEach(r => { const p = pm[r.matiere] = pm[r.matiere] || { n: 0, ok: 0, t: 0 }; p.n++; p.ok += r.score; p.t += r.total; });
+  const matieres = `<div class="box"><h2>📚 Par matière</h2>${Object.entries(pm).sort((a, b) => b[1].n - a[1].n).map(([m, p]) => { const pc = Math.round(p.ok / p.t * 100);
+    return `<div class="row"><div>${esc(nomMat(m))} <span class="small">(${p.n})</span></div><div class="track"><div class="fill" style="width:${pc}%;background:${couleur(pc)}"></div></div><div style="text-align:right;font-weight:700">${pc} %</div></div>`; }).join("")}</div>`;
+
+  // --- par quiz
+  const pq = {};
+  [...L].reverse().forEach(r => { const k = cle(r.quiz); const p = pq[k] = pq[k] || { titre: r.titre, matiere: r.matiere, n: 0, best: 0, sum: 0, last: null, lastDate: null };
+    p.n++; p.best = Math.max(p.best, r.pct); p.sum += r.pct; p.last = r.pct; p.lastDate = r.date; });
+  const lignesQuiz = Object.entries(pq).sort((a, b) => String(b[1].lastDate).localeCompare(String(a[1].lastDate))).map(([k, p]) =>
+    `<tr><td>${esc(p.titre)}<div class="small">${esc(nomMat(p.matiere))}</div></td><td>${p.n}</td>
+      <td><span class="pill" style="background:${couleur(p.best)}">${p.best} %</span></td>
+      <td><span class="pill" style="background:${couleur(p.last)}">${p.last} %</span></td>
+      <td class="hide-m">${Math.round(p.sum / p.n)} %</td><td class="hide-m small">${fmtDate(p.lastDate)}</td></tr>`).join("");
+  const quiz = `<div class="box"><h2>📝 Par quiz</h2><div class="tablewrap"><table>
+    <thead><tr><th>Quiz</th><th>Parties</th><th>Meilleur</th><th>Dernier</th><th class="hide-m">Moyenne</th><th class="hide-m">Dernière fois</th></tr></thead>
+    <tbody>${lignesQuiz}</tbody></table></div></div>`;
+
+  // --- thèmes les plus faibles
+  const pt = {};
+  L.forEach(r => (r.questions || []).forEach(q => { if (!q.cat) return; const k = r.titre + " › " + q.cat; const p = pt[k] = pt[k] || { ok: 0, t: 0 }; p.t++; if (q.ok) p.ok++; }));
+  const faibles = Object.entries(pt).filter(([, p]) => p.t >= 3).map(([k, p]) => [k, p, Math.round(p.ok / p.t * 100)]).sort((a, b) => a[2] - b[2]).slice(0, 8);
+  const themes = faibles.length ? `<div class="box"><h2>🎯 Thèmes à retravailler</h2><div class="small" style="margin-bottom:6px">Thèmes vus au moins 3 fois, du plus faible au plus solide.</div>${faibles.map(([k, p, pc]) =>
+    `<div class="row"><div style="font-size:.85rem">${esc(k)}</div><div class="track"><div class="fill" style="width:${pc}%;background:${couleur(pc)}"></div></div><div style="text-align:right;font-weight:700">${pc} %<div class="small">${p.ok}/${p.t}</div></div></div>`).join("")}</div>` : "";
+
+  // --- questions les plus ratées
+  const pqq = {};
+  L.forEach(r => (r.questions || []).forEach(q => { if (!q.q) q.q = "(question avec image ou son)"; const k = r.titre + "§" + q.q; const p = pqq[k] = pqq[k] || { titre: r.titre, q: q.q, attendu: q.attendu, donnes: {}, ko: 0, t: 0 };
+    p.t++; if (!q.ok) { p.ko++; if (q.donne) p.donnes[q.donne] = (p.donnes[q.donne] || 0) + 1; } }));
+  const ratees = Object.values(pqq).filter(p => p.ko > 0).sort((a, b) => b.ko - a.ko || (b.ko / b.t) - (a.ko / a.t)).slice(0, 15);
+  const questions = ratees.length ? `<div class="box"><h2>❌ Questions les plus ratées</h2><div class="tablewrap"><table>
+    <thead><tr><th>Question</th><th>Bonne réponse</th><th class="hide-m">Réponse fréquente de {{PRENOM}}</th><th>Ratée</th></tr></thead><tbody>${ratees.map(p => {
+      const freq = Object.entries(p.donnes).sort((a, b) => b[1] - a[1])[0];
+      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td class="okc">${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td><b>${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div></div>` : "";
+
+  // --- historique
+  const hist = `<div class="box"><h2>🕒 Historique des parties</h2>${L.slice(0, 150).map(r => {
+    const open = ouverts.has(r.id);
+    return `<div class="sess"><div class="sess-h" onclick="basculer('${r.id}')">
+        <span class="pill" style="background:${couleur(r.pct)}">${r.score}/${r.total}</span>
+        <span class="t">${esc(r.titre)}</span>
+        <span class="m">${fmtDate(r.date)} · ${fmtDuree(r.duree)}${r.appareil ? " · " + esc(r.appareil) : ""}${r.joueur ? " · " + esc(r.joueur) : ""}</span>
+        <span class="m">${open ? "▲" : "▼"}</span></div>
+      ${open ? detail(r) : ""}</div>`; }).join("")}${L.length > 150 ? `<div class="small">… ${L.length - 150} parties plus anciennes non affichées.</div>` : ""}</div>`;
+
+  C.innerHTML = kpis + activite + matieres + themes + quiz + questions + hist;
+}
+
+function detail(r) {
+  const qs = r.questions || [];
+  const cats = Object.entries(r.cats || {}).map(([c, s]) => `${esc(c)} : <b>${s.ok}/${s.total}</b>`).join(" · ");
+  const erreurs = qs.filter(q => !q.ok);
+  return `<div class="det">
+    ${cats ? `<div class="small" style="margin-bottom:8px">${cats}</div>` : ""}
+    ${erreurs.length ? erreurs.map(q => `<div class="q">${esc(q.q)}<br><span class="ko">✗ ${esc(q.donne || "—")}</span> · <span class="okc">✓ ${esc(q.attendu)}</span></div>`).join("") : `<div class="okc">🎉 Aucune erreur</div>`}
+    <div style="margin-top:10px;text-align:right">
+      <button class="btn danger" onclick="event.stopPropagation();supprimer('${r.id}')">${aSupprimer === r.id ? "Confirmer la suppression ?" : "🗑 Supprimer cette partie"}</button>
+    </div></div>`;
+}
+function basculer(id) { ouverts.has(id) ? ouverts.delete(id) : ouverts.add(id); aSupprimer = null; afficher(); }
+async function supprimer(id) {
+  if (aSupprimer !== id) { aSupprimer = id; afficher(); return; }
+  const r = await fetch("/api/resultats?id=" + encodeURIComponent(id), { method: "DELETE", credentials: "same-origin" });
+  if (r.ok) { TOUT = TOUT.filter(x => x.id !== id); aSupprimer = null; afficher(); }
+}
+
+function afficherAppareil() {
+  const actif = !window.Suivi || Suivi.actif();
+  document.getElementById("appareil").innerHTML = actif
+    ? `<p>Les parties jouées sur cet appareil <b>sont enregistrées</b>.</p><p class="small">Sur ton propre téléphone ou ordinateur, tu peux couper l'enregistrement pour ne pas mélanger tes essais avec les résultats de {{PRENOM}}.</p><button class="btn" onclick="Suivi.desactiver();afficherAppareil()">🚫 Ne pas enregistrer sur cet appareil</button>`
+    : `<p>Les parties jouées sur cet appareil <b>ne sont pas enregistrées</b> (appareil « parent »).</p><button class="btn" onclick="Suivi.activer();afficherAppareil()">✅ Réactiver l'enregistrement</button>`;
+}
+
+charger();
+</script>
+</body>
+</html>

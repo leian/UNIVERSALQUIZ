@@ -1,0 +1,7 @@
+build/
+.clasp.json
+.deploiement-id
+node_modules/
+tests/drive/
+tests/*.png
+dist/
