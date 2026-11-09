@@ -26,7 +26,13 @@ Cette commande crée `dist/Installer-Universal-Quiz.cmd`. Ce fichier contient to
 
 Rien n'est installé dans Windows : tout va dans `%LOCALAPPDATA%\UniversalQuiz`. Pour faire une mise à jour, il suffit de relancer le même fichier : l'adresse du site ne change pas.
 
-Ne l'envoie pas par Gmail, qui bloque les fichiers `.cmd`. Dépose-le plutôt dans ton Google Drive et partage le lien.
+**Publier une nouvelle version** : pousse un tag qui commence par `v`.
+
+```bash
+git tag v2 && git push origin v2
+```
+
+L'action GitHub `.github/workflows/publier.yml` teste alors le projet, fabrique l'installateur et le publie dans une Release marquée comme dernière version. Le lien à donner aux amis ne change jamais : https://github.com/leian/UNIVERSALQUIZ/releases/latest/download/Installer-Universal-Quiz.cmd
 
 ### Les autres façons d'installer
 

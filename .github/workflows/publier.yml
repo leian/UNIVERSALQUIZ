@@ -1,0 +1,58 @@
+# Publie une nouvelle version de l'installateur Windows.
+# Déclenchement : pousser un tag qui commence par v (ex. v1.1, v2).
+#   git tag v2 && git push origin v2
+# L'action teste le projet, fabrique dist/Installer-Universal-Quiz.cmd
+# et crée la Release correspondante, marquée comme « dernière version ».
+# Le lien …/releases/latest/download/Installer-Universal-Quiz.cmd pointe alors dessus.
+name: Publier l'installateur
+
+on:
+  push:
+    tags: ['v*', 'V*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag de la version à publier (ex. v2)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Tester le projet (faux Google + Chrome)
+        run: |
+          npm install --no-save playwright
+          npx playwright install --with-deps chromium
+          node tests/test.mjs
+
+      - name: Fabriquer l'installateur
+        run: node outils/fabriquer-installeur.mjs
+
+      - name: Créer ou mettre à jour la Release
+        run: |
+          cat > notes.md <<NOTES
+          **Installation sous Windows** : téléchargez \`Installer-Universal-Quiz.cmd\` ci-dessous, double-cliquez dessus et laissez-vous guider (environ 10 minutes, un compte Google suffit).
+
+          Déjà installé ? Relancez simplement ce nouveau fichier : le site est mis à jour et son adresse ne change pas.
+
+          Licence PolyForm Noncommercial 1.0.0 : usage commercial interdit.
+          NOTES
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" dist/Installer-Universal-Quiz.cmd --clobber
+            gh release edit "$TAG" --latest --prerelease=false --draft=false
+          else
+            gh release create "$TAG" dist/Installer-Universal-Quiz.cmd \
+              --title "Universal Quiz $TAG" --notes-file notes.md --latest
+          fi
