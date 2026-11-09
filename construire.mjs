@@ -63,6 +63,7 @@ writeFileSync(join(BUILD, 'Code.gs'), code);
 writeFileSync(join(BUILD, 'appsscript.json'), lire(join(SRC, 'appsscript.json')));
 writeFileSync(join(BUILD, 'lib', 'pont.html'), entourer(verifierInline(lire(join(SRC, 'pont.html')), 'pont.html'), 'pont.js'));
 writeFileSync(join(BUILD, 'lib', 'exemple-quiz.html'), lire(join(SRC, 'exemple-quiz.html')));
+writeFileSync(join(BUILD, 'lib', 'page-ajouter.html'), lire(join(SRC, 'page-ajouter.html')));
 
 // 2. moteur commun
 for (const [f, [nom, patch]] of Object.entries(COMMUN)) {

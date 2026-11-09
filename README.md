@@ -64,11 +64,14 @@ Relance la même commande après chaque modification : le site est mis à jour e
 
 ## Ajouter un quiz
 
-1. Prends la leçon en photo.
-2. Envoie les photos à une IA (Claude, ChatGPT…) avec le fichier `quiz_exemple_capitales.html` comme modèle. Le texte à lui donner est dans le tutoriel.
-3. Dépose le fichier `.html` obtenu dans le dossier Drive « Universal Quiz ». Il apparaît dans « Mes quiz » en moins d'une minute.
+Tout se fait depuis le site, aussi sur téléphone, avec Claude, ChatGPT ou Grok :
 
-Le titre, la matière et l'icône sont lus dans l'appel `MoteurQuiz.lancer({ … })` du fichier. Si un fichier `catalogue.js` (variables `QUIZ` et `CONTROLES`) est déposé dans le dossier, il est prioritaire.
+1. Prends la leçon en photo.
+2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de « Mes quiz ») et clique sur **Copier le message**.
+3. Ouvre l'IA de ton choix, colle le message, joins les photos et envoie.
+4. Copie la réponse de l'IA, colle-la dans le cadre du site, puis clique sur **Créer le quiz**.
+
+L'IA répond en JSON (titre, matière, questions `qcm` / `vf` / `saisie`, mémo). `apiAjouterQuiz` (dans `src/Code.gs`) vérifie ce JSON, écarte les questions mal formées, fabrique le fichier `.html` et le range dans le dossier Drive. Déposer directement un fichier `.html` dans le dossier Drive marche toujours : le titre, la matière et l'icône sont lus dans `MoteurQuiz.lancer({ … })`, et un `catalogue.js` (variables `QUIZ` et `CONTROLES`) déposé dans le dossier reste prioritaire.
 
 ## Limites connues
 

@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ajouter un quiz</title>
+<style>
+:root{--bg:#fff8ef;--card:#fff;--ink:#2b2350;--soft:#6b6390;--line:#eadfce;--accent:#7c3aed;--ok:#15803d;--ko:#b91c1c}
+@media (prefers-color-scheme:dark){:root{--bg:#17142a;--card:#221e3a;--ink:#f1edff;--soft:#b3abd6;--line:#342e55}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+main{max-width:720px;margin:0 auto;padding:24px 16px 48px}
+h1{font-size:1.8rem;margin:.2em 0 .1em;text-align:center}
+.intro{text-align:center;color:var(--soft);margin:0 0 20px}
+.etape{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px 18px;margin:14px 0}
+.etape h2{font-size:1.1rem;margin:0 0 8px;display:flex;gap:10px;align-items:center}
+.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.95rem;flex:none}
+.etape p{margin:6px 0}
+.petit{font-size:.9rem;color:var(--soft)}
+label{font-weight:600}
+input[type=text],select{font:inherit;padding:8px 10px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
+textarea{width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;padding:10px;border:2px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);resize:vertical}
+.btn{display:inline-flex;align-items:center;gap:6px;font:600 1rem system-ui,sans-serif;border:none;border-radius:999px;padding:10px 18px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none}
+.btn.leger{background:var(--card);color:var(--ink);border:2px solid var(--line)}
+.btn:disabled{opacity:.6;cursor:wait}
+.ias{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.ligne{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0}
+details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9rem}
+#resultat{margin-top:12px}
+.ok{border-left:5px solid var(--ok);padding:10px 14px;background:color-mix(in srgb,var(--ok) 10%,var(--card));border-radius:10px}
+.ko{border-left:5px solid var(--ko);padding:10px 14px;background:color-mix(in srgb,var(--ko) 10%,var(--card));border-radius:10px}
+.retour{display:block;text-align:center;margin-top:24px;color:var(--soft)}
+</style>
+</head>
+<body>
+<main>
+  <h1>➕ Ajouter un quiz</h1>
+  <p class="intro">Une leçon en photo, une IA, un copier-coller : le quiz est prêt en 2 minutes.</p>
+
+  <section class="etape">
+    <h2><span class="num">1</span> Prends la leçon en photo</h2>
+    <p>Une photo par page, bien droite et bien nette.</p>
+  </section>
+
+  <section class="etape">
+    <h2><span class="num">2</span> Copie le message pour l'IA</h2>
+    <div class="ligne">
+      <label for="classe">Classe</label>
+      <input type="text" id="classe" placeholder="ex. CM1" size="10">
+      <label for="nb">Questions</label>
+      <select id="nb"><option>20</option><option selected>30</option><option>40</option></select>
+    </div>
+    <button class="btn" id="copier" type="button">📋 Copier le message</button>
+    <span id="copie-ok" class="petit"></span>
+    <details>
+      <summary>Voir le message</summary>
+      <textarea id="message" rows="12" readonly></textarea>
+    </details>
+  </section>
+
+  <section class="etape">
+    <h2><span class="num">3</span> Demande le quiz à une IA</h2>
+    <p>Ouvre l'une de ces IA, <b>colle le message</b>, ajoute les photos (📎 ou +), puis envoie.</p>
+    <div class="ias">
+      <a class="btn leger" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
+      <a class="btn leger" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+      <a class="btn leger" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
+    </div>
+    <p class="petit">Quand l'IA a fini, appuie sur le bouton <b>Copier</b> sous sa réponse (ou sur celui du bloc de code).</p>
+  </section>
+
+  <section class="etape">
+    <h2><span class="num">4</span> Colle la réponse ici</h2>
+    <textarea id="reponse" rows="8" placeholder="Appui long ou Ctrl+V pour coller la réponse de l'IA…"></textarea>
+    <div class="ligne">
+      <button class="btn" id="creer" type="button">✨ Créer le quiz</button>
+      <button class="btn leger" id="coller" type="button">📥 Coller</button>
+    </div>
+    <div id="resultat" aria-live="polite"></div>
+  </section>
+
+  <a class="retour" href="index.html">📚 Revenir à mes quiz</a>
+</main>
+
+<script>
+(function () {
+  const $ = id => document.getElementById(id);
+  const MESSAGE = (classe, nb) => `Tu es enseignant. À partir des photos de leçon que je joins, crée un quiz de révision pour un élève${classe ? ' de ' + classe : ''}.
+
+Règles :
+- ${nb} questions variées : environ la moitié en QCM, un quart en vrai/faux, un quart en réponses courtes à écrire.
+- Uniquement des questions dont la réponse se trouve dans la leçon. Vérifie chaque réponse (dates, nombres, noms propres, orthographe).
+- Chaque question a une catégorie courte ("cat") et une explication bienveillante d'une ou deux phrases ("exp").
+- QCM : 3 ou 4 choix plausibles ; "a" est recopié exactement depuis "opts".
+- Vrai/faux : "a" vaut true ou false, avec à peu près autant de chaque.
+- Réponse courte ("saisie") : 1 à 3 mots ou un nombre ; "ans" liste toutes les variantes acceptables (avec ou sans article, chiffres et lettres…).
+- Phrases neutres en genre quand tu t'adresses à l'élève.
+- "matiere" vaut : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
+- "memo" : 3 à 8 points clés à retenir.
+
+Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds UNIQUEMENT avec ce JSON :
+{
+  "titre": "…",
+  "sousTitre": "une phrase d'accroche",
+  "matiere": "…",
+  "icone": "un emoji",
+  "questions": [
+    {"type": "qcm", "cat": "…", "q": "…", "opts": ["…", "…", "…"], "a": "…", "exp": "…"},
+    {"type": "vf", "cat": "…", "q": "…", "a": true, "exp": "…"},
+    {"type": "saisie", "cat": "…", "q": "…", "ans": ["…", "…"], "hint": "indice facultatif", "exp": "…"}
+  ],
+  "memo": ["…", "…"]
+}`;
+
+  function majMessage() { $('message').value = MESSAGE($('classe').value.trim(), $('nb').value); }
+  $('classe').addEventListener('input', majMessage);
+  $('nb').addEventListener('change', majMessage);
+  try { $('classe').value = localStorage.getItem('uq.classe') || ''; } catch (e) {}
+  $('classe').addEventListener('change', () => { try { localStorage.setItem('uq.classe', $('classe').value.trim()); } catch (e) {} });
+  majMessage();
+
+  function copieSecours() {
+    const t = $('message');
+    t.parentElement.open = true;
+    t.focus(); t.select(); t.setSelectionRange(0, t.value.length);
+    try { return document.execCommand('copy'); } catch (e) { return false; }
+  }
+  $('copier').addEventListener('click', async () => {
+    majMessage();
+    let ok = false;
+    try { await navigator.clipboard.writeText($('message').value); ok = true; } catch (e) { ok = copieSecours(); }
+    $('copie-ok').textContent = ok ? '✅ Copié ! Colle-le dans l\'IA.' : 'Sélectionne le texte ci-dessous et copie-le.';
+    if (!ok) $('message').parentElement.open = true;
+  });
+
+  $('coller').addEventListener('click', async () => {
+    try { $('reponse').value = await navigator.clipboard.readText(); }
+    catch (e) { $('reponse').focus(); $('resultat').innerHTML = '<p class="petit">Ton navigateur bloque ce bouton : fais un appui long dans le cadre (ou Ctrl+V) puis « Coller ».</p>'; }
+  });
+
+  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  $('creer').addEventListener('click', () => {
+    const texte = $('reponse').value;
+    const res = $('resultat');
+    if (!texte.trim()) { res.innerHTML = '<div class="ko">Colle d\'abord la réponse de l\'IA dans le cadre.</div>'; return; }
+    if (!(window.google && google.script && google.script.run)) { res.innerHTML = '<div class="ko">Connexion à Google indisponible : recharge la page.</div>'; return; }
+    $('creer').disabled = true; res.innerHTML = '<p class="petit">Création du quiz…</p>';
+    google.script.run
+      .withSuccessHandler(r => {
+        $('creer').disabled = false;
+        if (!r || r.erreur) { res.innerHTML = '<div class="ko">😕 ' + h(r ? r.erreur : 'Erreur inconnue') + '</div>'; return; }
+        const url = ((window.__UQ && window.__UQ.url) || '') + '?page=' + encodeURIComponent(r.page);
+        res.innerHTML = '<div class="ok"><p>🎉 Le quiz <b>' + h(r.titre) + '</b> est prêt' + (r.nb ? ' (' + r.nb + ' questions)' : '') + '.</p>' +
+          (r.avertissements && r.avertissements.length ? '<p class="petit">' + r.avertissements.map(h).join('<br>') + '</p>' : '') +
+          '<p><a class="btn" href="' + h(url) + '" target="_top">▶ Jouer au quiz</a></p>' +
+          '<p class="petit">Joue deux ou trois questions pour vérifier : l\'IA peut se tromper si une photo est floue.</p></div>';
+        $('reponse').value = '';
+      })
+      .withFailureHandler(e => { $('creer').disabled = false; res.innerHTML = '<div class="ko">😕 ' + h((e && e.message) || e) + '</div>'; })
+      .apiAjouterQuiz(texte);
+  });
+})();
+</script>
+</body>
+</html>

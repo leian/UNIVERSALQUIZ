@@ -65,9 +65,9 @@ try {
   await page.locator('a.card').first().click();
   await page.waitForURL(/page=quiz_exemple_capitales/);
   ok(!!(await jouer()), 'partie jouée jusqu\'au résultat');
-  s = await ev('1');
+  for (let i = 0; i < 30; i++) { s = await ev('1'); if (Object.values(s.sheets)[0].rows.length >= 2) break; await page.waitForTimeout(100); }   // l'envoi du résultat est asynchrone
   const lignes = Object.values(s.sheets)[0].rows;
-  ok(lignes.length === 2 && lignes[1][3] === 'quiz_exemple_capitales', 'résultat écrit dans le Sheets');
+  ok(lignes.length === 2 && lignes[1][3] === 'quiz_exemple_capitales', 'résultat écrit dans le Sheets' + (lignes.length === 2 ? '' : ' — lignes : ' + JSON.stringify(lignes.map(l => l[3]))));
 
   // dépôt d'un nouveau quiz + d'un PDF dans le dossier
   const dossier = join(DRIVE, 'Universal Quiz');
@@ -84,6 +84,34 @@ try {
   await page.waitForTimeout(800);
   ok(/capitales/i.test(await page.locator('body').innerText()), 'tableau de bord : la partie apparaît');
 
+  // ajout d'un quiz depuis le site : réponse d'IA collée (JSON dans un bloc de code, avec du texte autour)
+  await page.goto(BASE + '/exec');
+  await page.locator('a', { hasText: 'Ajouter un quiz' }).click();
+  await page.waitForURL(/page=ajouter/);
+  ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('"questions"'), 'page « Ajouter » : message pour l\'IA prêt');
+  const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
+    titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
+    questions: [
+      { type: 'qcm', cat: 'Lire', q: 'Combien vaut 1/2 + 1/2 ?', opts: ['1', '2', '1/4'], a: '1', exp: 'Deux moitiés font un entier.' },
+      { type: 'vf', cat: 'Comparer', q: '1/3 est plus grand que 1/2.', a: 'Faux', exp: '1/2 est plus grand.' },
+      { type: 'saisie', cat: 'Écrire', q: 'Écris la capitale de la France.', ans: ['Paris'], exp: 'Paris.' },
+      { type: 'qcm', cat: 'Lire', q: 'Question cassée', opts: ['a', 'b'], a: 'c', exp: '' }
+    ],
+    memo: ['Le dénominateur est en bas.']
+  }, null, 2) + ',\n```\nBonnes révisions !';
+  await page.fill('#reponse', reponseIA);
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  ok(/3 questions/.test(await page.locator('#resultat').innerText()) && /ignorée/.test(await page.locator('#resultat').innerText()), 'quiz créé depuis la réponse de l\'IA (3 questions, 1 ignorée)');
+  await page.locator('#resultat a.btn').click();
+  await page.waitForURL(/page=quiz_les-fractions_/);
+  ok(!!(await jouer()), 'le quiz créé se joue jusqu\'au résultat');
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.fill('#reponse', 'bonjour');
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ko').waitFor({ timeout: 5000 });
+  ok(true, 'texte invalide → message d\'erreur clair');
+
   // contrôles PDF
   await page.goto(BASE + '/exec?page=controles');
   const lien = page.locator('a.open').first();
@@ -98,8 +126,9 @@ try {
   // page inconnue + suppression
   await page.goto(BASE + '/exec?page=nexiste-pas');
   ok(/Quiz introuvable/.test(await page.locator('body').innerText()), 'page inconnue → message clair');
+  const avant = Object.values((await ev('1')).sheets)[0].rows.length;
   const r = await ev('apiSupprimer(apiLister({}).resultats[0].id)');
-  ok(r.r.ok && Object.values(r.sheets)[0].rows.length === 1, 'suppression d\'une partie');
+  ok(r.r.ok && Object.values(r.sheets)[0].rows.length === avant - 1, 'suppression d\'une partie');
 
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));
 } finally {

@@ -30,7 +30,7 @@ const CONFIG = {
 
 const NOM_SHEETS = 'Universal Quiz – Résultats';
 const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions'];
-const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles' };
+const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles', 'ajouter': 'lib/page-ajouter' };
 const COMMUN = {
   'moteur-quiz.css': 'lib/moteur-quiz-css',
   'suivi.js': 'lib/suivi-js',
@@ -393,6 +393,110 @@ function apiSupprimer(id) {
     if (ids[i][0] === id) { sh.deleteRow(i + 2); return { ok: true }; }
   }
   return { __status: 404, erreur: 'Partie introuvable' };
+}
+
+/* =====================================================================
+   AJOUT D'UN QUIZ DEPUIS LE SITE (page « ajouter »)
+   Le parent colle la réponse de l'IA (Claude, ChatGPT, Grok…) : un objet
+   JSON décrivant le quiz. On le vérifie, on fabrique le fichier .html
+   (même structure que le quiz d'exemple) et on le range dans le dossier Drive.
+   Un fichier .html complet collé tel quel est aussi accepté.
+   ===================================================================== */
+const COULEURS_ = { francais: '#7c3aed', maths: '#c2410c', sciences: '#15803d', anglais: '#b91c1c',
+  histoire: '#1d4ed8', geographie: '#0f766e', musique: '#be185d', autre: '#475569' };
+
+function apiAjouterQuiz(texte) {
+  texte = String(texte || '').trim();
+  if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
+  if (texte.length > 900000) return { erreur: 'Texte trop long.' };
+  const inst = installer_();
+
+  // cas 1 : un fichier .html complet (ancienne méthode)
+  if (/MoteurQuiz\.lancer\s*\(/.test(texte) && /<html|<!DOCTYPE/i.test(texte)) {
+    const meta = lireMeta_(texte, 'quiz.html', new Date());
+    const nom = nomLibre_(inst.dossier, meta.titre);
+    inst.dossier.createFile(nom + '.html', texte, MimeType.HTML);
+    CacheService.getScriptCache().remove('catalogue');
+    return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [] };
+  }
+
+  // cas 2 : le JSON décrit dans le message pour l'IA
+  const debut = texte.indexOf('{'), fin = texte.lastIndexOf('}');
+  if (debut < 0 || fin <= debut) return { erreur: "Je ne trouve pas le quiz dans ce texte. Copie toute la réponse de l'IA (bouton « Copier » sous sa réponse), puis colle-la ici." };
+  let d;
+  try { d = JSON.parse(texte.slice(debut, fin + 1).replace(/,\s*([}\]])/g, '$1')); }
+  catch (e) { return { erreur: "La réponse de l'IA est incomplète ou abîmée. Demande-lui : « Redonne-moi le quiz complet, en JSON uniquement », puis recopie sa réponse." }; }
+
+  const avert = [];
+  const txt = (v, n) => String(v == null ? '' : v).replace(/<\/?script[^>]*>/gi, '').trim().slice(0, n);
+  const questions = [];
+  (Array.isArray(d.questions) ? d.questions : []).forEach((q, i) => {
+    if (!q || typeof q !== 'object') return;
+    const type = String(q.type || 'qcm').toLowerCase();
+    const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
+    if (!base.q) return;
+    if (type === 'qcm') {
+      const opts = (Array.isArray(q.opts || q.choix) ? (q.opts || q.choix) : []).map(o => txt(o, 160)).filter(Boolean);
+      let a = txt(q.a != null ? q.a : q.reponse, 160);
+      const trouve = opts.find(o => o === a) || opts.find(o => o.toLowerCase() === a.toLowerCase());
+      if (opts.length < 2 || !trouve) { avert.push('Question ' + (i + 1) + ' ignorée (bonne réponse absente des choix).'); return; }
+      questions.push(Object.assign(base, { type: 'qcm', opts, a: trouve }));
+    } else if (type === 'vf' || type === 'vrai-faux' || type === 'vraifaux') {
+      const v = q.a != null ? q.a : q.reponse;
+      const a = v === true || /^(vrai|true|oui)$/i.test(String(v).trim()) ? true
+              : v === false || /^(faux|false|non)$/i.test(String(v).trim()) ? false : null;
+      if (a === null) { avert.push('Question ' + (i + 1) + ' ignorée (réponse ni Vrai ni Faux).'); return; }
+      questions.push(Object.assign(base, { type: 'vf', a }));
+    } else if (type === 'saisie' || type === 'input') {
+      const liste = [].concat(q.ans || [], q.a != null ? [q.a] : [], q.reponse != null ? [q.reponse] : [], q.alt || [])
+        .map(x => txt(x, 80)).filter(Boolean);
+      if (!liste.length) { avert.push('Question ' + (i + 1) + ' ignorée (pas de réponse).'); return; }
+      const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
+      const h = txt(q.hint || q.indice, 200); if (h) qq.hint = h;
+      questions.push(qq);
+    }
+  });
+  if (questions.length < 3) return { erreur: "Je n'ai trouvé que " + questions.length + " question(s) valable(s). Redemande le quiz à l'IA." };
+
+  const titre = txt(d.titre || d.title, 100) || 'Quiz';
+  let matiere = String(d.matiere || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z]/g, '');
+  if (matiere === 'mathematiques') matiere = 'maths';
+  if (!MATIERES[matiere]) matiere = 'autre';
+  const memo = (Array.isArray(d.memo) ? d.memo : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 12);
+  const html = fabriquerQuizHtml_({
+    titre, matiere,
+    sousTitre: txt(d.sousTitre || d.sous_titre || d.niveau, 150),
+    icone: txt(d.icone || d.emoji, 8) || MATIERES[matiere].emo,
+    couleur: COULEURS_[matiere], questions, memo
+  });
+  const nom = nomLibre_(inst.dossier, titre);
+  inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
+  CacheService.getScriptCache().remove('catalogue');
+  return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert };
+}
+
+function fabriquerQuizHtml_(c) {
+  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const memoHtml = c.memo.length
+    ? '<div class="frise-section"><div class="frise-title">📝 À retenir</div><ul>' + c.memo.map(m => '<li>' + h(m) + '</li>').join('') + '</ul></div>'
+    : '';
+  const cfg = {
+    titre: c.titre, sousTitre: h(c.sousTitre), icone: c.icone, matiere: c.matiere, couleur: c.couleur,
+    nbQuestions: Math.min(20, c.questions.length), questions: c.questions, memo: memoHtml
+  };
+  return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
+    '<title>Quiz – ' + h(c.titre) + '</title>\n<!-- Pool : ' + c.questions.length + ' questions — créé depuis la page « Ajouter un quiz » -->\n' +
+    '<link rel="stylesheet" href="commun/moteur-quiz.css">\n<script src="commun/suivi.js"></script>\n<script src="commun/recompenses.js"></script>\n<script src="commun/moteur-quiz.js"></script>\n' +
+    '</head>\n<body>\n<div class="container" id="app"></div>\n<script>\nMoteurQuiz.lancer(' + jsonScript_(cfg) + ');\n</script>\n</body>\n</html>\n';
+}
+
+function nomLibre_(dossier, titre) {
+  const slug = String(titre).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40) || 'quiz';
+  const base = 'quiz_' + slug + '_' + Utilities.formatDate(new Date(), Session.getScriptTimeZone(), 'dd-MM-yyyy');
+  let nom = base, n = 2;
+  while (trouverFichier_(dossier, nom + '.html')) nom = base + '-' + (n++);
+  return nom;
 }
 
 function feuille_() { return installer_().ss.getSheets()[0]; }
