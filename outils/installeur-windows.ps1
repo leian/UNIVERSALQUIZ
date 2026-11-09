@@ -90,8 +90,9 @@ if (-not $miseAJour) {
   Titre 'Etape 3 sur 4 : connecter ton compte Google'
   Info 'Une autre page Google va s''ouvrir :'
   Info '1. Choisis ton compte Gmail.'
-  Info '2. Clique sur  Autoriser  (ou Continuer).'
-  Info '3. La page affiche  Logged in! You may close this page : tu peux la fermer.'
+  Info '2. Coche la case  Tout selectionner  en haut de la liste des acces.'
+  Info '3. Descends en bas de la page et clique sur  Continuer  (ou Autoriser).'
+  Info '4. La page affiche  Logged in! You may close this page : tu peux la fermer.'
   Info 'Ensuite, laisse cette fenetre travailler (environ une minute).'
 }
 
