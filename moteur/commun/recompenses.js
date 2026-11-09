@@ -994,7 +994,7 @@ function showCapybaraIndex(index) {
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = `<div class="capy-box">
-    <h2 id="capy-title">Quiz réussi, championne !</h2>
+    <h2 id="capy-title">Quiz réussi, bravo {{PRENOM}} !</h2>
     <p id="capy-description">${scene.t}</p>
     <div class="capy-scene">${scene.svg}</div>
     <button type="button" class="capy-close" autofocus>Merci !</button>
