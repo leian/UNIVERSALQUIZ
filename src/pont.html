@@ -7,8 +7,11 @@
       les liens « xxx.pdf » pointent vers le fichier dans Drive.
    ===================================================================== */
 (function () {
-  var CFG = /*__CFG__*/null;
+  // réglages posés par Code.gs juste avant ce script (window.__UQ)
+  var CFG = window.__UQ || { url: '', page: '', chemin: location.pathname, liens: {} };
+  if (!CFG.liens) CFG.liens = {};
   window.__UQ = CFG;
+  try { console.info('[Universal Quiz] pont actif — page « ' + CFG.page + ' », site ' + (CFG.url || '(adresse inconnue)')); } catch (e) {}
 
   /* ---------- 1. API des résultats ---------- */
   var vraiFetch = window.fetch ? window.fetch.bind(window) : null;

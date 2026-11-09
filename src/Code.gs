@@ -179,7 +179,9 @@ function assembler_(html, page, inst) {
     chemin: '/' + page + '.html',
     liens: cat.liens
   };
-  const pont = lib_('lib/pont', false).replace('/*__CFG__*/null', jsonScript_(cfg));
+  // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
+  // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
+  const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
   const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar CONTROLES = ' + jsonScript_(cat.CONTROLES) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
   const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
 
