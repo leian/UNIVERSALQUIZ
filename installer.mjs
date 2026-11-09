@@ -53,7 +53,7 @@ function installerClasp() {
 }
 function clasp(args, { capturer = false } = {}) {
   const r = spawnSync(process.execPath, [claspJs(), ...args], {
-    cwd: ICI, encoding: 'utf8',
+    cwd: ICI, encoding: 'utf8', env: { ...process.env, NODE_NO_WARNINGS: '1' },
     stdio: capturer ? ['inherit', 'pipe', 'pipe'] : 'inherit'
   });
   if (r.error) stop("clasp n'a pas pu démarrer : " + r.error.message);
@@ -92,16 +92,28 @@ Une page de connexion Google va ensuite s'ouvrir dans ton navigateur.`);
 }
 
 // 2. création du projet Apps Script (une seule fois)
+// clasp create (avec --rootDir build) écrit .clasp.json DANS build/, que construire.mjs efface :
+// on le range à la racine, avec rootDir « build » (chemin relatif au dossier courant de clasp).
+const CLASP_JSON = join(ICI, '.clasp.json');
+function rangerClaspJson() {
+  const dansBuild = join(ICI, 'build', '.clasp.json');
+  if (existsSync(CLASP_JSON) || !existsSync(dansBuild)) return;
+  const conf = JSON.parse(readFileSync(dansBuild, 'utf8'));
+  if (!conf.scriptId) return;
+  writeFileSync(CLASP_JSON, JSON.stringify({ scriptId: conf.scriptId, rootDir: 'build' }, null, 2) + '\n');
+}
+rangerClaspJson();          // reprend un projet déjà créé lors d'une tentative interrompue
 construire();
-if (!existsSync(join(ICI, '.clasp.json'))) {
+if (!existsSync(CLASP_JSON)) {
   titre('2/4  Création du projet « Universal Quiz » dans ton compte');
   const r = clasp(['create', '--type', 'webapp', '--title', 'Universal Quiz', '--rootDir', 'build'], { capturer: true });
-  if (r.status !== 0 || !existsSync(join(ICI, '.clasp.json'))) {
+  rangerClaspJson();
+  if (!existsSync(CLASP_JSON)) {
     stop(/Apps Script API/i.test((r.stdout || '') + (r.stderr || ''))
       ? "L'API Apps Script n'est pas activée : https://script.google.com/home/usersettings puis relance ce script."
       : 'Création du projet impossible (voir le message ci-dessus).');
   }
-  construire();     // clasp create a remplacé appsscript.json : on remet le nôtre
+  construire();     // remet notre appsscript.json et nettoie build/
 } else {
   titre('2/4  Projet Apps Script : déjà créé ✓');
 }
