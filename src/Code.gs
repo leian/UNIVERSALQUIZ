@@ -163,13 +163,13 @@ function assembler_(html, page, inst) {
   const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
 
   html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, (m, f) =>
-    COMMUN[f] ? '<style>\n' + lib_(COMMUN[f], true) + '\n</style>' : '<!-- ' + f + ' introuvable -->');
+    COMMUN[f] ? lib_(COMMUN[f], true) : '<!-- ' + f + ' introuvable -->');      // déjà entouré de <style>
 
   html = html.replace(/<script\b[^>]*src=["']commun\/([\w.-]+\.js)["'][^>]*>\s*<\/script>/gi, (m, f) => {
     if (f === 'catalogue.js') return '';                       // remplacé par le catalogue automatique (dans l'en-tête)
     if (!COMMUN[f]) return '<!-- ' + f + ' introuvable -->';
-    let s = '<script>\n' + lib_(COMMUN[f], true) + '\n</script>';
-    if (f === 'moteur-quiz.js' && !aBadges) s += '\n<script>\n' + lib_(COMMUN['badges.js'], true) + '\n</script>';
+    let s = lib_(COMMUN[f], true);                     // déjà entouré de <script>
+    if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib_(COMMUN['badges.js'], true);
     return s;
   });
 
@@ -181,7 +181,7 @@ function assembler_(html, page, inst) {
   };
   const pont = lib_('lib/pont', false).replace('/*__CFG__*/null', jsonScript_(cfg));
   const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar CONTROLES = ' + jsonScript_(cat.CONTROLES) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
-  const tete = '\n<base target="_top">\n<script>\n' + pont + '\n</script>\n<script>\n' + catalogueJs + '\n</script>\n';
+  const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
 
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
@@ -205,7 +205,9 @@ function pageErreur_(titre, message) {
     .setTitle(titre).addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/* lecture d'un fichier du projet (lib/…) ; {{PRENOM}} y est remplacé par le prénom des réglages */
+/* lecture d'un fichier du projet (lib/…) ; {{PRENOM}} y est remplacé par le prénom des réglages.
+   Apps Script refuse un fichier .html qui n'est pas du HTML valide : construire.mjs entoure donc
+   chaque fichier .js de <script>…</script> et chaque .css de <style>…</style>. */
 const LIB_CACHE_ = {};
 function lib_(nom, avecPrenom) {
   if (!(nom in LIB_CACHE_)) LIB_CACHE_[nom] = HtmlService.createHtmlOutputFromFile(nom).getContent();

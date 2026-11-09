@@ -31,6 +31,9 @@ function verifierInline(texte, nom) {
   return texte;
 }
 
+// Apps Script n'accepte que du HTML valide dans un fichier .html : on entoure le JS et le CSS de leurs balises
+const entourer = (texte, nom) => nom.endsWith('.css') ? `<style>\n${texte}\n</style>` : `<script>\n${texte}\n</script>`;
+
 const CHEMIN = '(window.__UQ ? window.__UQ.chemin : location.pathname)';
 
 const COMMUN = {
@@ -58,14 +61,14 @@ if (process.env.UQ_PRENOM) {      // prénom donné par l'installateur
 }
 writeFileSync(join(BUILD, 'Code.gs'), code);
 writeFileSync(join(BUILD, 'appsscript.json'), lire(join(SRC, 'appsscript.json')));
-writeFileSync(join(BUILD, 'lib', 'pont.html'), lire(join(SRC, 'pont.html')));
+writeFileSync(join(BUILD, 'lib', 'pont.html'), entourer(verifierInline(lire(join(SRC, 'pont.html')), 'pont.html'), 'pont.js'));
 writeFileSync(join(BUILD, 'lib', 'exemple-quiz.html'), lire(join(SRC, 'exemple-quiz.html')));
 
 // 2. moteur commun
 for (const [f, [nom, patch]] of Object.entries(COMMUN)) {
   const p = join(MOTEUR, 'commun', f);
   if (!existsSync(p)) erreur(`fichier manquant : commun/${f}`);
-  writeFileSync(join(BUILD, 'lib', nom + '.html'), verifierInline(patch(lire(p)), f));
+  writeFileSync(join(BUILD, 'lib', nom + '.html'), entourer(verifierInline(patch(lire(p)), f), f));
 }
 
 // 3. pages d'accueil

@@ -81,7 +81,7 @@ const ctx = {
     open: (f) => classeur(f.id)
   },
   HtmlService: {
-    createHtmlOutputFromFile: (n) => ({ getContent: () => readFileSync(join(BUILD, n + '.html'), 'utf8') }),
+    createHtmlOutputFromFile: (n) => { const c = readFileSync(join(BUILD, n + '.html'), 'utf8'); if (!/^\s*</.test(c)) throw new Error('Format du contenu HTML non valide : ' + c.slice(0, 40)); return { getContent: () => c }; },
     createHtmlOutput: (html) => { const o = { titre: '', metas: [], getContent: () => html,
       setTitle(t) { o.titre = t; return o; }, addMetaTag(k, v) { o.metas.push([k, v]); return o; } }; return o; }
   }
