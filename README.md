@@ -32,7 +32,7 @@ Rien n'est installé dans Windows : tout va dans `%LOCALAPPDATA%\UniversalQuiz`.
 git tag v2 && git push origin v2
 ```
 
-L'action GitHub `.github/workflows/publier.yml` teste alors le projet, fabrique l'installateur et le publie dans une Release marquée comme dernière version. Le lien à donner aux amis ne change jamais : https://github.com/leian/UNIVERSALQUIZ/releases/latest/download/Installer-Universal-Quiz.cmd
+L'action GitHub `.github/workflows/publier.yml` teste alors le projet, fabrique l'installateur `.cmd`, compile `Installer-Universal-Quiz.exe` (un lanceur avec icône qui contient ce `.cmd`, voir `outils/lanceur.cs`) et publie les deux dans une Release marquée comme dernière version. Le `.exe` n'est pas signé : si un antivirus le bloque, le `.cmd` fait exactement la même chose. Le lien à donner aux amis ne change jamais : https://github.com/leian/UNIVERSALQUIZ/releases/latest/download/Installer-Universal-Quiz.cmd
 
 ### Les autres façons d'installer
 

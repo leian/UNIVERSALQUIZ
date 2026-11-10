@@ -1,9 +1,9 @@
 # Publie une nouvelle version de l'installateur Windows.
-# Déclenchement : pousser un tag qui commence par v (ex. v1.1, v2).
-#   git tag v2 && git push origin v2
-# L'action teste le projet, fabrique dist/Installer-Universal-Quiz.cmd
-# et crée la Release correspondante, marquée comme « dernière version ».
-# Le lien …/releases/latest/download/Installer-Universal-Quiz.cmd pointe alors dessus.
+# Déclenchement : pousser un tag qui commence par v (ex. v1.1, v2),
+# ou Actions → « Publier l'installateur » → Run workflow.
+# 1. teste le projet et fabrique Installer-Universal-Quiz.cmd (Linux) ;
+# 2. compile Installer-Universal-Quiz.exe, le lanceur avec icône (Windows) ;
+# 3. crée la Release avec les deux fichiers, marquée « dernière version ».
 name: Publier l'installateur
 
 on:
@@ -19,40 +19,86 @@ permissions:
   contents: write
 
 jobs:
-  publier:
+  construire:
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-
       - name: Tester le projet (faux Google + Chrome)
         run: |
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           node tests/test.mjs
-
-      - name: Fabriquer l'installateur
+      - name: Fabriquer l'installateur .cmd
         run: node outils/fabriquer-installeur.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installateur-cmd
+          path: dist/Installer-Universal-Quiz.cmd
 
+  exe:
+    needs: construire
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: installateur-cmd
+          path: dist
+      - name: Compiler le lanceur .exe (avec icône)
+        shell: pwsh
+        run: |
+          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
+          & $csc /nologo /optimize+ /target:exe /out:dist\Installer-Universal-Quiz.exe /win32icon:outils\icone.ico "/resource:dist\Installer-Universal-Quiz.cmd,installeur.cmd" outils\lanceur.cs
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+      - name: Vérifier que le .exe démarre et contient l'installateur
+        shell: pwsh
+        run: |
+          & dist\Installer-Universal-Quiz.exe --test
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          $extrait = Join-Path $env:TEMP 'UniversalQuiz-installateur\Installer-Universal-Quiz.cmd'
+          if ((Get-FileHash $extrait).Hash -ne (Get-FileHash dist\Installer-Universal-Quiz.cmd).Hash) { Write-Error 'Le fichier extrait diffère'; exit 1 }
+          # le script PowerShell contenu dans le .cmd doit être syntaxiquement valide
+          $t = [IO.File]::ReadAllText($extrait, [Text.Encoding]::UTF8)
+          $d = $t.IndexOf('#' + 'PS-DEBUT#'); $f = $t.IndexOf('#' + 'FICHIERS#')
+          $erreurs = $null
+          [void][System.Management.Automation.Language.Parser]::ParseInput($t.Substring($d, $f - $d), [ref]$null, [ref]$erreurs)
+          if ($erreurs.Count) { $erreurs | ForEach-Object { Write-Host $_ }; exit 1 }
+          Write-Host 'Lanceur vérifié.'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installateur-exe
+          path: dist/Installer-Universal-Quiz.exe
+
+  publier:
+    needs: [construire, exe]
+    runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
       - name: Créer ou mettre à jour la Release
         run: |
           cat > notes.md <<NOTES
-          **Installation sous Windows** : téléchargez \`Installer-Universal-Quiz.cmd\` ci-dessous, double-cliquez dessus et laissez-vous guider (environ 10 minutes, un compte Google suffit).
+          **Installation sous Windows** : téléchargez \`Installer-Universal-Quiz.exe\` ci-dessous, double-cliquez dessus et laissez-vous guider (environ 10 minutes, un compte Google suffit).
+
+          Si votre antivirus bloque le \`.exe\`, prenez \`Installer-Universal-Quiz.cmd\` : c'est le même installateur, sans icône.
 
           Déjà installé ? Relancez simplement ce nouveau fichier : le site est mis à jour et son adresse ne change pas.
 
           Licence PolyForm Noncommercial 1.0.0 : usage commercial interdit.
           NOTES
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/Installer-Universal-Quiz.cmd --clobber
+            gh release upload "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd --clobber
             gh release edit "$TAG" --latest --prerelease=false --draft=false
           else
-            gh release create "$TAG" dist/Installer-Universal-Quiz.cmd \
+            gh release create "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd \
               --title "Universal Quiz $TAG" --notes-file notes.md --latest
           fi
