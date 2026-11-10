@@ -89,6 +89,10 @@ try {
   await page.locator('a', { hasText: 'Ajouter un quiz' }).click();
   await page.waitForURL(/page=ajouter/);
   ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('"questions"'), 'page « Ajouter » : message pour l\'IA prêt');
+  const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
+  const msg = await page.locator('#message').inputValue();
+  ok(hrefs.length === 3 && hrefs.every(h => /\?q=/.test(h) && decodeURIComponent(h.split('?q=')[1]) === msg && h.length < 8000),
+    'liens Claude / ChatGPT / Grok pré-remplis avec les consignes (' + Math.max(...hrefs.map(h => h.length)) + ' caractères)');
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
     questions: [

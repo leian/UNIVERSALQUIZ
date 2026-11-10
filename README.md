@@ -67,9 +67,11 @@ Relance la même commande après chaque modification : le site est mis à jour e
 Tout se fait depuis le site, aussi sur téléphone, avec Claude, ChatGPT ou Grok :
 
 1. Prends la leçon en photo.
-2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de « Mes quiz ») et clique sur **Copier le message**.
-3. Ouvre l'IA de ton choix, colle le message, joins les photos et envoie.
+2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de « Mes quiz »), puis appuie sur **Claude**, **ChatGPT** ou **Grok** : l'IA s'ouvre avec les consignes déjà écrites, et elles sont aussi copiées dans le presse-papiers au cas où.
+3. L'IA répond « Envoie-moi les photos » : joins les photos et envoie. Si les consignes sont seulement écrites dans la case sans être envoyées, joins les photos puis envoie le tout.
 4. Copie la réponse de l'IA, colle-la dans le cadre du site, puis clique sur **Créer le quiz**.
+
+Les boutons utilisent le paramètre `?q=` de chaque IA (`claude.ai/new?q=`, `chatgpt.com/?q=`, `grok.com/?q=`). Les photos, elles, ne peuvent pas passer par un lien : il faut toujours les joindre à la main. Si une application mobile ignore les consignes du lien, il suffit de les coller. Les trois IA ont une version gratuite, mais un compte peut être demandé, surtout pour envoyer des photos.
 
 L'IA répond en JSON (titre, matière, questions `qcm` / `vf` / `saisie`, mémo). `apiAjouterQuiz` (dans `src/Code.gs`) vérifie ce JSON, écarte les questions mal formées, fabrique le fichier `.html` et le range dans le dossier Drive. Déposer directement un fichier `.html` dans le dossier Drive marche toujours : le titre, la matière et l'icône sont lus dans `MoteurQuiz.lancer({ … })`, et un `catalogue.js` (variables `QUIZ` et `CONTROLES`) déposé dans le dossier reste prioritaire.
 

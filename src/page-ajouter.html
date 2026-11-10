@@ -43,29 +43,31 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
   </section>
 
   <section class="etape">
-    <h2><span class="num">2</span> Copie le message pour l'IA</h2>
+    <h2><span class="num">2</span> Ouvre une IA</h2>
     <div class="ligne">
       <label for="classe">Classe</label>
       <input type="text" id="classe" placeholder="ex. CM1" size="10">
       <label for="nb">Questions</label>
       <select id="nb"><option>20</option><option selected>30</option><option>40</option></select>
     </div>
-    <button class="btn" id="copier" type="button">📋 Copier le message</button>
+    <p>Appuie sur une IA : elle s'ouvre avec les consignes <b>déjà écrites</b> (elles sont aussi copiées, au cas où).</p>
+    <div class="ias">
+      <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
+      <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+      <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
+    </div>
     <span id="copie-ok" class="petit"></span>
     <details>
-      <summary>Voir le message</summary>
+      <summary>Les consignes ne sont pas apparues ? Copie-les ici</summary>
+      <p><button class="btn leger" id="copier" type="button">📋 Copier les consignes</button></p>
       <textarea id="message" rows="12" readonly></textarea>
     </details>
+    <p class="petit">Un compte gratuit peut être demandé (Claude toujours, ChatGPT et Grok souvent pour envoyer des photos).</p>
   </section>
 
   <section class="etape">
-    <h2><span class="num">3</span> Demande le quiz à une IA</h2>
-    <p>Ouvre l'une de ces IA, <b>colle le message</b>, ajoute les photos (📎 ou +), puis envoie.</p>
-    <div class="ias">
-      <a class="btn leger" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
-      <a class="btn leger" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
-      <a class="btn leger" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
-    </div>
+    <h2><span class="num">3</span> Envoie les photos à l'IA</h2>
+    <p>Si l'IA répond « Envoie-moi les photos », ajoute-les (📎 ou +) et envoie. Si les consignes sont seulement écrites dans la case, ajoute les photos puis envoie le tout.</p>
     <p class="petit">Quand l'IA a fini, appuie sur le bouton <b>Copier</b> sous sa réponse (ou sur celui du bloc de code).</p>
   </section>
 
@@ -85,7 +87,9 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const MESSAGE = (classe, nb) => `Tu es enseignant. À partir des photos de leçon que je joins, crée un quiz de révision pour un élève${classe ? ' de ' + classe : ''}.
+  const MESSAGE = (classe, nb) => `IMPORTANT : si aucune photo n'est jointe à ce message, réponds seulement « 📷 Envoie-moi les photos de la leçon. » et attends-les. Applique ensuite les consignes ci-dessous aux photos reçues.
+
+Tu es enseignant. À partir des photos de leçon que je joins, crée un quiz de révision pour un élève${classe ? ' de ' + classe : ''}.
 
 Règles :
 - ${nb} questions variées : environ la moitié en QCM, un quart en vrai/faux, un quart en réponses courtes à écrire.
@@ -112,7 +116,13 @@ Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds 
   "memo": ["…", "…"]
 }`;
 
-  function majMessage() { $('message').value = MESSAGE($('classe').value.trim(), $('nb').value); }
+  const liensIA = Array.from(document.querySelectorAll('a.ia'));
+  // chaque bouton d'IA porte les consignes dans son adresse (?q=…) : l'IA s'ouvre avec le message déjà écrit
+  function majMessage() {
+    const m = MESSAGE($('classe').value.trim(), $('nb').value);
+    $('message').value = m;
+    liensIA.forEach(a => { a.href = a.dataset.ia + encodeURIComponent(m); });
+  }
   $('classe').addEventListener('input', majMessage);
   $('nb').addEventListener('change', majMessage);
   try { $('classe').value = localStorage.getItem('uq.classe') || ''; } catch (e) {}
@@ -132,6 +142,15 @@ Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds 
     $('copie-ok').textContent = ok ? '✅ Copié ! Colle-le dans l\'IA.' : 'Sélectionne le texte ci-dessous et copie-le.';
     if (!ok) $('message').parentElement.open = true;
   });
+  // en plus du pré-remplissage, on copie les consignes : si l'appli de l'IA ignore ?q=, il suffit de coller
+  liensIA.forEach(a => a.addEventListener('click', () => {
+    majMessage();
+    try {
+      navigator.clipboard.writeText($('message').value)
+        .then(() => { $('copie-ok').textContent = '✅ Consignes copiées aussi : si la case de l\'IA est vide, colle-les.'; })
+        .catch(() => {});
+    } catch (e) {}
+  }));
 
   $('coller').addEventListener('click', async () => {
     try { $('reponse').value = await navigator.clipboard.readText(); }
