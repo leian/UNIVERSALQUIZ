@@ -1,0 +1,245 @@
+/* =====================================================================
+   UNIVERSAL QUIZ — INSTALLATEUR EN LIGNE (100 % depuis un téléphone)
+   Required Notice: Copyright 2026 leian (https://github.com/leian/UNIVERSALQUIZ)
+   Licence PolyForm Noncommercial 1.0.0 — usage commercial interdit.
+   ---------------------------------------------------------------------
+   Ce petit site est publié UNE SEULE FOIS par l'éditeur (compte soccaquiz),
+   avec « Exécuter en tant que : l'utilisateur qui accède à l'application ».
+   Quand un ami l'ouvre, tout se passe donc dans SON compte Google :
+     1. il crée son propre projet Apps Script « Universal Quiz » ;
+     2. il y copie la dernière version du moteur, prise dans la Release GitHub ;
+     3. il le publie en site web et lui en donne l'adresse.
+   « Mettre à jour » refait 2 et 3 sur le même projet : l'adresse ne change pas.
+   L'installateur ne touche ni au Drive ni aux fichiers de l'ami.
+   Mise en place : voir en-ligne/LISEZMOI.md
+   ===================================================================== */
+
+const SOURCE_MOTEUR = 'https://github.com/leian/UNIVERSALQUIZ/releases/latest/download/universal-quiz.json';
+const API_SCRIPT = 'https://script.googleapis.com/v1/projects';
+const PAGE_API = 'https://script.google.com/home/usersettings';
+
+function doGet() {
+  return HtmlService.createHtmlOutput(pageHtml_())
+    .setTitle('Installer Universal Quiz')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+/* ---------------- appelé par la page ---------------- */
+
+/* Ce que la page doit afficher : déjà installé ? nouvelle version ? */
+function apiEtat() {
+  const p = PropertiesService.getUserProperties().getProperties();
+  let derniere = '';
+  try { derniere = moteur_().version; } catch (e) { return { erreur: e.message }; }
+  return { installe: !!p.scriptId, url: p.url || '', prenom: p.prenom || '', version: p.version || '', derniere };
+}
+
+/* Première installation (ou réinstallation si le projet a disparu). */
+function apiInstaller(prenom) {
+  return avecVerrou_(() => {
+    const props = PropertiesService.getUserProperties();
+    if (props.getProperty('scriptId')) return publier_(false);
+    props.setProperty('prenom', nettoyerPrenom_(prenom));
+    return publier_(false);
+  });
+}
+
+/* Mise à jour : même projet, même adresse. */
+function apiMettreAJour() {
+  return avecVerrou_(() => publier_(true));
+}
+
+/* ---------------- le travail ---------------- */
+
+function publier_(maj) {
+  const props = PropertiesService.getUserProperties();
+  const moteur = moteur_();
+  let id = props.getProperty('scriptId');
+  let dep = props.getProperty('deploymentId');
+
+  if (id) {
+    try { appel_('get', '/' + id); }
+    catch (e) { if (e.code === 404 || e.code === 403 && !/Apps Script API/i.test(e.message)) { id = null; dep = null; } else throw e; }
+  }
+  if (!id) {
+    id = appel_('post', '', { title: 'Universal Quiz' }).scriptId;
+    props.setProperty('scriptId', id);
+    props.deleteProperty('deploymentId');
+    dep = null;
+  }
+
+  appel_('put', '/' + id + '/content', { files: fichiers_(moteur, props.getProperty('prenom') || '') });
+  const description = 'Universal Quiz ' + moteur.version;
+  const version = appel_('post', '/' + id + '/versions', { description }).versionNumber;
+  const config = { versionNumber: version, manifestFileName: 'appsscript', description };
+
+  let d = null;
+  if (dep) {
+    try { d = appel_('put', '/' + id + '/deployments/' + dep, { deploymentConfig: Object.assign({ scriptId: id }, config) }); }
+    catch (e) { if (e.code !== 404) throw e; }
+  }
+  if (!d) d = appel_('post', '/' + id + '/deployments', config);
+
+  const url = urlSite_(d);
+  props.setProperties({ deploymentId: d.deploymentId, url, version: moteur.version });
+  return { ok: true, url, version: moteur.version, maj: !!maj && !!dep };
+}
+
+/* fichiers du moteur, avec le prénom écrit dans les réglages de Code.gs */
+function fichiers_(moteur, prenom) {
+  const p = String(prenom).replace(/\\/g, '').replace(/'/g, '’');
+  return moteur.fichiers.map(f => f.name === 'Code'
+    ? { name: f.name, type: f.type, source: f.source.replace(/prenom: '[^'\n]*',/, "prenom: '" + p + "',") }
+    : f);
+}
+
+/* dernière version du moteur : fichier universal-quiz.json de la Release GitHub */
+function moteur_() {
+  const r = UrlFetchApp.fetch(SOURCE_MOTEUR, { muteHttpExceptions: true, followRedirects: true });
+  if (r.getResponseCode() !== 200) throw new Error('Impossible de récupérer le moteur sur GitHub (erreur ' + r.getResponseCode() + '). Réessaie dans quelques minutes.');
+  const m = JSON.parse(r.getContentText('UTF-8'));
+  if (!m || !Array.isArray(m.fichiers) || !m.fichiers.some(f => f.name === 'appsscript')) throw new Error('Le moteur publié sur GitHub est incomplet.');
+  return m;
+}
+
+function urlSite_(d) {
+  const e = (d.entryPoints || []).find(x => x.entryPointType === 'WEB_APP');
+  return (e && e.webApp && e.webApp.url) || 'https://script.google.com/macros/s/' + d.deploymentId + '/exec';
+}
+
+/* appel à l'API Apps Script, au nom de la personne connectée */
+function appel_(methode, chemin, corps) {
+  const options = {
+    method: methode,
+    headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken() },
+    muteHttpExceptions: true
+  };
+  if (corps) { options.contentType = 'application/json'; options.payload = JSON.stringify(corps); }
+  const r = UrlFetchApp.fetch(API_SCRIPT + chemin, options);
+  const code = r.getResponseCode();
+  let d = {};
+  try { d = JSON.parse(r.getContentText() || '{}'); } catch (e) {}
+  if (code >= 300) {
+    const e = new Error((d.error && d.error.message) || ('Erreur ' + code));
+    e.code = code;
+    throw e;
+  }
+  return d;
+}
+
+/* une seule installation à la fois par personne (double appui sur le bouton) + erreurs lisibles */
+function avecVerrou_(f) {
+  const verrou = LockService.getUserLock();
+  if (!verrou.tryLock(1000)) return { erreur: 'Une installation est déjà en cours : patiente une minute puis recharge la page.' };
+  try { return f(); }
+  catch (e) { console.error(e); return traduire_(e); }
+  finally { verrou.releaseLock(); }
+}
+
+function traduire_(e) {
+  const m = String(e && e.message || e);
+  if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
+  if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return { erreur: "L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien." };
+  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet Universal Quiz sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
+  return { erreur: m };
+}
+
+function nettoyerPrenom_(s) {
+  return String(s || '').trim().slice(0, 40).replace(/[<>"`\\&$\r\n]/g, '');
+}
+
+/* ---------------- la page (mobile d'abord) ---------------- */
+function pageHtml_() {
+  return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top">' +
+  '<style>' +
+  ':root{--bg:#fff8ef;--card:#fff;--ink:#2b2350;--soft:#6b6390;--line:#eadfce;--accent:#7c3aed;--ok:#15803d;--ko:#b91c1c}' +
+  '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+  'main{max-width:560px;margin:0 auto;padding:20px 16px 40px}h1{font-size:1.6rem;text-align:center;margin:.2em 0}' +
+  '.intro{text-align:center;color:var(--soft);margin:0 0 16px}' +
+  '.etape{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin:12px 0}' +
+  '.etape.active{border-color:var(--accent)}.etape h2{font-size:1.05rem;margin:0 0 6px;display:flex;gap:10px;align-items:center}' +
+  '.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.95rem;flex:none}' +
+  '.btn{display:inline-block;font:600 1rem system-ui,sans-serif;border:none;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none;margin-top:6px}' +
+  '.btn.leger{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.6}' +
+  'input{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:6px 0}' +
+  '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
+  '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
+  '.url{word-break:break-all;font-size:.9rem}' +
+  '</style></head><body><main>' +
+  '<h1>🧩 Universal Quiz</h1><p class="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
+  '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
+
+  '<div id="nouveau" class="cache">' +
+  '<section class="etape" id="e1"><h2><span class="num">1</span> Active l\'API Apps Script</h2>' +
+  '<p>Une seule fois : sur la page qui s\'ouvre, mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>, puis reviens ici.</p>' +
+  '<a class="btn leger" href="' + PAGE_API + '" target="_blank" rel="noopener">Ouvrir la page Google</a></section>' +
+  '<section class="etape" id="e2"><h2><span class="num">2</span> Installe le site</h2>' +
+  '<label for="prenom">Prénom de l\'enfant (facultatif)</label><input id="prenom" maxlength="40" autocomplete="off" placeholder="ex. Tom">' +
+  '<button class="btn" id="installer" type="button">✨ Installer mon site</button></section>' +
+  '</div>' +
+
+  '<div id="deja" class="cache"><section class="etape"><h2>✅ Ton site est installé</h2>' +
+  '<p class="url"><a id="lien-site" href="#" target="_blank" rel="noopener"></a></p>' +
+  '<p id="info-version" class="petit"></p>' +
+  '<button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button></section></div>' +
+
+  '<div id="resultat" aria-live="polite"></div>' +
+  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte : personne d\'autre ne les voit.<br>Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
+  '</main><script>' + scriptPage_() + '</script></body></html>';
+}
+
+function scriptPage_() {
+  return '(' + String(function () {
+    var $ = function (id) { return document.getElementById(id); };
+    var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
+    var res = $('resultat');
+    function etapeFinale(url, maj) {
+      return '<div class="ok"><p>🎉 ' + (maj ? 'Ton site est à jour. Son adresse ne change pas.' : 'Ton site est créé !') + '</p>' +
+        '<p class="url"><a href="' + h(url) + '" target="_blank" rel="noopener">' + h(url) + '</a></p>' +
+        (maj ? '' : '<p><b>Dernière étape, une seule fois :</b> ouvre ton site. Google demande d\'autoriser « Universal Quiz » :</p>' +
+          '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
+          '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à Universal Quiz (non sécurisé)</b> ;</li>' +
+          '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
+          '<p>Ce site t\'appartient : il ne se sert que de son dossier « Universal Quiz » et de son tableau des résultats, dans ton Drive.</p>') +
+        '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a></p>' +
+        '<p class="petit">Garde cette adresse en favori et partage-la avec ton enfant.</p></div>';
+    }
+    function erreur(r) {
+      if (r && r.erreur === 'api') {
+        $('nouveau').style.display = 'block'; $('e1').classList.add('active');
+        res.innerHTML = '<div class="ko">' + h(r.message) + ' Fais l\'étape 1, attends une minute, puis réessaie.</div>';
+      } else {
+        res.innerHTML = '<div class="ko">😕 ' + h((r && (r.erreur || r.message)) || r) + '</div>';
+      }
+    }
+    function lancer(fn, arg, bouton) {
+      bouton.disabled = true; res.innerHTML = '<p class="petit">Installation en cours… (environ 30 secondes, ne ferme pas la page)</p>';
+      google.script.run
+        .withSuccessHandler(function (r) {
+          bouton.disabled = false;
+          if (!r || r.erreur) return erreur(r);
+          res.innerHTML = etapeFinale(r.url, r.maj);
+          if (r.maj) afficherDeja({ url: r.url, version: r.version, derniere: r.version });
+          else $('nouveau').style.display = 'none';
+        })
+        .withFailureHandler(function (e) { bouton.disabled = false; erreur(e && e.message); })[fn](arg);
+    }
+    function afficherDeja(e) {
+      $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
+      $('lien-site').href = e.url; $('lien-site').textContent = e.url;
+      $('info-version').textContent = e.version === e.derniere
+        ? 'Version ' + e.version + ' : c\'est la dernière.'
+        : 'Version installée : ' + (e.version || '?') + ' — nouvelle version disponible : ' + e.derniere + '.';
+    }
+    $('installer').onclick = function () { lancer('apiInstaller', $('prenom').value, $('installer')); };
+    $('maj').onclick = function () { lancer('apiMettreAJour', null, $('maj')); };
+    google.script.run
+      .withSuccessHandler(function (e) {
+        $('chargement').style.display = 'none';
+        if (e && e.erreur) { $('nouveau').style.display = 'block'; return erreur(e); }
+        if (e.installe) afficherDeja(e); else $('nouveau').style.display = 'block';
+      })
+      .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(e && e.message); })
+      .apiEtat();
+  }) + ')();';
+}

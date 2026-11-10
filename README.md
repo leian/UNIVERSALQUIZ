@@ -10,6 +10,12 @@ Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'imp
 
 ## Installer
 
+### Pour un ami, depuis son téléphone : l'installateur en ligne
+
+L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur. Le même lien sert ensuite aux mises à jour, et l'adresse du site ne change pas.
+
+L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis. Ensuite, chaque Release fournit le fichier `universal-quiz.json` que l'installateur lit tout seul.
+
 ### Pour un ami sous Windows : un seul fichier
 
 ```bash
@@ -59,7 +65,8 @@ Relance la même commande après chaque modification : le site est mis à jour e
 | `src/appsscript.json` | Le manifeste : application web exécutée par le propriétaire, accessible avec le lien |
 | `construire.mjs` | Assemble `moteur/` et `src/` dans `build/`, le dossier envoyé sur Google |
 | `installer.mjs` | Installe ou met à jour le projet avec clasp (Windows, macOS ou Linux) |
-| `outils/` | `fabriquer-installeur.mjs` et `installeur-windows.ps1` : fabriquent l'installateur Windows en un seul fichier |
+| `en-ligne/` | L'installateur en ligne (installation et mise à jour depuis un téléphone) et sa mise en place |
+| `outils/` | `fabriquer-installeur.mjs` et `installeur-windows.ps1` : fabriquent l'installateur Windows en un seul fichier ; `fabriquer-charge.mjs` : fabrique `universal-quiz.json`, le moteur lu par l'installateur en ligne |
 | `tests/` | Un test de bout en bout sans compte Google, sur un faux Google et dans Chrome : `node tests/test.mjs` |
 
 ## Ajouter un quiz

@@ -3,7 +3,7 @@
 # ou Actions → « Publier l'installateur » → Run workflow.
 # 1. teste le projet et fabrique Installer-Universal-Quiz.cmd (Linux) ;
 # 2. compile Installer-Universal-Quiz.exe, la fenêtre d'installation illustrée (Windows) ;
-# 3. crée la Release avec les deux fichiers, marquée « dernière version ».
+# 3. crée la Release avec les fichiers (dont universal-quiz.json, lu par l'installateur en ligne), marquée « dernière version ».
 name: Publier l'installateur
 
 on:
@@ -33,10 +33,18 @@ jobs:
           node tests/test.mjs
       - name: Fabriquer l'installateur .cmd
         run: node outils/fabriquer-installeur.mjs
+      - name: Fabriquer le moteur pour l'installateur en ligne (universal-quiz.json)
+        run: node outils/fabriquer-charge.mjs
+        env:
+          TAG: ${{ inputs.tag || github.ref_name }}
       - uses: actions/upload-artifact@v4
         with:
           name: installateur-cmd
           path: dist/Installer-Universal-Quiz.cmd
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installateur-en-ligne
+          path: dist/universal-quiz.json
 
   exe:
     needs: construire
@@ -105,6 +113,8 @@ jobs:
       - name: Créer ou mettre à jour la Release
         run: |
           cat > notes.md <<NOTES
+          **Installation depuis un téléphone (ou n'importe quel appareil)** : ouvrez le lien de l'installateur en ligne reçu par mail. Il installe toujours la dernière version, et le bouton « Mettre à jour mon site » sert pour les mises à jour.
+
           **Installation sous Windows** : téléchargez \`Installer-Universal-Quiz.exe\` ci-dessous, double-cliquez dessus et laissez-vous guider (environ 10 minutes, un compte Google suffit).
 
           Si votre antivirus bloque le \`.exe\`, prenez \`Installer-Universal-Quiz.cmd\` : c'est le même installateur, sans icône.
@@ -114,10 +124,10 @@ jobs:
           Licence PolyForm Noncommercial 1.0.0 : usage commercial interdit.
           NOTES
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd --clobber
+            gh release upload "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd dist/universal-quiz.json --clobber
             gh release edit "$TAG" --latest --prerelease=false --draft=false
           else
-            gh release create "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd \
+            gh release create "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd dist/universal-quiz.json \
               --title "Universal Quiz $TAG" --notes-file notes.md --latest
           fi
       # les captures des écrans de la fenêtre sont rangées dans la branche « captures » (relecture, mode d'emploi)
