@@ -20,7 +20,9 @@ const OUTILS = join(ICI, '.outils');                 // clasp est installé ici,
 const FICHIER_DEPLOIEMENT = join(ICI, '.deploiement-id');
 const WINDOWS = !!process.env.UQ_DEPUIS_WINDOWS;     // lancé par Installer-Universal-Quiz.cmd
 
-const titre = t => { if (!WINDOWS) console.log('\n\x1b[1m' + t + '\x1b[0m'); };
+// UQ_GUI : lancé par la fenêtre Installer-Universal-Quiz.exe, qui suit l'avancement grâce aux lignes « @@UQ … »
+const marque = m => { if (process.env.UQ_GUI) console.log('@@UQ ' + m); };
+const titre = t => { marque('etape ' + t.slice(0, 1)); if (!WINDOWS) console.log('\n\x1b[1m' + t + '\x1b[0m'); };
 const stop = m => { console.error('\n' + (WINDOWS ? '' : '❌ ') + m + '\n'); process.exit(1); };
 
 /* npm et clasp sont lancés directement avec node (process.execPath),
@@ -44,6 +46,7 @@ function claspJs() {
 }
 function installerClasp() {
   if (claspJs()) return;
+  marque('outil');
   if (!WINDOWS) console.log('Installation de l\'outil clasp (une seule fois)…');
   const npm = npmCli();
   if (!npm) stop("npm est introuvable à côté de Node.js : réinstalle Node.js depuis https://nodejs.org.");
@@ -86,7 +89,9 @@ if (!existsSync(join(homedir(), '.clasprc.json'))) {
   if (!WINDOWS) console.log(`Avant de continuer, active l'« API Google Apps Script » (une seule fois) :
    → https://script.google.com/home/usersettings  (bouton sur « Activé »)
 Une page de connexion Google va ensuite s'ouvrir dans ton navigateur.`);
+  marque('connexion');
   if (clasp(['login']).status !== 0) stop('Connexion Google interrompue.');
+  marque('connecte');
 } else {
   titre('1/4  Compte Google : déjà connecté ✓');
 }
@@ -137,6 +142,7 @@ if (dep.status !== 0 || !id) stop('Le déploiement a échoué (voir le message c
 writeFileSync(FICHIER_DEPLOIEMENT, id + '\n');
 
 const url = `https://script.google.com/macros/s/${id}/exec`;
+marque('fin ' + url);
 if (process.env.UQ_DEPUIS_WINDOWS) { console.log('\n✅ Site en ligne : ' + url); process.exit(0); }
 console.log(`
 ✅ C'est en ligne !
