@@ -120,3 +120,17 @@ jobs:
             gh release create "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd \
               --title "Universal Quiz $TAG" --notes-file notes.md --latest
           fi
+      # les captures des écrans de la fenêtre sont rangées dans la branche « captures » (relecture, mode d'emploi)
+      - uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: ecrans
+          path: ecrans
+      - name: Ranger les captures dans la branche « captures »
+        continue-on-error: true
+        run: |
+          cd ecrans
+          git init -q -b captures
+          git add .
+          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "Captures de l'installateur ($TAG)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}" captures
