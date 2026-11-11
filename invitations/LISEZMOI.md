@@ -5,7 +5,7 @@ Une page qui n'est accessible qu'au compte soccaquiz : tu colles la liste des am
 ## Mise en place (une seule fois, sur ordinateur, environ 5 minutes)
 1. Dans une fenêtre privée, connecte-toi à **script.google.com** avec **soccaquiz@gmail.com**, puis **Nouveau projet**. Renomme-le « Envoi des invitations ».
 2. Remplace tout le contenu de `Code.gs` par `invitations/Code.gs`, puis enregistre.
-3. ⚙️ **Paramètres du projet** → coche **Afficher le fichier manifeste « appsscript.json »**. Reviens dans l'éditeur et remplace le contenu de `appsscript.json` par `invitations/appsscript.json`. Enregistre.
+3. (Facultatif : Google déduit seul les autorisations du code.) Pour coller aussi le manifeste : dans la barre d'icônes tout à gauche, la dernière, ⚙️ **Paramètres du projet** → coche **Afficher le fichier manifeste « appsscript.json » dans l'éditeur**, reviens sur `< >` Éditeur et remplace le contenu de `appsscript.json` par `invitations/appsscript.json`.
 4. **Déployer → Nouveau déploiement** → type **Application web** : Exécuter en tant que **Moi**, Accès **Seulement moi** → **Déployer**.
 5. Autorise : « Examiner les autorisations » → soccaquiz → **Paramètres avancés** → **Accéder à Envoi des invitations (non sécurisé)** → **Autoriser**. C'est ton propre script : il peut envoyer des mails en ton nom et lire la page du mail sur GitHub, rien d'autre.
 6. Copie l'**URL de l'application web** et mets-la en favori (sur le téléphone aussi, en étant connecté à soccaquiz).
