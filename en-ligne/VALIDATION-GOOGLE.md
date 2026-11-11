@@ -6,6 +6,8 @@ Ce que la validation ne change pas : l'avertissement affiché à la première ou
 
 Tout se fait avec le compte **soccaquiz@gmail.com**.
 
+**Nom de l'application** : Google a refusé « Universal Quiz », jugé trop générique (11 novembre 2026). Le nom déclaré dans Branding est donc **SoccaQuiz**, et il figure sur la page d'accueil `docs/index.html`. Vidéo de démonstration : https://youtu.be/2zi-xip2fUc. Après la validation Search Console, il faut attendre 24 heures avant de demander la validation du branding.
+
 ## 1. Prouver que le site leian.github.io/UNIVERSALQUIZ est à toi
 
 1. Ouvre https://search.google.com/search-console → **Ajouter une propriété** → **Préfixe de l'URL** → `https://leian.github.io/UNIVERSALQUIZ/`.
@@ -33,7 +35,7 @@ Google Cloud → projet **UniversalQuiz** → **Google Auth Platform** :
    - `https://www.googleapis.com/auth/script.external_request`
 3. Pour chaque accès, colle cette justification (en anglais, c'est ce que Google attend) :
 
-> Universal Quiz is a free, non-commercial revision-quiz website for children. This installer runs as the signed-in user and uses the Apps Script API only to (1) create one Apps Script project named "Universal Quiz" in the user's own account, (2) copy the open-source quiz engine into it (script.projects), and (3) deploy it as a web app and update that deployment when the user taps "Update my site" (script.deployments). script.external_request is used to download the engine files from the project's public GitHub release and to call the Apps Script API. The installer never reads or modifies any other project, file, e-mail or contact, and the publisher receives no user data. Source code: https://github.com/leian/UNIVERSALQUIZ (folder en-ligne/).
+> SoccaQuiz is the installer of Universal Quiz, a free, non-commercial revision-quiz website for children. This installer runs as the signed-in user and uses the Apps Script API only to (1) create one Apps Script project named "Universal Quiz" in the user's own account, (2) copy the open-source quiz engine into it (script.projects), and (3) deploy it as a web app and update that deployment when the user taps "Update my site" (script.deployments). script.external_request is used to download the engine files from the project's public GitHub release and to call the Apps Script API. The installer never reads or modifies any other project, file, e-mail or contact, and the publisher receives no user data. Source code: https://github.com/leian/UNIVERSALQUIZ (folder en-ligne/).
 
 4. Colle le lien de la vidéo YouTube.
 5. **Centre de validation** → **Envoyer pour validation**.
