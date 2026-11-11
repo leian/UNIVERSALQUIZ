@@ -247,18 +247,20 @@ try {
   const r = await ev('apiSupprimer(apiLister({}).resultats[0].id)');
   ok(r.r.ok && Object.values(r.sheets)[0].rows.length === avant - 1, 'suppression d\'une partie');
 
-  // « Mes quiz » : croix de suppression, confirmation, corbeille du Drive
+  // page parents : liste des quiz, suppression avec confirmation (corbeille du Drive) ; plus de croix dans « Mes quiz »
   await page.goto(BASE + '/exec');
-  const carte = page.locator('a.card', { hasText: 'Les volcans' });
-  await carte.locator('.suppr').click();
-  ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()) && page.url().endsWith('/exec'), 'Mes quiz : la croix demande une confirmation (sans ouvrir le quiz)');
+  ok(await page.locator('a.card .suppr').count() === 0, 'Mes quiz : pas de bouton de suppression côté enfant');
+  await page.goto(BASE + '/exec?page=tableau-de-bord');
+  const ligne = page.locator('#liste-quiz tr', { hasText: 'Les volcans' });
+  await ligne.locator('button').click();
+  ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()), 'page parents : « Supprimer » demande une confirmation');
   await page.locator('.boite button', { hasText: 'Annuler' }).click();
-  ok(await carte.count() === 1 && existsSync(join(DRIVE, 'SoccaQuiz')) && readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'Mes quiz : « Annuler » ne supprime rien');
-  await carte.locator('.suppr').click();
-  await page.locator('.boite button.danger').click();
-  await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('list').innerText));
+  ok(await ligne.count() === 1 && readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : « Annuler » ne supprime rien');
+  await ligne.locator('button').click();
+  await page.locator('.boite button[data-r=oui]').click();
+  await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
   await page.goto(BASE + '/exec');
-  ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'Mes quiz : quiz supprimé (fichier à la corbeille, absent du catalogue)');
+  ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {

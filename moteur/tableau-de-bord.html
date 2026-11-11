@@ -61,6 +61,11 @@ tr.click:hover td{background:rgba(0,0,0,.03)}
 .filtres{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card);color:var(--ink)}
 .small{font-size:.85rem;color:var(--soft)}
+.voile{position:fixed;inset:0;background:rgba(20,16,40,.45);display:grid;place-items:center;padding:16px;z-index:50}
+.boite{background:var(--card);color:var(--ink);border-radius:18px;padding:20px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+.boite h3{margin:0 0 8px;font-family:"Fredoka",sans-serif}.boite p{margin:6px 0;color:var(--soft);font-size:.95rem}
+.boite .bts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
+.boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
 @media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
 </style>
 </head>
@@ -89,6 +94,10 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
     </div>
   </div>
   <div id="contenu"></div>
+  <div class="box" id="gerer">
+    <h2>🗂️ Gérer les quiz</h2>
+    <div id="liste-quiz"></div>
+  </div>
   <div class="box">
     <h2>⚙️ Cet appareil</h2>
     <div id="appareil"></div>
@@ -261,6 +270,54 @@ function afficherAppareil() {
     : `<p>Les parties jouées sur cet appareil <b>ne sont pas enregistrées</b> (appareil « parent »).</p><button class="btn" onclick="Suivi.activer();afficherAppareil()">✅ Réactiver l'enregistrement</button>`;
 }
 
+/* ---------- gestion des quiz : suppression avec confirmation (le fichier part dans la corbeille du Drive) ---------- */
+const peutSupprimer = !!(window.google && google.script && google.script.run);
+function afficherQuiz() {
+  const el = document.getElementById("liste-quiz");
+  const Q = (window.QUIZ || []).filter(q => /\.html?$/i.test(q.fichier)).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  if (!Q.length) { el.innerHTML = `<p class="small">Aucun quiz pour l'instant. <a href="ajouter.html">➕ Ajouter un quiz</a></p>`; return; }
+  const M = window.MATIERES || {};
+  el.innerHTML = `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
+    Q.map(q => `<tr><td><a href="${encodeURI(q.fichier)}">${esc(q.titre)}</a></td>
+      <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
+      <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
+      <td style="text-align:right">${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">🗑️ Supprimer</button>` : ""}</td></tr>`).join("") +
+    `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.</p>`;
+}
+function boite(html) {
+  return new Promise(ok => {
+    const v = document.createElement("div");
+    v.className = "voile";
+    v.innerHTML = `<div class="boite" role="dialog" aria-modal="true">${html}</div>`;
+    const fin = r => { v.remove(); document.removeEventListener("keydown", clavier); ok(r); };
+    const clavier = e => { if (e.key === "Escape") fin(false); };
+    v.addEventListener("click", e => { const b = e.target.closest("button"); if (b) fin(b.dataset.r === "oui"); else if (e.target === v) fin(false); });
+    document.addEventListener("keydown", clavier);
+    document.body.appendChild(v);
+    const f = v.querySelector("[data-r=non], button"); if (f) f.focus();
+  });
+}
+document.getElementById("liste-quiz").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-f]");
+  if (!b) return;
+  const q = (window.QUIZ || []).find(x => x.fichier === b.dataset.f);
+  if (!q) return;
+  const oui = await boite(`<h3>Supprimer ce quiz ?</h3><p><b>${esc(q.titre)}</b></p>
+    <p>Il part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Les résultats déjà enregistrés sont gardés.</p>
+    <div class="bts"><button class="btn" type="button" data-r="non">Annuler</button><button class="btn rouge" type="button" data-r="oui">🗑️ Supprimer</button></div>`);
+  if (!oui) return;
+  b.disabled = true;
+  google.script.run
+    .withSuccessHandler(r => {
+      if (r && r.erreur) { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc(r.erreur)}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); return; }
+      window.QUIZ.splice(window.QUIZ.indexOf(q), 1);
+      afficherQuiz();
+    })
+    .withFailureHandler(err => { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Suppression impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); })
+    .apiSupprimerQuiz(q.fichier);
+});
+
+afficherQuiz();
 charger();
 </script>
 </body>
