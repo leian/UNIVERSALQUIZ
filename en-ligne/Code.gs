@@ -181,7 +181,6 @@ function pageHtml_() {
   'input{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:6px 0}' +
   '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
-  '.url{word-break:break-all;font-size:.9rem}' +
   '</style></head><body><main>' +
   '<h1>🧩 Universal Quiz</h1><p class="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
@@ -216,14 +215,13 @@ function scriptPage_() {
     var res = $('resultat');
     function etapeFinale(url, maj) {
       return '<div class="ok"><p>🎉 ' + (maj ? 'Ton site est à jour. Son adresse ne change pas.' : 'Ton site est créé !') + '</p>' +
-        '<p class="url"><a href="' + h(url) + '" target="_blank" rel="noopener">' + h(url) + '</a></p>' +
         (maj ? '' : '<p><b>Dernière étape, une seule fois :</b> ouvre ton site. Google demande d\'autoriser « Universal Quiz » :</p>' +
           '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
           '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à Universal Quiz (non sécurisé)</b> ;</li>' +
           '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
           '<p>Ce site t\'appartient : il ne se sert que de son dossier « Universal Quiz » et de son tableau des résultats, dans ton Drive.</p>') +
         '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a></p>' +
-        '<p class="petit">Garde cette adresse en favori et partage-la avec ton enfant.</p></div>';
+        '<p class="petit">Une fois sur ton site, mets-le en favori et partage-le avec ton enfant.</p></div>';
     }
     function erreur(r) {
       if (r && r.erreur === 'api') {
