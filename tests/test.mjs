@@ -6,7 +6,7 @@
    Prérequis : npm i -D playwright && npx playwright install chromium
    ===================================================================== */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
+import { copyFileSync, writeFileSync, rmSync, existsSync, readFileSync, readdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -28,7 +28,7 @@ const invitations = spawnSync(process.execPath, [join(ICI, 'test-invitations.mjs
 
 // 1. construction + faux Google
 if (spawnSync(process.execPath, [join(RACINE, 'construire.mjs')], { stdio: 'inherit' }).status !== 0) process.exit(1);
-rmSync(DRIVE, { recursive: true, force: true });
+rmSync(DRIVE, { recursive: true, force: true }); rmSync(join(ICI, 'corbeille'), { recursive: true, force: true });
 const serveur = spawn(process.execPath, [join(ICI, 'faux-google.mjs'), join(RACINE, 'build'), DRIVE, String(PORT)], { stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise(ok => serveur.stdout.once('data', ok));
 
@@ -246,6 +246,19 @@ try {
   const avant = Object.values((await ev('1')).sheets)[0].rows.length;
   const r = await ev('apiSupprimer(apiLister({}).resultats[0].id)');
   ok(r.r.ok && Object.values(r.sheets)[0].rows.length === avant - 1, 'suppression d\'une partie');
+
+  // « Mes quiz » : croix de suppression, confirmation, corbeille du Drive
+  await page.goto(BASE + '/exec');
+  const carte = page.locator('a.card', { hasText: 'Les volcans' });
+  await carte.locator('.suppr').click();
+  ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()) && page.url().endsWith('/exec'), 'Mes quiz : la croix demande une confirmation (sans ouvrir le quiz)');
+  await page.locator('.boite button', { hasText: 'Annuler' }).click();
+  ok(await carte.count() === 1 && existsSync(join(DRIVE, 'SoccaQuiz')) && readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'Mes quiz : « Annuler » ne supprime rien');
+  await carte.locator('.suppr').click();
+  await page.locator('.boite button.danger').click();
+  await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('list').innerText));
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'Mes quiz : quiz supprimé (fichier à la corbeille, absent du catalogue)');
 
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {

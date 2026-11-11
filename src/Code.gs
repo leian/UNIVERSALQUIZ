@@ -407,6 +407,18 @@ function apiSupprimer(id) {
   return { __status: 404, erreur: 'Partie introuvable' };
 }
 
+/* suppression d'un quiz depuis « Mes quiz » : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
+function apiSupprimerQuiz(nom) {
+  nom = String(nom || '').split('/').pop();
+  if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
+  const inst = installer_();
+  const f = trouverFichier_(inst.dossier, nom);
+  if (!f) return { erreur: 'Ce quiz n\'existe plus (déjà supprimé ?).' };
+  f.setTrashed(true);
+  CacheService.getScriptCache().remove('catalogue');
+  return { ok: true };
+}
+
 /* =====================================================================
    AJOUT D'UN QUIZ DEPUIS LE SITE (page « ajouter »)
    Le parent colle la réponse de l'IA (Claude, ChatGPT, Grok…) : un objet

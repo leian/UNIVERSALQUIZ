@@ -1,5 +1,5 @@
 // Simulation minimale des services Google Apps Script pour tester Code.gs en local.
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, renameSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import http from 'node:http';
@@ -26,7 +26,8 @@ const fichier = (chemin) => ({
   getBlob: () => ({ getDataAsString: () => readFileSync(chemin, 'utf8') }),
   getSharingAccess: () => partages['f:' + chemin] || 'PRIVATE',
   setSharing: (a) => { partages['f:' + chemin] = a; },
-  moveTo: () => {}
+  moveTo: () => {},
+  setTrashed: (t) => { if (t) { mkdirSync(join(DRIVE, '..', 'corbeille'), { recursive: true }); renameSync(chemin, join(DRIVE, '..', 'corbeille', chemin.split('/').pop())); } }
 });
 const iter = (l) => { let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; };
 const dossier = (chemin) => ({
