@@ -222,14 +222,15 @@ function scriptPage_() {
           '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
           '<p>Ce site t\'appartient : il ne se sert que de son dossier « Universal Quiz » et de son tableau des résultats, dans ton Drive.</p>') +
         '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a> ' +
-        '<a class="btn leger mail-enfant" href="' + h(mailEnfant(url)) + '" data-url="' + h(url) + '">✉️ Envoyer le lien à mon enfant</a></p>' +
+        '<a class="btn leger mail-enfant" href="#" data-url="' + h(url) + '">✉️ Envoyer le lien à mon enfant</a></p>' +
         '<p class="petit">Une fois sur ton site, mets-le en favori.</p></div>';
     }
-    // le lien est mis dans le mail (mailto:) et copié en plus, au cas où l'appli de mail ne reprend pas le texte
-    function mailEnfant(url) {
-      return 'mailto:?subject=' + encodeURIComponent('Ton site de quiz pour réviser') +
-        '&body=' + encodeURIComponent('Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n' + url + '\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !');
-    }
+    // le lien est mis dans le mail et copié en plus. La page est dans un cadre de Google : on ouvre la messagerie
+    // dans une nouvelle fenêtre (un mailto: direct y est bloqué), et on propose Gmail en ligne si rien ne s'ouvre
+    var OBJET_ENFANT = 'Ton site de quiz pour réviser';
+    function texteEnfant(url) { return 'Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n' + url + '\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !'; }
+    function mailEnfant(url) { return 'mailto:?subject=' + encodeURIComponent(OBJET_ENFANT) + '&body=' + encodeURIComponent(texteEnfant(url)); }
+    function gmailEnfant(url) { return 'https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(OBJET_ENFANT) + '&body=' + encodeURIComponent(texteEnfant(url)); }
     function copier(t) {
       try { navigator.clipboard.writeText(t); return; } catch (e) {}
       var x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0';
@@ -237,7 +238,14 @@ function scriptPage_() {
     }
     document.addEventListener('click', function (ev) {
       var a = ev.target.closest && ev.target.closest('#mail-enfant, .mail-enfant');
-      if (a && a.dataset.url) copier(a.dataset.url);
+      if (!a || !a.dataset.url) return;
+      ev.preventDefault();
+      var url = a.dataset.url;
+      copier(url);
+      try { window.open(mailEnfant(url), '_blank'); } catch (e) {}
+      var info = a.parentNode.querySelector('.info-mail');
+      if (!info) { info = document.createElement('p'); info.className = 'petit info-mail'; a.parentNode.appendChild(info); }
+      info.innerHTML = '✅ Lien copié. Ta messagerie ne s\'est pas ouverte ? <a href="' + h(gmailEnfant(url)) + '" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.';
     });
     function erreur(r) {
       if (r && r.erreur === 'api') {
@@ -262,7 +270,7 @@ function scriptPage_() {
     function afficherDeja(e) {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
       $('lien-site').href = e.url;
-      $('mail-enfant').href = mailEnfant(e.url); $('mail-enfant').dataset.url = e.url;
+      $('mail-enfant').dataset.url = e.url;
       $('info-version').textContent = e.version === e.derniere
         ? 'Version ' + e.version + ' : c\'est la dernière.'
         : 'Version installée : ' + (e.version || '?') + ' — nouvelle version disponible : ' + e.derniere + '.';
