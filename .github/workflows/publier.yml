@@ -52,5 +52,5 @@ jobs:
             gh release edit "$TAG" --latest --prerelease=false --draft=false
           else
             gh release create "$TAG" dist/universal-quiz.json \
-              --title "Universal Quiz $TAG" --notes-file notes.md --latest
+              --title "SoccaQuiz $TAG" --notes-file notes.md --latest
           fi

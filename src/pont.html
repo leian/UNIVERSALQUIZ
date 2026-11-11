@@ -11,7 +11,7 @@
   var CFG = window.__UQ || { url: '', page: '', chemin: location.pathname, liens: {} };
   if (!CFG.liens) CFG.liens = {};
   window.__UQ = CFG;
-  try { console.info('[Universal Quiz] pont actif — page « ' + CFG.page + ' », site ' + (CFG.url || '(adresse inconnue)')); } catch (e) {}
+  try { console.info('[SoccaQuiz] pont actif — page « ' + CFG.page + ' », site ' + (CFG.url || '(adresse inconnue)')); } catch (e) {}
 
   /* ---------- 1. API des résultats ---------- */
   var vraiFetch = window.fetch ? window.fetch.bind(window) : null;

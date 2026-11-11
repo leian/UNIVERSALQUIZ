@@ -6,7 +6,7 @@
    Ce petit site est publié UNE SEULE FOIS par l'éditeur (compte soccaquiz),
    avec « Exécuter en tant que : l'utilisateur qui accède à l'application ».
    Quand un ami l'ouvre, tout se passe donc dans SON compte Google :
-     1. il crée son propre projet Apps Script « Universal Quiz » ;
+     1. il crée son propre projet Apps Script « SoccaQuiz » ;
      2. il y copie la dernière version du moteur, prise dans la Release GitHub ;
      3. il le publie en site web et lui en donne l'adresse.
    « Mettre à jour » refait 2 et 3 sur le même projet : l'adresse ne change pas.
@@ -23,7 +23,7 @@ function doGet(e) {
   // (pour refaire un test complet ; son ancien site n'est ni modifié ni supprimé)
   if (e && e.parameter && e.parameter.recommencer === '1') PropertiesService.getUserProperties().deleteAllProperties();
   return HtmlService.createHtmlOutput(pageHtml_())
-    .setTitle('Installer Universal Quiz')
+    .setTitle('Installer SoccaQuiz')
     .setFaviconUrl('https://leian.github.io/UNIVERSALQUIZ/icone.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -73,14 +73,14 @@ function publier_(maj) {
     catch (e) { if (e.code === 404 || e.code === 403 && !/Apps Script API/i.test(e.message)) { id = null; dep = null; } else throw e; }
   }
   if (!id) {
-    id = appel_('post', '', { title: 'Universal Quiz' }).scriptId;
+    id = appel_('post', '', { title: 'SoccaQuiz' }).scriptId;
     props.setProperty('scriptId', id);
     props.deleteProperty('deploymentId');
     dep = null;
   }
 
   appel_('put', '/' + id + '/content', { files: fichiers_(moteur, props.getProperty('prenom') || '') });
-  const description = 'Universal Quiz ' + moteur.version;
+  const description = 'SoccaQuiz ' + moteur.version;
   const version = appel_('post', '/' + id + '/versions', { description }).versionNumber;
   const config = { versionNumber: version, manifestFileName: 'appsscript', description };
 
@@ -157,7 +157,7 @@ function traduire_(e) {
   const m = String(e && e.message || e);
   if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
   if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return { erreur: "L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien." };
-  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet Universal Quiz sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
+  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet SoccaQuiz (ou Universal Quiz) sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
   return { erreur: m };
 }
 
@@ -182,7 +182,7 @@ function pageHtml_() {
   '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
   '</style></head><body><main>' +
-  '<h1>🧩 Universal Quiz</h1><p class="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
+  '<h1>🧩 SoccaQuiz</h1><p class="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
 
   '<div id="nouveau" class="cache">' +
@@ -216,11 +216,11 @@ function scriptPage_() {
     var res = $('resultat');
     function etapeFinale(url, maj) {
       return '<div class="ok"><p>🎉 ' + (maj ? 'Ton site est à jour. Son adresse ne change pas.' : 'Ton site est créé !') + '</p>' +
-        (maj ? '' : '<p><b>Dernière étape, une seule fois :</b> ouvre ton site. Google demande d\'autoriser « Universal Quiz » :</p>' +
+        (maj ? '' : '<p><b>Dernière étape, une seule fois :</b> ouvre ton site. Google demande d\'autoriser « SoccaQuiz » :</p>' +
           '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
-          '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à Universal Quiz (non sécurisé)</b> ;</li>' +
+          '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
           '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
-          '<p>Ce site t\'appartient : il ne se sert que de son dossier « Universal Quiz » et de son tableau des résultats, dans ton Drive.</p>') +
+          '<p>Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive.</p>') +
         '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a> ' +
         '<a class="btn leger mail-enfant" href="#" data-url="' + h(url) + '">✉️ Envoyer le lien à mon enfant</a></p>' +
         '<p class="petit">Une fois sur ton site, mets-le en favori.</p></div>';
@@ -282,7 +282,7 @@ function scriptPage_() {
     $('oui-recommencer').onclick = function () {
       google.script.run.withSuccessHandler(function () {
         $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; $('nouveau').style.display = 'block';
-        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « Universal Quiz » sur myaccount.google.com/permissions.</p>';
+        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » (ou « Universal Quiz ») sur myaccount.google.com/permissions.</p>';
       }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
     };
     google.script.run

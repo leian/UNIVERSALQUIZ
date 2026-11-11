@@ -12,8 +12,8 @@
 
    Où sont les choses :
      • le moteur (commun/…) et les pages d'accueil : dans ce projet (dossier lib/)
-     • les quiz (.html) et les contrôles (.pdf) : dans le dossier Drive « Universal Quiz »
-     • les résultats : dans le Google Sheets « Universal Quiz – Résultats » (même dossier)
+     • les quiz (.html) et les contrôles (.pdf) : dans le dossier Drive « SoccaQuiz » (« Universal Quiz » pour les sites installés avant)
+     • les résultats : dans le Google Sheets « SoccaQuiz – Résultats » (même dossier)
 
    Le dossier et le Sheets sont créés tout seuls à la première visite
    (ou en lançant la fonction installer() depuis l'éditeur).
@@ -22,7 +22,7 @@
 /* ---------------- RÉGLAGES (à adapter) ---------------- */
 const CONFIG = {
   prenom: '',                     // prénom de l'enfant (tableau de bord, encouragements) ; vide = « mon enfant »
-  nomDossier: 'Universal Quiz',   // nom du dossier créé dans ton Google Drive
+  nomDossier: 'SoccaQuiz',        // nom du dossier créé dans ton Google Drive
   partagerPdf: true,              // rend les PDF lisibles par lien, pour que l'enfant puisse les ouvrir
   dureeCacheCatalogue: 60,        // secondes : délai max avant qu'un nouveau quiz apparaisse dans la liste
   version: '',                    // rempli par l'installateur en ligne (ex. v2.0)
@@ -31,7 +31,9 @@ const CONFIG = {
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 /* ------------------------------------------------------ */
 
-const NOM_SHEETS = 'Universal Quiz – Résultats';
+const NOM_SHEETS = 'SoccaQuiz – Résultats';
+// anciens noms (avant le passage à SoccaQuiz) : un site réinstallé retrouve ainsi ses quiz et ses résultats
+const ANCIEN_DOSSIER = 'Universal Quiz', ANCIEN_SHEETS = 'Universal Quiz – Résultats';
 const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions'];
 const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles', 'ajouter': 'lib/page-ajouter' };
 const COMMUN = {
@@ -113,7 +115,8 @@ function installer_() {
     dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
     if (!dossier) {
       const it = DriveApp.getRootFolder().getFoldersByName(CONFIG.nomDossier);
-      dossier = it.hasNext() ? it.next() : DriveApp.createFolder(CONFIG.nomDossier);
+      const ancien = it.hasNext() ? null : DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER);
+      dossier = it.hasNext() ? it.next() : ancien.hasNext() ? ancien.next() : DriveApp.createFolder(CONFIG.nomDossier);
       props.setProperty('DOSSIER', dossier.getId());
       if (!contientHtml_(dossier)) {
         dossier.createFile('quiz_exemple_capitales.html', lib_('lib/exemple-quiz', false), MimeType.HTML);
@@ -121,7 +124,8 @@ function installer_() {
     }
     ss = ouvrirSheets_(props.getProperty('RESULTATS'));
     if (!ss) {
-      const it = dossier.getFilesByName(NOM_SHEETS);
+      let it = dossier.getFilesByName(NOM_SHEETS);
+      if (!it.hasNext()) it = dossier.getFilesByName(ANCIEN_SHEETS);
       ss = it.hasNext() ? SpreadsheetApp.open(it.next()) : creerSheets_(dossier);
       props.setProperty('RESULTATS', ss.getId());
     }

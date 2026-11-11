@@ -1,5 +1,5 @@
 /* =====================================================================
-   MOTEUR DE QUIZ — commun à tous les quiz Universal Quiz
+   MOTEUR DE QUIZ — commun à tous les quiz SoccaQuiz
    ---------------------------------------------------------------------
    Une page de quiz charge :
      commun/moteur-quiz.css, commun/suivi.js, commun/recompenses.js,

@@ -1,5 +1,5 @@
 /* =====================================================================
-   UNIVERSAL QUIZ — ENVOI DES INVITATIONS (compte soccaquiz uniquement)
+   SOCCAQUIZ — ENVOI DES INVITATIONS (compte soccaquiz uniquement)
    Required Notice: Copyright 2026 leian (https://github.com/leian/UNIVERSALQUIZ)
    Licence PolyForm Noncommercial 1.0.0
    ---------------------------------------------------------------------
@@ -12,7 +12,7 @@
    ===================================================================== */
 
 const SOURCE_INVITATION = 'https://leian.github.io/UNIVERSALQUIZ/invitation.html';
-const OBJET = "Universal Quiz : des quiz de révision à partir d'une photo de leçon";
+const OBJET = "SoccaQuiz : des quiz de révision à partir d'une photo de leçon";
 
 function doGet() {
   return HtmlService.createHtmlOutput(pageHtml_())
@@ -68,7 +68,7 @@ function apiEtat() {
 function apiEnvoyer(d) {
   d = d || {};
   const signature = String(d.signature || '').trim().slice(0, 80);
-  const nom = String(d.nom || '').trim().slice(0, 60) || 'Universal Quiz';
+  const nom = String(d.nom || '').trim().slice(0, 60) || 'SoccaQuiz';
   const p = PropertiesService.getUserProperties();
   p.setProperty('SIGNATURE', signature); p.setProperty('NOM', nom);
 
@@ -112,7 +112,7 @@ input,textarea{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--
   <label for="signature">Signature, en bas du mail</label>
   <input id="signature" placeholder="ex. Yan" maxlength="80">
   <label for="nom">Nom de l'expéditeur, dans la boîte de réception</label>
-  <input id="nom" placeholder="ex. Yan (Universal Quiz)" maxlength="60">
+  <input id="nom" placeholder="ex. Yan (SoccaQuiz)" maxlength="60">
   <button class="btn" id="envoyer" type="button">📨 Envoyer les invitations</button>
   <button class="btn leger" id="essai" type="button">M'envoyer un essai</button>
   <p class="petit" id="quota"></p>

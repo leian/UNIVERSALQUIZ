@@ -74,7 +74,7 @@ try {
   ok(lignes.length === 2 && lignes[1][3] === 'quiz_exemple_capitales', 'résultat écrit dans le Sheets' + (lignes.length === 2 ? '' : ' — lignes : ' + JSON.stringify(lignes.map(l => l[3]))));
 
   // dépôt d'un nouveau quiz + d'un PDF dans le dossier
-  const dossier = join(DRIVE, 'Universal Quiz');
+  const dossier = join(DRIVE, 'SoccaQuiz');
   copyFileSync(join(RACINE, 'src', 'exemple-quiz.html'), join(dossier, 'quiz_Test_copie_12-11-2026.html'));
   writeFileSync(join(dossier, 'controle_Test_12-11-2026.pdf'), '%PDF-1.4\n');
   await ev('CacheService.getScriptCache().remove("catalogue")');
@@ -247,6 +247,19 @@ try {
   const r = await ev('apiSupprimer(apiLister({}).resultats[0].id)');
   ok(r.r.ok && Object.values(r.sheets)[0].rows.length === avant - 1, 'suppression d\'une partie');
 
+  // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
+  const ancien = await ev(`(function () {
+    const d = DriveApp.createFolder('Universal Quiz');
+    const ss = SpreadsheetApp.create('Universal Quiz – Résultats'); DriveApp.getFileById(ss.getId()).moveTo(d);
+    PropertiesService.getScriptProperties().setProperties({ DOSSIER: '', RESULTATS: '' });
+    // l'ancien site n'avait que le dossier « Universal Quiz » : on cache le dossier SoccaQuiz du test
+    const vrai = DriveApp.getRootFolder;
+    DriveApp.getRootFolder = () => { const r = vrai(); const f = r.getFoldersByName; r.getFoldersByName = n => n === 'SoccaQuiz' ? { hasNext: () => false } : f(n); return r; };
+    const i = installer_();
+    DriveApp.getRootFolder = vrai;
+    return { dossier: i.dossier.getName(), ss: i.ss.getId() === ss.getId() };
+  })()`);
+  ok(ancien.r && ancien.r.dossier === 'Universal Quiz' && ancien.r.ss, 'site réinstallé : reprend l\'ancien dossier « Universal Quiz » et ses résultats');
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));
 } finally {
   await browser.close();

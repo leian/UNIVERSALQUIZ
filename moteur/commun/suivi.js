@@ -1,5 +1,5 @@
 /* =====================================================================
-   SUIVI DES RÉSULTATS — commun à tous les quiz Universal Quiz
+   SUIVI DES RÉSULTATS — commun à tous les quiz SoccaQuiz
    ---------------------------------------------------------------------
    Suivi.debut()                 → à appeler quand une partie commence
    Suivi.enregistrer({ … })      → à appeler à la fin d'une partie

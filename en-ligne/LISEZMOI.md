@@ -2,9 +2,9 @@
 
 **Adresse de l'installateur (déployé le 11 novembre 2026 par soccaquiz)** : https://script.google.com/macros/s/AKfycbxv33ZGQhg1x0FQeRQZy7JIpL9KH2pZ_koOUqVW4Jhw8yjfhrt4hYU4HGkffU_CX5PN/exec
 
-L'installateur en ligne permet à un ami de créer son site Universal Quiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
+L'installateur en ligne permet à un ami de créer son site SoccaQuiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
 
-1. il crée chez lui un projet « Universal Quiz » ;
+1. il crée chez lui un projet « SoccaQuiz » (« Universal Quiz » pour les sites installés avant le 11 novembre 2026) ;
 2. il y copie la dernière version du moteur, prise dans le fichier `universal-quiz.json` de la dernière Release GitHub ;
 3. il le publie en site web.
 
@@ -24,7 +24,7 @@ Un projet Apps Script « ordinaire » ne peut pas appeler l'API Apps Script. Il 
 2. Dans la page d'accueil du projet, note le **numéro du projet** (*Project number*, uniquement des chiffres).
 3. Menu ☰ → **API et services → Bibliothèque**. Cherche **Apps Script API**, puis **Activer**.
 4. Menu ☰ → **API et services → Écran de consentement OAuth** (« Google Auth Platform ») → **Commencer** :
-   - nom de l'application : `Universal Quiz` ; adresse d'assistance : `soccaquiz@gmail.com` ;
+   - nom de l'application : `SoccaQuiz` (Google a refusé « Universal Quiz ») ; adresse d'assistance : `soccaquiz@gmail.com` ;
    - audience : **Externe** ;
    - coordonnées : `soccaquiz@gmail.com`, puis accepte et **Créer**.
 5. Dans **Audience**, clique sur **Publier l'application** (statut « En production »). Sans cette étape, seuls les « utilisateurs test » listés à la main pourraient installer.
@@ -59,10 +59,10 @@ En cas d'erreur, le message affiché indique en général l'étape oubliée :
 L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour rejouer le parcours d'un nouvel ami avec un compte qui a déjà installé :
 
 1. Ouvre l'installateur : il affiche « Ton site est installé ». Touche **Repartir de zéro (créer un nouveau site)**, puis confirme. (L'adresse `…/exec?recommencer=1` fait la même chose.)
-2. Pour revoir aussi les deux écrans d'autorisation de Google : sur https://myaccount.google.com/permissions, supprime l'accès des applications « Universal Quiz » avant de recommencer.
-3. Facultatif : sur https://script.google.com, mets à la corbeille le projet « Universal Quiz » du test précédent. Sinon, les sites de test s'accumulent.
+2. Pour revoir aussi les deux écrans d'autorisation de Google : sur https://myaccount.google.com/permissions, supprime l'accès des applications « SoccaQuiz » (et « Universal Quiz ») avant de recommencer.
+3. Facultatif : sur https://script.google.com, mets à la corbeille le projet « SoccaQuiz » (ou « Universal Quiz ») du test précédent. Sinon, les sites de test s'accumulent.
 
-Le nouveau site réutilise le dossier Drive « Universal Quiz » et le Sheets des résultats s'ils existent déjà dans le compte : les quiz et les scores ne sont jamais perdus.
+Le nouveau site réutilise le dossier Drive « SoccaQuiz » (ou l'ancien « Universal Quiz ») et le Sheets des résultats s'ils existent déjà dans le compte : les quiz et les scores ne sont jamais perdus.
 
 ## 4. Le mail à envoyer aux amis
 

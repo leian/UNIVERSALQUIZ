@@ -1,5 +1,5 @@
 /* =====================================================================
-   RÉCOMPENSES — module commun à tous les quiz Universal Quiz (version 2,
+   RÉCOMPENSES — module commun à tous les quiz SoccaQuiz (version 2,
    illustrations SVG articulées : 40 animaux, 10 scènes capybara)
    ---------------------------------------------------------------------
    celebrate()     → bonne réponse : feu d'artifice + un animal (bulle en bas)

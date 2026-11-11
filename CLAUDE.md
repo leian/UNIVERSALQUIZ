@@ -1,6 +1,6 @@
-# Universal Quiz — notes pour Claude
+# SoccaQuiz (ex-Universal Quiz) — notes pour Claude
 
-Ce dépôt contient le **code** de Universal Quiz, dans sa version Google Apps Script. Les quiz eux-mêmes ne sont pas ici : chaque famille les dépose dans son propre dossier Google Drive (voir `README.md`).
+Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub Pages pendant la validation Google) contient le **code** de SoccaQuiz, dans sa version Google Apps Script. Les quiz eux-mêmes ne sont pas ici : chaque famille les dépose dans son propre dossier Google Drive (voir `README.md`).
 
 ## Organisation
 - `moteur/` : le moteur de quiz et les pages d'accueil. `{{PRENOM}}` y est remplacé par le prénom des réglages ; garde des textes neutres en genre (« Bien joué ! », jamais « Trop forte ! »). `construire.mjs` adapte le chemin de la page au moment de la construction.

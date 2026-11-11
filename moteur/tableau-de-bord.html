@@ -125,7 +125,7 @@ async function charger() {
   } catch (e) {
     TOUT = [];
     etat.innerHTML = `<div class="msg warn"><b>Impossible de lire les résultats.</b><br>${esc(e.message)}<br>
-      <span class="small">Vérifie que le Google Sheets « Universal Quiz – Résultats » existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
+      <span class="small">Vérifie que le Google Sheets « SoccaQuiz – Résultats » (ou « Universal Quiz – Résultats » pour un site plus ancien) existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
   }
   const n = window.Suivi ? Suivi.enAttente() : 0;
   if (n) etat.innerHTML += `<div class="msg info">${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""} sur cet appareil ${n > 1 ? "sont" : "est"} en attente d'envoi. <button class="btn" onclick="Suivi.envoyerFile().then(charger)">Envoyer maintenant</button></div>`;

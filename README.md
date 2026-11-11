@@ -1,4 +1,4 @@
-# Universal Quiz
+# SoccaQuiz
 
 Ce projet transforme une leçon prise en photo en quiz de révision interactif, hébergé gratuitement chez Google.
 
@@ -56,6 +56,6 @@ L'IA répond en JSON (titre, matière, icône, badge, questions `qcm` / `vf` / `
 
 ## Licence
 
-Universal Quiz est distribué sous la licence [PolyForm Noncommercial 1.0.0](LICENSE.md). Les familles, les écoles et les associations peuvent l'utiliser, le modifier et le partager librement. **Tout usage commercial est interdit** : il est interdit de le vendre ou d'en faire un service payant.
+SoccaQuiz (anciennement Universal Quiz) est distribué sous la licence [PolyForm Noncommercial 1.0.0](LICENSE.md). Les familles, les écoles et les associations peuvent l'utiliser, le modifier et le partager librement. **Tout usage commercial est interdit** : il est interdit de le vendre ou d'en faire un service payant.
 
 Required Notice: Copyright 2026 leian (https://github.com/leian/UNIVERSALQUIZ)
