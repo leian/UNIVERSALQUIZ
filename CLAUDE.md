@@ -10,7 +10,8 @@ Ce dépôt contient le **code** de Universal Quiz, dans sa version Google Apps S
 ## Diffuser une modification
 - Moteur, pages, images du site (`moteur/`, `src/`) : publier une Release (Action « Publier l'installateur », nouveau tag). Chaque famille voit alors « nouvelle version disponible » sur sa page « Ajouter un quiz » et touche « Mettre à jour mon site ».
 - Installateur (`en-ligne/`) : il faut recoller `en-ligne/Code.gs` dans le projet Apps Script du compte soccaquiz, puis Déployer → Gérer les déploiements → Nouvelle version. Préviens toujours l'utilisateur quand c'est nécessaire.
-- Pages publiques et mail d'invitation (`docs/`) : en ligne dès le push (GitHub Pages).
+- Pages publiques et mail d'invitation (`docs/`) : en ligne dès le push (GitHub Pages). Le mail (`docs/invitation.html`, contenu de `<div id="mail">`) est aussi lu par la page d'envoi `invitations/` : garde les `<span id="bonjour">` et `<span id="signature">`.
+- Page d'envoi des invitations (`invitations/`, projet Apps Script à part dans le compte soccaquiz, accès « Seulement moi ») : comme l'installateur, il faut recoller `invitations/Code.gs` puis créer une nouvelle version du déploiement. Elle ne touche pas à la validation Google de l'installateur.
 
 ## Consignes pour l'IA et Gemini
 - Une seule source : `src/consignes.txt`. `construire.mjs` l'insère dans la page « Ajouter » et écrit `docs/consignes/<empreinte>.txt` (GitHub Pages) : **committe ce fichier** quand il apparaît, et ne supprime jamais les anciens (les sites pas encore mis à jour s'en servent).

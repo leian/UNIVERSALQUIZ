@@ -24,6 +24,7 @@ try { playwright = require('playwright'); } catch (e) {
 
 // 0. installateur en ligne (simulation de l'API Apps Script)
 const enLigne = spawnSync(process.execPath, [join(ICI, 'test-en-ligne.mjs')], { stdio: 'inherit' }).status;
+const invitations = spawnSync(process.execPath, [join(ICI, 'test-invitations.mjs')], { stdio: 'inherit' }).status;
 
 // 1. construction + faux Google
 if (spawnSync(process.execPath, [join(RACINE, 'construire.mjs')], { stdio: 'inherit' }).status !== 0) process.exit(1);
@@ -32,7 +33,7 @@ const serveur = spawn(process.execPath, [join(ICI, 'faux-google.mjs'), join(RACI
 await new Promise(ok => serveur.stdout.once('data', ok));
 
 const ev = async code => (await (await fetch(BASE + '/eval', { method: 'POST', body: code })).json());
-let echecs = enLigne === 0 ? 0 : 1;
+let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1);
 const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (!c) echecs++; };
 
 const options = { args: ['--no-sandbox'] };
