@@ -6,7 +6,7 @@
    Prérequis : npm i -D playwright && npx playwright install chromium
    ===================================================================== */
 import { spawn, spawnSync } from 'node:child_process';
-import { copyFileSync, writeFileSync, rmSync } from 'node:fs';
+import { copyFileSync, writeFileSync, rmSync, existsSync, readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createRequire } from 'node:module';
@@ -91,11 +91,14 @@ try {
   await page.goto(BASE + '/exec');
   await page.locator('a', { hasText: 'Ajouter un quiz' }).click();
   await page.waitForURL(/page=ajouter/);
-  ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('Q|question|BONNE réponse'), 'page « Ajouter » : message pour l\'IA prêt');
+  const msgs = await page.evaluate(() => ({ court: window.__consignes.messageCourt(), complet: window.__consignes.messageComplet() }));
+  ok(msgs.complet.includes('Q|question|BONNE réponse') && !/Q\|question/.test(await page.locator('main').innerText()), 'page « Ajouter » : consignes prêtes, jamais affichées');
   const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
-  const msg = await page.locator('#message').inputValue();
-  ok(hrefs.length === 3 && hrefs.every(h => /\?q=/.test(h) && decodeURIComponent(h.split('?q=')[1]) === msg && h.length < 12000),
-    'liens Claude / ChatGPT / Grok pré-remplis avec les consignes (' + Math.max(...hrefs.map(h => h.length)) + ' caractères)');
+  const urlConsignes = (msgs.court.match(/https:\/\/leian\.github\.io\/UNIVERSALQUIZ\/consignes\/(\w+)\.txt/) || [])[1];
+  const publiees = urlConsignes && existsSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt')) ? readFileSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt'), 'utf8') : '';
+  ok(hrefs.length === 3 && hrefs.every(h => decodeURIComponent(h.split('?q=')[1]) === msgs.court) && msgs.court.length < 600
+     && publiees === readFileSync(join(RACINE, 'src', 'consignes.txt'), 'utf8').replace(/\r\n/g, '\n') && msgs.complet.endsWith(publiees),
+    'liens Claude / ChatGPT / Grok : message court (' + msgs.court.length + ' car.) qui renvoie aux consignes publiées sur GitHub Pages');
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
     questions: [
@@ -106,6 +109,7 @@ try {
     ],
     memo: ['Le dénominateur est en bas.']
   }, null, 2) + ',\n```\nBonnes révisions !';
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', reponseIA);
   await page.locator('#creer').click();
   await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
@@ -115,6 +119,7 @@ try {
   ok(!!(await jouer()), 'le quiz créé se joue jusqu\'au résultat');
   // format en lignes (celui que demandent les consignes) : texte autour, bloc de code, catégories, champs nommés
   await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', [
     'Voici le quiz :', '```', 'T|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐',
     '## Formes contractées', 'Q|He is = ?|He\'s|His|He\'m|He is se contracte en He\'s.',
@@ -135,8 +140,50 @@ try {
      && /"notes":\["G4",\["C4","E4"\],"E4"\],"portee":true/.test(html) && /"ans":\["le cœur","cœur"\]/.test(html) && /"badge":"⭐"/.test(html),
     'format en lignes : catégories, bonne réponse, écoute, notes, article facultatif, badge');
   ok(!!(await jouer()), 'format en lignes : le quiz se joue jusqu\'au résultat');
+  // bouton unique « Coller et créer » : lit le presse-papiers
+  await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(t => navigator.clipboard.writeText(t), 'T|Les volcans|Révise|sciences|🌋|🔥\n## Volcans\nQ|Que crache un volcan ?|De la lave|De l\'eau|Du sable|La lave.\nV|Un volcan peut dormir.|V|Oui.\nS|Comment appelle-t-on la roche fondue ?|la lave;magma|La lave.');
+  await page.locator('#coller-creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  ok(/3 questions/.test(await page.locator('#resultat').innerText()), 'bouton « Coller et créer » : quiz créé en un geste');
+
+  // Gemini : clé vérifiée et gardée par le site, photos envoyées depuis le navigateur, repli sur le second modèle
+  const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+  const appels = [];
+  await page.route(/generativelanguage\.googleapis\.com/, async r => {
+    const u = r.request().url(), cleUtilisee = r.request().headers()['x-goog-api-key'] || new URL(u).searchParams.get('key');
+    appels.push({ u, cle: cleUtilisee, corps: r.request().postData() || '' });
+    if (cleUtilisee !== 'AIzaTEST_cle_de_test_0123456789abcdef') return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. API_KEY_INVALID' } }) });
+    if (/\/models\?/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', body: '{"models":[]}' });
+    if (/gemini-flash-latest:/.test(u)) return r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"status":"UNAVAILABLE","message":"overloaded"}}' });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '```\nT|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐\n## Conjugaison\nS|They ___ happy.|are|Avec they : are.\nQ|He is = ?|He\'s|His|He is → He\'s.\nV|I am = I\'m|V|Oui.\n```' }] } }] }) });
+  });
+  await page.goto(BASE + '/exec?page=ajouter');
+  ok(await page.locator('#g-sans-cle').isVisible() && !(await page.locator('#g-avec-cle').isVisible()), 'Gemini : sans clé, la procédure de création de clé est affichée');
+  await page.fill('#g-cle', 'AIzaFAUSSE_cle_fausse_0123456789abcdef');
+  await page.locator('#g-enregistrer').click();
+  await page.locator('#g-resultat .ko').waitFor({ timeout: 5000 });
+  ok(/refuse/.test(await page.locator('#g-resultat').innerText()), 'Gemini : une clé refusée par Google est signalée');
+  await page.fill('#g-cle', 'AIzaTEST_cle_de_test_0123456789abcdef');
+  await page.locator('#g-enregistrer').click();
+  await page.locator('#g-resultat .ok').waitFor({ timeout: 5000 });
+  await page.goto(BASE + '/exec?page=ajouter');
+  const htmlQuiz = await (await fetch(BASE + '/exec?page=quiz_exemple_capitales')).text();
+  ok(await page.locator('#g-avec-cle').isVisible() && !htmlQuiz.includes('AIzaTEST'), 'Gemini : clé gardée par le site, absente des pages de quiz');
+  await page.setInputFiles('#g-photos', [{ name: 'p1.png', mimeType: 'image/png', buffer: PNG }, { name: 'p2.png', mimeType: 'image/png', buffer: PNG }]);
+  await page.waitForFunction(() => !document.getElementById('g-creer').disabled);
+  await page.locator('#g-creer').click();
+  await page.locator('#g-resultat .ok').waitFor({ timeout: 8000 });
+  const gen = appels.filter(a => /generateContent/.test(a.u));
+  ok(/3 questions/.test(await page.locator('#g-resultat').innerText()) && gen.length === 2 && /flash-lite/.test(gen[1].u)
+     && (gen[1].corps.match(/"inline_data"/g) || []).length === 2 && gen[1].corps.includes('Q|question|BONNE réponse'),
+    'Gemini : 2 photos + consignes envoyées, repli sur le 2e modèle, quiz créé sans copier-coller');
+  await page.unroute(/generativelanguage\.googleapis\.com/);
+
   // quiz d'anglais et de musique : phrases à écouter, notes jouées, portée, badge
   await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', JSON.stringify({
     titre: 'Listen and notes', matiere: 'anglais', icone: '🎧', badge: '🏅',
     questions: [
@@ -175,6 +222,7 @@ try {
   await page.goto(BASE + '/exec');
   ok((await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}))).badge === '🏅' && (await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}).matiere)) === 'anglais', 'catalogue : badge et matière du quiz créé');
   await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', 'bonjour');
   await page.locator('#creer').click();
   await page.locator('#resultat .ko').waitFor({ timeout: 5000 });

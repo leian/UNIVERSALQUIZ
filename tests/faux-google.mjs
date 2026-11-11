@@ -60,7 +60,7 @@ const ctx = {
   console,
   PropertiesService: { getScriptProperties: () => ({
     getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); },
-    getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o)
+    getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o), deleteProperty: k => { delete props[k]; }
   }) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; } }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },

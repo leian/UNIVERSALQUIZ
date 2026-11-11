@@ -184,6 +184,8 @@ function assembler_(html, page, inst) {
     version: CONFIG.version,
     installateur: CONFIG.installateur
   };
+  // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
+  if (page === 'ajouter') cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
@@ -410,6 +412,16 @@ function apiSupprimer(id) {
    ===================================================================== */
 const COULEURS_ = { francais: '#7c3aed', maths: '#c2410c', sciences: '#15803d', anglais: '#b91c1c',
   histoire: '#1d4ed8', geographie: '#0f766e', musique: '#be185d', autre: '#475569' };
+
+/* clé Gemini (gratuite, créée par la famille sur aistudio.google.com/apikey) : vérifiée par la page, gardée ici */
+function apiGeminiCle(d) {
+  const cle = String((d && d.cle) || '').trim();
+  const props = PropertiesService.getScriptProperties();
+  if (!cle) { props.deleteProperty('GEMINI_CLE'); return { ok: true }; }
+  if (!/^[\w-]{30,60}$/.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
+  props.setProperty('GEMINI_CLE', cle);
+  return { ok: true };
+}
 
 function apiAjouterQuiz(texte) {
   texte = String(texte || '').trim();

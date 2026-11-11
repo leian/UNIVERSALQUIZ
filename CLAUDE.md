@@ -12,13 +12,18 @@ Ce dépôt contient le **code** de Universal Quiz, dans sa version Google Apps S
 - Installateur (`en-ligne/`) : il faut recoller `en-ligne/Code.gs` dans le projet Apps Script du compte soccaquiz, puis Déployer → Gérer les déploiements → Nouvelle version. Préviens toujours l'utilisateur quand c'est nécessaire.
 - Pages publiques et mail d'invitation (`docs/`) : en ligne dès le push (GitHub Pages).
 
+## Consignes pour l'IA et Gemini
+- Une seule source : `src/consignes.txt`. `construire.mjs` l'insère dans la page « Ajouter » et écrit `docs/consignes/<empreinte>.txt` (GitHub Pages) : **committe ce fichier** quand il apparaît, et ne supprime jamais les anciens (les sites pas encore mis à jour s'en servent).
+- Claude, ChatGPT et Grok ne reçoivent qu'une phrase avec le lien vers ces consignes ; le texte complet reste copiable en secours.
+- Gemini est appelé depuis le navigateur (pas de nouvelle autorisation Apps Script à faire accepter aux familles). La clé est dans les propriétés du script (`GEMINI_CLE`) et n'est donnée qu'à la page `ajouter`.
+
 ## Avant chaque commit
 - Lance `node tests/test.mjs` : il construit le projet, simule Google et joue un quiz dans Chrome. Tout doit être vert.
 - Un fichier de `moteur/commun/` est inséré dans une balise `<script>` : il ne doit jamais contenir `</script`.
 - Un nouveau fichier `moteur/commun/xxx.js` doit être déclaré dans `construire.mjs` (`COMMUN`) et dans `src/Code.gs` (`COMMUN`).
 
 ## Fabriquer un quiz pour quelqu'un
-Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `M|…`) décrit dans le message de la page « Ajouter un quiz » (`src/page-ajouter.html`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
+Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `M|…`) décrit dans les consignes pour l'IA (`src/consignes.txt`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
 - garde telles quelles les lignes `<link href="commun/moteur-quiz.css">` et `<script src="commun/…">` ;
 - garde l'appel `MoteurQuiz.lancer({ titre, sousTitre, icone, matiere, couleur, questions, … })` ;
 - `matiere` vaut `francais`, `maths`, `sciences`, `anglais`, `histoire`, `geographie`, `musique` ou `autre` ;
