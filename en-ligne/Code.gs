@@ -18,7 +18,10 @@ const SOURCE_MOTEUR = 'https://github.com/leian/UNIVERSALQUIZ/releases/latest/do
 const API_SCRIPT = 'https://script.googleapis.com/v1/projects';
 const PAGE_API = 'https://script.google.com/home/usersettings';
 
-function doGet() {
+function doGet(e) {
+  // …/exec?recommencer=1 : oublie l'installation précédente de la personne connectée
+  // (pour refaire un test complet ; son ancien site n'est ni modifié ni supprimé)
+  if (e && e.parameter && e.parameter.recommencer === '1') PropertiesService.getUserProperties().deleteAllProperties();
   return HtmlService.createHtmlOutput(pageHtml_())
     .setTitle('Installer Universal Quiz')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');

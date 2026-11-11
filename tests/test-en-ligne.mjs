@@ -55,7 +55,8 @@ const ctx = {
   PropertiesService: { getUserProperties: () => ({
     getProperty: k => userProps[k] ?? null, setProperty: (k, v) => { userProps[k] = String(v); },
     getProperties: () => ({ ...userProps }), setProperties: o => { for (const k in o) userProps[k] = String(o[k]); },
-    deleteProperty: k => { delete userProps[k]; }
+    deleteProperty: k => { delete userProps[k]; },
+    deleteAllProperties: () => { for (const k in userProps) delete userProps[k]; }
   }) },
   LockService: { getUserLock: () => ({ tryLock: () => true, releaseLock() {} }) },
   HtmlService: { createHtmlOutput: html => { const o = { html, setTitle: () => o, addMetaTag: () => o }; return o; } }
@@ -98,8 +99,16 @@ delete projets.script1;
 r = ctx.apiMettreAJour();
 ok(r.ok && Object.keys(projets).length === 1 && !projets.script1 && r.url !== url1, 'projet supprimé → recréé automatiquement');
 
-// 6. la page : HTML complet et script valide
-const html = ctx.doGet().html;
+// 6. ?recommencer=1 : l'installateur oublie tout, l'ancien site reste en place
+const avant = Object.keys(projets).length;
+ctx.doGet({ parameter: { recommencer: '1' } });
+e = ctx.apiEtat();
+ok(!e.installe && Object.keys(projets).length === avant, '?recommencer=1 : retour à l\'écran d\'installation, ancien site intact');
+r = ctx.apiInstaller('Test');
+ok(r.ok && Object.keys(projets).length === avant + 1, 'après ?recommencer=1 : nouvelle installation complète');
+
+// 7. la page : HTML complet et script valide
+const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
 let syntaxe = true; try { new vm.Script(script); } catch (err) { syntaxe = false; console.log(err); }
 ok(/Installer mon site/.test(html) && /usersettings/.test(html) && syntaxe && !/<\/script/i.test(script), 'page de l\'installateur : contenu et script valides');

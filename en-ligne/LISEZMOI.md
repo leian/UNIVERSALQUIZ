@@ -54,6 +54,16 @@ En cas d'erreur, le message affiché indique en général l'étape oubliée :
 - « l'installateur n'est pas complètement configuré » : l'Apps Script API n'est pas activée dans le projet Cloud (1.3) ou le projet Cloud n'est pas relié (2.2) ;
 - « accès bloqué » ou « cette application n'est pas disponible » : l'application n'est pas publiée (1.5).
 
+### Refaire un test complet avec le même compte
+
+L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour revoir le parcours d'un nouvel ami avec un compte qui a déjà installé :
+
+1. Sur https://myaccount.google.com/permissions (avec ce compte), supprime l'accès des applications « Universal Quiz » : celle de l'installateur et celle du site. Les écrans d'autorisation réapparaîtront.
+2. Facultatif : sur https://script.google.com, supprime le projet « Universal Quiz » créé par le test. Le dossier Drive et les résultats ne sont pas touchés.
+3. Ouvre l'installateur en ajoutant `?recommencer=1` à la fin de son adresse (`…/exec?recommencer=1`) : il oublie l'installation précédente et affiche les deux étapes.
+
+Le nouveau site réutilise le dossier Drive « Universal Quiz » et le Sheets des résultats s'ils existent déjà dans le compte.
+
 ## 4. Le mail à envoyer aux amis
 
 > **Objet : Universal Quiz — des quiz de révision pour ton enfant**
