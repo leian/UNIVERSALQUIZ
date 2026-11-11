@@ -181,8 +181,10 @@ function pageHtml_() {
   'input{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:6px 0}' +
   '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
+  '.actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:8px 0}.maj{background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin:10px 0}' +
+  'details.avance{margin-top:14px}details.avance summary{cursor:pointer;color:var(--soft);font-size:.9rem}details.avance a{color:var(--soft)}' +
   '</style></head><body><main>' +
-  '<h1>🧩 SoccaQuiz</h1><p class="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
+  '<h1>🧩 SoccaQuiz</h1><p class="intro" id="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
 
   '<div id="nouveau" class="cache">' +
@@ -194,15 +196,20 @@ function pageHtml_() {
   '<button class="btn" id="installer" type="button">✨ Installer mon site</button></section>' +
   '</div>' +
 
-  '<div id="deja" class="cache"><section class="etape"><h2>✅ Ton site est installé</h2>' +
-  '<p><a class="btn" id="lien-site" href="#" target="_blank" rel="noopener">▶ Accéder à mon site</a></p>' +
-  '<p><a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></p>' +
+  '<div id="deja" class="cache"><section class="etape">' +
+  '<h2 id="deja-titre">✅ Ton site est prêt</h2>' +
+  '<div id="deja-message"></div>' +
+  '<div class="actions"><a class="btn" id="lien-site" href="#" target="_blank" rel="noopener">▶ Accéder à mon site</a>' +
+  '<a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></div>' +
+  '<div id="bloc-maj" class="maj cache"><p id="texte-maj" style="margin:0"></p><button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
+  '<p class="petit" style="margin:6px 0 0">Ton adresse, tes quiz et tes résultats ne changent pas.</p></div>' +
   '<p id="info-version" class="petit"></p>' +
-  '<button class="btn leger" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
-  '<p class="petit" style="margin-top:18px"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
+  '<details class="avance"><summary>Options avancées</summary>' +
+  '<p class="petit"><a href="#" id="reinstaller">Réinstaller la dernière version</a> (si ton site fonctionne mal)</p>' +
+  '<p class="petit"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
   '<div id="confirmer" class="cache ko"><p>Ton site actuel restera en ligne, mais l\'installateur l\'oubliera : la prochaine installation créera un <b>nouveau site, à une nouvelle adresse</b>. Tes quiz et tes résultats, rangés dans ton Drive, sont conservés.</p>' +
   '<button class="btn" id="oui-recommencer" type="button">Oui, repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
-  '</section></div>' +
+  '</details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte : personne d\'autre ne les voit.<br>Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
@@ -214,17 +221,12 @@ function scriptPage_() {
     var $ = function (id) { return document.getElementById(id); };
     var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
     var res = $('resultat');
-    function etapeFinale(url, maj) {
-      return '<div class="ok"><p>🎉 ' + (maj ? 'Ton site est à jour. Son adresse ne change pas.' : 'Ton site est créé !') + '</p>' +
-        (maj ? '' : '<p><b>Dernière étape, une seule fois :</b> ouvre ton site. Google demande d\'autoriser « SoccaQuiz » :</p>' +
-          '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
-          '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
-          '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
-          '<p>Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive.</p>') +
-        '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a> ' +
-        '<a class="btn leger mail-enfant" href="#" data-url="' + h(url) + '">✉️ Envoyer le lien à mon enfant</a></p>' +
-        '<p class="petit">Une fois sur ton site, mets-le en favori.</p></div>';
-    }
+    // première installation : l'autorisation à donner une seule fois, en ouvrant le site
+    var AUTORISER = '<div class="ok"><p><b>Dernière étape, une seule fois :</b> touche « Accéder à mon site ». Google demande d\'autoriser « SoccaQuiz » :</p>' +
+      '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
+      '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
+      '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
+      '<p class="petit" style="margin:0">Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive. Une fois dessus, mets-le en favori.</p></div>';
     // le lien est mis dans le mail et copié en plus. La page est dans un cadre de Google : on ouvre la messagerie
     // dans une nouvelle fenêtre (un mailto: direct y est bloqué), et on propose Gmail en ligne si rien ne s'ouvre
     var OBJET_ENFANT = 'Ton site de quiz pour réviser';
@@ -256,32 +258,43 @@ function scriptPage_() {
       }
     }
     function lancer(fn, arg, bouton) {
-      bouton.disabled = true; res.innerHTML = '<p class="petit">Installation en cours… (environ 30 secondes, ne ferme pas la page)</p>';
+      var enPlace = fn === 'apiMettreAJour';          // une mise à jour s'affiche dans la carte du site, pas en dessous
+      var zone = enPlace ? $('deja-message') : res;
+      bouton.disabled = true; res.innerHTML = '';
+      zone.innerHTML = '<p class="petit">' + (enPlace ? 'Mise à jour' : 'Installation') + ' en cours… (environ 30 secondes, ne ferme pas la page)</p>';
       google.script.run
         .withSuccessHandler(function (r) {
           bouton.disabled = false;
-          if (!r || r.erreur) return erreur(r);
-          res.innerHTML = etapeFinale(r.url, r.maj);
-          if (r.maj) afficherDeja({ url: r.url, version: r.version, derniere: r.version });
-          else $('nouveau').style.display = 'none';
+          if (!r || r.erreur) { zone.innerHTML = ''; return erreur(r); }
+          zone.innerHTML = ''; res.innerHTML = '';
+          afficherDeja({ url: r.url, version: r.version, derniere: r.version },
+            r.maj ? '🎉 Ton site est à jour' : '🎉 Ton site est créé !',
+            r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. Ton adresse ne change pas.</p></div>' : AUTORISER);
         })
-        .withFailureHandler(function (e) { bouton.disabled = false; erreur(e && e.message); })[fn](arg);
+        .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(e && e.message); })[fn](arg);
     }
-    function afficherDeja(e) {
+    function afficherDeja(e, titre, message) {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
+      $('intro').textContent = 'Ton site de quiz, dans ton propre compte Google.';
+      $('deja-titre').textContent = titre || '✅ Ton site est prêt';
+      $('deja-message').innerHTML = message || '';
       $('lien-site').href = e.url;
       $('mail-enfant').dataset.url = e.url;
-      $('info-version').textContent = e.version === e.derniere
-        ? 'Version ' + e.version + ' : c\'est la dernière.'
-        : 'Version installée : ' + (e.version || '?') + ' — nouvelle version disponible : ' + e.derniere + '.';
+      var aJour = !e.derniere || e.version === e.derniere;
+      $('bloc-maj').style.display = aJour ? 'none' : 'block';
+      $('texte-maj').innerHTML = '🔄 <b>Nouvelle version disponible : ' + h(e.derniere || '') + '</b>' + (e.version ? ' (tu as la ' + h(e.version) + ')' : '');
+      $('info-version').textContent = aJour ? 'Version ' + (e.version || '?') + ' : c\'est la dernière.' : '';
+      var info = document.querySelector('.info-mail'); if (info) info.remove();
     }
     $('installer').onclick = function () { lancer('apiInstaller', $('prenom').value, $('installer')); };
     $('maj').onclick = function () { lancer('apiMettreAJour', null, $('maj')); };
+    $('reinstaller').onclick = function (ev) { ev.preventDefault(); lancer('apiMettreAJour', null, $('maj')); };
     $('recommencer').onclick = function (ev) { ev.preventDefault(); $('confirmer').style.display = 'block'; };
     $('non-recommencer').onclick = function () { $('confirmer').style.display = 'none'; };
     $('oui-recommencer').onclick = function () {
       google.script.run.withSuccessHandler(function () {
         $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; $('nouveau').style.display = 'block';
+        $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
         res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » (ou « Universal Quiz ») sur myaccount.google.com/permissions.</p>';
       }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
     };
