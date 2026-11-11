@@ -30,6 +30,7 @@ const fichiers = lister(BUILD).filter(p => !p.endsWith('.clasp.json')).map(p => 
 });
 if (!fichiers.some(f => f.name === 'appsscript') || !fichiers.some(f => f.name === 'Code')) { console.error('❌ Code.gs ou appsscript.json manquant'); process.exit(1); }
 if (!/prenom: '[^'\n]*',/.test(fichiers.find(f => f.name === 'Code').source)) { console.error('❌ réglage « prenom » introuvable dans Code.gs'); process.exit(1); }
+for (const r of [/version: '[^'\n]*',/, /installateur: '[^'\n]*'/]) if (!r.test(fichiers.find(f => f.name === 'Code').source)) { console.error('❌ réglage introuvable dans Code.gs : ' + r); process.exit(1); }
 
 const version = process.env.TAG || process.env.GITHUB_REF_NAME || 'dev';
 mkdirSync(dirname(SORTIE), { recursive: true });

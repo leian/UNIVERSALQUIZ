@@ -83,7 +83,7 @@ const ctx = {
   HtmlService: {
     createHtmlOutputFromFile: (n) => { const c = readFileSync(join(BUILD, n + '.html'), 'utf8'); if (!/^\s*</.test(c)) throw new Error('Format du contenu HTML non valide : ' + c.slice(0, 40)); return { getContent: () => c }; },
     createHtmlOutput: (html) => { const o = { titre: '', metas: [], getContent: () => html,
-      setTitle(t) { o.titre = t; return o; }, addMetaTag(k, v) { o.metas.push([k, v]); return o; } }; return o; }
+      setTitle(t) { o.titre = t; return o; }, setFaviconUrl(u) { o.favicon = u; return o; }, addMetaTag(k, v) { o.metas.push([k, v]); return o; } }; return o; }
   }
 };
 vm.createContext(ctx);

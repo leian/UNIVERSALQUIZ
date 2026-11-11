@@ -94,7 +94,7 @@ try {
   ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('"questions"'), 'page « Ajouter » : message pour l\'IA prêt');
   const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
   const msg = await page.locator('#message').inputValue();
-  ok(hrefs.length === 3 && hrefs.every(h => /\?q=/.test(h) && decodeURIComponent(h.split('?q=')[1]) === msg && h.length < 8000),
+  ok(hrefs.length === 3 && hrefs.every(h => /\?q=/.test(h) && decodeURIComponent(h.split('?q=')[1]) === msg && h.length < 12000),
     'liens Claude / ChatGPT / Grok pré-remplis avec les consignes (' + Math.max(...hrefs.map(h => h.length)) + ' caractères)');
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
@@ -113,6 +113,45 @@ try {
   await page.locator('#resultat a.btn').click();
   await page.waitForURL(/page=quiz_les-fractions_/);
   ok(!!(await jouer()), 'le quiz créé se joue jusqu\'au résultat');
+  // quiz d'anglais et de musique : phrases à écouter, notes jouées, portée, badge
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.fill('#reponse', JSON.stringify({
+    titre: 'Listen and notes', matiere: 'anglais', icone: '🎧', badge: '🏅',
+    questions: [
+      { type: 'qcm', cat: 'Écoute', q: 'Que veut dire la phrase entendue ?', dire: 'Open your book, please.', opts: ['Ouvre ton livre', 'Ferme la porte'], a: 'Ouvre ton livre', exp: '' },
+      { type: 'saisie', cat: 'Notes', q: 'Quelle est cette note ?', notes: ['G4'], portee: true, ans: ['Paris', 'sol'], exp: '' },
+      { type: 'vf', cat: 'Notes', q: 'Le son monte.', notes: ['C4', ['E4', 'G4'], 'do4', 'pouet'], a: true, exp: '' },
+      { type: 'qcm', cat: 'Lecture', q: 'Quelle est cette note ?', notes: ['A4'], portee: 'seule', opts: ['la', 'si'], a: 'la', exp: '' }
+    ]
+  }));
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  await page.locator('#resultat a.btn').click();
+  await page.waitForURL(/page=quiz_listen-and-notes_/);
+  await page.evaluate(() => {
+    window.__dit = []; window.__notes = 0;
+    SpeechSynthesis.prototype.speak = function (u) { window.__dit.push(u.text + '|' + u.lang + '|' + u.rate.toFixed(1)); };
+    const AC = window.AudioContext, cree = AC.prototype.createOscillator;
+    AC.prototype.createOscillator = function () { window.__notes++; return cree.call(this); };
+  });
+  ok(/Phrases à écouter/.test(await page.locator('.start-infos').innerText()) && /Notes à écouter/.test(await page.locator('.start-infos').innerText()), 'accueil du quiz : pastilles « à écouter »');
+  await page.locator('.start-btn').click();
+  const vu = { dire: false, notes: false, portee: false, seule: false };
+  for (let i = 0; i < 4; i++) {
+    const q = await page.evaluate(() => { const e = MoteurQuiz._etat(); return e.shuffled[e.cur]; });
+    if (q.dire) { await page.locator('.ecoute-btn').first().click(); await page.locator('.ecoute-btn.lent').click(); const dit = await page.evaluate(() => window.__dit.join(' / ')); vu.dire = dit === 'Open your book, please.|en-GB|0.9 / Open your book, please.|en-GB|0.6'; if (!vu.dire) console.log('dit =', dit); }
+    else if (q.portee === 'seule') vu.seule = (await page.locator('.portee svg ellipse').count()) === 1 && (await page.locator('.ecoute-btn').count()) === 0;
+    else if (q.portee) vu.portee = (await page.locator('.portee svg ellipse').count()) === 1 && (await page.locator('.ecoute-btn').count()) === 1;
+    else { const avant = await page.evaluate(() => window.__notes); await page.locator('.ecoute-btn').click(); vu.notes = (await page.evaluate(() => window.__notes)) - avant === 12; }   // 4 notes (dont un accord de 2, « pouet » ignoré) × 3 oscillateurs
+    if (await page.locator('#ans-input').count()) { await page.fill('#ans-input', 'sol'); await page.keyboard.press('Enter'); }
+    else await page.locator('.opt-btn').first().click();
+    await page.locator('.next-btn').click();
+  }
+  ok(vu.dire, 'anglais : la phrase est lue (normal puis lentement), en en-GB');
+  ok(vu.notes, 'musique : les notes sont jouées (accord compris, note invalide ignorée)');
+  ok(vu.portee && vu.seule, 'musique : portée dessinée, avec ou sans bouton d\'écoute');
+  await page.goto(BASE + '/exec');
+  ok((await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}))).badge === '🏅' && (await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}).matiere)) === 'anglais', 'catalogue : badge et matière du quiz créé');
   await page.goto(BASE + '/exec?page=ajouter');
   await page.fill('#reponse', 'bonjour');
   await page.locator('#creer').click();

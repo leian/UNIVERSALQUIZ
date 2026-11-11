@@ -16,7 +16,9 @@ L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Scri
 
 L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis.
 
-**Publier une nouvelle version du moteur** : GitHub → Actions → « Publier l'installateur » → Run workflow, avec un nouveau tag (par exemple `v2.1`). L'Action teste le projet, puis crée une Release qui contient `universal-quiz.json`. L'installateur lit toujours la dernière Release : chaque ami récupère la nouvelle version en touchant « Mettre à jour mon site ».
+**Publier une nouvelle version du moteur** (moteur, pages, images) : GitHub → Actions → « Publier l'installateur » → Run workflow, avec un nouveau tag (par exemple `v2.1`). L'Action teste le projet, puis crée une Release qui contient `universal-quiz.json`. Chaque site compare sa version à la dernière Release : la page « ➕ Ajouter un quiz » affiche alors « Une nouvelle version est disponible », avec le bouton **Mettre à jour mon site**. L'adresse du site, les quiz et les résultats ne changent pas.
+
+Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUIZ/invitation.html
 
 ## Contenu du dépôt
 
@@ -44,7 +46,7 @@ Tout se fait depuis le site, aussi sur téléphone, avec Claude, ChatGPT ou Grok
 
 Les boutons utilisent le paramètre `?q=` de chaque IA (`claude.ai/new?q=`, `chatgpt.com/?q=`, `grok.com/?q=`). Les photos, elles, ne peuvent pas passer par un lien : il faut toujours les joindre à la main. Si une application mobile ignore les consignes du lien, il suffit de les coller. Les trois IA ont une version gratuite, mais un compte peut être demandé, surtout pour envoyer des photos.
 
-L'IA répond en JSON (titre, matière, questions `qcm` / `vf` / `saisie`, mémo). `apiAjouterQuiz` (dans `src/Code.gs`) vérifie ce JSON, écarte les questions mal formées, fabrique le fichier `.html` et le range dans le dossier Drive. Déposer directement un fichier `.html` dans le dossier Drive marche toujours : le titre, la matière et l'icône sont lus dans `MoteurQuiz.lancer({ … })`, et un `catalogue.js` (variables `QUIZ` et `CONTROLES`) déposé dans le dossier reste prioritaire.
+L'IA répond en JSON (titre, matière, icône, badge, questions `qcm` / `vf` / `saisie`, mémo). Pour l'anglais, une question peut porter `dire` (phrase lue à voix haute, boutons « Écouter » et « Lentement ») ; pour la musique, `notes` (notes jouées) et `portee` (notes dessinées sur une portée). `apiAjouterQuiz` (dans `src/Code.gs`) vérifie ce JSON, écarte les questions mal formées, fabrique le fichier `.html` et le range dans le dossier Drive. Déposer directement un fichier `.html` dans le dossier Drive marche toujours : le titre, la matière et l'icône sont lus dans `MoteurQuiz.lancer({ … })`, et un `catalogue.js` (variables `QUIZ` et `CONTROLES`) déposé dans le dossier reste prioritaire.
 
 ## Limites connues
 

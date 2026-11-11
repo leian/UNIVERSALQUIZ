@@ -24,6 +24,7 @@ function doGet(e) {
   if (e && e.parameter && e.parameter.recommencer === '1') PropertiesService.getUserProperties().deleteAllProperties();
   return HtmlService.createHtmlOutput(pageHtml_())
     .setTitle('Installer Universal Quiz')
+    .setFaviconUrl('https://leian.github.io/UNIVERSALQUIZ/icone.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -45,6 +46,13 @@ function apiInstaller(prenom) {
     props.setProperty('prenom', nettoyerPrenom_(prenom));
     return publier_(false);
   });
+}
+
+/* Tout recommencer : l'installateur oublie le site de cette personne (qui n'est ni modifié ni supprimé).
+   La prochaine installation créera un nouveau site, à une nouvelle adresse. */
+function apiRecommencer() {
+  PropertiesService.getUserProperties().deleteAllProperties();
+  return { ok: true };
 }
 
 /* Mise à jour : même projet, même adresse. */
@@ -91,8 +99,14 @@ function publier_(maj) {
 /* fichiers du moteur, avec le prénom écrit dans les réglages de Code.gs */
 function fichiers_(moteur, prenom) {
   const p = String(prenom).replace(/\\/g, '').replace(/'/g, '’');
+  // le site saura quelle version il porte et où proposer la mise à jour
+  const ici = String(ScriptApp.getService().getUrl() || '').replace(/'/g, '');
+  const version = String(moteur.version).replace(/[^\w.\-]/g, '');
   return moteur.fichiers.map(f => f.name === 'Code'
-    ? { name: f.name, type: f.type, source: f.source.replace(/prenom: '[^'\n]*',/, "prenom: '" + p + "',") }
+    ? { name: f.name, type: f.type, source: f.source
+        .replace(/prenom: '[^'\n]*',/, "prenom: '" + p + "',")
+        .replace(/version: '[^'\n]*',/, "version: '" + version + "',")
+        .replace(/installateur: '[^'\n]*'/, "installateur: '" + ici + "'") }
     : f);
 }
 
@@ -184,7 +198,11 @@ function pageHtml_() {
   '<div id="deja" class="cache"><section class="etape"><h2>✅ Ton site est installé</h2>' +
   '<p class="url"><a id="lien-site" href="#" target="_blank" rel="noopener"></a></p>' +
   '<p id="info-version" class="petit"></p>' +
-  '<button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button></section></div>' +
+  '<button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
+  '<p class="petit" style="margin-top:18px"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
+  '<div id="confirmer" class="cache ko"><p>Ton site actuel restera en ligne, mais l\'installateur l\'oubliera : la prochaine installation créera un <b>nouveau site, à une nouvelle adresse</b>. Tes quiz et tes résultats, rangés dans ton Drive, sont conservés.</p>' +
+  '<button class="btn" id="oui-recommencer" type="button">Oui, repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
+  '</section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte : personne d\'autre ne les voit.<br>Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
@@ -236,6 +254,14 @@ function scriptPage_() {
     }
     $('installer').onclick = function () { lancer('apiInstaller', $('prenom').value, $('installer')); };
     $('maj').onclick = function () { lancer('apiMettreAJour', null, $('maj')); };
+    $('recommencer').onclick = function (ev) { ev.preventDefault(); $('confirmer').style.display = 'block'; };
+    $('non-recommencer').onclick = function () { $('confirmer').style.display = 'none'; };
+    $('oui-recommencer').onclick = function () {
+      google.script.run.withSuccessHandler(function () {
+        $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; $('nouveau').style.display = 'block';
+        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « Universal Quiz » sur myaccount.google.com/permissions.</p>';
+      }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
+    };
     google.script.run
       .withSuccessHandler(function (e) {
         $('chargement').style.display = 'none';

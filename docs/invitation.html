@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Universal Quiz — le mail d'invitation</title>
+<link rel="icon" href="icone.png">
+<link rel="stylesheet" href="style.css">
+<style>
+  .outils { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 12px 0; }
+  .outils input { font: inherit; padding: 9px 12px; border: 2px solid #eadfce; border-radius: 12px; }
+  .btn { font: 600 1rem system-ui, sans-serif; border: none; border-radius: 999px; padding: 11px 20px; cursor: pointer; background: #7c3aed; color: #fff; }
+  .btn.leger { background: #fff; color: #2b2350; border: 2px solid #eadfce; }
+  #cadre { background: #fff; border: 2px solid #eadfce; border-radius: 16px; padding: 10px; margin-top: 14px; overflow: auto; }
+  #etat { color: #15803d; font-weight: 600; }
+</style>
+</head>
+<body><main>
+<h1>✉️ Le mail d'invitation</h1>
+<p>Écris les prénoms, touche <b>Copier le mail</b>, puis colle-le dans un nouveau message Gmail (Ctrl+V ou appui long → Coller) : la mise en forme est conservée.</p>
+<div class="outils">
+  <input id="ami" placeholder="Prénom de l'ami (facultatif)" autocomplete="off">
+  <input id="moi" placeholder="Ta signature" autocomplete="off">
+</div>
+<div class="outils">
+  <button class="btn" id="copier" type="button">📋 Copier le mail</button>
+  <button class="btn leger" id="objet" type="button">Copier l'objet</button>
+  <span id="etat" aria-live="polite"></span>
+</div>
+<p class="petit">Objet : <span id="texte-objet">Universal Quiz : des quiz de révision à partir d'une photo de leçon</span></p>
+
+<div id="cadre"><div id="mail">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:600px;margin:0 auto;font-family:Arial,Helvetica,sans-serif;color:#2b2350;">
+  <tr><td style="background:#7c3aed;border-radius:18px 18px 0 0;padding:26px 24px;text-align:center;">
+    <img src="https://leian.github.io/UNIVERSALQUIZ/logo-120.png" width="72" height="72" alt="" style="display:block;margin:0 auto 10px;border:0;">
+    <div style="font-size:26px;font-weight:bold;color:#ffffff;">Universal Quiz</div>
+    <div style="font-size:15px;color:#ede9fe;margin-top:4px;">Des quiz de révision à partir d'une photo de leçon</div>
+  </td></tr>
+  <tr><td style="background:#ffffff;padding:24px;border-left:1px solid #eadfce;border-right:1px solid #eadfce;font-size:16px;line-height:1.55;">
+    <p style="margin:0 0 14px;"><span id="bonjour">Bonjour,</span></p>
+    <p style="margin:0 0 14px;">Voici l'outil dont je t'ai parlé pour faire réviser les enfants. Il est gratuit, sans publicité, et tout reste dans <b>ton propre compte Google</b>.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:6px 0 16px;">
+      <tr><td style="background:#faf5ff;border-radius:12px;padding:12px 14px;font-size:15px;line-height:1.5;">
+        📷 &nbsp;Tu prends la leçon en photo<br>
+        🤖 &nbsp;Une IA (Claude, ChatGPT, Grok…) en fait un quiz<br>
+        🎯 &nbsp;Ton enfant révise sur téléphone, tablette ou ordinateur<br>
+        🏅 &nbsp;Il gagne des badges, et tu suis ses résultats
+      </td></tr>
+    </table>
+    <p style="margin:0 0 6px;"><b>Pour l'installer</b> (5 minutes, depuis ton téléphone) :</p>
+    <table role="presentation" cellpadding="0" cellspacing="0" style="margin:14px auto 18px;">
+      <tr><td style="background:#7c3aed;border-radius:999px;">
+        <a href="https://script.google.com/macros/s/AKfycbxv33ZGQhg1x0FQeRQZy7JIpL9KH2pZ_koOUqVW4Jhw8yjfhrt4hYU4HGkffU_CX5PN/exec" style="display:inline-block;padding:14px 28px;font-size:17px;font-weight:bold;color:#ffffff;text-decoration:none;">✨ Installer Universal Quiz</a>
+      </td></tr>
+    </table>
+    <p style="margin:0 0 8px;font-size:15px;"><b>1.</b> Active l'interrupteur « API Google Apps Script » (la page te donne le lien).<br>
+    <b>2.</b> Écris le prénom de ton enfant et touche « Installer mon site ».<br>
+    <b>3.</b> Ouvre ton site, autorise-le, puis garde son adresse en favori.</p>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:14px 0 4px;">
+      <tr><td style="background:#fffbeb;border-left:4px solid #f59e0b;border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.5;color:#78350f;">
+        <b>C'est normal :</b> Google affichera deux fois « Google n'a pas validé cette application », une fois pour l'installateur et une fois pour ton site. Touche <b>Paramètres avancés</b>, puis <b>Accéder à Universal Quiz</b>. L'installateur crée seulement ton site : il ne lit ni ton Drive ni tes mails.
+      </td></tr>
+    </table>
+    <p style="margin:16px 0 0;">Ensuite, pour créer un quiz : sur ton site, touche « ➕ Ajouter un quiz » et laisse-toi guider.</p>
+    <p style="margin:16px 0 0;">Bonnes révisions !<br><span id="signature"></span></p>
+  </td></tr>
+  <tr><td style="background:#faf5ff;border:1px solid #eadfce;border-top:0;border-radius:0 0 18px 18px;padding:14px 24px;text-align:center;font-size:12px;color:#6b6390;line-height:1.5;">
+    Projet gratuit et non commercial ·
+    <a href="https://leian.github.io/UNIVERSALQUIZ/" style="color:#7c3aed;">Présentation</a> ·
+    <a href="https://leian.github.io/UNIVERSALQUIZ/confidentialite.html" style="color:#7c3aed;">Confidentialité</a>
+  </td></tr>
+</table>
+</div></div>
+
+<script>
+(function () {
+  var $ = function (id) { return document.getElementById(id); };
+  function maj() {
+    var a = $('ami').value.trim(), m = $('moi').value.trim();
+    $('bonjour').textContent = a ? 'Bonjour ' + a + ',' : 'Bonjour,';
+    $('signature').textContent = m;
+    try { localStorage.setItem('uq.signature', m); } catch (e) {}
+  }
+  try { $('moi').value = localStorage.getItem('uq.signature') || ''; } catch (e) {}
+  $('ami').addEventListener('input', maj); $('moi').addEventListener('input', maj); maj();
+  function dire(t) { $('etat').textContent = t; setTimeout(function () { $('etat').textContent = ''; }, 4000); }
+  function copieSelection(el) {
+    var r = document.createRange(); r.selectNodeContents(el);
+    var s = getSelection(); s.removeAllRanges(); s.addRange(r);
+    var ok = false; try { ok = document.execCommand('copy'); } catch (e) {}
+    s.removeAllRanges(); return ok;
+  }
+  $('copier').addEventListener('click', function () {
+    var el = $('mail');
+    var fin = function (ok) { dire(ok ? '✅ Copié : colle-le dans Gmail.' : 'Sélectionne le mail à la main, puis copie-le.'); };
+    try {
+      navigator.clipboard.write([new ClipboardItem({
+        'text/html': new Blob([el.innerHTML], { type: 'text/html' }),
+        'text/plain': new Blob([el.innerText], { type: 'text/plain' })
+      })]).then(function () { fin(true); }, function () { fin(copieSelection(el)); });
+    } catch (e) { fin(copieSelection(el)); }
+  });
+  $('objet').addEventListener('click', function () {
+    var t = $('texte-objet').textContent;
+    try { navigator.clipboard.writeText(t).then(function () { dire('✅ Objet copié.'); }, function () { dire(copieSelection($('texte-objet')) ? '✅ Objet copié.' : ''); }); }
+    catch (e) { copieSelection($('texte-objet')); }
+  });
+})();
+</script>
+</main></body>
+</html>

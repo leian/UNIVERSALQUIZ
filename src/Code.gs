@@ -24,8 +24,11 @@ const CONFIG = {
   prenom: '',                     // prénom de l'enfant (tableau de bord, encouragements) ; vide = « mon enfant »
   nomDossier: 'Universal Quiz',   // nom du dossier créé dans ton Google Drive
   partagerPdf: true,              // rend les PDF lisibles par lien, pour que l'enfant puisse les ouvrir
-  dureeCacheCatalogue: 60         // secondes : délai max avant qu'un nouveau quiz apparaisse dans la liste
+  dureeCacheCatalogue: 60,        // secondes : délai max avant qu'un nouveau quiz apparaisse dans la liste
+  version: '',                    // rempli par l'installateur en ligne (ex. v2.0)
+  installateur: ''                // adresse de l'installateur en ligne, pour proposer les mises à jour
 };
+const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 /* ------------------------------------------------------ */
 
 const NOM_SHEETS = 'Universal Quiz – Résultats';
@@ -177,7 +180,9 @@ function assembler_(html, page, inst) {
     url: ScriptApp.getService().getUrl() || '',
     page: page,
     chemin: '/' + page + '.html',
-    liens: cat.liens
+    liens: cat.liens,
+    version: CONFIG.version,
+    installateur: CONFIG.installateur
   };
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
@@ -194,6 +199,7 @@ function servir_(html) {
   const t = (html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1];
   return HtmlService.createHtmlOutput(html)
     .setTitle(texte_(t || 'Quiz'))
+    .setFaviconUrl(ICONE_SITE)
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
@@ -290,7 +296,7 @@ function lireMeta_(html, nom, cree) {
   const i = html.lastIndexOf('MoteurQuiz.lancer');
   const bloc = i >= 0 ? html.slice(i) : html;
   const champ = k => {
-    const m = bloc.match(new RegExp('\\b' + k + '\\s*:\\s*(["\'`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1'));
+    const m = bloc.match(new RegExp('\\b' + k + '["\']?\\s*:\\s*(["\'`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1'));
     return m ? m[2].replace(/\\(["'`\\])/g, '$1') : '';
   };
   const titreBalise = texte_((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').replace(/^Quiz\s*[–-]\s*/i, '');
@@ -301,7 +307,7 @@ function lireMeta_(html, nom, cree) {
   return {
     titre: titre.slice(0, 120),
     matiere: MATIERES[matiere] ? matiere : 'autre',
-    badge: champ('icone') || '',
+    badge: champ('badge') || champ('icone') || '',
     description: [sous, nb ? nb + ' questions' : ''].filter(Boolean).join(' · ').slice(0, 200),
     date: dateDepuisNom_(nom) || jour_(cree)
   };
@@ -435,6 +441,15 @@ function apiAjouterQuiz(texte) {
     const type = String(q.type || 'qcm').toLowerCase();
     const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
     if (!base.q) return;
+    // écoute : phrase lue à voix haute (anglais…) et notes de musique
+    const dire = txt(q.dire || q.ecoute || q.audio, 300);
+    if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
+    if (Array.isArray(q.notes)) {
+      const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim()) || String(x).trim() === '-';
+      const notes = q.notes.slice(0, 16).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 5)).filter(note) : txt(x, 5))
+        .filter(x => Array.isArray(x) ? x.length : note(x));
+      if (notes.length) { base.notes = notes; if (q.portee) base.portee = q.portee === 'seule' ? 'seule' : true; }
+    }
     if (type === 'qcm') {
       const opts = (Array.isArray(q.opts || q.choix) ? (q.opts || q.choix) : []).map(o => txt(o, 160)).filter(Boolean);
       let a = txt(q.a != null ? q.a : q.reponse, 160);
@@ -467,6 +482,8 @@ function apiAjouterQuiz(texte) {
     titre, matiere,
     sousTitre: txt(d.sousTitre || d.sous_titre || d.niveau, 150),
     icone: txt(d.icone || d.emoji, 8) || MATIERES[matiere].emo,
+    badge: txt(d.badge, 8),
+    langueAudio: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(txt(d.langueAudio || d.langue, 10)) ? txt(d.langueAudio || d.langue, 10) : '',
     couleur: COULEURS_[matiere], questions, memo
   });
   const nom = nomLibre_(inst.dossier, titre);
@@ -484,6 +501,12 @@ function fabriquerQuizHtml_(c) {
     titre: c.titre, sousTitre: h(c.sousTitre), icone: c.icone, matiere: c.matiere, couleur: c.couleur,
     nbQuestions: Math.min(20, c.questions.length), questions: c.questions, memo: memoHtml
   };
+  if (c.badge) cfg.badge = c.badge;
+  if (c.langueAudio) cfg.langueAudio = c.langueAudio;
+  const pills = [];
+  if (c.questions.some(q => q.dire)) pills.push('🔊 Phrases à écouter');
+  if (c.questions.some(q => q.notes && q.portee !== 'seule')) pills.push('🎵 Notes à écouter');
+  if (pills.length) cfg.pills = pills;
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
     '<title>Quiz – ' + h(c.titre) + '</title>\n<!-- Pool : ' + c.questions.length + ' questions — créé depuis la page « Ajouter un quiz » -->\n' +
     '<link rel="stylesheet" href="commun/moteur-quiz.css">\n<script src="commun/suivi.js"></script>\n<script src="commun/recompenses.js"></script>\n<script src="commun/moteur-quiz.js"></script>\n' +

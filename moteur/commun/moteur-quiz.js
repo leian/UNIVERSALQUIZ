@@ -40,6 +40,14 @@
          corps(q, ctx) → HTML,  monter(q, ctx),  entree(ctx),  attendu(q) } }
        ctx = { q, repondu, donne, ok, repondre(donne, ok, texte) }
 
+   ÉCOUTE ET MUSIQUE (intégrés, sur n'importe quel type de question)
+     q.dire  : 'How are you?'    phrase lue à voix haute (boutons Écouter / Lentement)
+     q.langue: 'en-GB'           langue de lecture (défaut : langueAudio du quiz, sinon en-GB)
+     q.notes : ['C4','E4','G4']  notes jouées l'une après l'autre (C4 = do du milieu ;
+                                 '#' ou 'b' acceptés ; ['C4','E4','G4'] imbriqué = accord ; '-' = silence)
+     q.portee: true              dessine aussi ces notes sur une portée en clé de sol
+     q.portee: 'seule'           portée sans bouton d'écoute (lecture de notes)
+
    CROCHETS
      avantQuestion(q)            après affichage d'une question non répondue
      quitterQuestion()           avant de quitter une question (ex. couper le son)
@@ -193,7 +201,87 @@
     enregistrer(val, bonneSaisie(q, val));
   }
   function montrerIndice() { const h = document.getElementById('hint-text'), b = document.getElementById('hint-btn'); if (h) h.style.display = ''; if (b) b.remove(); }
-  function quitter() { if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
+
+  /* ---------- écoute : phrase lue (synthèse vocale) et notes de musique ---------- */
+  const LETTRES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
+  const FR = { DO: 'C', UT: 'C', RE: 'D', MI: 'E', FA: 'F', SOL: 'G', LA: 'A', SI: 'B' };
+  // 'C4', 'F#4', 'Bb3' (notation internationale) ou 'do3', 'fa#3' (notation française : do3 = C4)
+  function lireNote(n) {
+    const t = String(n ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/♯/g, '#').replace(/♭/g, 'b').trim();
+    let m = t.match(/^([A-Ga-g])([#b]?)(\d)?$/), dec = 0;
+    if (!m) { m = t.match(/^(do|ut|re|mi|fa|sol|la|si)([#b]?)(\d)?$/i); if (!m) return null; m = [m[0], FR[m[1].toUpperCase()], m[2], m[3]]; dec = 1; }
+    const L = m[1].toUpperCase(), oct = (m[3] == null ? 4 : +m[3] + dec), alt = m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0;
+    return { midi: 12 * (oct + 1) + LETTRES[L] + alt, pas: oct * 7 + 'CDEFGAB'.indexOf(L), alt };
+  }
+  const sequence = q => (Array.isArray(q.notes) ? q.notes : []).map(x => (Array.isArray(x) ? x : [x]).map(lireNote).filter(Boolean));
+
+  let actx = null, sons = [];
+  function couperSon() {
+    try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+    sons.forEach(o => { try { o.stop(); } catch (e) {} }); sons = [];
+  }
+  function jouerNotes(q) {
+    couperSon();
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    actx = actx || new AC(); if (actx.state === 'suspended') actx.resume();
+    const pas = 0.55; let t = actx.currentTime + 0.06;
+    sequence(q).forEach(accord => {
+      accord.forEach(n => {
+        const f = 440 * Math.pow(2, (n.midi - 69) / 12);
+        [[1, 1], [2, 0.28], [3, 0.1]].forEach(([k, a]) => {       // fondamentale + deux harmoniques : son doux, proche d'un piano
+          const o = actx.createOscillator(), g = actx.createGain();
+          o.type = 'sine'; o.frequency.value = f * k;
+          g.gain.setValueAtTime(0.0001, t);
+          g.gain.exponentialRampToValueAtTime(0.22 * a / Math.sqrt(accord.length), t + 0.012);
+          g.gain.exponentialRampToValueAtTime(0.0001, t + pas * 1.7);
+          o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + pas * 1.8); sons.push(o);
+        });
+      });
+      t += pas;
+    });
+  }
+  function direPhrase(q, lent) {
+    couperSon();
+    if (!('speechSynthesis' in window)) return;
+    const langue = q.langue || C.langueAudio || 'en-GB';
+    const u = new SpeechSynthesisUtterance(String(q.dire));
+    u.lang = langue; u.rate = lent ? 0.6 : 0.9;
+    const voix = speechSynthesis.getVoices(), base = langue.slice(0, 2).toLowerCase();
+    const v = voix.find(x => x.lang.replace('_', '-').toLowerCase() === langue.toLowerCase()) || voix.find(x => x.lang.toLowerCase().startsWith(base));
+    if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  }
+  function ecouter(quoi) {
+    const q = shuffled && shuffled[cur]; if (!q) return;
+    if (quoi === 'notes') jouerNotes(q); else direPhrase(q, quoi === 'lent');
+  }
+  function porteeSVG(q) {
+    const seq = sequence(q); if (!seq.length) return '';
+    const bas = 92, demi = 7, x0 = 96, dx = Math.min(64, 300 / seq.length);        // bas = ligne du mi (E4), demi = demi-interligne
+    let s = '';
+    for (let i = 0; i < 5; i++) s += `<line x1="16" x2="${Math.max(420, x0 + dx * seq.length + 10)}" y1="${bas - i * 2 * demi}" y2="${bas - i * 2 * demi}" stroke="#334155" stroke-width="1.4"/>`;
+    s += `<text x="20" y="${bas + 9}" font-size="78" fill="#1e293b" font-family="'Noto Music','Segoe UI Symbol','Apple Symbols','Bravura',serif">𝄞</text>`;
+    seq.forEach((accord, i) => accord.forEach(n => {
+      const p = n.pas - 30, x = x0 + i * dx, y = bas - p * demi;                   // 30 = pas du mi4
+      for (let l = -2; l >= p; l -= 2) s += `<line x1="${x - 16}" x2="${x + 16}" y1="${bas - l * demi}" y2="${bas - l * demi}" stroke="#334155" stroke-width="1.4"/>`;
+      for (let l = 10; l <= p; l += 2) s += `<line x1="${x - 16}" x2="${x + 16}" y1="${bas - l * demi}" y2="${bas - l * demi}" stroke="#334155" stroke-width="1.4"/>`;
+      if (n.alt) s += `<text x="${x - 26}" y="${y + 6}" font-size="20" fill="#1e293b">${n.alt > 0 ? '♯' : '♭'}</text>`;
+      s += `<ellipse cx="${x}" cy="${y}" rx="9.5" ry="6.8" fill="#1e293b" transform="rotate(-18 ${x} ${y})"/>`;
+      s += p < 4 ? `<line x1="${x + 8.6}" x2="${x + 8.6}" y1="${y - 2}" y2="${y - 44}" stroke="#1e293b" stroke-width="2"/>`
+                 : `<line x1="${x - 8.6}" x2="${x - 8.6}" y1="${y + 2}" y2="${y + 44}" stroke="#1e293b" stroke-width="2"/>`;
+    }));
+    return `<div class="portee"><svg viewBox="0 0 ${Math.max(440, x0 + dx * seq.length + 30)} 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Portée en clé de sol">${s}</svg></div>`;
+  }
+  function blocEcoute(q, repondu) {
+    let h = '';
+    if (q.portee && q.notes) h += porteeSVG(q);
+    const b = [];
+    if (q.dire) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter()">🔊 ${repondu ? 'Réécouter' : 'Écouter'}</button><button class="ecoute-btn lent" onclick="MoteurQuiz.ecouter('lent')">🐢 Lentement</button>`);
+    if (q.notes && q.portee !== 'seule' && sequence(q).length) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter('notes')">🎵 ${repondu ? 'Réécouter' : 'Écouter'}</button>`);
+    return h + (b.length ? `<div class="ecoute-row">${b.join('')}</div>` : '');
+  }
+
+  function quitter() { couperSon(); if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
 
   function prevQuestion() {
     if (cur === 0) return;
@@ -263,6 +351,7 @@
         ${visuel(q)}
         <div class="question-text">${texteQuestion(q)}</div>
         ${C.blocQuestion ? (C.blocQuestion(q, answered) || '') : ''}
+        ${blocEcoute(q, answered)}
         ${body}
         ${expBlock}
       </div>
@@ -391,7 +480,7 @@
       chargerBadges();
     },
     start: () => startQuiz(), home: renderStart, answer: handleAnswer, validate: validateInput, prev: prevQuestion, next,
-    indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
+    ecouter, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     rafraichir: () => renderQuestion(),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau

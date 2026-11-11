@@ -51,7 +51,7 @@ function fausseApi(url, o) {
 const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
   UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? reponse(200, CHARGE) : fausseApi(url, o) },
-  ScriptApp: { getOAuthToken: () => 'jeton-de-test' },
+  ScriptApp: { getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
   PropertiesService: { getUserProperties: () => ({
     getProperty: k => userProps[k] ?? null, setProperty: (k, v) => { userProps[k] = String(v); },
     getProperties: () => ({ ...userProps }), setProperties: o => { for (const k in o) userProps[k] = String(o[k]); },
@@ -59,7 +59,7 @@ const ctx = {
     deleteAllProperties: () => { for (const k in userProps) delete userProps[k]; }
   }) },
   LockService: { getUserLock: () => ({ tryLock: () => true, releaseLock() {} }) },
-  HtmlService: { createHtmlOutput: html => { const o = { html, setTitle: () => o, addMetaTag: () => o }; return o; } }
+  HtmlService: { createHtmlOutput: html => { const o = { html, setTitle: () => o, setFaviconUrl: () => o, addMetaTag: () => o }; return o; } }
 };
 vm.createContext(ctx);
 vm.runInContext(readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8'), ctx, { filename: 'en-ligne/Code.gs' });
@@ -83,6 +83,7 @@ ok(code && /prenom: 'Zoé l’aînée',/.test(code.source), 'prénom écrit dans
 const charge = JSON.parse(CHARGE);
 ok(p1.contenu.length === charge.fichiers.length && p1.contenu.some(f => f.name === 'lib/page-ajouter' && f.type === 'HTML') && p1.contenu.some(f => f.name === 'appsscript' && f.type === 'JSON'), 'tous les fichiers du moteur sont envoyés (' + p1.contenu.length + ')');
 ok(JSON.parse(p1.contenu.find(f => f.name === 'appsscript').source).webapp.access === 'ANYONE_ANONYMOUS', 'le site de la famille reste ouvert sans compte pour l\'enfant');
+ok(/version: 'v-test',/.test(code.source) && /installateur: 'https:\/\/script\.google\.com\/macros\/s\/INSTALLATEUR\/exec'/.test(code.source), 'version et adresse de l\'installateur écrites dans le site (bandeau « mise à jour »)');
 const url1 = r.url;
 
 // 4. mise à jour : même projet, même adresse
@@ -106,6 +107,10 @@ e = ctx.apiEtat();
 ok(!e.installe && Object.keys(projets).length === avant, '?recommencer=1 : retour à l\'écran d\'installation, ancien site intact');
 r = ctx.apiInstaller('Test');
 ok(r.ok && Object.keys(projets).length === avant + 1, 'après ?recommencer=1 : nouvelle installation complète');
+
+// 6 bis. bouton « Repartir de zéro »
+ctx.apiRecommencer();
+ok(!ctx.apiEtat().installe, 'bouton « Repartir de zéro » : l\'installateur oublie le site');
 
 // 7. la page : HTML complet et script valide
 const html = ctx.doGet({ parameter: {} }).html;

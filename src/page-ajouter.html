@@ -30,6 +30,7 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 .ok{border-left:5px solid var(--ok);padding:10px 14px;background:color-mix(in srgb,var(--ok) 10%,var(--card));border-radius:10px}
 .ko{border-left:5px solid var(--ko);padding:10px 14px;background:color-mix(in srgb,var(--ko) 10%,var(--card));border-radius:10px}
 .retour{display:block;text-align:center;margin-top:24px;color:var(--soft)}
+  .maj { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 16px; padding: 12px 16px; margin: 14px 0; }
 </style>
 </head>
 <body>
@@ -81,6 +82,7 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
     <div id="resultat" aria-live="polite"></div>
   </section>
 
+  <div id="maj" class="maj" hidden></div>
   <a class="retour" href="index.html">📚 Revenir à mes quiz</a>
 </main>
 
@@ -94,27 +96,36 @@ Tu es enseignant. À partir des photos de leçon que je joins, crée un quiz de 
 Règles :
 - ${nb} questions variées : environ la moitié en QCM, un quart en vrai/faux, un quart en réponses courtes à écrire.
 - Uniquement des questions dont la réponse se trouve dans la leçon. Vérifie chaque réponse (dates, nombres, noms propres, orthographe).
+- Chaque question doit se comprendre SANS avoir la leçon sous les yeux. Interdit : « dans le bilan », « dans la leçon », « dans le document », « l'exemple donné », « d'après le texte », « cité plus haut ». Mauvais : « Quel exemple d'être vivant unicellulaire est donné dans le bilan ? ». Bon : « La paramécie est un être vivant… » (unicellulaire / pluricellulaire). Interroge sur les connaissances (définitions, causes, dates, méthodes, vocabulaire), jamais sur la mise en page ni sur un exemple pris au hasard.
+- Une seule bonne réponse possible ; les mauvais choix sont plausibles mais clairement faux.
 - Chaque question a une catégorie courte ("cat") et une explication bienveillante d'une ou deux phrases ("exp").
-- QCM : 3 ou 4 choix plausibles ; "a" est recopié exactement depuis "opts".
+- QCM : 3 ou 4 choix ; "a" est recopié exactement depuis "opts".
 - Vrai/faux : "a" vaut true ou false, avec à peu près autant de chaque.
 - Réponse courte ("saisie") : 1 à 3 mots ou un nombre ; "ans" liste toutes les variantes acceptables (avec ou sans article, chiffres et lettres…).
 - Phrases neutres en genre quand tu t'adresses à l'élève.
 - "matiere" vaut : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
+- "icone" : un emoji qui illustre le thème précis de la leçon. "badge" : un AUTRE emoji, la récompense gagnée à 100 % (ex. volcans : 🌋 et 🔥).
 - "memo" : 3 à 8 points clés à retenir.
+- Leçon d'ANGLAIS (ou autre langue) : dans un tiers des questions au moins, ajoute "dire" : le mot ou la phrase en anglais que l'élève écoutera (lu par l'appareil), sans l'écrire dans "q". Ex. q « Que veut dire la phrase entendue ? », q « Écris le nombre entendu, en chiffres ». Autre langue : ajoute "langue" ("es-ES", "de-DE", "it-IT").
+- Leçon de MUSIQUE : ajoute si utile "notes", la liste des notes jouées, en notation internationale (C4 = do du milieu, D4 = ré, … B4 = si, C5 ; "#"/"b" permis ; ["C4","E4","G4"] entre crochets = accord). Avec "portee": true les notes sont aussi dessinées sur une portée en clé de sol ; avec "portee": "seule" elles sont dessinées sans être jouées (lecture de notes). Ex. q « Le son monte ou descend ? », q « Quelle est cette note ? ». Ne donne pas la réponse dans "q".
 
 Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds UNIQUEMENT avec ce JSON :
 {
   "titre": "…",
   "sousTitre": "une phrase d'accroche",
   "matiere": "…",
-  "icone": "un emoji",
+  "icone": "🌋",
+  "badge": "🔥",
   "questions": [
     {"type": "qcm", "cat": "…", "q": "…", "opts": ["…", "…", "…"], "a": "…", "exp": "…"},
     {"type": "vf", "cat": "…", "q": "…", "a": true, "exp": "…"},
-    {"type": "saisie", "cat": "…", "q": "…", "ans": ["…", "…"], "hint": "indice facultatif", "exp": "…"}
+    {"type": "saisie", "cat": "…", "q": "…", "ans": ["…", "…"], "hint": "indice facultatif", "exp": "…"},
+    {"type": "qcm", "cat": "…", "q": "Que veut dire la phrase entendue ?", "dire": "Open your book, please.", "opts": ["…", "…", "…"], "a": "…", "exp": "…"},
+    {"type": "saisie", "cat": "…", "q": "Quelle est cette note ?", "notes": ["G4"], "portee": true, "ans": ["sol"], "exp": "…"}
   ],
   "memo": ["…", "…"]
-}`;
+}
+(Les deux derniers modèles ne servent que pour l'anglais et la musique.)`;
 
   const liensIA = Array.from(document.querySelectorAll('a.ia'));
   // chaque bouton d'IA porte les consignes dans son adresse (?q=…) : l'IA s'ouvre avec le message déjà écrit
@@ -158,6 +169,26 @@ Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds 
   });
 
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+
+  // une nouvelle version du moteur est-elle publiée ? (dernière Release GitHub, une vérification par jour)
+  (async function () {
+    const U = window.__UQ || {};
+    if (!U.installateur || !U.version) return;
+    let derniere = '';
+    try { const m = JSON.parse(localStorage.getItem('uq.maj') || 'null'); if (m && Date.now() - m.t < 864e5) derniere = m.v; } catch (e) {}
+    if (!derniere) {
+      try {
+        const r = await fetch('https://api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
+        if (!r.ok) return;
+        derniere = (await r.json()).tag_name || '';
+        try { localStorage.setItem('uq.maj', JSON.stringify({ t: Date.now(), v: derniere })); } catch (e) {}
+      } catch (e) { return; }
+    }
+    if (!derniere || derniere.toLowerCase() === String(U.version).toLowerCase()) return;
+    $('maj').hidden = false;
+    $('maj').innerHTML = '🔄 Une nouvelle version d\'Universal Quiz est disponible (' + h(derniere) + ').<br><a class="btn leger" href="' + h(U.installateur) + '" target="_blank" rel="noopener">Mettre à jour mon site</a>';
+  })();
+
   $('creer').addEventListener('click', () => {
     const texte = $('reponse').value;
     const res = $('resultat');

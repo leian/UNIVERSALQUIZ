@@ -56,28 +56,21 @@ En cas d'erreur, le message affiché indique en général l'étape oubliée :
 
 ### Refaire un test complet avec le même compte
 
-L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour revoir le parcours d'un nouvel ami avec un compte qui a déjà installé :
+L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour rejouer le parcours d'un nouvel ami avec un compte qui a déjà installé :
 
-1. Sur https://myaccount.google.com/permissions (avec ce compte), supprime l'accès des applications « Universal Quiz » : celle de l'installateur et celle du site. Les écrans d'autorisation réapparaîtront.
-2. Facultatif : sur https://script.google.com, supprime le projet « Universal Quiz » créé par le test. Le dossier Drive et les résultats ne sont pas touchés.
-3. Ouvre l'installateur en ajoutant `?recommencer=1` à la fin de son adresse (`…/exec?recommencer=1`) : il oublie l'installation précédente et affiche les deux étapes.
+1. Ouvre l'installateur : il affiche « Ton site est installé ». Touche **Repartir de zéro (créer un nouveau site)**, puis confirme. (L'adresse `…/exec?recommencer=1` fait la même chose.)
+2. Pour revoir aussi les deux écrans d'autorisation de Google : sur https://myaccount.google.com/permissions, supprime l'accès des applications « Universal Quiz » avant de recommencer.
+3. Facultatif : sur https://script.google.com, mets à la corbeille le projet « Universal Quiz » du test précédent. Sinon, les sites de test s'accumulent.
 
-Le nouveau site réutilise le dossier Drive « Universal Quiz » et le Sheets des résultats s'ils existent déjà dans le compte.
+Le nouveau site réutilise le dossier Drive « Universal Quiz » et le Sheets des résultats s'ils existent déjà dans le compte : les quiz et les scores ne sont jamais perdus.
 
 ## 4. Le mail à envoyer aux amis
 
-> **Objet : Universal Quiz — des quiz de révision pour ton enfant**
->
-> Bonjour,
->
-> Voici l'outil dont je t'ai parlé : on prend une leçon en photo, une IA en fait un quiz, et l'enfant révise sur son téléphone ou sa tablette. C'est gratuit, et tout reste dans ton propre compte Google.
->
-> Pour l'installer, environ 5 minutes depuis ton téléphone, ouvre ce lien et suis les deux étapes :
-> 👉 *(URL de l'installateur)*
->
-> Google affichera deux fois l'avertissement « Google n'a pas validé cette application » : une fois pour l'installateur, une fois pour ton site. C'est normal : touche **Paramètres avancés**, puis **Accéder à…**, puis **Continuer**.
->
-> À la fin, garde l'adresse de ton site en favori. Pour ajouter un quiz : sur ton site, « ➕ Ajouter un quiz ». Pour une mise à jour, rouvre ce même lien et touche « Mettre à jour mon site ».
+Le mail mis en forme (logo, bouton, étapes) est sur cette page : **https://leian.github.io/UNIVERSALQUIZ/invitation.html**. Écris le prénom de l'ami et ta signature, touche « Copier le mail », puis colle-le dans un nouveau message Gmail.
+
+## 5. Supprimer l'avertissement de Google (facultatif)
+
+Voir [`VALIDATION-GOOGLE.md`](VALIDATION-GOOGLE.md).
 
 ## Mettre à jour l'installateur lui-même (rare)
 
