@@ -1,9 +1,10 @@
-# Publie une nouvelle version de l'installateur Windows.
-# Déclenchement : pousser un tag qui commence par v (ex. v1.1, v2),
+# Publie une nouvelle version du moteur pour l'installateur en ligne.
+# Déclenchement : pousser un tag qui commence par v (ex. v2.1),
 # ou Actions → « Publier l'installateur » → Run workflow.
-# 1. teste le projet et fabrique Installer-Universal-Quiz.cmd (Linux) ;
-# 2. compile Installer-Universal-Quiz.exe, la fenêtre d'installation illustrée (Windows) ;
-# 3. crée la Release avec les fichiers (dont universal-quiz.json, lu par l'installateur en ligne), marquée « dernière version ».
+# 1. teste le projet (faux Google + Chrome) ;
+# 2. fabrique universal-quiz.json (le moteur au format de l'API Apps Script) ;
+# 3. crée la Release qui le contient, marquée « dernière version » :
+#    l'installateur en ligne (en-ligne/Code.gs) la lit toute seule.
 name: Publier l'installateur
 
 on:
@@ -12,15 +13,19 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag de la version à publier (ex. v2)'
+        description: 'Tag de la version à publier (ex. v2.1)'
         required: true
 
 permissions:
   contents: write
 
 jobs:
-  construire:
+  publier:
     runs-on: ubuntu-latest
+    env:
+      TAG: ${{ inputs.tag || github.ref_name }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -31,116 +36,21 @@ jobs:
           npm install --no-save playwright
           npx playwright install --with-deps chromium
           node tests/test.mjs
-      - name: Fabriquer l'installateur .cmd
-        run: node outils/fabriquer-installeur.mjs
       - name: Fabriquer le moteur pour l'installateur en ligne (universal-quiz.json)
         run: node outils/fabriquer-charge.mjs
-        env:
-          TAG: ${{ inputs.tag || github.ref_name }}
-      - uses: actions/upload-artifact@v4
-        with:
-          name: installateur-cmd
-          path: dist/Installer-Universal-Quiz.cmd
-      - uses: actions/upload-artifact@v4
-        with:
-          name: installateur-en-ligne
-          path: dist/universal-quiz.json
-
-  exe:
-    needs: construire
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/download-artifact@v4
-        with:
-          name: installateur-cmd
-          path: dist
-      - name: Compiler le lanceur .exe (avec icône)
-        shell: pwsh
-        run: |
-          $csc = "$env:WINDIR\Microsoft.NET\Framework64\v4.0.30319\csc.exe"
-          & $csc /nologo /optimize+ /target:winexe /codepage:65001 /out:dist\Installer-Universal-Quiz.exe /win32icon:outils\icone.ico `
-            /r:System.Windows.Forms.dll /r:System.Drawing.dll /r:System.IO.Compression.dll /r:System.IO.Compression.FileSystem.dll `
-            "/resource:dist\Installer-Universal-Quiz.cmd,installeur.cmd" `
-            "/resource:outils\images\etape-api.png,etape-api.png" "/resource:outils\images\etape-acces.png,etape-acces.png" "/resource:outils\images\etape-autoriser.png,etape-autoriser.png" `
-            outils\lanceur.cs
-          if ($LASTEXITCODE -ne 0) { exit 1 }
-      - name: Vérifier que le .exe démarre et contient l'installateur
-        shell: pwsh
-        run: |
-          $p = Start-Process dist\Installer-Universal-Quiz.exe -ArgumentList '--test' -Wait -PassThru
-          if ($p.ExitCode -ne 0) { Write-Host "Code $($p.ExitCode)"; Get-Content "$env:TEMP\UniversalQuiz-erreur.txt" -ErrorAction SilentlyContinue; exit 1 }
-          Get-Content "$env:TEMP\UniversalQuiz-installateur\test.txt"
-          $extrait = Join-Path $env:TEMP 'UniversalQuiz-installateur\Installer-Universal-Quiz.cmd'
-          if ((Get-FileHash $extrait).Hash -ne (Get-FileHash dist\Installer-Universal-Quiz.cmd).Hash) { Write-Error 'Le fichier extrait diffère'; exit 1 }
-          # le script PowerShell contenu dans le .cmd doit être syntaxiquement valide
-          $t = [IO.File]::ReadAllText($extrait, [Text.Encoding]::UTF8)
-          $d = $t.IndexOf('#' + 'PS-DEBUT#'); $f = $t.IndexOf('#' + 'FICHIERS#')
-          $erreurs = $null
-          [void][System.Management.Automation.Language.Parser]::ParseInput($t.Substring($d, $f - $d), [ref]$null, [ref]$erreurs)
-          if ($erreurs.Count) { $erreurs | ForEach-Object { Write-Host $_ }; exit 1 }
-          Write-Host 'Lanceur vérifié.'
-      - name: Capturer les écrans de la fenêtre (pour relecture)
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          $p = Start-Process dist\Installer-Universal-Quiz.exe -ArgumentList '--capture', "$PWD\ecrans" -Wait -PassThru
-          Write-Host "Code $($p.ExitCode)"; Get-Content "$env:TEMP\UniversalQuiz-erreur.txt" -ErrorAction SilentlyContinue
-          Get-ChildItem ecrans
-      - uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: ecrans
-          path: ecrans
-      - uses: actions/upload-artifact@v4
-        with:
-          name: installateur-exe
-          path: dist/Installer-Universal-Quiz.exe
-
-  publier:
-    needs: [construire, exe]
-    runs-on: ubuntu-latest
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          pattern: installateur-*
-          path: dist
-          merge-multiple: true
       - name: Créer ou mettre à jour la Release
         run: |
           cat > notes.md <<NOTES
-          **Installation depuis un téléphone (ou n'importe quel appareil)** : ouvrez le lien de l'installateur en ligne reçu par mail. Il installe toujours la dernière version, et le bouton « Mettre à jour mon site » sert pour les mises à jour.
+          **Installation et mise à jour** : ouvrez le lien de l'installateur en ligne reçu par mail, depuis un téléphone ou un ordinateur. Il installe toujours la dernière version, et le bouton « Mettre à jour mon site » applique les nouvelles versions sans changer l'adresse du site.
 
-          **Installation sous Windows** : téléchargez \`Installer-Universal-Quiz.exe\` ci-dessous, double-cliquez dessus et laissez-vous guider (environ 10 minutes, un compte Google suffit).
-
-          Si votre antivirus bloque le \`.exe\`, prenez \`Installer-Universal-Quiz.cmd\` : c'est le même installateur, sans icône.
-
-          Déjà installé ? Relancez simplement ce nouveau fichier : le site est mis à jour et son adresse ne change pas.
+          Le fichier \`universal-quiz.json\` ci-dessous est lu automatiquement par l'installateur : vous n'avez rien à télécharger.
 
           Licence PolyForm Noncommercial 1.0.0 : usage commercial interdit.
           NOTES
           if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd dist/universal-quiz.json --clobber
+            gh release upload "$TAG" dist/universal-quiz.json --clobber
             gh release edit "$TAG" --latest --prerelease=false --draft=false
           else
-            gh release create "$TAG" dist/Installer-Universal-Quiz.exe dist/Installer-Universal-Quiz.cmd dist/universal-quiz.json \
+            gh release create "$TAG" dist/universal-quiz.json \
               --title "Universal Quiz $TAG" --notes-file notes.md --latest
           fi
-      # les captures des écrans de la fenêtre sont rangées dans la branche « captures » (relecture, mode d'emploi)
-      - uses: actions/download-artifact@v4
-        continue-on-error: true
-        with:
-          name: ecrans
-          path: ecrans
-      - name: Ranger les captures dans la branche « captures »
-        continue-on-error: true
-        run: |
-          cd ecrans
-          git init -q -b captures
-          git add .
-          git -c user.name="github-actions" -c user.email="github-actions@users.noreply.github.com" commit -q -m "Captures de l'installateur ($TAG)"
-          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GH_REPO}" captures

@@ -10,48 +10,13 @@ Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'imp
 
 ## Installer
 
-### Pour un ami, depuis son téléphone : l'installateur en ligne
+### L'installateur en ligne (téléphone, tablette ou ordinateur)
 
 L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur. Le même lien sert ensuite aux mises à jour, et l'adresse du site ne change pas.
 
-L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis. Ensuite, chaque Release fournit le fichier `universal-quiz.json` que l'installateur lit tout seul.
+L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis.
 
-### Pour un ami sous Windows : un seul fichier
-
-```bash
-node outils/fabriquer-installeur.mjs
-```
-
-Cette commande crée `dist/Installer-Universal-Quiz.cmd`. Ce fichier contient tout le projet. Ton ami double-clique dessus, et le programme s'occupe du reste :
-
-- il télécharge Node.js en version portable, sans droits administrateur ;
-- il demande le prénom de l'enfant ;
-- il ouvre les deux pages Google nécessaires ;
-- il crée et publie le site ;
-- il pose un raccourci sur le Bureau.
-
-Rien n'est installé dans Windows : tout va dans `%LOCALAPPDATA%\UniversalQuiz`. Pour faire une mise à jour, il suffit de relancer le même fichier : l'adresse du site ne change pas.
-
-**Publier une nouvelle version** : pousse un tag qui commence par `v`.
-
-```bash
-git tag v2 && git push origin v2
-```
-
-L'action GitHub `.github/workflows/publier.yml` teste alors le projet, fabrique l'installateur `.cmd`, compile `Installer-Universal-Quiz.exe` (une fenêtre d'installation illustrée, qui contient ce `.cmd` et fait le même travail ; voir `outils/lanceur.cs` et `outils/images/`) et publie les deux dans une Release marquée comme dernière version. Le `.exe` n'est pas signé : si un antivirus le bloque, le `.cmd` fait exactement la même chose. Le lien à donner aux amis ne change jamais : https://github.com/leian/UNIVERSALQUIZ/releases/latest/download/Installer-Universal-Quiz.cmd
-
-### Les autres façons d'installer
-
-- **A. Sans outil** : faire une copie du projet Apps Script partagé, puis le déployer.
-- **B. Avec Node.js 18 ou plus**, depuis ce dépôt :
-
-```bash
-node installer.mjs
-```
-
-Avant le premier lancement de la voie B, active l'API Apps Script ici : https://script.google.com/home/usersettings
-
-Relance la même commande après chaque modification : le site est mis à jour et son adresse ne change pas.
+**Publier une nouvelle version du moteur** : GitHub → Actions → « Publier l'installateur » → Run workflow, avec un nouveau tag (par exemple `v2.1`). L'Action teste le projet, puis crée une Release qui contient `universal-quiz.json`. L'installateur lit toujours la dernière Release : chaque ami récupère la nouvelle version en touchant « Mettre à jour mon site ».
 
 ## Contenu du dépôt
 
@@ -63,10 +28,9 @@ Relance la même commande après chaque modification : le site est mis à jour e
 | `src/pont.html` | Inséré dans chaque page : redirige `fetch('/api/resultats')` vers Google et corrige les liens |
 | `src/exemple-quiz.html` | Le quiz d'exemple créé à l'installation, qui sert aussi de modèle pour l'IA |
 | `src/appsscript.json` | Le manifeste : application web exécutée par le propriétaire, accessible avec le lien |
-| `construire.mjs` | Assemble `moteur/` et `src/` dans `build/`, le dossier envoyé sur Google |
-| `installer.mjs` | Installe ou met à jour le projet avec clasp (Windows, macOS ou Linux) |
+| `construire.mjs` | Assemble `moteur/` et `src/` dans `build/`, d'où est tiré `universal-quiz.json` |
 | `en-ligne/` | L'installateur en ligne (installation et mise à jour depuis un téléphone) et sa mise en place |
-| `outils/` | `fabriquer-installeur.mjs` et `installeur-windows.ps1` : fabriquent l'installateur Windows en un seul fichier ; `fabriquer-charge.mjs` : fabrique `universal-quiz.json`, le moteur lu par l'installateur en ligne |
+| `outils/fabriquer-charge.mjs` | Fabrique `universal-quiz.json`, le moteur lu par l'installateur en ligne |
 | `tests/` | Un test de bout en bout sans compte Google, sur un faux Google et dans Chrome : `node tests/test.mjs` |
 
 ## Ajouter un quiz

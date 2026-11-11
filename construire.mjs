@@ -2,8 +2,8 @@
 /* =====================================================================
    CONSTRUCTION DU PROJET APPS SCRIPT
    Prend le moteur (moteur/commun/, moteur/index.html, tableau-de-bord.html,
-   controles.html) et fabrique le dossier build/ prêt à être envoyé
-   sur Google avec clasp (voir installer.mjs).
+   controles.html) et fabrique le dossier build/, d'où outils/fabriquer-charge.mjs
+   tire universal-quiz.json (lu par l'installateur en ligne).
    Usage : node construire.mjs
    ===================================================================== */
 import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync, readdirSync } from 'node:fs';
