@@ -196,9 +196,9 @@ function pageHtml_() {
   '</div>' +
 
   '<div id="deja" class="cache"><section class="etape"><h2>✅ Ton site est installé</h2>' +
-  '<p class="url"><a id="lien-site" href="#" target="_blank" rel="noopener"></a></p>' +
+  '<p><a class="btn" id="lien-site" href="#" target="_blank" rel="noopener">▶ Accéder à mon site</a></p>' +
   '<p id="info-version" class="petit"></p>' +
-  '<button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
+  '<button class="btn leger" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
   '<p class="petit" style="margin-top:18px"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
   '<div id="confirmer" class="cache ko"><p>Ton site actuel restera en ligne, mais l\'installateur l\'oubliera : la prochaine installation créera un <b>nouveau site, à une nouvelle adresse</b>. Tes quiz et tes résultats, rangés dans ton Drive, sont conservés.</p>' +
   '<button class="btn" id="oui-recommencer" type="button">Oui, repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
@@ -247,7 +247,7 @@ function scriptPage_() {
     }
     function afficherDeja(e) {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
-      $('lien-site').href = e.url; $('lien-site').textContent = e.url;
+      $('lien-site').href = e.url;
       $('info-version').textContent = e.version === e.derniere
         ? 'Version ' + e.version + ' : c\'est la dernière.'
         : 'Version installée : ' + (e.version || '?') + ' — nouvelle version disponible : ' + e.derniere + '.';
