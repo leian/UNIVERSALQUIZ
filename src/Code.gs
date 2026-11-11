@@ -418,7 +418,7 @@ function apiGeminiCle(d) {
   const cle = String((d && d.cle) || '').trim();
   const props = PropertiesService.getScriptProperties();
   if (!cle) { props.deleteProperty('GEMINI_CLE'); return { ok: true }; }
-  if (!/^[\w-]{30,60}$/.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
+  if (!/^(AIza|AQ\.)[\w.\-]{25,200}$/.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
   props.setProperty('GEMINI_CLE', cle);
   return { ok: true };
 }

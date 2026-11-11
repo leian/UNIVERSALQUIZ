@@ -155,7 +155,7 @@ try {
   await page.route(/generativelanguage\.googleapis\.com/, async r => {
     const u = r.request().url(), cleUtilisee = r.request().headers()['x-goog-api-key'] || new URL(u).searchParams.get('key');
     appels.push({ u, cle: cleUtilisee, corps: r.request().postData() || '' });
-    if (cleUtilisee !== 'AIzaTEST_cle_de_test_0123456789abcdef') return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. API_KEY_INVALID' } }) });
+    if (cleUtilisee !== 'AQ.Ab8TEST-cle_de_test_0123456789abcdef') return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. API_KEY_INVALID' } }) });
     if (/\/models\?/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', body: '{"models":[]}' });
     if (/gemini-flash-latest:/.test(u)) return r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"status":"UNAVAILABLE","message":"overloaded"}}' });
     return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '```\nT|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐\n## Conjugaison\nS|They ___ happy.|are|Avec they : are.\nQ|He is = ?|He\'s|His|He is → He\'s.\nV|I am = I\'m|V|Oui.\n```' }] } }] }) });
@@ -166,12 +166,12 @@ try {
   await page.locator('#g-enregistrer').click();
   await page.locator('#g-resultat .ko').waitFor({ timeout: 5000 });
   ok(/refuse/.test(await page.locator('#g-resultat').innerText()), 'Gemini : une clé refusée par Google est signalée');
-  await page.fill('#g-cle', 'AIzaTEST_cle_de_test_0123456789abcdef');
+  await page.fill('#g-cle', 'AQ.Ab8TEST-cle_de_test_0123456789abcdef');
   await page.locator('#g-enregistrer').click();
   await page.locator('#g-resultat .ok').waitFor({ timeout: 5000 });
   await page.goto(BASE + '/exec?page=ajouter');
   const htmlQuiz = await (await fetch(BASE + '/exec?page=quiz_exemple_capitales')).text();
-  ok(await page.locator('#g-avec-cle').isVisible() && !htmlQuiz.includes('AIzaTEST'), 'Gemini : clé gardée par le site, absente des pages de quiz');
+  ok(await page.locator('#g-avec-cle').isVisible() && !htmlQuiz.includes('Ab8TEST'), 'Gemini : clé gardée par le site, absente des pages de quiz');
   await page.setInputFiles('#g-photos', [{ name: 'p1.png', mimeType: 'image/png', buffer: PNG }, { name: 'p2.png', mimeType: 'image/png', buffer: PNG }]);
   await page.waitForFunction(() => !document.getElementById('g-creer').disabled);
   await page.locator('#g-creer').click();

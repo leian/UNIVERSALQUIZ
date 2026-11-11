@@ -63,8 +63,8 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <ol class="pas">
         <li><a class="btn leger" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Ouvrir Google AI Studio</a></li>
         <li>Connecte-toi avec ton compte Google et accepte les conditions.</li>
-        <li>Touche <b>« Create API key »</b> (Créer une clé). S'il te demande un projet, choisis <b>« Default Gemini Project »</b> (ou « Créer un projet »). Copie ensuite la clé : elle commence par <b>AIza</b>.</li>
-        <li>Colle-la ici :<br><input type="text" id="g-cle" placeholder="AIza…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
+        <li>Touche <b>« Create API key »</b> (Créer une clé). S'il te demande un projet, choisis <b>« Default Gemini Project »</b> (ou « Créer un projet »). Copie ensuite la clé : elle commence par <b>AQ.</b> (ou AIza pour les anciennes).</li>
+        <li>Colle-la ici :<br><input type="text" id="g-cle" placeholder="AQ.…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
           <button class="btn" id="g-enregistrer" type="button">Enregistrer la clé</button></li>
       </ol>
       <p class="petit">La clé est gratuite et sans carte bancaire. Avec la formule gratuite, Google peut se servir des photos envoyées pour améliorer Gemini.</p>
@@ -193,10 +193,10 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   $('g-enregistrer').addEventListener('click', async () => {
     const c = $('g-cle').value.trim(), res = $('g-resultat');
-    if (!/^[\w-]{30,60}$/.test(c)) { res.innerHTML = '<div class="ko">Ce n\'est pas une clé Gemini : elle commence par AIza et fait une quarantaine de caractères.</div>'; return; }
+    if (!/^(AIza|AQ\.)[\w.\-]{25,200}$/.test(c)) { res.innerHTML = '<div class="ko">Ce n\'est pas une clé Gemini : elle commence par AQ. ou AIza et fait plusieurs dizaines de caractères. Copie-la en entier.</div>'; return; }
     $('g-enregistrer').disabled = true; res.innerHTML = '<p class="petit">Vérification de la clé…</p>';
     try {
-      const r = await fetch(API_GEMINI.slice(0, -1) + '?pageSize=1&key=' + encodeURIComponent(c));
+      const r = await fetch(API_GEMINI.slice(0, -1) + '?pageSize=1', { headers: { 'x-goog-api-key': c } });
       if (!r.ok) throw new Error(await messageErreur(r));
       google.script.run
         .withSuccessHandler(r => { $('g-enregistrer').disabled = false; if (r && r.erreur) { res.innerHTML = '<div class="ko">😕 ' + h(r.erreur) + '</div>'; return; } cle = c; $('g-cle').value = ''; etatGemini(); res.innerHTML = '<div class="ok">✅ Clé enregistrée. Choisis maintenant les photos de la leçon.</div>'; })
@@ -237,7 +237,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   async function messageErreur(r) {
     let m = ''; try { const d = await r.json(); m = (d.error && (d.error.status + ' ' + d.error.message)) || ''; } catch (e) {}
-    if (/API_KEY_INVALID|API key not valid|API_KEY/i.test(m)) return 'Google refuse cette clé Gemini. Vérifie que tu l\'as copiée en entier, ou crée-en une nouvelle (« Changer de clé Gemini »).';
+    if (r.status === 401 || /API_KEY_INVALID|API key not valid|API_KEY|UNAUTHENTICATED/i.test(m)) return 'Google refuse cette clé Gemini. Vérifie que tu l\'as copiée en entier, ou crée-en une nouvelle (« Changer de clé Gemini »).';
     if (r.status === 429) return 'Le quota gratuit de Gemini est atteint pour le moment. Réessaie dans une minute (ou demain), ou utilise une autre IA ci-dessous.';
     if (/location is not supported/i.test(m)) return 'Gemini n\'est pas disponible depuis ce pays.';
     return 'Gemini a répondu une erreur (' + r.status + (m ? ' : ' + m.slice(0, 160) : '') + ').';
