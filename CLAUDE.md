@@ -23,7 +23,8 @@ Le plus simple pour l'utilisateur : le JSON décrit dans le message de la page �
 - garde l'appel `MoteurQuiz.lancer({ titre, sousTitre, icone, matiere, couleur, questions, … })` ;
 - `matiere` vaut `francais`, `maths`, `sciences`, `anglais`, `histoire`, `geographie`, `musique` ou `autre` ;
 - ajoute le commentaire `<!-- Pool : N questions -->` en tête ;
-- ne pose que des questions dont la réponse se trouve dans la leçon, chacune avec une catégorie (`cat`) et une explication (`exp`) ;
+- ne pose que des questions dont la réponse découle de la leçon, chacune avec une catégorie (`cat`) et une explication (`exp`) ;
+- n'interroge que sur ce que la leçon veut faire apprendre, jamais sur un simple support (l'âge du personnage d'une phrase d'exemple dans une leçon sur le verbe BE, les nombres d'un exemple corrigé) ; dans un récit ou un compte rendu de lecture, en revanche, personnages et événements comptent ; une seule question par fait, réparties entre toutes les notions ;
 - chaque question se comprend sans la leçon sous les yeux : jamais « dans le bilan », « l'exemple donné », « d'après le document » ;
 - `icone` illustre le thème précis, `badge` est un autre emoji, gagné à 100 % ;
 - anglais : `dire: 'phrase'` sur une question ajoute les boutons « Écouter » et « Lentement » (`langue` pour une autre langue) ;
