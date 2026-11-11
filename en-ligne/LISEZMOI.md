@@ -1,5 +1,7 @@
 # Installateur en ligne — mise en place par l'éditeur (une seule fois)
 
+**Adresse de l'installateur (déployé le 11 novembre 2026 par soccaquiz)** : https://script.google.com/macros/s/AKfycbxv33ZGQhg1x0FQeRQZy7JIpL9KH2pZ_koOUqVW4Jhw8yjfhrt4hYU4HGkffU_CX5PN/exec
+
 L'installateur en ligne permet à un ami de créer son site Universal Quiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
 
 1. il crée chez lui un projet « Universal Quiz » ;
