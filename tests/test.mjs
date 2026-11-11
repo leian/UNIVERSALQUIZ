@@ -91,7 +91,7 @@ try {
   await page.goto(BASE + '/exec');
   await page.locator('a', { hasText: 'Ajouter un quiz' }).click();
   await page.waitForURL(/page=ajouter/);
-  ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('"questions"'), 'page « Ajouter » : message pour l\'IA prêt');
+  ok(/Claude/.test(await page.locator('#message').inputValue()) === false && (await page.locator('#message').inputValue()).includes('Q|question|BONNE réponse'), 'page « Ajouter » : message pour l\'IA prêt');
   const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
   const msg = await page.locator('#message').inputValue();
   ok(hrefs.length === 3 && hrefs.every(h => /\?q=/.test(h) && decodeURIComponent(h.split('?q=')[1]) === msg && h.length < 12000),
@@ -113,6 +113,28 @@ try {
   await page.locator('#resultat a.btn').click();
   await page.waitForURL(/page=quiz_les-fractions_/);
   ok(!!(await jouer()), 'le quiz créé se joue jusqu\'au résultat');
+  // format en lignes (celui que demandent les consignes) : texte autour, bloc de code, catégories, champs nommés
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.fill('#reponse', [
+    'Voici le quiz :', '```', 'T|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐',
+    '## Formes contractées', 'Q|He is = ?|He\'s|His|He\'m|He is se contracte en He\'s.',
+    'V|We are se contracte en We\'re.|V|We are → We\'re.',
+    '## Conjugaison', 'S|Complète : They ___ happy.|are|Avec they, on emploie are.',
+    'S|Quel organe pompe le sang ?|le cœur|C\'est le cœur.',
+    'Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Explication.|dire=Are you happy?',
+    'V|Le son monte.|F|Il descend.|notes=G4 C4+E4 E4|portee',
+    'Q|Question cassée|seule',
+    'M|I am → I\'m', '```', 'Bonnes révisions !'].join('\n'));
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  ok(/6 questions/.test(await page.locator('#resultat').innerText()) && /ignorée/.test(await page.locator('#resultat').innerText()), 'format en lignes : quiz créé (6 questions, 1 ignorée)');
+  await page.locator('#resultat a.btn').click();
+  await page.waitForURL(/page=quiz_le-verbe-be_/);
+  const html = await page.content();
+  ok(/"cat":"Formes contractées"/.test(html) && /"a":"He's"/.test(html) && /"dire":"Are you happy\?"/.test(html)
+     && /"notes":\["G4",\["C4","E4"\],"E4"\],"portee":true/.test(html) && /"ans":\["le cœur","cœur"\]/.test(html) && /"badge":"⭐"/.test(html),
+    'format en lignes : catégories, bonne réponse, écoute, notes, article facultatif, badge');
+  ok(!!(await jouer()), 'format en lignes : le quiz se joue jusqu\'au résultat');
   // quiz d'anglais et de musique : phrases à écouter, notes jouées, portée, badge
   await page.goto(BASE + '/exec?page=ajouter');
   await page.fill('#reponse', JSON.stringify({

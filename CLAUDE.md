@@ -18,7 +18,7 @@ Ce dépôt contient le **code** de Universal Quiz, dans sa version Google Apps S
 - Un nouveau fichier `moteur/commun/xxx.js` doit être déclaré dans `construire.mjs` (`COMMUN`) et dans `src/Code.gs` (`COMMUN`).
 
 ## Fabriquer un quiz pour quelqu'un
-Le plus simple pour l'utilisateur : le JSON décrit dans le message de la page « Ajouter un quiz » (`src/page-ajouter.html`), qu'il colle sur son site. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
+Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `M|…`) décrit dans le message de la page « Ajouter un quiz » (`src/page-ajouter.html`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
 - garde telles quelles les lignes `<link href="commun/moteur-quiz.css">` et `<script src="commun/…">` ;
 - garde l'appel `MoteurQuiz.lancer({ titre, sousTitre, icone, matiere, couleur, questions, … })` ;
 - `matiere` vaut `francais`, `maths`, `sciences`, `anglais`, `histoire`, `geographie`, `musique` ou `autre` ;

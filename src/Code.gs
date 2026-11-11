@@ -426,12 +426,15 @@ function apiAjouterQuiz(texte) {
     return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [] };
   }
 
-  // cas 2 : le JSON décrit dans le message pour l'IA
-  const debut = texte.indexOf('{'), fin = texte.lastIndexOf('}');
-  if (debut < 0 || fin <= debut) return { erreur: "Je ne trouve pas le quiz dans ce texte. Copie toute la réponse de l'IA (bouton « Copier » sous sa réponse), puis colle-la ici." };
-  let d;
-  try { d = JSON.parse(texte.slice(debut, fin + 1).replace(/,\s*([}\]])/g, '$1')); }
-  catch (e) { return { erreur: "La réponse de l'IA est incomplète ou abîmée. Demande-lui : « Redonne-moi le quiz complet, en JSON uniquement », puis recopie sa réponse." }; }
+  // cas 2 : le format en lignes du message pour l'IA (Q|…, V|…, S|…) — le plus économe en tokens
+  // cas 3 : l'ancien format JSON, toujours accepté
+  let d = lireFormatLignes_(texte);
+  if (!d) {
+    const debut = texte.indexOf('{'), fin = texte.lastIndexOf('}');
+    if (debut < 0 || fin <= debut) return { erreur: "Je ne trouve pas le quiz dans ce texte. Copie toute la réponse de l'IA (bouton « Copier » sous sa réponse), puis colle-la ici." };
+    try { d = JSON.parse(texte.slice(debut, fin + 1).replace(/,\s*([}\]])/g, '$1')); }
+    catch (e) { return { erreur: "La réponse de l'IA est incomplète ou abîmée. Demande-lui : « Redonne-moi le quiz complet », puis recopie sa réponse." }; }
+  }
 
   const avert = [];
   const txt = (v, n) => String(v == null ? '' : v).replace(/<\/?script[^>]*>/gi, '').trim().slice(0, n);
@@ -465,6 +468,8 @@ function apiAjouterQuiz(texte) {
     } else if (type === 'saisie' || type === 'input') {
       const liste = [].concat(q.ans || [], q.a != null ? [q.a] : [], q.reponse != null ? [q.reponse] : [], q.alt || [])
         .map(x => txt(x, 80)).filter(Boolean);
+      // « la photosynthèse » accepte aussi « photosynthèse » : l'IA n'a pas à écrire cette variante
+      liste.slice().forEach(x => { const s = x.replace(/^(le|la|les|un|une|des|du)\s+|^l['’]\s*/i, ''); if (s && s !== x) liste.push(s); });
       if (!liste.length) { avert.push('Question ' + (i + 1) + ' ignorée (pas de réponse).'); return; }
       const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
       const h = txt(q.hint || q.indice, 200); if (h) qq.hint = h;
@@ -490,6 +495,59 @@ function apiAjouterQuiz(texte) {
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
   CacheService.getScriptCache().remove('catalogue');
   return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert };
+}
+
+/* Format en lignes (voir le message pour l'IA dans page-ajouter.html) :
+     T|titre|accroche|matière|icône|badge        ## Catégorie
+     Q|question|bonne réponse|faux|faux|explication
+     V|affirmation|V ou F|explication            S|question|réponse;variante|explication
+     M|point à retenir
+   Champs nommés possibles n'importe où : dire=…, notes=C4 E4 C4+E4+G4, portee, portee=seule, indice=…, langue=…
+   Renvoie null si le texte n'est pas dans ce format (on essaie alors le JSON). */
+function lireFormatLignes_(texte) {
+  const d = { questions: [], memo: [] };
+  let cat = '', vu = false;
+  String(texte).split(/\r?\n/).forEach(brute => {
+    const l = brute.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)?/, '').trim();
+    const titreCat = l.match(/^#{2,}\s*(.+)$/);
+    if (titreCat) { cat = titreCat[1].replace(/[#*]/g, '').trim(); return; }
+    const m = l.match(/^([TQVSM])\s*[|:]\s*(.*)$/i);
+    if (!m) return;
+    const sorte = m[1].toUpperCase();
+    const champs = m[2].split('|').map(s => s.trim());
+    const extra = {}, pos = [];
+    champs.forEach(c => {
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue)\s*(?:[=:]\s*(.*))?$/i);
+      if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2] == null ? true : k[2].trim();
+      else pos.push(c);
+    });
+    while (pos.length && pos[pos.length - 1] === '') pos.pop();
+    if (sorte === 'T') {
+      vu = true;
+      [d.titre, d.sousTitre, d.matiere, d.icone, d.badge] = pos;
+      if (extra.langue) d.langue = extra.langue;
+      return;
+    }
+    if (sorte === 'M') { if (pos.join(' | ')) d.memo.push(pos.join(' | ')); return; }
+    const q = { cat, q: pos[0] };
+    if (sorte === 'Q') {
+      const reste = pos.slice(1);
+      q.exp = reste.length >= 3 ? reste.pop() : '';
+      Object.assign(q, { type: 'qcm', opts: reste, a: reste[0] });
+    } else if (sorte === 'V') {
+      Object.assign(q, { type: 'vf', a: /^v/i.test(pos[1] || '') ? true : /^f/i.test(pos[1] || '') ? false : pos[1], exp: pos[2] || '' });
+    } else {
+      Object.assign(q, { type: 'saisie', ans: String(pos[1] || '').split(';').map(s => s.trim()).filter(Boolean), exp: pos[2] || '' });
+    }
+    if (typeof extra.dire === 'string') q.dire = extra.dire;
+    if (typeof extra.langue === 'string') q.langue = extra.langue;
+    if (typeof extra.indice === 'string') q.hint = extra.indice;
+    if (typeof extra.notes === 'string') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
+    if (extra.portee) q.portee = extra.portee === 'seule' ? 'seule' : true;
+    vu = true;
+    d.questions.push(q);
+  });
+  return vu && d.questions.length ? d : null;
 }
 
 function fabriquerQuizHtml_(c) {

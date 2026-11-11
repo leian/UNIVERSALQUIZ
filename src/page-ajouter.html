@@ -40,7 +40,7 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 
   <section class="etape">
     <h2><span class="num">1</span> Prends la leçon en photo</h2>
-    <p>Une photo par page, bien droite et bien nette.</p>
+    <p>Une photo par page, bien droite et bien nette. Cadre seulement la leçon, sans la page d'à côté : l'IA en lit moins, ça va plus vite.</p>
   </section>
 
   <section class="etape">
@@ -49,8 +49,9 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
       <label for="classe">Classe</label>
       <input type="text" id="classe" placeholder="ex. CM1" size="10">
       <label for="nb">Questions</label>
-      <select id="nb"><option>20</option><option selected>30</option><option>40</option></select>
+      <select id="nb"><option selected>20</option><option>30</option><option>40</option></select>
     </div>
+    <p class="petit">20 questions suffisent pour une partie. 30 ou 40 font varier les questions d'une partie à l'autre, mais l'IA met plus longtemps et consomme davantage.</p>
     <p>Appuie sur une IA : elle s'ouvre avec les consignes <b>déjà écrites</b> (elles sont aussi copiées, au cas où).</p>
     <div class="ias">
       <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
@@ -89,47 +90,43 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 <script>
 (function () {
   const $ = id => document.getElementById(id);
-  const MESSAGE = (classe, nb) => `IMPORTANT : si aucune photo n'est jointe à ce message, réponds seulement « 📷 Envoie-moi les photos de la leçon. » et attends-les. Applique ensuite les consignes ci-dessous aux photos reçues.
+  const MESSAGE = (classe, nb) => `IMPORTANT : si aucune photo n'est jointe, réponds seulement « 📷 Envoie-moi les photos de la leçon. » et attends-les.
 
-Tu es enseignant. À partir des photos de leçon que je joins, crée un quiz de révision pour un élève${classe ? ' de ' + classe : ''}.
+Tu es enseignant. Avec les photos de leçon jointes, crée un quiz de révision de ${nb} questions pour un élève${classe ? ' de ' + classe : ''}.
 
-Règles :
-- ${nb} questions variées : environ la moitié en QCM, un quart en vrai/faux, un quart en réponses courtes à écrire.
-- AVANT d'écrire : repère ce que la leçon veut faire APPRENDRE (règles, notions, vocabulaire, méthodes, faits à connaître) et ce qui n'est qu'un SUPPORT pour l'illustrer (phrase d'exemple, dialogue, personnage, nombres d'un exercice corrigé, date du jour, consigne). Ne pose des questions que sur ce qui est à apprendre. Le contenu d'un support n'est jamais demandé pour lui-même : utilise-le, ou invente des exemples semblables, pour faire appliquer la notion.
-- Selon la leçon : langue étrangère → conjugaison, vocabulaire et traduction, tournures (questions, réponses courtes, formes contractées), jamais l'histoire racontée par les phrases d'exemple ; grammaire, orthographe, conjugaison → appliquer la règle à des phrases nouvelles ; maths → la méthode, sur d'autres nombres que ceux de l'exemple ; sciences → notions, définitions, classements ; histoire, géographie → dates, acteurs, lieux, causes et conséquences, qui SONT les connaissances ; lecture, récit, compte rendu → là, personnages, âges, lieux et événements comptent, car l'histoire elle-même est à connaître.
-- Ex. leçon d'anglais sur le verbe BE avec « Angela is 22 years old » : mauvais « Quel âge a Angela ? » (son âge n'a aucune importance) ; bons « Angela ___ 22 years old » (is), « Comment dit-on : elle a 22 ans ? » (She is 22 years old), « He is = ? » (He's).
-- Répartis les questions entre toutes les notions de la leçon, selon leur importance ; jamais deux questions sur le même fait.
-- Chaque réponse découle de la leçon (fait énoncé ou application d'une règle de la leçon). Vérifie chaque réponse (dates, nombres, noms propres, orthographe).
-- Chaque question doit se comprendre SANS avoir la leçon sous les yeux. Interdit : « dans le bilan », « dans la leçon », « dans le document », « l'exemple donné », « d'après le texte », « cité plus haut ». Mauvais : « Quel exemple d'être vivant unicellulaire est donné dans le bilan ? ». Bon : « La paramécie est un être vivant… » (unicellulaire / pluricellulaire). Jamais de question sur la mise en page.
-- Une seule bonne réponse possible ; les mauvais choix sont plausibles mais clairement faux.
-- Chaque question a une catégorie courte ("cat") et une explication bienveillante d'une ou deux phrases ("exp").
-- QCM : 3 ou 4 choix ; "a" est recopié exactement depuis "opts".
-- Vrai/faux : "a" vaut true ou false, avec à peu près autant de chaque.
-- Réponse courte ("saisie") : 1 à 3 mots ou un nombre ; "ans" liste toutes les variantes acceptables (avec ou sans article, chiffres et lettres…).
-- Phrases neutres en genre quand tu t'adresses à l'élève.
-- "matiere" vaut : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
-- "icone" : un emoji qui illustre le thème précis de la leçon. "badge" : un AUTRE emoji, la récompense gagnée à 100 % (ex. volcans : 🌋 et 🔥).
-- "memo" : 3 à 8 points clés à retenir.
-- Leçon d'ANGLAIS (ou autre langue) : dans un tiers des questions au moins, ajoute "dire" : le mot ou la phrase en anglais que l'élève écoutera (lu par l'appareil), sans l'écrire dans "q". Ex. q « Que veut dire la phrase entendue ? », q « Écris le nombre entendu, en chiffres ». Autre langue : ajoute "langue" ("es-ES", "de-DE", "it-IT").
-- Leçon de MUSIQUE : ajoute si utile "notes", la liste des notes jouées, en notation internationale (C4 = do du milieu, D4 = ré, … B4 = si, C5 ; "#"/"b" permis ; ["C4","E4","G4"] entre crochets = accord). Avec "portee": true les notes sont aussi dessinées sur une portée en clé de sol ; avec "portee": "seule" elles sont dessinées sans être jouées (lecture de notes). Ex. q « Le son monte ou descend ? », q « Quelle est cette note ? ». Ne donne pas la réponse dans "q".
+Contenu :
+- Repère ce que la leçon fait APPRENDRE (règles, notions, vocabulaire, méthodes, faits) et ce qui n'est qu'un SUPPORT (phrase d'exemple, dialogue, personnage, nombres d'un exemple, date du jour). N'interroge jamais sur un support pour lui-même : sers-t'en, ou invente des exemples semblables, pour faire appliquer la notion.
+- Langue étrangère : conjugaison, vocabulaire, traduction, tournures. Grammaire, orthographe : la règle sur des phrases nouvelles. Maths : la méthode, avec d'autres nombres. Sciences : notions, définitions, classements. Histoire-géo : dates, acteurs, lieux, causes. Lecture, récit : là, personnages, âges et événements comptent.
+- Ex. leçon sur le verbe BE avec « Angela is 22 years old » : mauvais « Quel âge a Angela ? » ; bon « Angela ___ 22 years old. » (is).
+- Couvre toutes les notions selon leur importance, une seule question par fait. Chaque réponse découle de la leçon : vérifie-la.
+- Chaque question se comprend sans la leçon : jamais « dans le bilan », « l'exemple donné », « d'après le texte ».
+- Une seule bonne réponse, mauvais choix plausibles. Phrases neutres en genre.
+- Environ moitié Q, quart V (autant de V que de F), quart S.
 
-Si une photo est illisible, dis-le en une phrase avant le JSON. Sinon, réponds UNIQUEMENT avec ce JSON :
-{
-  "titre": "…",
-  "sousTitre": "une phrase d'accroche",
-  "matiere": "…",
-  "icone": "🌋",
-  "badge": "🔥",
-  "questions": [
-    {"type": "qcm", "cat": "…", "q": "…", "opts": ["…", "…", "…"], "a": "…", "exp": "…"},
-    {"type": "vf", "cat": "…", "q": "…", "a": true, "exp": "…"},
-    {"type": "saisie", "cat": "…", "q": "…", "ans": ["…", "…"], "hint": "indice facultatif", "exp": "…"},
-    {"type": "qcm", "cat": "…", "q": "Que veut dire la phrase entendue ?", "dire": "Open your book, please.", "opts": ["…", "…", "…"], "a": "…", "exp": "…"},
-    {"type": "saisie", "cat": "…", "q": "Quelle est cette note ?", "notes": ["G4"], "portee": true, "ans": ["sol"], "exp": "…"}
-  ],
-  "memo": ["…", "…"]
-}
-(Les deux derniers modèles ne servent que pour l'anglais et la musique.)`;
+Format : réponds UNIQUEMENT avec un bloc de code, sans rien avant ni après. Une ligne par élément, champs séparés par |.
+T|titre|accroche courte|matière|emoji du thème|autre emoji, badge gagné à 100 %
+## Catégorie courte (vaut pour les questions qui suivent)
+Q|question|BONNE réponse|faux|faux|explication
+V|affirmation|V ou F|explication
+S|question|réponse;variante|explication
+M|point clé à retenir (3 à 6 lignes M à la fin)
+- Q : 2 ou 3 mauvais choix, la bonne réponse toujours en premier (le site mélange).
+- S : 1 à 3 mots ou un nombre. Variantes seulement si vraiment différentes (22;twenty-two) : majuscules, accents et articles sont déjà tolérés.
+- Explication : une phrase courte et bienveillante.
+- Matière : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
+- Anglais : sur un tiers des questions, ajoute le champ dire=phrase anglaise que l'appareil lira (ne l'écris pas dans la question). Autre langue : ajoute langue=es-ES (ou de-DE, it-IT) à la ligne T.
+- Musique : champ notes=C4 E4 C4+E4+G4 (C4 = do du milieu, # ou b permis, + = accord) ; ajoute portee pour dessiner aussi les notes, portee=seule pour les dessiner sans les jouer. Ne donne pas la réponse dans la question.
+- Photo illisible : dis-le en une phrase avant le bloc.
+
+Exemple :
+T|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐
+## Formes contractées
+Q|He is = ?|He's|His|He'm|He is se contracte en He's.
+V|We are se contracte en We're.|V|We are → We're.
+## Conjugaison
+S|Complète : They ___ happy.|are|Avec they, on emploie are.
+Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Are you happy? = Es-tu content ?|dire=Are you happy?
+M|I am → I'm, you are → you're`;
 
   const liensIA = Array.from(document.querySelectorAll('a.ia'));
   // chaque bouton d'IA porte les consignes dans son adresse (?q=…) : l'IA s'ouvre avec le message déjà écrit
