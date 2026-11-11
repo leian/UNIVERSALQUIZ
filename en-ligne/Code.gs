@@ -196,6 +196,7 @@ function pageHtml_() {
 
   '<div id="deja" class="cache"><section class="etape"><h2>✅ Ton site est installé</h2>' +
   '<p><a class="btn" id="lien-site" href="#" target="_blank" rel="noopener">▶ Accéder à mon site</a></p>' +
+  '<p><a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></p>' +
   '<p id="info-version" class="petit"></p>' +
   '<button class="btn leger" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
   '<p class="petit" style="margin-top:18px"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
@@ -220,9 +221,24 @@ function scriptPage_() {
           '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à Universal Quiz (non sécurisé)</b> ;</li>' +
           '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
           '<p>Ce site t\'appartient : il ne se sert que de son dossier « Universal Quiz » et de son tableau des résultats, dans ton Drive.</p>') +
-        '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a></p>' +
-        '<p class="petit">Une fois sur ton site, mets-le en favori et partage-le avec ton enfant.</p></div>';
+        '<p><a class="btn" href="' + h(url) + '" target="_blank" rel="noopener">▶ Ouvrir mon site</a> ' +
+        '<a class="btn leger mail-enfant" href="' + h(mailEnfant(url)) + '" data-url="' + h(url) + '">✉️ Envoyer le lien à mon enfant</a></p>' +
+        '<p class="petit">Une fois sur ton site, mets-le en favori.</p></div>';
     }
+    // le lien est mis dans le mail (mailto:) et copié en plus, au cas où l'appli de mail ne reprend pas le texte
+    function mailEnfant(url) {
+      return 'mailto:?subject=' + encodeURIComponent('Ton site de quiz pour réviser') +
+        '&body=' + encodeURIComponent('Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n' + url + '\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !');
+    }
+    function copier(t) {
+      try { navigator.clipboard.writeText(t); return; } catch (e) {}
+      var x = document.createElement('textarea'); x.value = t; x.style.position = 'fixed'; x.style.opacity = '0';
+      document.body.appendChild(x); x.select(); try { document.execCommand('copy'); } catch (e) {} x.remove();
+    }
+    document.addEventListener('click', function (ev) {
+      var a = ev.target.closest && ev.target.closest('#mail-enfant, .mail-enfant');
+      if (a && a.dataset.url) copier(a.dataset.url);
+    });
     function erreur(r) {
       if (r && r.erreur === 'api') {
         $('nouveau').style.display = 'block'; $('e1').classList.add('active');
@@ -246,6 +262,7 @@ function scriptPage_() {
     function afficherDeja(e) {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
       $('lien-site').href = e.url;
+      $('mail-enfant').href = mailEnfant(e.url); $('mail-enfant').dataset.url = e.url;
       $('info-version').textContent = e.version === e.derniere
         ? 'Version ' + e.version + ' : c\'est la dernière.'
         : 'Version installée : ' + (e.version || '?') + ' — nouvelle version disponible : ' + e.derniere + '.';
