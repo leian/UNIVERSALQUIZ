@@ -39,7 +39,8 @@ const echapper_ = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').re
 
 /* le mail tel qu'il est publié : contenu de <div id="mail"> */
 function modele_() {
-  const r = UrlFetchApp.fetch(SOURCE_INVITATION, { muteHttpExceptions: true, followRedirects: true });
+  // ?v=… : toujours la version publiée la plus récente (GitHub Pages garde sinon ses pages en cache une dizaine de minutes)
+  const r = UrlFetchApp.fetch(SOURCE_INVITATION + '?v=' + Date.now(), { muteHttpExceptions: true, followRedirects: true, headers: { 'Cache-Control': 'no-cache' } });
   if (r.getResponseCode() !== 200) throw new Error('Impossible de lire le mail sur GitHub Pages (erreur ' + r.getResponseCode() + ').');
   const html = r.getContentText('UTF-8');
   const debut = html.indexOf('<div id="mail">'), fin = html.indexOf('<script', debut);
