@@ -5,7 +5,7 @@
    https://polyformproject.org/licenses/noncommercial/1.0.0
    ---------------------------------------------------------------------
    Une seule adresse web sert tout le site :
-     …/exec                      → page « Mes quiz »
+     …/exec                      → page d'accueil « SoccaQuiz »
      …/exec?page=<nom du quiz>   → un quiz (fichier <nom>.html du dossier Drive)
      …/exec?page=tableau-de-bord → suivi des résultats (parents)
      …/exec?page=controles       → contrôles papier (PDF du dossier Drive)
@@ -407,7 +407,7 @@ function apiSupprimer(id) {
   return { __status: 404, erreur: 'Partie introuvable' };
 }
 
-/* suppression d'un quiz depuis « Mes quiz » : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
+/* suppression d'un quiz depuis la page d'accueil : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
 function apiSupprimerQuiz(nom) {
   nom = String(nom || '').split('/').pop();
   if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };

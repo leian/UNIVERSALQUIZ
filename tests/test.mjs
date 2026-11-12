@@ -82,6 +82,7 @@ try {
   await page.waitForURL(BASE + '/exec');
   ok(await page.locator('a.card').count() === 2, 'nouveau fichier déposé → 2 quiz listés');
   ok(await page.locator('a.card .score').count() === 1, 'score affiché sur la carte du quiz joué');
+  ok(await page.locator('.semaine .sem-jour.fait').count() === 1 && /1\s*quiz joué/.test(await page.locator('.semaine').innerText()), '« Ma semaine » : 1 quiz joué, jour du jour coché');
 
   // tableau de bord
   await page.goto(BASE + '/exec?page=tableau-de-bord');

@@ -42,6 +42,27 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .card{position:relative}
 .card .score{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:600 .82rem "Fredoka",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
 .card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
+/* « Ma semaine » : progression de la semaine, comparée à la précédente */
+.semaine{max-width:460px;margin:16px auto 0;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;text-align:left}
+.semaine h3{margin:0 0 8px;font:600 1.05rem "Fredoka",sans-serif;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.semaine h3 small{font:500 .8rem "Nunito",sans-serif;color:var(--soft)}
+.sem-jours{display:flex;justify-content:space-between;gap:4px;margin-bottom:10px}
+.sem-jour{flex:1;text-align:center;font:600 .75rem "Fredoka",sans-serif;color:var(--soft)}
+.sem-jour i{display:block;margin:3px auto 0;width:26px;height:26px;border-radius:50%;border:2px solid var(--line);line-height:22px;font-style:normal;font-size:.8rem}
+.sem-jour.fait i{background:#22c55e;border-color:#22c55e;color:#fff}
+.sem-jour.auj i{border-color:var(--ink)}
+.sem-chiffres{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.sem-chiffre{background:var(--bg);border-radius:12px;padding:6px 4px;text-align:center}
+.sem-chiffre b{display:block;font:700 1.25rem "Fredoka",sans-serif}
+.sem-chiffre span{font-size:.75rem;color:var(--soft)}
+.sem-chiffre em{display:block;font-style:normal;font-size:.72rem;font-weight:700}
+.sem-chiffre em.plus{color:#16a34a}.sem-chiffre em.moins{color:#dc2626}.sem-chiffre em.egal{color:var(--soft)}
+.sem-barres,.sem-noms{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;justify-items:center}
+.sem-barres{align-items:end;height:44px;margin-top:12px}
+.sem-barres div{width:100%;max-width:30px;min-height:3px;border-radius:6px 6px 2px 2px;background:var(--line)}
+.sem-barres div.cette{background:#7c3aed}
+.sem-noms{margin-top:3px;font-size:.66rem;color:var(--soft);white-space:nowrap}
+.sem-msg{margin:8px 0 0;font-size:.85rem;color:var(--soft);text-align:center}
 .serie{display:inline-block;margin-top:12px;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px 14px;font:600 .95rem "Fredoka",sans-serif}
 .ctrl-link{display:inline-flex;align-items:center;gap:6px;margin-top:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 16px;font:600 .95rem "Fredoka",sans-serif;text-decoration:none}
 .ctrl-link:hover{border-color:var(--soft)}
@@ -59,6 +80,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
     <input class="search" id="q" type="search" placeholder="Chercher un quiz…" aria-label="Chercher un quiz">
     <a class="ctrl-link" href="controles.html">🖨️ Mes contrôles papier</a>
     <div id="serie"></div>
+    <div id="semaine"></div>
     <div class="filters" id="filters"></div>
   </header>
   <main id="list"></main>
@@ -135,6 +157,49 @@ function calculerStats(liste) {
   if (!jours.has(d.toLocaleDateString("fr-CA"))) d.setDate(d.getDate() - 1);
   while (jours.has(d.toLocaleDateString("fr-CA"))) { serie++; d.setDate(d.getDate() - 1); }
   document.getElementById("serie").innerHTML = serie >= 2 ? `<span class="serie">🔥 ${serie} jours d'affilée, bravo !</span>` : "";
+  afficherSemaine(liste);
+}
+/* ---------- « Ma semaine » : la semaine en cours (lundi → dimanche) comparée à la précédente ---------- */
+function lundi(d) { const x = new Date(d); x.setHours(0, 0, 0, 0); x.setDate(x.getDate() - (x.getDay() + 6) % 7); return x; }
+function afficherSemaine(liste) {
+  const el = document.getElementById("semaine");
+  const parties = liste.filter(r => r.total && r.date && !isNaN(new Date(r.date)));
+  if (!parties.length) { el.innerHTML = ""; return; }
+  const debut = lundi(new Date()), SEM = 7 * 864e5;
+  const num = d => Math.floor((lundi(d) - debut) / SEM + 0.5);     // 0 = cette semaine, -1 = la précédente…
+  const sem = n => {
+    const ps = parties.filter(r => num(new Date(r.date)) === n);
+    const bonnes = ps.reduce((t, r) => t + r.score, 0), total = ps.reduce((t, r) => t + r.total, 0);
+    return { quiz: ps.length, bonnes, moyenne: total ? Math.round(bonnes / total * 100) : null,
+             jours: new Set(ps.map(r => (new Date(r.date).getDay() + 6) % 7)) };
+  };
+  const cette = sem(0), avant = sem(-1);
+  const ecart = (a, b, unite = "") => {
+    if (b === null || b === undefined || a === null) return "";
+    const d = a - b;
+    return d > 0 ? `<em class="plus">▲ +${d}${unite}</em>` : d < 0 ? `<em class="moins">▼ ${d}${unite}</em>` : `<em class="egal">= pareil</em>`;
+  };
+  const auj = (new Date().getDay() + 6) % 7;
+  const jours = ["L", "M", "M", "J", "V", "S", "D"].map((l, i) =>
+    `<div class="sem-jour${cette.jours.has(i) ? " fait" : ""}${i === auj ? " auj" : ""}">${l}<i>${cette.jours.has(i) ? "✓" : ""}</i></div>`).join("");
+  const six = [-5, -4, -3, -2, -1, 0].map(n => ({ n, b: sem(n).bonnes }));
+  const max = Math.max(1, ...six.map(x => x.b));
+  const barres = six.map(x => `<div${x.n === 0 ? ' class="cette"' : ""} title="${x.b} bonne${x.b > 1 ? "s" : ""} réponse${x.b > 1 ? "s" : ""}" style="height:${Math.round(x.b / max * 44)}px"></div>`).join("");
+  const noms = six.map(x => `<span>${x.n === 0 ? "cette sem." : x.n === -1 ? "sem. passée" : ""}</span>`).join("");
+  const msg = !cette.quiz ? "Lance un quiz pour commencer ta semaine ! 🚀"
+    : cette.bonnes > avant.bonnes ? "Tu as déjà fait mieux que la semaine dernière, bravo ! 🎉"
+    : avant.bonnes ? `Encore ${avant.bonnes - cette.bonnes + 1} bonne${avant.bonnes - cette.bonnes + 1 > 1 ? "s" : ""} réponse${avant.bonnes - cette.bonnes + 1 > 1 ? "s" : ""} pour battre la semaine dernière ! 💪`
+    : "Belle semaine, continue comme ça ! 🌟";
+  el.innerHTML = `<section class="semaine" aria-label="Ma semaine">
+    <h3>📅 Ma semaine <small>${cette.jours.size} jour${cette.jours.size > 1 ? "s" : ""} sur 7</small></h3>
+    <div class="sem-jours">${jours}</div>
+    <div class="sem-chiffres">
+      <div class="sem-chiffre"><b>${cette.quiz}</b><span>quiz joué${cette.quiz > 1 ? "s" : ""}</span>${avant.quiz ? ecart(cette.quiz, avant.quiz) : ""}</div>
+      <div class="sem-chiffre"><b>${cette.bonnes}</b><span>bonne${cette.bonnes > 1 ? "s" : ""} réponse${cette.bonnes > 1 ? "s" : ""}</span>${avant.quiz ? ecart(cette.bonnes, avant.bonnes) : ""}</div>
+      <div class="sem-chiffre"><b>${cette.moyenne === null ? "–" : cette.moyenne + " %"}</b><span>de réussite</span>${ecart(cette.moyenne, avant.moyenne, " pts")}</div>
+    </div>
+    <div class="sem-barres" aria-hidden="true">${barres}</div><div class="sem-noms" aria-hidden="true">${noms}</div>
+    <p class="sem-msg">${msg}</p></section>`;
 }
 async function chargerScores() {
   let liste = null;

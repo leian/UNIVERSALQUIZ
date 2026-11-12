@@ -4,7 +4,7 @@
    ---------------------------------------------------------------------
    Badges.monter()              → panneau « Mes récompenses » :
         - dans un quiz : fixé à droite sur grand écran, en bas sur téléphone
-        - sur « Mes quiz » : dans l'élément #recompenses s'il existe
+        - sur la page d'accueil « SoccaQuiz » : dans l'élément #recompenses s'il existe
    Badges.gagner(cleQuiz) → bool  appelé par le moteur à 100 % ; renvoie
                                   true si le badge est nouveau
    Sources : historique local de l'appareil + résultats enregistrés sur

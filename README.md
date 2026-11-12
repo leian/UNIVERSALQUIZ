@@ -25,7 +25,7 @@ Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUI
 | Fichier | Rôle |
 |---|---|
 | `moteur/commun/` | Le moteur de quiz : affichage, correction, récompenses, badges, suivi |
-| `moteur/index.html`, `tableau-de-bord.html`, `controles.html` | Les pages « Mes quiz », « Suivi des résultats » et « Contrôles papier » |
+| `moteur/index.html`, `tableau-de-bord.html`, `controles.html` | Les pages d'accueil « SoccaQuiz », « Suivi des résultats » et « Contrôles papier » |
 | `src/Code.gs` | Le serveur : pages, catalogue automatique, résultats dans Sheets, installation automatique, réglages (prénom…) |
 | `src/pont.html` | Inséré dans chaque page : redirige `fetch('/api/resultats')` vers Google et corrige les liens |
 | `src/exemple-quiz.html` | Le quiz d'exemple créé à l'installation, qui sert aussi de modèle pour l'IA |
@@ -40,7 +40,7 @@ Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUI
 Tout se fait depuis le site, aussi sur téléphone, avec Claude, ChatGPT ou Grok :
 
 1. Prends la leçon en photo.
-2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de « Mes quiz »), puis appuie sur **Claude**, **ChatGPT** ou **Grok** : l'IA s'ouvre avec les consignes déjà écrites, et elles sont aussi copiées dans le presse-papiers au cas où.
+2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de la page d'accueil), puis appuie sur **Claude**, **ChatGPT** ou **Grok** : l'IA s'ouvre avec les consignes déjà écrites, et elles sont aussi copiées dans le presse-papiers au cas où.
 3. L'IA répond « Envoie-moi les photos » : joins les photos et envoie. Si les consignes sont seulement écrites dans la case sans être envoyées, joins les photos puis envoie le tout.
 4. Copie la réponse de l'IA, colle-la dans le cadre du site, puis clique sur **Créer le quiz**.
 

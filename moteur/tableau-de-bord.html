@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Suivi des résultats – Mes quiz</title>
+<title>Suivi des résultats – SoccaQuiz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
 <script src="commun/catalogue.js"></script>
@@ -74,7 +74,7 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
   <header>
     <h1>📊 Suivi de {{PRENOM}}</h1>
     <div class="filtres">
-      <a class="btn" href="index.html">📚 Mes quiz</a>
+      <a class="btn" href="index.html">🧩 SoccaQuiz</a>
       <button class="btn" onclick="charger()">🔄 Actualiser</button>
     </div>
   </header>
@@ -134,7 +134,7 @@ async function charger() {
   } catch (e) {
     TOUT = [];
     etat.innerHTML = `<div class="msg warn"><b>Impossible de lire les résultats.</b><br>${esc(e.message)}<br>
-      <span class="small">Vérifie que le Google Sheets « SoccaQuiz – Résultats » (ou « Universal Quiz – Résultats » pour un site plus ancien) existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
+      <span class="small">Vérifie que le Google Sheets « SoccaQuiz – Résultats » existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
   }
   const n = window.Suivi ? Suivi.enAttente() : 0;
   if (n) etat.innerHTML += `<div class="msg info">${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""} sur cet appareil ${n > 1 ? "sont" : "est"} en attente d'envoi. <button class="btn" onclick="Suivi.envoyerFile().then(charger)">Envoyer maintenant</button></div>`;

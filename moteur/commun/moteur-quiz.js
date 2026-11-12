@@ -54,13 +54,13 @@
 
    Règles maison intégrées : pas de minuteur, « Question précédente »,
    touche Entrée globale, propositions mélangées, tirage aléatoire,
-   récompenses, bouton « 📚 Mes quiz », « Refaire mes erreurs »,
+   récompenses, bouton « 🧩 SoccaQuiz », « Refaire mes erreurs »,
    envoi des résultats au suivi, défilement adapté au téléphone.
    ===================================================================== */
 (function () {
   let C, state = 'start', shuffled, cur, answers, selected, nbChoisi, lastKey = null;
   const NUMS = ['1', '2', '3', '4', '5', '6', '7', '8'];
-  const MES_QUIZ = `<a class="btn-myquiz" href="index.html">📚 Mes quiz</a>`;
+  const MES_QUIZ = `<a class="btn-myquiz" href="index.html">🧩 SoccaQuiz</a>`;
 
   const DECO_DEFAUT = `<svg viewBox="0 0 640 90" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
     <rect width="640" height="90" fill="var(--main-bg)"/>

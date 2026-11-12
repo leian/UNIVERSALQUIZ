@@ -157,7 +157,7 @@ function traduire_(e) {
   const m = String(e && e.message || e);
   if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
   if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return { erreur: "L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien." };
-  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet SoccaQuiz (ou Universal Quiz) sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
+  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet SoccaQuiz sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
   return { erreur: m };
 }
 
@@ -295,7 +295,7 @@ function scriptPage_() {
       google.script.run.withSuccessHandler(function () {
         $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; $('nouveau').style.display = 'block';
         $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
-        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » (ou « Universal Quiz ») sur myaccount.google.com/permissions.</p>';
+        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » sur myaccount.google.com/permissions.</p>';
       }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
     };
     google.script.run
