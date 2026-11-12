@@ -2,7 +2,7 @@
    RÉCOMPENSES — module commun à tous les quiz SoccaQuiz (version 2,
    illustrations SVG articulées : 40 animaux, 10 scènes capybara)
    ---------------------------------------------------------------------
-   celebrate()     → bonne réponse : feu d'artifice + un animal (bulle en bas)
+   celebrate()     → bonne réponse : feu d'artifice + un animal (bulle en haut, pour ne pas cacher les boutons)
    fireworks()     → feu d'artifice seul
    showCapybara()  → fin de quiz réussi (< 25 % d'erreurs)
    closeCapybara() → ferme la fenêtre capybara
@@ -15,7 +15,7 @@
 const CSS = String.raw`
   /* Module de récompense. Les mouvements des SVG ne touchent qu'aux transformations et à l'opacité. */
   #fx-canvas { position:fixed; inset:0; width:100%; height:100%; pointer-events:none; z-index:200; }
-  #animal-toast { box-sizing:border-box; position:fixed; left:50%; bottom:max(12px, env(safe-area-inset-bottom)); z-index:210; display:flex; align-items:center; gap:12px; width:max-content; max-width:calc(100vw - 24px); padding:7px 14px 7px 8px; color:#134e4a; border:1px solid #9cd5c9; border-radius:18px; background:#fffdf7; box-shadow:0 8px 26px #193b392b; pointer-events:none; opacity:0; transform:translate(-50%, 12px); transition:opacity .18s, transform .24s cubic-bezier(.2,.8,.3,1); }
+  #animal-toast { box-sizing:border-box; position:fixed; left:50%; top:max(12px, env(safe-area-inset-top)); z-index:210; display:flex; align-items:center; gap:12px; width:max-content; max-width:calc(100vw - 24px); padding:7px 14px 7px 8px; color:#134e4a; border:1px solid #9cd5c9; border-radius:18px; background:#fffdf7; box-shadow:0 8px 26px #193b392b; pointer-events:none; opacity:0; transform:translate(-50%, -12px); transition:opacity .18s, transform .24s cubic-bezier(.2,.8,.3,1); }
   #animal-toast.show { opacity:1; transform:translate(-50%, 0); }
   .anim-stage { width:clamp(105px,34vw,148px); flex:none; }
   .anim-stage svg,.capy-scene svg { width:100%; height:auto; display:block; }
