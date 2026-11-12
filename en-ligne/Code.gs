@@ -199,7 +199,7 @@ function pageHtml_() {
   '<div id="deja" class="cache"><section class="etape">' +
   '<h2 id="deja-titre">✅ Ton site est prêt</h2>' +
   '<div id="deja-message"></div>' +
-  '<div class="actions"><a class="btn" id="lien-site" href="#" target="_blank" rel="noopener">▶ Accéder à mon site</a>' +
+  '<div class="actions"><a class="btn" id="lien-site" href="#">▶ Accéder à mon site</a>' +
   '<a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></div>' +
   '<div id="bloc-maj" class="maj cache"><p id="texte-maj" style="margin:0"></p><button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
   '<p class="petit" style="margin:6px 0 0">Ton adresse, tes quiz et tes résultats ne changent pas.</p></div>' +
