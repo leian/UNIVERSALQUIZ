@@ -42,6 +42,10 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .card{position:relative}
 .card .score{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:600 .82rem "Fredoka",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
 .card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
+.marque{display:flex;align-items:center;justify-content:center;gap:12px}
+.marque img{border-radius:14px}
+.marque em{font-style:normal;color:#b3001b}
+@media (prefers-color-scheme: dark){.marque em{color:#ff5c72}}
 /* « Ma semaine » : progression de la semaine, comparée à la précédente */
 .semaine{max-width:460px;margin:16px auto 0;background:var(--card);border:2px solid var(--line);border-radius:18px;padding:12px 14px;text-align:left}
 .semaine h3{margin:0 0 8px;font:600 1.05rem "Fredoka",sans-serif;display:flex;justify-content:space-between;align-items:baseline;gap:8px}
@@ -75,7 +79,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 <div class="wrap">
  <div class="col">
   <header>
-    <h1>🧩 SoccaQuiz</h1>
+    <h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="60" height="60" alt=""><span>Socca<em>Quiz</em></span></h1>
     <p>Choisis une matière et lance-toi, {{PRENOM}} !</p>
     <input class="search" id="q" type="search" placeholder="Chercher un quiz…" aria-label="Chercher un quiz">
     <a class="ctrl-link" href="controles.html">🖨️ Mes contrôles papier</a>
