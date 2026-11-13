@@ -81,8 +81,10 @@ function doGet(e) {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
     const inst = installer_();
     let html;
-    if (PAGES[page]) {
-      html = lib_(PAGES[page], true);
+    // dans l'espace parent, l'accueil est le tableau de bord des parents (pas la page de l'enfant)
+    const pageServie = CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page;
+    if (PAGES[pageServie]) {
+      html = lib_(PAGES[pageServie], true);
     } else {
       const f = trouverFichier_(inst.dossier, page + '.html');
       if (!f) return pageErreur_('Quiz introuvable', 'Aucun fichier « ' + page + '.html » dans le dossier Drive « ' + inst.dossier.getName() + ' ».');
@@ -210,6 +212,7 @@ function assembler_(html, page, inst) {
     installateur: CONFIG.installateur
   };
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
+  if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
   if (page === 'ajouter' && !estEnfant_()) cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
@@ -375,6 +378,8 @@ function trouverFichier_(dossier, nom) {
    Même contrat que l'ancienne fonction Cloudflare /api/resultats.
    ===================================================================== */
 function apiEnregistrer(brut) {
+  // essais du parent depuis l'espace parent (« ▶ Tester ») : pas comptés dans les résultats de l'enfant
+  if (CONFIG.espace === 'parent') return { ok: true, id: '', essai: true };
   if (typeof brut !== 'string' || brut.length > 200000) return { __status: 400, erreur: 'Données trop volumineuses' };
   let r;
   try { r = JSON.parse(brut); } catch (e) { return { __status: 400, erreur: 'JSON invalide' }; }

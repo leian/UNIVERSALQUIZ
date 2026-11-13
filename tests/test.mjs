@@ -277,7 +277,11 @@ try {
   ok(/Espace parent/.test(pied) && !/Ajouter un quiz|Suivi/.test(pied) && await page.locator('a.card').count() > 0, 'site de l\'enfant : quiz visibles, seul lien parent « 🔒 Espace parent »');
   await ev('CONFIG.espace = "parent"; CONFIG.urlParent = ""');
   await page.goto(BASE + '/exec');
-  ok(await page.locator('#espace-parent').isVisible() && /Ajouter un quiz/.test(await page.locator('#foot').innerText()), 'espace parent : bandeau « Espace parent » et liens des parents');
+  ok(await page.locator('#actions').isVisible() && /Créer un quiz/.test(await page.locator('#actions').innerText()) && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (actions, pas la page de l\'enfant)');
+  ok(await page.locator('#liste-quiz a.tester').count() > 0 && await page.locator('#liste-quiz button[data-f]').count() > 0, 'espace parent : chaque quiz peut être testé ou supprimé');
+  ok(/Clé Gemini/.test(await page.locator('#info-gemini').innerText()), 'espace parent : état de la clé Gemini affiché');
+  const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
+  ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
   await ev('CONFIG.espace = ""');
 
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets

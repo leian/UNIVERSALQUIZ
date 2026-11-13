@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Suivi des résultats – SoccaQuiz</title>
+<title>Espace parent – SoccaQuiz</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
 <script src="commun/catalogue.js"></script>
@@ -68,18 +68,37 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
 .boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
 @media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
 [hidden]{display:none!important}
+.marque{display:flex;align-items:center;gap:8px;font:700 1.15rem "Fredoka",sans-serif;margin-bottom:4px}.marque img{border-radius:9px}.marque em{font-style:normal;color:#b3001b}
+@media (prefers-color-scheme: dark){.marque em{color:#ff5c72}}
+.badge-parent{font:600 .8rem "Nunito",sans-serif;background:#ede9fe;color:#5b21b6;border-radius:999px;padding:2px 10px}
+.btn.principal{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.btn.tester{border-color:#c4b5fd}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>📊 Suivi de {{PRENOM}}</h1>
+    <div>
+      <div class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="40" height="40" alt=""><span>Socca<em>Quiz</em></span><span class="badge-parent">🔒 Espace parent</span></div>
+      <h1>📊 Suivi de {{PRENOM}}</h1>
+    </div>
     <div class="filtres">
-      <a class="btn" href="index.html"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="20" height="20" alt="" style="vertical-align:middle;border-radius:4px"> SoccaQuiz</a>
+      <a class="btn" id="lien-enfant" href="index.html">▶ Site de l'enfant</a>
       <button class="btn" onclick="charger()">🔄 Actualiser</button>
-      <a class="btn" id="lien-installateur" href="#" target="_top" hidden>🔧 Installateur</a>
     </div>
   </header>
+  <div class="box" id="actions">
+    <h2>⚡ Actions</h2>
+    <div class="filtres">
+      <a class="btn principal" href="ajouter.html">➕ Créer un quiz</a>
+      <button class="btn" id="envoyer-lien" type="button" hidden>✉️ Envoyer le lien à mon enfant</button>
+      <a class="btn" id="lien-installateur" href="#" target="_top" hidden>🔧 Installateur</a>
+    </div>
+    <p class="small" id="info-lien" hidden></p>
+    <div id="maj" class="msg info" hidden></div>
+    <p class="small" id="info-version" style="margin:10px 0 0"></p>
+    <p class="small" id="info-gemini" style="margin:4px 0 0"></p>
+  </div>
   <div id="etat"></div>
   <div class="box">
     <div class="filtres">
@@ -280,11 +299,11 @@ function afficherQuiz() {
   if (!Q.length) { el.innerHTML = `<p class="small">Aucun quiz pour l'instant. <a href="ajouter.html">➕ Ajouter un quiz</a></p>`; return; }
   const M = window.MATIERES || {};
   el.innerHTML = `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
-    Q.map(q => `<tr><td><a href="${encodeURI(q.fichier)}">${esc(q.titre)}</a></td>
+    Q.map(q => `<tr><td>${esc(q.titre)}</td>
       <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
       <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
-      <td style="text-align:right">${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">🗑️ Supprimer</button>` : ""}</td></tr>`).join("") +
-    `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.</p>`;
+      <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">▶ Tester</a> ${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">🗑️ Supprimer</button>` : ""}</td></tr>`).join("") +
+    `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.${window.__UQ && __UQ.espace === "parent" ? " Les parties jouées depuis l'espace parent (« ▶ Tester ») ne sont pas comptées dans les résultats de l'enfant." : ""}</p>`;
 }
 function boite(html) {
   return new Promise(ok => {
@@ -322,7 +341,47 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
 afficherQuiz();
 charger();
 
-(function () { var U = window.__UQ || {}, a = document.getElementById("lien-installateur"); if (U.installateur) { a.href = U.installateur; a.hidden = false; } })();
+/* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
+(function () {
+  const U = window.__UQ || {}, $ = id => document.getElementById(id);
+  if (U.installateur) { $("lien-installateur").href = U.installateur; $("lien-installateur").hidden = false; }
+  if (U.urlEnfant) { $("lien-enfant").href = U.urlEnfant; $("lien-enfant").target = "_top"; }
+  if (U.urlEnfant) {
+    $("envoyer-lien").hidden = false;
+    $("envoyer-lien").onclick = () => {
+      const objet = "Ton site de quiz pour réviser";
+      const texte = "Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n" + U.urlEnfant + "\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !";
+      try { navigator.clipboard.writeText(U.urlEnfant); } catch (e) {}
+      try { window.open("mailto:?subject=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte), "_blank"); } catch (e) {}
+      const gmail = "https://mail.google.com/mail/?view=cm&fs=1&su=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte);
+      $("info-lien").hidden = false;
+      $("info-lien").innerHTML = `✅ Lien copié. Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.`;
+    };
+  }
+  $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk
+    ? "🔑 Clé Gemini enregistrée : les quiz se créent directement à partir des photos."
+    : "🔑 Pas encore de clé Gemini : <a href=\"ajouter.html\">ajoute-la sur « Créer un quiz »</a> pour créer les quiz directement à partir des photos.";
+  if (!U.version) return;
+  $("info-version").textContent = "Version " + U.version + ".";
+  // une nouvelle version est-elle publiée ? (dernière Release GitHub, une vérification par jour)
+  (async function () {
+    let derniere = "";
+    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 864e5) derniere = m.v; } catch (e) {}
+    if (!derniere) {
+      try {
+        const r = await fetch("https://api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest");
+        if (!r.ok) return;
+        derniere = (await r.json()).tag_name || "";
+        try { localStorage.setItem("uq.maj", JSON.stringify({ t: Date.now(), v: derniere })); } catch (e) {}
+      } catch (e) { return; }
+    }
+    if (!derniere) return;
+    if (derniere.toLowerCase() === String(U.version).toLowerCase()) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
+    if (!U.installateur) return;
+    $("maj").hidden = false;
+    $("maj").innerHTML = `🔄 <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(U.installateur)}" target="_top">🔄 Mettre à jour mon site</a>`;
+  })();
+})();
 </script>
 </body>
 </html>

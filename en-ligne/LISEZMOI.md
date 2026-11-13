@@ -49,7 +49,7 @@ Un projet Apps Script « ordinaire » ne peut pas appeler l'API Apps Script. Il 
 
 ## 3. Essayer
 
-Ouvre le lien avec **un autre compte** que soccaquiz (le tien par exemple), de préférence sur un téléphone. Fais l'étape 1, installe, puis ouvre le site de l'enfant (« ▶ Site de l'enfant ») et autorise-le. Ouvre ensuite « 🔒 Espace parent » : il doit s'ouvrir avec ce compte, et afficher le bandeau « Espace parent » et les liens « Ajouter un quiz » et « Suivi des résultats ». Le site de l'enfant, lui, ne montre que « 🔒 Espace parent » en bas de page. La page « Mes quiz » doit s'afficher avec le quiz d'exemple.
+Ouvre le lien avec **un autre compte** que soccaquiz (le tien par exemple), de préférence sur un téléphone. Fais l'étape 1, installe, puis ouvre le site de l'enfant (« ▶ Site de l'enfant ») et autorise-le. Ouvre ensuite « 🔒 Espace parent » : il doit s'ouvrir avec ce compte sur le tableau de bord des parents (« 🔒 Espace parent », « ➕ Créer un quiz », version, indicateurs, « ▶ Tester » et « 🗑️ Supprimer » pour chaque quiz). Le site de l'enfant, lui, ne montre que « 🔒 Espace parent » en bas de page. La page « Mes quiz » doit s'afficher avec le quiz d'exemple.
 
 En cas d'erreur, le message affiché indique en général l'étape oubliée :
 - « l'installateur n'est pas complètement configuré » : l'Apps Script API n'est pas activée dans le projet Cloud (1.3) ou le projet Cloud n'est pas relié (2.2) ;
