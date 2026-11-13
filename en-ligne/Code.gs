@@ -35,7 +35,15 @@ function apiEtat() {
   const p = PropertiesService.getUserProperties().getProperties();
   let derniere = '';
   try { derniere = moteur_().version; } catch (e) { return { erreur: e.message }; }
-  return { installe: !!p.scriptId, url: p.url || '', prenom: p.prenom || '', version: p.version || '', derniere };
+  return { installe: !!p.scriptId, url: p.url || '', prenom: p.prenom || '', version: p.version || '', derniere,
+           apiActive: p.scriptId ? true : apiActive_() };
+}
+
+/* L'interrupteur « API Google Apps Script » est-il activé ? On demande un projet qui n'existe pas :
+   API coupée → « User has not enabled… » ; API activée → simple « introuvable ». */
+function apiActive_() {
+  try { appel_('get', '/verification-api'); return true; }
+  catch (e) { return !/has not enabled|has not been used/i.test(String(e && e.message)); }
 }
 
 /* Première installation (ou réinstallation si le projet a disparu). */
@@ -174,7 +182,7 @@ function pageHtml_() {
   'main{max-width:560px;margin:0 auto;padding:20px 16px 40px}h1{font-size:1.6rem;text-align:center;margin:.2em 0}' +
   '.intro{text-align:center;color:var(--soft);margin:0 0 16px}' +
   '.etape{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin:12px 0}' +
-  '.etape.active{border-color:var(--accent)}.etape h2{font-size:1.05rem;margin:0 0 6px;display:flex;gap:10px;align-items:center}' +
+  '.etape.active{border-color:var(--accent)}.etape.grise{opacity:.55}.etape.fini{background:#ecfdf3;border-color:#bbf7d0}.etape h2{font-size:1.05rem;margin:0 0 6px;display:flex;gap:10px;align-items:center}' +
   '.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.95rem;flex:none}' +
   '.btn{display:inline-block;font:600 1rem system-ui,sans-serif;border:none;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none;margin-top:6px}' +
   '.btn.leger{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.6}' +
@@ -189,9 +197,12 @@ function pageHtml_() {
 
   '<div id="nouveau" class="cache">' +
   '<section class="etape" id="e1"><h2><span class="num">1</span> Active l\'API Apps Script</h2>' +
-  '<p>Une seule fois : sur la page qui s\'ouvre, mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>, puis reviens ici.</p>' +
-  '<a class="btn leger" href="' + PAGE_API + '" target="_blank" rel="noopener">Ouvrir la page Google</a></section>' +
-  '<section class="etape" id="e2"><h2><span class="num">2</span> Installe le site</h2>' +
+  '<div id="e1-afaire"><p>Une seule fois : touche le bouton, puis mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>.</p>' +
+  '<a class="btn" href="' + PAGE_API + '" target="_blank" rel="noopener">Ouvrir la page Google</a>' +
+  '<p class="petit" style="margin:10px 0 0">Ensuite, <b>reviens au mail et touche à nouveau « Installer SoccaQuiz »</b> (ou reviens sur cette page et touche « J\'ai activé l\'interrupteur ») : l\'étape 2 s\'affichera.</p>' +
+  '<button class="btn leger" id="verifier-api" type="button">✅ J\'ai activé l\'interrupteur</button></div>' +
+  '<p id="e1-fait" class="cache" style="margin:0">✅ C\'est fait : l\'API est activée dans ton compte.</p></section>' +
+  '<section class="etape" id="e2"><p id="e2-attente" class="petit cache" style="margin:0 0 6px">Fais d\'abord l\'étape 1.</p><h2><span class="num">2</span> Installe le site</h2>' +
   '<label for="prenom">Prénom de l\'enfant (facultatif)</label><input id="prenom" maxlength="40" autocomplete="off" placeholder="ex. Tom">' +
   '<button class="btn" id="installer" type="button">✨ Installer mon site</button></section>' +
   '</div>' +
@@ -251,7 +262,7 @@ function scriptPage_() {
     });
     function erreur(r) {
       if (r && r.erreur === 'api') {
-        $('nouveau').style.display = 'block'; $('e1').classList.add('active');
+        afficherNouveau(false);
         res.innerHTML = '<div class="ko">' + h(r.message) + ' Fais l\'étape 1, attends une minute, puis réessaie.</div>';
       } else {
         res.innerHTML = '<div class="ko">😕 ' + h((r && (r.erreur || r.message)) || r) + '</div>';
@@ -286,6 +297,22 @@ function scriptPage_() {
       $('info-version').textContent = aJour ? 'Version ' + (e.version || '?') + ' : c\'est la dernière.' : '';
       var info = document.querySelector('.info-mail'); if (info) info.remove();
     }
+    function afficherNouveau(apiActive) {
+      $('nouveau').style.display = 'block';
+      $('e1-afaire').style.display = apiActive ? 'none' : 'block';
+      $('e1-fait').style.display = apiActive ? 'block' : 'none';
+      $('e1').className = 'etape ' + (apiActive ? 'fini' : 'active');
+      $('e2').className = 'etape ' + (apiActive ? 'active' : 'grise');
+      $('e2-attente').style.display = apiActive ? 'none' : 'block';
+    }
+    $('verifier-api').onclick = function () {
+      var b = $('verifier-api'); b.disabled = true; res.innerHTML = '';
+      google.script.run.withSuccessHandler(function (e) {
+        b.disabled = false;
+        if (e && e.apiActive) { afficherNouveau(true); $('prenom').focus(); }
+        else res.innerHTML = '<div class="ko">L\'interrupteur n\'est pas encore activé. Rouvre la page Google, mets « API Google Apps Script » sur <b>Activé</b>, puis réessaie (Google peut demander une minute).</div>';
+      }).withFailureHandler(function (e) { b.disabled = false; erreur(e && e.message); }).apiEtat();
+    };
     $('installer').onclick = function () { lancer('apiInstaller', $('prenom').value, $('installer')); };
     $('maj').onclick = function () { lancer('apiMettreAJour', null, $('maj')); };
     $('reinstaller').onclick = function (ev) { ev.preventDefault(); lancer('apiMettreAJour', null, $('maj')); };
@@ -293,7 +320,7 @@ function scriptPage_() {
     $('non-recommencer').onclick = function () { $('confirmer').style.display = 'none'; };
     $('oui-recommencer').onclick = function () {
       google.script.run.withSuccessHandler(function () {
-        $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; $('nouveau').style.display = 'block';
+        $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; afficherNouveau(true);
         $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
         res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » sur myaccount.google.com/permissions.</p>';
       }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
@@ -302,7 +329,7 @@ function scriptPage_() {
       .withSuccessHandler(function (e) {
         $('chargement').style.display = 'none';
         if (e && e.erreur) { $('nouveau').style.display = 'block'; return erreur(e); }
-        if (e.installe) afficherDeja(e); else $('nouveau').style.display = 'block';
+        if (e.installe) afficherDeja(e); else afficherNouveau(e.apiActive);
       })
       .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(e && e.message); })
       .apiEtat();
