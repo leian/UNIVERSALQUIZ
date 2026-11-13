@@ -513,11 +513,11 @@ function apiAjouterQuiz(texte) {
     if (!q || typeof q !== 'object') return;
     const type = String(q.type || 'qcm').toLowerCase();
     const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
-    if (!base.q) return;
+    if (!base.q && type !== 'trous') return;
     // écoute : phrase lue à voix haute (anglais…) et notes de musique
     const dire = txt(q.dire || q.ecoute || q.audio, 300);
     if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
-    if (Array.isArray(q.notes)) {
+    if (Array.isArray(q.notes) && type !== 'clavier') {
       const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim()) || String(x).trim() === '-';
       const notes = q.notes.slice(0, 16).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 5)).filter(note) : txt(x, 5))
         .filter(x => Array.isArray(x) ? x.length : note(x));
@@ -544,6 +544,44 @@ function apiAjouterQuiz(texte) {
       const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
       const h = txt(q.hint || q.indice, 200); if (h) qq.hint = h;
       questions.push(qq);
+    } else if (type === 'trous') {
+      const texte = txt(q.texte, 600), nb = (texte.match(/\[[^\]]+\]/g) || []).length;
+      if (!nb || nb > 6) { avert.push('Question ' + (i + 1) + ' ignorée (texte à trous sans [mot] ou avec trop de trous).'); return; }
+      questions.push(Object.assign(base, { type: 'trous', q: base.q || 'Complète.', texte }));
+    } else if (type === 'ordre') {
+      const items = (Array.isArray(q.items) ? q.items : []).map(x => txt(x, 120)).filter(Boolean).slice(0, 8);
+      if (items.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 éléments à ranger).'); return; }
+      questions.push(Object.assign(base, { type: 'ordre', items }));
+    } else if (type === 'paires') {
+      const paires = (Array.isArray(q.paires) ? q.paires : []).filter(p => Array.isArray(p) && p.length === 2).map(p => [txt(p[0], 80), txt(p[1], 80)]).filter(p => p[0] && p[1]).slice(0, 6);
+      if (paires.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 paires).'); return; }
+      questions.push(Object.assign(base, { type: 'paires', paires }));
+    } else if (type === 'classer') {
+      const groupes = (Array.isArray(q.groupes) ? q.groupes : []).map(g => ({ nom: txt(g && g.nom, 40), items: (Array.isArray(g && g.items) ? g.items : []).map(x => txt(x, 60)).filter(Boolean).slice(0, 6) }))
+        .filter(g => g.nom && g.items.length).slice(0, 4);
+      if (groupes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (il faut au moins 2 catégories).'); return; }
+      questions.push(Object.assign(base, { type: 'classer', groupes }));
+    } else if (type === 'cliquer') {
+      const texte = txt(q.texte, 600);
+      if (!/\*[^*]+\*/.test(texte)) { avert.push('Question ' + (i + 1) + ' ignorée (aucun *mot* à toucher).'); return; }
+      questions.push(Object.assign(base, { type: 'cliquer', texte }));
+    } else if (type === 'nombre') {
+      const a = parseFloat(String(q.a).replace(/\s/g, '').replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
+      if (!isFinite(a)) { avert.push('Question ' + (i + 1) + ' ignorée (réponse non numérique).'); return; }
+      const qq = Object.assign(base, { type: 'nombre', a, tol }); const u = txt(q.unit || q.unite, 12); if (u) qq.unit = u;
+      questions.push(qq);
+    } else if (type === 'parler') {
+      const phrase = txt(q.phrase, 200);
+      if (!phrase) { avert.push('Question ' + (i + 1) + ' ignorée (phrase à dire absente).'); return; }
+      const qq = Object.assign(base, { type: 'parler', phrase });
+      if (phrase !== '*' && !qq.dire) qq.dire = phrase;           // bouton « Écouter » : le modèle à imiter
+      if (!qq.langue) { const lg = txt(d.langue || d.langueAudio, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) qq.langue = lg; }
+      questions.push(qq);
+    } else if (type === 'clavier') {
+      const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim());
+      const notes = (Array.isArray(q.notes) ? q.notes : []).map(x => txt(x, 5)).filter(note).slice(0, 8);
+      if (notes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (mélodie de moins de 2 notes).'); return; }
+      questions.push(Object.assign(base, { type: 'clavier', notes }));
     }
   });
   if (questions.length < 3) return { erreur: "Je n'ai trouvé que " + questions.length + " question(s) valable(s). Redemande le quiz à l'IA." };
@@ -581,7 +619,7 @@ function lireFormatLignes_(texte) {
     const l = brute.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)?/, '').trim();
     const titreCat = l.match(/^#{2,}\s*(.+)$/);
     if (titreCat) { cat = titreCat[1].replace(/[#*]/g, '').trim(); return; }
-    const m = l.match(/^([TQVSM])\s*[|:]\s*(.*)$/i);
+    const m = l.match(/^([TQVSMGOACXNPK])\s*[|:]\s*(.*)$/i);
     if (!m) return;
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
@@ -600,7 +638,23 @@ function lireFormatLignes_(texte) {
     }
     if (sorte === 'M') { if (pos.join(' | ')) d.memo.push(pos.join(' | ')); return; }
     const q = { cat, q: pos[0] };
-    if (sorte === 'Q') {
+    if (sorte === 'G') {                       // G|texte avec [mot] ou [mot;variante]|explication
+      Object.assign(q, { type: 'trous', q: 'Complète.', texte: pos[0], exp: pos[1] || '' });
+    } else if (sorte === 'O') {                // O|consigne|élément 1|élément 2|… (dans le bon ordre)
+      Object.assign(q, { type: 'ordre', items: pos.slice(1) });
+    } else if (sorte === 'A') {                // A|consigne|gauche=droite|…
+      Object.assign(q, { type: 'paires', paires: pos.slice(1).map(x => x.split('=')).filter(x => x.length === 2).map(x => [x[0].trim(), x[1].trim()]) });
+    } else if (sorte === 'C') {                // C|consigne|Catégorie: a;b|Catégorie: c;d
+      Object.assign(q, { type: 'classer', groupes: pos.slice(1).map(x => { const i = x.indexOf(':'); return i < 0 ? null : { nom: x.slice(0, i).trim(), items: x.slice(i + 1).split(';').map(y => y.trim()).filter(Boolean) }; }).filter(Boolean) });
+    } else if (sorte === 'X') {                // X|consigne|texte avec *mots à toucher*|explication
+      Object.assign(q, { type: 'cliquer', texte: pos[1] || '', exp: pos[2] || '' });
+    } else if (sorte === 'N') {                // N|question|valeur|tolérance|explication
+      Object.assign(q, { type: 'nombre', a: pos[1], tol: pos[2] || '0', exp: pos[3] || '' });
+    } else if (sorte === 'P') {                // P|consigne|phrase à dire (* = réponse libre)|explication
+      Object.assign(q, { type: 'parler', phrase: pos[1] || '', exp: pos[2] || '' });
+    } else if (sorte === 'K') {                // K|consigne|C4 D4 E4|explication
+      Object.assign(q, { type: 'clavier', notes: String(pos[1] || '').split(/[\s,]+/).filter(Boolean), exp: pos[2] || '' });
+    } else if (sorte === 'Q') {
       const reste = pos.slice(1);
       q.exp = reste.length >= 3 ? reste.pop() : '';
       Object.assign(q, { type: 'qcm', opts: reste, a: reste[0] });
@@ -612,7 +666,7 @@ function lireFormatLignes_(texte) {
     if (typeof extra.dire === 'string') q.dire = extra.dire;
     if (typeof extra.langue === 'string') q.langue = extra.langue;
     if (typeof extra.indice === 'string') q.hint = extra.indice;
-    if (typeof extra.notes === 'string') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
+    if (typeof extra.notes === 'string' && q.type !== 'clavier') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
     if (extra.portee) q.portee = extra.portee === 'seule' ? 'seule' : true;
     vu = true;
     d.questions.push(q);
@@ -634,6 +688,7 @@ function fabriquerQuizHtml_(c) {
   const pills = [];
   if (c.questions.some(q => q.dire)) pills.push('🔊 Phrases à écouter');
   if (c.questions.some(q => q.notes && q.portee !== 'seule')) pills.push('🎵 Notes à écouter');
+  if (c.questions.some(q => q.type === 'parler')) pills.push('🎤 À dire à voix haute');
   if (pills.length) cfg.pills = pills;
   return '<!DOCTYPE html>\n<html lang="fr">\n<head>\n<meta charset="UTF-8">\n<meta name="viewport" content="width=device-width, initial-scale=1.0">\n' +
     '<title>Quiz – ' + h(c.titre) + '</title>\n<!-- Pool : ' + c.questions.length + ' questions — créé depuis la page « Ajouter un quiz » -->\n' +

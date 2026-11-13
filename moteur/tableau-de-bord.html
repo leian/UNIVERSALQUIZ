@@ -68,6 +68,11 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
 .boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
 @media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
 [hidden]{display:none!important}
+.onglets{display:flex;gap:6px;flex-wrap:wrap;margin-top:16px;position:sticky;top:0;z-index:5;background:var(--bg);padding:6px 0}
+.onglet{flex:1 1 auto;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:12px;padding:10px 12px;font:600 .95rem "Fredoka",sans-serif;cursor:pointer}
+.onglet.on{background:#7c3aed;border-color:#7c3aed;color:#fff}
+.onglet .nb{font-size:.8rem;opacity:.85}
+.adr{word-break:break-all;background:var(--bg);border-radius:8px;padding:4px 8px;display:block;margin:2px 0 8px}
 .marque{display:flex;align-items:center;gap:8px;font:700 1.15rem "Fredoka",sans-serif;margin-bottom:4px}.marque img{border-radius:9px}.marque em{font-style:normal;color:#b3001b}
 @media (prefers-color-scheme: dark){.marque em{color:#ff5c72}}
 .badge-parent{font:600 .8rem "Nunito",sans-serif;background:#ede9fe;color:#5b21b6;border-radius:999px;padding:2px 10px}
@@ -99,6 +104,12 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
     <p class="small" id="info-version" style="margin:10px 0 0"></p>
     <p class="small" id="info-gemini" style="margin:4px 0 0"></p>
   </div>
+  <nav class="onglets" id="onglets" role="tablist">
+    <button type="button" class="onglet on" data-o="resultats" role="tab">📊 Résultats</button>
+    <button type="button" class="onglet" data-o="quiz" role="tab">🗂️ Gérer les quiz <span class="nb" id="nb-quiz"></span></button>
+    <button type="button" class="onglet" data-o="reglages" role="tab">⚙️ Réglages</button>
+  </nav>
+  <div class="panneau" id="p-resultats">
   <div id="etat"></div>
   <div class="box">
     <div class="filtres">
@@ -115,13 +126,23 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
     </div>
   </div>
   <div id="contenu"></div>
-  <div class="box" id="gerer">
-    <h2>🗂️ Gérer les quiz</h2>
-    <div id="liste-quiz"></div>
   </div>
-  <div class="box">
-    <h2>⚙️ Cet appareil</h2>
-    <div id="appareil"></div>
+  <div class="panneau" id="p-quiz" hidden>
+    <div class="box" id="gerer">
+      <h2>🗂️ Gérer les quiz</h2>
+      <p class="small" style="margin-top:0">« ▶ Tester » ouvre le quiz pour l'essayer, « 🗑️ Supprimer » le retire du site de l'enfant. Pour en créer un : <a href="ajouter.html">➕ Créer un quiz</a>.</p>
+      <div id="liste-quiz"></div>
+    </div>
+  </div>
+  <div class="panneau" id="p-reglages" hidden>
+    <div class="box">
+      <h2>⚙️ Cet appareil</h2>
+      <div id="appareil"></div>
+    </div>
+    <div class="box">
+      <h2>🔗 Adresses du site</h2>
+      <div id="adresses" class="small"></div>
+    </div>
   </div>
 </div>
 
@@ -341,11 +362,27 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
 afficherQuiz();
 charger();
 
+/* ---------- onglets : Résultats, Gérer les quiz, Réglages ---------- */
+function ouvrirOnglet(o) {
+  document.querySelectorAll(".onglet").forEach(b => b.classList.toggle("on", b.dataset.o === o));
+  ["resultats", "quiz", "reglages"].forEach(x => { document.getElementById("p-" + x).hidden = x !== o; });
+  try { history.replaceState(null, "", "#" + o); } catch (e) {}
+}
+document.getElementById("onglets").addEventListener("click", e => { const b = e.target.closest(".onglet"); if (b) ouvrirOnglet(b.dataset.o); });
+document.getElementById("nb-quiz").textContent = "(" + (window.QUIZ || []).filter(q => /\.html?$/i.test(q.fichier)).length + ")";
+if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
+
 /* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
 (function () {
   const U = window.__UQ || {}, $ = id => document.getElementById(id);
   if (U.installateur) { $("lien-installateur").href = U.installateur; $("lien-installateur").hidden = false; }
+  // « Site de l'enfant » : l'adresse de l'enfant (espace parent) ; sinon la page d'accueil du site
   if (U.urlEnfant) { $("lien-enfant").href = U.urlEnfant; $("lien-enfant").target = "_top"; }
+  else if (U.espace !== "parent") $("lien-enfant").textContent = "🏠 Accueil";
+  else $("lien-enfant").hidden = true;
+  const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
+  $("adresses").innerHTML = (ligne("Site de l'enfant (à lui envoyer)", U.urlEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur))
+    || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.";
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
     $("envoyer-lien").onclick = () => {

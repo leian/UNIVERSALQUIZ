@@ -167,3 +167,39 @@
 .ecoute-btn:active { transform: scale(.97); }
 .portee { background: #fffdf6; border: 1px solid #eadfce; border-radius: 12px; padding: 6px 8px; margin: 10px 0 4px; }
 .portee svg { width: 100%; max-height: 170px; display: block; }
+
+/* ---------- types d'exercices intégrés (G, O, A, C, X, N, P, K) : tout se touche, rien ne se glisse ---------- */
+.ex-texte { font-size: 18px; line-height: 2.1; margin: 10px 0; }
+.ex-trou { box-sizing: content-box; display: inline-block; max-width: 60%; font: inherit; font-size: 17px; border: none; border-bottom: 2px solid var(--main); background: var(--main-bg); border-radius: 6px 6px 0 0; padding: 2px 6px; margin: 0 3px; text-align: center; min-width: 3em; }
+.ex-trou:focus { outline: 2px solid var(--main-border); }
+.ex-mot { display: inline-block; padding: 0 8px; border-radius: 8px; font-weight: 700; margin: 0 2px; }
+.ex-mot.ok, .ex-puce.ok, .ex-motbtn.ok { background: #f0fdf4; color: #14532d; border-color: #16a34a; }
+.ex-mot.ko, .ex-puce.ko, .ex-motbtn.ko { background: #fef2f2; color: #7f1d1d; border-color: #dc2626; }
+.ex-motbtn.manque { background: #fffbeb; border-color: #d97706; color: #78350f; }
+.ex-zone { background: var(--main-bg); border: 1px dashed var(--main-border); border-radius: 12px; padding: 8px 10px; margin: 10px 0; }
+.ex-legende { font-size: 13px; color: #6b7280; margin: 6px 0 4px; }
+.ex-vide { color: #9ca3af; font-size: 14px; }
+.ex-ligne { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
+.ex-ligne.ordre { min-height: 44px; align-items: center; }
+.ex-puce { background: #fff; border: 2px solid #e5e7eb; border-radius: 12px; padding: 10px 14px; font-size: 16px; color: #111; cursor: pointer; min-height: 44px; text-align: left; display: inline-flex; align-items: center; gap: 8px; }
+.ex-puce:disabled { cursor: default; }
+.ex-puce.choisi, .ex-motbtn.choisi { border-color: var(--main); background: var(--main-light); box-shadow: 0 0 0 2px var(--main-border); }
+.ex-puce.pose { border-color: var(--main-border); background: var(--main-bg); }
+.ex-num { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--main); color: #fff; font-size: 12px; font-weight: 700; flex: none; }
+.ex-paires { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 8px 0; }
+.ex-col { display: flex; flex-direction: column; gap: 8px; }
+.ex-col .ex-puce { width: 100%; }
+.ex-cases { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; margin: 8px 0; }
+.ex-case { border: 2px dashed var(--main-border); border-radius: 14px; padding: 8px; min-height: 90px; cursor: pointer; background: #fff; }
+.ex-case-nom { font-weight: 700; color: var(--main-dark); margin-bottom: 4px; }
+.ex-motbtn { font: inherit; font-size: 18px; background: none; border: 2px solid transparent; border-radius: 8px; padding: 0 4px; cursor: pointer; color: inherit; line-height: 1.6; }
+.ex-motbtn:not(:disabled):hover { border-color: var(--main-border); }
+.ex-phrase { font-size: 20px; font-weight: 700; margin: 10px 0; color: var(--main-dark); }
+.ex-entendu { font-size: 17px; font-style: italic; margin-bottom: 6px; }
+.ex-micro.actif { background: #dc2626; animation: ex-pulse 1s infinite; }
+@keyframes ex-pulse { 50% { transform: scale(1.05); } }
+.ex-clavier { display: grid; gap: 5px; margin: 10px 0; }
+.ex-touche { min-width: 0; min-height: 70px; border: 2px solid #d1d5db; border-radius: 0 0 10px 10px; background: #fff; font-size: 14px; font-weight: 700; cursor: pointer; display: flex; align-items: flex-end; justify-content: center; padding-bottom: 8px; }
+.ex-touche.noire { background: #1f2937; color: #fff; border-color: #111827; min-height: 56px; }
+.ex-touche:active { background: var(--main-light); }
+.ex-valider { margin-top: 10px; }

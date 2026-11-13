@@ -79,7 +79,7 @@
     .replace(/\./g, ',').replace(/[^A-Z0-9,]/g, '');
   const esc = s => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const typeDe = q => { const t = q.type || q.t || 'qcm'; return t === 'saisie' ? 'input' : t; };
-  const custom = q => C.types && C.types[typeDe(q)];
+  const custom = q => (C.types && C.types[typeDe(q)]) || INTEGRES[typeDe(q)];
   const score = () => answers.filter(x => x && x.ok).length;
 
   function reponsesAcceptees(q) {
@@ -281,7 +281,234 @@
     return h + (b.length ? `<div class="ecoute-row">${b.join('')}</div>` : '');
   }
 
-  function quitter() { couperSon(); if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
+  /* ---------- types d'exercices intégrés (format en lignes : G, O, A, C, X, N, P, K) ----------
+     Tout se fait en touchant l'écran (pas de glisser-déposer, pénible sur téléphone).
+     E garde l'état de l'exercice en cours ; MoteurQuiz._ex(action, n) le modifie puis réaffiche. */
+  let E = null;
+  const etat = (q, init) => { if (!E || E.q !== q) E = Object.assign({ q }, init()); return E; };
+  const ex = (action, n) => `MoteurQuiz._ex('${action}'${n === undefined ? '' : ',' + n})`;
+  const NOMS_NOTES = ['do', 'do♯', 'ré', 'ré♯', 'mi', 'fa', 'fa♯', 'sol', 'sol♯', 'la', 'la♯', 'si'];
+  const nomNote = m => NOMS_NOTES[((m % 12) + 12) % 12];
+  const melangeDifferent = n => { const idx = [...Array(n).keys()]; if (n < 2) return idx; let m; do { m = shuffle(idx); } while (m.every((v, i) => v === i)); return m; };
+  const puce = (txt, cls, action, n, off) => `<button type="button" class="ex-puce ${cls || ''}" ${off ? 'disabled' : `onclick="${ex(action, n)}"`}>${txt}</button>`;
+  const valider = (pret, action) => pret ? `<button class="validate-btn ex-valider" onclick="${ex(action)}">Valider ✓</button>` : '';
+  const trousDe = q => { const parts = []; String(q.texte || '').split(/\[([^\]]+)\]/).forEach((p, i) => parts.push(i % 2 ? { rep: p.split(';').map(s => s.trim()).filter(Boolean) } : { txt: p })); return parts; };
+  const motsDe = q => { const t = []; String(q.texte || '').replace(/\*([^*]+)\*|([^\s*]+)/g, (m, bon, autre) => { t.push({ mot: bon || autre, bon: !!bon }); }); return t; };
+  function jouerMidi(m) {
+    const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
+    actx = actx || new AC(); if (actx.state === 'suspended') actx.resume();
+    const t = actx.currentTime + 0.02, f = 440 * Math.pow(2, (m - 69) / 12);
+    [[1, 1], [2, 0.28], [3, 0.1]].forEach(([k, a]) => {
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = 'sine'; o.frequency.value = f * k;
+      g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.22 * a, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.9);
+      o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + 1); sons.push(o);
+    });
+  }
+  const motsNorm = s => String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().split(' ').filter(Boolean);
+  function ressemblance(cible, dit) {                    // part des mots de la phrase modèle retrouvés, dans l'ordre
+    const a = motsNorm(cible), b = motsNorm(dit); if (!a.length) return b.length ? 1 : 0;
+    let j = 0, ok = 0; a.forEach(m => { const k = b.indexOf(m, j); if (k >= 0) { ok++; j = k + 1; } });
+    return ok / a.length;
+  }
+  const Reco = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+
+  const INTEGRES = {
+    // G : texte à trous — G|Il [a] faim et [est;était] fatigué.|explication
+    trous: {
+      corps(q, c) {
+        let k = 0;
+        const html = trousDe(q).map(p => {
+          if (p.txt != null) return esc(p.txt);
+          const i = k++;
+          if (!c.repondu) return `<input class="ex-trou" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:${Math.max(4, p.rep[0].length + 2)}ch">`;
+          const donne = (Array.isArray(c.donne) ? c.donne : [])[i] || '', bon = p.rep.map(norm).includes(norm(donne));
+          return `<span class="ex-mot ${bon ? 'ok' : 'ko'}">${esc(donne || '…')}</span>`;
+        }).join('');
+        return `<div class="ex-texte">${html}</div>${c.repondu ? '' : `<button class="validate-btn ex-valider" onclick="${ex('trous')}">Valider ✓</button>`}`;
+      },
+      monter(q, c) { if (!c.repondu) { const i = document.querySelector('.ex-trou'); if (i) setTimeout(() => i.focus(), 30); } },
+      entree: () => actionExercice('trous'),
+      attendu: q => trousDe(q).map(p => p.txt != null ? esc(p.txt) : `<b>${esc(p.rep[0])}</b>`).join('')
+    },
+    // O : remettre dans l'ordre — O|consigne|élément 1|élément 2|élément 3 (écrits dans le bon ordre)
+    ordre: {
+      corps(q, c) {
+        const s = etat(q, () => ({ melange: melangeDifferent(q.items.length), choisis: [] }));
+        const choix = c.repondu ? (Array.isArray(c.donne) ? c.donne : []) : s.choisis;
+        const rep = choix.map((i, p) => puce(esc(q.items[i]), c.repondu ? (i === p ? 'ok' : 'ko') : 'pose', 'ordre-retirer', p, c.repondu)).join('');
+        const reste = c.repondu ? '' : s.melange.filter(i => !s.choisis.includes(i)).map(i => puce(esc(q.items[i]), '', 'ordre-ajouter', i)).join('');
+        return `<div class="ex-zone"><div class="ex-legende">Ta réponse (touche un élément pour le retirer)</div><div class="ex-ligne ordre">${rep || '<span class="ex-vide">Touche les éléments dans l\'ordre…</span>'}</div></div>` +
+          (reste ? `<div class="ex-ligne">${reste}</div>` : '') + valider(!c.repondu && s.choisis.length === q.items.length, 'ordre-valider');
+      },
+      attendu: q => q.items.map(esc).join(' → ')
+    },
+    // A : associer — A|consigne|dog=chien|cat=chat
+    paires: {
+      corps(q, c) {
+        const s = etat(q, () => ({ droite: melangeDifferent(q.paires.length), sel: null, lien: {} }));
+        const lien = c.repondu ? (c.donne && typeof c.donne === 'object' ? c.donne : {}) : s.lien;
+        const numDroite = {}; Object.keys(lien).forEach(g => { numDroite[lien[g]] = +g; });
+        const gauche = q.paires.map((p, i) => {
+          const lie = lien[i] != null, cls = c.repondu ? (lien[i] === i ? 'ok' : 'ko') : (s.sel === i ? 'choisi' : lie ? 'pose' : '');
+          return puce((lie ? `<span class="ex-num">${i + 1}</span>` : '') + esc(p[0]), cls, 'paire-g', i, c.repondu);
+        }).join('');
+        const droite = s.droite.map(j => {
+          const g = numDroite[j], cls = c.repondu ? (g === j ? 'ok' : g == null ? '' : 'ko') : g != null ? 'pose' : '';
+          return puce((g != null ? `<span class="ex-num">${g + 1}</span>` : '') + esc(q.paires[j][1]), cls, 'paire-d', j, c.repondu);
+        }).join('');
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément à gauche, puis celui qui va avec à droite.</div>'}<div class="ex-paires"><div class="ex-col">${gauche}</div><div class="ex-col">${droite}</div></div>` +
+          valider(!c.repondu && Object.keys(s.lien).length === q.paires.length, 'paire-valider');
+      },
+      attendu: q => q.paires.map(p => esc(p[0]) + ' = ' + esc(p[1])).join(' ; ')
+    },
+    // C : classer — C|consigne|Noms: table;chat|Verbes: courir;lire
+    classer: {
+      corps(q, c) {
+        const tous = []; q.groupes.forEach((g, gi) => g.items.forEach(t => tous.push({ t, gi })));
+        const s = etat(q, () => ({ ordre: shuffle([...tous.keys()]), sel: null, place: {} }));
+        const place = c.repondu ? (c.donne && typeof c.donne === 'object' ? c.donne : {}) : s.place;
+        const libres = c.repondu ? '' : s.ordre.filter(i => place[i] == null).map(i => puce(esc(tous[i].t), s.sel === i ? 'choisi' : '', 'classer-choisir', i)).join('');
+        const cases = q.groupes.map((g, gi) => {
+          const dedans = s.ordre.filter(i => place[i] === gi).map(i => puce(esc(tous[i].t), c.repondu ? (tous[i].gi === gi ? 'ok' : 'ko') : 'pose', 'classer-retirer', i, c.repondu)).join('');
+          return `<div class="ex-case" ${c.repondu ? '' : `onclick="if(event.target===this||event.target.classList.contains('ex-case-nom'))${ex('classer-poser', gi)}"`}><div class="ex-case-nom">${esc(g.nom)}</div><div class="ex-ligne">${dedans}</div></div>`;
+        }).join('');
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis la case où il va.</div>'}${libres ? `<div class="ex-ligne">${libres}</div>` : ''}<div class="ex-cases">${cases}</div>` +
+          valider(!c.repondu && Object.keys(s.place).length === tous.length, 'classer-valider');
+      },
+      attendu: q => q.groupes.map(g => '<b>' + esc(g.nom) + '</b> : ' + g.items.map(esc).join(', ')).join(' ; ')
+    },
+    // X : toucher les mots demandés — X|Touche les verbes.|Le chat *dort* et *ronronne*.|explication
+    cliquer: {
+      corps(q, c) {
+        const s = etat(q, () => ({ sel: [] }));
+        const sel = c.repondu ? (Array.isArray(c.donne) ? c.donne : []) : s.sel;
+        const mots = motsDe(q).map((m, i) => {
+          const pris = sel.includes(i);
+          const cls = c.repondu ? (m.bon && pris ? 'ok' : m.bon ? 'manque' : pris ? 'ko' : '') : pris ? 'choisi' : '';
+          return `<button type="button" class="ex-motbtn ${cls}" ${c.repondu ? 'disabled' : `onclick="${ex('cliquer', i)}"`}>${esc(m.mot)}</button>`;
+        }).join(' ');
+        return `<div class="ex-texte">${mots}</div>` + valider(!c.repondu && s.sel.length > 0, 'cliquer-valider');
+      },
+      attendu: q => motsDe(q).filter(m => m.bon).map(m => '<b>' + esc(m.mot) + '</b>').join(', ')
+    },
+    // N : nombre avec tolérance — N|√2 ≈ ?|1,414|0,01|explication
+    nombre: {
+      corps(q, c) {
+        return `<div class="input-row"><input id="ans-input" class="ans-input ${c.repondu ? (c.ok ? 'ok' : 'ko') : ''}" inputmode="decimal" autocomplete="off" value="${c.repondu ? esc(c.donne) : ''}" ${c.repondu ? 'disabled' : ''} placeholder="Ta réponse…">` +
+          `${q.unit ? `<span class="unit">${esc(q.unit)}</span>` : ''}${c.repondu ? '' : `<button class="validate-btn" onclick="${ex('nombre')}">Valider ✓</button>`}</div>`;
+      },
+      monter(q, c) { if (!c.repondu) { const i = document.getElementById('ans-input'); if (i) setTimeout(() => i.focus(), 30); } },
+      entree: () => actionExercice('nombre'),
+      attendu: q => esc(String(q.a).replace('.', ',')) + (q.tol ? ' (à ' + esc(String(q.tol).replace('.', ',')) + ' près)' : '') + (q.unit ? ' ' + esc(q.unit) : '')
+    },
+    // P : parler au micro — P|Répète.|I would like a glass of water.  (* = réponse libre)
+    parler: {
+      corps(q, c) {
+        const s = etat(q, () => ({ ecoute: false, entendu: '', erreur: '' }));
+        const libre = q.phrase === '*';
+        if (c.repondu) return `<div class="ex-zone">${c.donne ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(c.donne)} »</div>` : ''}</div>`;
+        const micro = Reco() ? `<button class="ecoute-btn ex-micro ${s.ecoute ? 'actif' : ''}" onclick="${ex('parler')}">${s.ecoute ? '🎙️ Je t\'écoute…' : '🎤 Parler'}</button>` : '';
+        return (libre ? '' : `<div class="ex-phrase">${esc(q.phrase)}</div>`) +
+          `<div class="ecoute-row">${micro}</div>` +
+          (s.entendu ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(s.entendu)} »</div>` : '') +
+          (s.erreur ? `<div class="input-note">${esc(s.erreur)}</div>` : '') +
+          `<div class="ex-legende">${Reco() ? 'Le micro ne marche pas ? ' : ''}Dis-le à voix haute, puis indique si tu as réussi :</div>` +
+          `<div class="ecoute-row"><button class="ex-puce ok" onclick="${ex('parler-auto', 1)}">✅ Je l'ai bien dit</button><button class="ex-puce" onclick="${ex('parler-auto', 0)}">🔁 À retravailler</button></div>`;
+      },
+      attendu: q => q.phrase === '*' ? 'une réponse à voix haute' : esc(q.phrase)
+    },
+    // K : rejouer une mélodie — K|Rejoue la mélodie.|C4 D4 E4
+    clavier: {
+      corps(q, c) {
+        const cible = sequence(q).map(a => a[0].midi);
+        const s = etat(q, () => ({ joue: [] }));
+        const joue = c.repondu ? (Array.isArray(c.donne) ? c.donne : []) : s.joue;
+        const alt = sequence(q).some(a => a.some(n => n.alt));
+        const bas = Math.floor(Math.min(...cible, 60) / 12) * 12, haut = Math.max(Math.ceil((Math.max(...cible, 71) + 1) / 12) * 12 - 1, bas + 11);
+        const touches = []; for (let m = bas; m <= haut; m++) if (alt || ![1, 3, 6, 8, 10].includes(m % 12)) touches.push(m);
+        const rendu = joue.map((m, i) => `<span class="ex-mot ${c.repondu ? (m === cible[i] ? 'ok' : 'ko') : ''}">${nomNote(m)}</span>`).join(' ');
+        return `<div class="ex-zone"><div class="ex-legende">Tes notes (${joue.length}/${cible.length})</div><div class="ex-texte">${rendu || '<span class="ex-vide">Touche les notes du clavier…</span>'}</div></div>` +
+          (c.repondu ? '' : `<div class="ex-clavier" style="grid-template-columns:repeat(${Math.min(touches.length, 8)},1fr)">${touches.map(m => `<button type="button" class="ex-touche ${[1, 3, 6, 8, 10].includes(m % 12) ? 'noire' : ''}" onclick="${ex('touche', m)}">${nomNote(m)}</button>`).join('')}</div>` +
+            (s.joue.length ? `<button class="ex-puce" onclick="${ex('effacer')}">↺ Effacer</button>` : ''));
+      },
+      attendu: q => sequence(q).map(a => nomNote(a[0].midi)).join(' ')
+    }
+  };
+
+  function actionExercice(action, n) {
+    const q = shuffled && shuffled[cur]; if (!q || selected !== null) return;
+    const s = E && E.q === q ? E : null;
+    switch (action) {
+      case 'trous': {
+        const vals = [...document.querySelectorAll('.ex-trou')].map(i => i.value.trim());
+        const vide = [...document.querySelectorAll('.ex-trou')].find(i => !i.value.trim());
+        if (vide) { vide.focus(); return; }
+        const reps = trousDe(q).filter(p => p.rep);
+        return enregistrer(vals, vals.every((v, i) => reps[i] && reps[i].rep.map(norm).includes(norm(v))), vals.map(esc).join(' / '));
+      }
+      case 'ordre-ajouter': s.choisis.push(n); break;
+      case 'ordre-retirer': s.choisis.splice(n, 1); break;
+      case 'ordre-valider': return enregistrer(s.choisis.slice(), s.choisis.every((i, p) => q.items[i] === q.items[p]), s.choisis.map(i => esc(q.items[i])).join(' → '));
+      case 'paire-g': if (s.lien[n] != null) { delete s.lien[n]; s.sel = null; } else s.sel = s.sel === n ? null : n; break;
+      case 'paire-d': {
+        if (s.sel == null) { const g = Object.keys(s.lien).find(k => s.lien[k] === n); if (g != null) delete s.lien[g]; break; }
+        Object.keys(s.lien).forEach(k => { if (s.lien[k] === n) delete s.lien[k]; });
+        s.lien[s.sel] = n; s.sel = null; break;
+      }
+      case 'paire-valider': return enregistrer(Object.assign({}, s.lien), q.paires.every((p, i) => s.lien[i] === i || q.paires[s.lien[i]] && q.paires[s.lien[i]][1] === p[1]),
+        q.paires.map((p, i) => esc(p[0]) + ' = ' + esc(q.paires[s.lien[i]][1])).join(' ; '));
+      case 'classer-choisir': s.sel = s.sel === n ? null : n; break;
+      case 'classer-poser': if (s.sel == null) return; s.place[s.sel] = n; s.sel = null; break;
+      case 'classer-retirer': delete s.place[n]; break;
+      case 'classer-valider': {
+        const tous = []; q.groupes.forEach((g, gi) => g.items.forEach(t => tous.push({ t, gi })));
+        return enregistrer(Object.assign({}, s.place), tous.every((x, i) => s.place[i] === x.gi || q.groupes[s.place[i]].items.includes(x.t)),
+          q.groupes.map((g, gi) => '<b>' + esc(g.nom) + '</b> : ' + tous.filter((x, i) => s.place[i] === gi).map(x => esc(x.t)).join(', ')).join(' ; '));
+      }
+      case 'cliquer': { const k = s.sel.indexOf(n); k >= 0 ? s.sel.splice(k, 1) : s.sel.push(n); break; }
+      case 'cliquer-valider': {
+        const mots = motsDe(q), bons = mots.map((m, i) => m.bon ? i : -1).filter(i => i >= 0);
+        return enregistrer(s.sel.slice(), bons.length === s.sel.length && bons.every(i => s.sel.includes(i)), s.sel.map(i => esc(mots[i].mot)).join(', ') || '—');
+      }
+      case 'nombre': {
+        const inp = document.getElementById('ans-input'), v = inp ? inp.value.trim() : '';
+        if (!v) { if (inp) inp.focus(); return; }
+        const x = parseFloat(v.replace(/\s/g, '').replace(',', '.')), a = parseFloat(String(q.a).replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
+        return enregistrer(v, isFinite(x) && Math.abs(x - a) <= tol + 1e-9);
+      }
+      case 'parler': {
+        const R = Reco(); if (!R || !s) return;
+        if (s.ecoute) { try { s.reco && s.reco.stop(); } catch (e) {} return; }
+        couperSon();
+        const r = new R(); s.reco = r; r.lang = q.langue || C.langueAudio || 'en-GB'; r.interimResults = false; r.maxAlternatives = 3;
+        r.onresult = e => {
+          const alts = [...e.results[0]].map(a => a.transcript);
+          const meilleur = alts.reduce((b, t) => ressemblance(q.phrase, t) > ressemblance(q.phrase, b) ? t : b, alts[0] || '');
+          s.entendu = meilleur; s.ecoute = false;
+          const ok = q.phrase === '*' ? !!meilleur.trim() : ressemblance(q.phrase, meilleur) >= 0.75;
+          if (ok) return enregistrer(meilleur, true, esc(meilleur));
+          s.erreur = 'Presque ! Réécoute le modèle, puis réessaie.'; renderQuestion();
+        };
+        r.onerror = e => { s.ecoute = false; s.erreur = e.error === 'not-allowed' ? 'Le micro est bloqué : autorise-le dans le navigateur, ou utilise les boutons ci-dessous.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.'; renderQuestion(); };
+        r.onend = () => { if (s.ecoute) { s.ecoute = false; renderQuestion(); } };
+        s.ecoute = true; s.erreur = ''; try { r.start(); } catch (e) { s.ecoute = false; }
+        break;
+      }
+      case 'parler-auto': return enregistrer(s && s.entendu || '', !!n, n ? 'réussi (auto-évaluation)' : 'à retravailler (auto-évaluation)');
+      case 'touche': {
+        jouerMidi(n); s.joue.push(n);
+        const cible = sequence(q).map(a => a[0].midi);
+        if (s.joue.length >= cible.length) return enregistrer(s.joue.slice(), s.joue.every((m, i) => m === cible[i]), s.joue.map(nomNote).join(' '));
+        break;
+      }
+      case 'effacer': s.joue = []; break;
+      default: return;
+    }
+    renderQuestion();
+  }
+
+  function quitter() { couperSon(); if (E && E.reco) try { E.reco.abort(); } catch (e) {} if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
 
   function prevQuestion() {
     if (cur === 0) return;
@@ -483,6 +710,7 @@
     ecouter, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     rafraichir: () => renderQuestion(),
+    _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc,
     _etat: () => ({ state, shuffled, cur, answers, selected, pool: C ? C.questions.length : 0 })      // pour les tests

@@ -7,7 +7,10 @@ Contenu :
 - Couvre toutes les notions selon leur importance, une seule question par fait. Chaque réponse découle de la leçon : vérifie-la.
 - Chaque question se comprend sans la leçon : jamais « dans le bilan », « l'exemple donné », « d'après le texte ».
 - Une seule bonne réponse, mauvais choix plausibles. Phrases neutres en genre.
-- Environ moitié Q, quart V (autant de V que de F), quart S.
+- Varie les exercices : au moins 4 types différents, aucun au-delà de 40 % des lignes. Choisis le type selon ce qu'il faut apprendre :
+  règle (grammaire, orthographe, conjugaison) → G, X, Q, S ; vocabulaire, traduction, définition → A, S, Q ; chronologie, étapes, cycle, méthode → O ; catégories, familles → C ; calcul, mesure → S (exact), N (valeur approchée) ; idée reçue, propriété → V (autant de V que de F) ; compréhension orale, dictée → Q ou S avec dire= ; prononciation, lecture à voix haute → P (2 au plus) ; musique → notes=, K.
+- Au plus un A, C ou O par catégorie (ils valent plusieurs questions).
+- Niveau : maternelle-CP → phrases très courtes, 2 ou 3 choix, emojis (compter 🍎🍎🍎, A avec emojis), dire= en français (langue=fr-FR sur la ligne) pour lire la question, pas de S long ; collège-lycée → plus de S, N, X et O de méthode.
 
 Format : réponds UNIQUEMENT avec un bloc de code, sans rien avant ni après. Une ligne par élément, champs séparés par |.
 T|titre|accroche courte|matière|emoji du thème|autre emoji, badge gagné à 100 %
@@ -15,6 +18,14 @@ T|titre|accroche courte|matière|emoji du thème|autre emoji, badge gagné à 10
 Q|question|BONNE réponse|faux|faux|explication
 V|affirmation|V ou F|explication
 S|question|réponse;variante|explication
+G|phrase avec les [mots] à trouver entre crochets, [mot;variante] possible|explication
+O|consigne|élément 1|élément 2|élément 3 (2 à 6, dans le BON ordre : le site mélange)
+A|consigne|gauche=droite|gauche=droite (2 à 5 paires)
+C|consigne|Catégorie: élément;élément|Catégorie: élément;élément (2 à 3 catégories, 8 éléments au plus)
+X|consigne|phrase où les mots à toucher sont entre *étoiles*|explication
+N|question|valeur|tolérance|explication (ex. 1,414|0,01)
+P|consigne|phrase à dire à voix haute (* = réponse libre)
+K|consigne|notes de la mélodie à rejouer (ex. C4 D4 E4)
 M|point clé à retenir (3 à 6 lignes M à la fin)
 - Q : 2 ou 3 mauvais choix, la bonne réponse toujours en premier (le site mélange).
 - S : 1 à 3 mots ou un nombre. Variantes seulement si vraiment différentes (22;twenty-two) : majuscules, accents et articles sont déjà tolérés.
@@ -32,4 +43,8 @@ V|We are se contracte en We're.|V|We are → We're.
 ## Conjugaison
 S|Complète : They ___ happy.|are|Avec they, on emploie are.
 Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Are you happy? = Es-tu content ?|dire=Are you happy?
+G|We [are] friends and she [is] my sister.|we → are, she → is.
+A|Relie.|I am=I'm|you are=you're|he is=he's
+O|Remets la phrase dans l'ordre.|Are|you|ten|?
+P|Répète.|I am happy.
 M|I am → I'm, you are → you're

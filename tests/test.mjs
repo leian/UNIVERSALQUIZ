@@ -222,6 +222,43 @@ try {
   ok(vu.dire, 'anglais : la phrase est lue (normal puis lentement), en en-GB');
   ok(vu.notes, 'musique : les notes sont jouées (accord compris, note invalide ignorée)');
   ok(vu.portee && vu.seule, 'musique : portée dessinée, avec ou sans bouton d\'écoute');
+  // nouveaux types d'exercices (G, O, A, C, X, N, P, K) : création au format en lignes, puis partie jouée en touchant l'écran
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
+  await page.fill('#reponse', ['T|Huit types|Essai|autre|🧪|🏆', '## Tout',
+    'G|Il [a] faim et [est;était] fatigué.|a / est.',
+    'O|Range du plus petit au plus grand.|1|5|12|40',
+    'A|Relie.|dog=chien|cat=chat|bird=oiseau',
+    'C|Classe.|Noms: table;chat|Verbes: courir;lire',
+    'X|Touche les verbes.|Le chat *dort* et *ronronne* au soleil.|dort, ronronne.',
+    'N|√2 ≈ ?|1,414|0,01|Racine de 2.',
+    'P|Répète.|I am happy.',
+    'K|Rejoue la mélodie.|C4 D4 E4', 'M|Varier les exercices.'].join('\n'));
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  ok(/8 questions/.test(await page.locator('#resultat').innerText()), 'format en lignes : les 8 nouveaux types sont reconnus');
+  await page.locator('#resultat a.btn').click();
+  await page.waitForURL(/page=quiz_huit-types_/);
+  await page.locator('.start-btn').click();
+  const exact = t => new RegExp('^\\s*(?:\\d+)?' + t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$');
+  const typesJoues = [];
+  for (let i = 0; i < 8; i++) {
+    const q = await page.evaluate(() => { const e = MoteurQuiz._etat(); return e.shuffled[e.cur]; });
+    typesJoues.push(q.type);
+    if (q.type === 'trous') { const t = page.locator('.ex-trou'); await t.nth(0).fill('a'); await t.nth(1).fill('était'); await page.keyboard.press('Enter'); }
+    else if (q.type === 'ordre') { for (const x of q.items) await page.locator('.ex-ligne:not(.ordre) .ex-puce', { hasText: exact(x) }).click(); await page.locator('.ex-valider').click(); }
+    else if (q.type === 'paires') { for (const [g, d] of q.paires) { await page.locator('.ex-col').nth(0).locator('.ex-puce', { hasText: exact(g) }).click(); await page.locator('.ex-col').nth(1).locator('.ex-puce', { hasText: exact(d) }).click(); } await page.locator('.ex-valider').click(); }
+    else if (q.type === 'classer') { for (const [gi, g] of q.groupes.entries()) for (const x of g.items) { await page.locator('.ex-ligne').first().locator('.ex-puce', { hasText: exact(x) }).click(); await page.locator('.ex-case-nom').nth(gi).click(); } await page.locator('.ex-valider').click(); }
+    else if (q.type === 'cliquer') { await page.locator('.ex-motbtn', { hasText: /^dort$/ }).click(); await page.locator('.ex-motbtn', { hasText: /^ronronne$/ }).click(); await page.locator('.ex-valider').click(); }
+    else if (q.type === 'nombre') { await page.fill('#ans-input', '1,41'); await page.keyboard.press('Enter'); }
+    else if (q.type === 'parler') { await page.locator('.ex-puce.ok').click(); }
+    else if (q.type === 'clavier') { for (const n of ['do', 'ré', 'mi']) await page.locator('.ex-touche', { hasText: new RegExp('^' + n + '$') }).click(); }
+    const juste = await page.evaluate(() => { const e = MoteurQuiz._etat(); return !!(e.answers[e.cur] && e.answers[e.cur].ok); });
+    if (!juste) console.log('   réponse refusée pour le type', q.type);
+    await page.locator('.next-btn').click();
+  }
+  ok(/^8/.test(await page.locator('.result-score').innerText()) && new Set(typesJoues).size === 8, 'nouveaux types : texte à trous, ordre, paires, classement, mots à toucher, nombre, micro, clavier jouables au toucher (8/8)');
+
   await page.goto(BASE + '/exec');
   ok((await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}))).badge === '🏅' && (await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}).matiere)) === 'anglais', 'catalogue : badge et matière du quiz créé');
   await page.goto(BASE + '/exec?page=ajouter');
@@ -253,6 +290,8 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card .suppr').count() === 0, 'Mes quiz : pas de bouton de suppression côté enfant');
   await page.goto(BASE + '/exec?page=tableau-de-bord');
+  await page.locator('.onglet[data-o=quiz]').click();
+  ok(await page.locator('#p-quiz').isVisible() && !(await page.locator('#p-resultats').isVisible()), 'page parents : l\'onglet « Gérer les quiz » s\'ouvre');
   const ligne = page.locator('#liste-quiz tr', { hasText: 'Les volcans' });
   await ligne.locator('button').click();
   ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()), 'page parents : « Supprimer » demande une confirmation');
@@ -261,6 +300,8 @@ try {
   await ligne.locator('button').click();
   await page.locator('.boite button[data-r=oui]').click();
   await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
+  await page.locator('.onglet[data-o=reglages]').click();
+  ok(await page.locator('#appareil button').isVisible() && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').innerText()), 'page parents : l\'onglet « Réglages » montre l\'appareil et les adresses');
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 

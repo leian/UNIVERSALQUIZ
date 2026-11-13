@@ -19,17 +19,27 @@
   const texte = html => { const d = document.createElement('div'); d.innerHTML = String(html ?? ''); return (d.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 400); };
   const idQuiz = () => { try { return decodeURIComponent(location.pathname.split('/').pop() || 'inconnu').replace(/\.html$/i, ''); } catch (e) { return 'inconnu'; } };
 
-  async function envoyerFile() {
-    let file = lire(K_FILE, []);
+  // un seul envoi à la fois : sinon l'envoi lancé au chargement de la page et celui de fin de partie
+  // pouvaient envoyer deux fois la même partie
+  let enCours = null;
+  const cle = r => r._id || JSON.stringify(r);
+  function envoyerFile() {
+    if (enCours) return enCours.then(() => envoyerFile());
+    enCours = envoyer().catch(() => {}).finally(() => { enCours = null; });
+    return enCours;
+  }
+  async function envoyer() {
+    const file = lire(K_FILE, []);
     if (!file.length || !/^https?:/.test(location.protocol)) return;
-    const reste = [];
+    const partis = new Set();
     for (const r of file) {
       try {
         const res = await fetch(API, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(r), keepalive: true, credentials: 'same-origin' });
-        if (!res.ok && res.status !== 400) reste.push(r);   // 400 = données refusées : inutile de réessayer
-      } catch (e) { reste.push(r); }
+        if (res.ok || res.status === 400) partis.add(cle(r));   // 400 = données refusées : inutile de réessayer
+      } catch (e) {}
     }
-    ecrire(K_FILE, reste.slice(-50));
+    // on relit la file : une partie a pu y être ajoutée pendant l'envoi
+    ecrire(K_FILE, lire(K_FILE, []).filter(r => !partis.has(cle(r))).slice(-50));
   }
 
   window.Suivi = {
@@ -60,7 +70,8 @@
           duree: t0 ? Math.round((Date.now() - t0) / 1000) : null,
           dateLocale: new Date().toISOString(),
           appareil: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'ordinateur',
-          cats, questions
+          cats, questions,
+          _id: Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
         };
         t0 = null;
         const hist = lire(K_LOCAL, []);

@@ -25,7 +25,7 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 - Un nouveau fichier `moteur/commun/xxx.js` doit être déclaré dans `construire.mjs` (`COMMUN`) et dans `src/Code.gs` (`COMMUN`).
 
 ## Fabriquer un quiz pour quelqu'un
-Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `M|…`) décrit dans les consignes pour l'IA (`src/consignes.txt`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
+Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `G|texte à [trous]|…`, `O|consigne|1|2|3`, `A|consigne|a=b|c=d`, `C|consigne|Cat: a;b|Cat: c;d`, `X|consigne|phrase à *mots*|…`, `N|question|valeur|tolérance|…`, `P|consigne|phrase à dire`, `K|consigne|C4 D4 E4`, `M|…`) décrit dans les consignes pour l'IA (`src/consignes.txt`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
 - garde telles quelles les lignes `<link href="commun/moteur-quiz.css">` et `<script src="commun/…">` ;
 - garde l'appel `MoteurQuiz.lancer({ titre, sousTitre, icone, matiere, couleur, questions, … })` ;
 - `matiere` vaut `francais`, `maths`, `sciences`, `anglais`, `histoire`, `geographie`, `musique` ou `autre` ;
