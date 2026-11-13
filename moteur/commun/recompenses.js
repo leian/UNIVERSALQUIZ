@@ -18,6 +18,7 @@ const CSS = String.raw`
   #animal-toast { box-sizing:border-box; position:fixed; left:50%; top:max(12px, env(safe-area-inset-top)); z-index:210; display:flex; align-items:center; gap:12px; width:max-content; max-width:calc(100vw - 24px); padding:7px 14px 7px 8px; color:#134e4a; border:1px solid #9cd5c9; border-radius:18px; background:#fffdf7; box-shadow:0 8px 26px #193b392b; pointer-events:none; opacity:0; transform:translate(-50%, -12px); transition:opacity .18s, transform .24s cubic-bezier(.2,.8,.3,1); }
   #animal-toast.show { opacity:1; transform:translate(-50%, 0); }
   .anim-stage { width:clamp(105px,34vw,148px); flex:none; }
+  #animal-toast.sur-image .anim-stage { width:clamp(70px,22vw,96px); }
   .anim-stage svg,.capy-scene svg { width:100%; height:auto; display:block; }
   .anim-text { font:700 16px/1.25 system-ui,sans-serif; }
   .anim-text small { display:block; margin-top:4px; font-size:13px; font-weight:450; }
@@ -955,6 +956,16 @@ function celebrate() {
   if (lastAnimal>=0 && index>=lastAnimal) index++;
   celebrateIndex(index);
 }
+// la bulle se pose sur l'image du haut de la question (jamais sur les boutons du bas) ;
+// sans image, elle reste en haut de l'écran
+function placerToast(toast) {
+  const box = document.querySelector('.question-card .deco-box, .question-card .fig-box');
+  toast.classList.toggle('sur-image', !!box);
+  if (!box) { toast.style.position = toast.style.top = ''; return; }
+  const r = box.getBoundingClientRect(), h = toast.offsetHeight || 110;
+  toast.style.position = 'absolute';
+  toast.style.top = Math.max(window.scrollY + 8, window.scrollY + r.top + r.height / 2 - h / 2) + 'px';
+}
 function celebrateIndex(index) {
   const a = ANIMALS[index];
   const toast = document.getElementById('animal-toast');
@@ -965,6 +976,7 @@ function celebrateIndex(index) {
   clearTimeout(toastCleanup);
   toast.innerHTML = `<div class="anim-stage">${a.svg()}</div>
     <div class="anim-text">${PRAISE[Math.floor(Math.random()*PRAISE.length)]}<small>${a.t}</small></div>`;
+  placerToast(toast);
   toast.classList.add('show');
   toastTimer=setTimeout(() => {
     toast.classList.remove('show');
