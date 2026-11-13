@@ -184,7 +184,7 @@ function pageHtml_() {
   '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
   '.actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:8px 0}.maj{background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin:10px 0}' +
-  '.marque{display:flex;align-items:center;justify-content:center;gap:12px}.marque img{border-radius:13px}.marque em{font-style:normal;color:#b3001b}details.avance{margin-top:14px}details.avance summary{cursor:pointer;color:var(--soft);font-size:.9rem}details.avance a{color:var(--soft)}' +
+  '.retour{margin:12px 0 0;padding:10px 14px;background:#ecfdf3;border-left:5px solid var(--ok);border-radius:10px;font-size:.95rem}.marque{display:flex;align-items:center;justify-content:center;gap:12px}.marque img{border-radius:13px}.marque em{font-style:normal;color:#b3001b}details.avance{margin-top:14px}details.avance summary{cursor:pointer;color:var(--soft);font-size:.9rem}details.avance a{color:var(--soft)}' +
   '</style></head><body><main>' +
   '<h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="56" height="56" alt=""><span>Socca<em>Quiz</em></span></h1><p class="intro" id="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
@@ -193,7 +193,7 @@ function pageHtml_() {
   '<section class="etape" id="e1"><h2><span class="num">1</span> Active l\'API Apps Script</h2>' +
   '<div id="e1-alerte"></div><div id="e1-afaire"><p>Une seule fois : touche le bouton, puis mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>.</p>' +
   '<a class="btn" href="' + PAGE_API + '" target="_blank" rel="noopener">Ouvrir la page Google</a>' +
-  '<p class="petit" style="margin:10px 0 0">Ensuite, <b>reviens au mail et touche à nouveau « Installer SoccaQuiz »</b> (sur ordinateur : reviens simplement sur cet onglet), puis passe à l\'étape 2.</p>' +
+  '<div class="retour"><b>↩️ Ensuite, tu vas revenir sur le mail : c\'est normal.</b> Une fois l\'interrupteur activé, la flèche retour ← te ramène au mail d\'invitation, pas ici. Dans le mail, fais l\'<b>étape 2</b> : touche à nouveau « Installer SoccaQuiz ».<br><span class="petit">Sur ordinateur, la page Google s\'ouvre dans un autre onglet : reviens simplement sur celui-ci.</span></div>' +
   '<p class="petit" style="margin:6px 0 0">Déjà fait ? Passe directement à l\'étape 2.</p></div></section>' +
   '<section class="etape" id="e2"><h2><span class="num">2</span> Installe le site</h2>' +
   '<label for="prenom">Prénom de l\'enfant (facultatif)</label><input id="prenom" maxlength="40" autocomplete="off" placeholder="ex. Tom">' +
