@@ -70,9 +70,11 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .serie{display:inline-block;margin-top:12px;background:var(--card);border:2px solid var(--line);border-radius:999px;padding:4px 14px;font:600 .95rem "Fredoka",sans-serif}
 .ctrl-link{display:inline-flex;align-items:center;gap:6px;margin-top:14px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 16px;font:600 .95rem "Fredoka",sans-serif;text-decoration:none}
 .ctrl-link:hover{border-color:var(--soft)}
+.espace-parent{display:inline-block;margin:10px auto 0;padding:4px 14px;border-radius:999px;background:#ede9fe;color:#5b21b6;font-size:.85rem;font-weight:600}
 .foot{text-align:center;margin-top:40px;font-size:.85rem}
 .foot a{color:var(--soft)}
 .empty{text-align:center;color:var(--soft);background:var(--card);border:2px dashed var(--line);border-radius:16px;padding:32px 16px;margin-top:32px}
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -81,6 +83,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
   <header>
     <h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="60" height="60" alt=""><span>Socca<em>Quiz</em></span></h1>
     <p>Choisis une matière et lance-toi, {{PRENOM}} !</p>
+    <p class="espace-parent" id="espace-parent" hidden>🔒 Espace parent · ton enfant utilise son propre lien, sans les pages parents</p>
     <input class="search" id="q" type="search" placeholder="Chercher un quiz…" aria-label="Chercher un quiz">
     <a class="ctrl-link" href="controles.html">🖨️ Mes contrôles papier</a>
     <div id="serie"></div>
@@ -88,7 +91,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
     <div class="filters" id="filters"></div>
   </header>
   <main id="list"></main>
-  <p class="foot"><a href="ajouter.html">➕ Ajouter un quiz</a> · <a href="tableau-de-bord.html">📊 Suivi des résultats (parents)</a> · <a href="https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec" target="_top">🔧 Installateur (mise à jour, lien pour l'enfant)</a></p>
+  <p class="foot" id="foot"><a href="ajouter.html">➕ Ajouter un quiz</a> · <a href="tableau-de-bord.html">📊 Suivi des résultats (parents)</a></p>
  </div>
  <aside id="recompenses"></aside>
 </div>
@@ -221,6 +224,18 @@ afficherFiltres();
 afficherListe();
 chargerScores();
 Badges.monter();
+/* ---------- site de l'enfant / espace parent ---------- */
+(function () {
+  var U = window.__UQ || {}, f = document.getElementById("foot");
+  var lien = (href, txt) => `<a href="${esc(href)}" target="_top">${txt}</a>`;
+  if (U.espace === "enfant") {            // l'enfant ne voit pas les pages des parents, seulement la porte de l'espace parent
+    f.innerHTML = U.urlParent ? lien(U.urlParent, "🔒 Espace parent") : "";
+    return;
+  }
+  if (U.espace === "parent") document.getElementById("espace-parent").hidden = false;
+  if (U.installateur) f.innerHTML += " · " + lien(U.installateur, "🔧 Installateur (mise à jour, lien pour l'enfant)");
+})();
+
 </script>
 </body>
 </html>

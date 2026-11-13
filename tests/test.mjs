@@ -264,6 +264,22 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 
+  // deux espaces : site de l'enfant (pages et actions des parents refusées) et espace parent
+  await ev('CONFIG.espace = "enfant"; CONFIG.urlParent = "https://parent.example/macros/s/P/exec"');
+  await page.goto(BASE + '/exec?page=ajouter');
+  ok(/Espace parent/.test(await page.locator('body').innerText()) && await page.locator('#reponse').count() === 0, 'site de l\'enfant : « Ajouter un quiz » renvoie vers l\'espace parent');
+  await page.goto(BASE + '/exec?page=tableau-de-bord');
+  ok(/réservée aux parents/.test(await page.locator('body').innerText()), 'site de l\'enfant : le suivi des résultats est réservé aux parents');
+  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc")]');
+  ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
+  await page.goto(BASE + '/exec');
+  const pied = await page.locator('#foot').innerText();
+  ok(/Espace parent/.test(pied) && !/Ajouter un quiz|Suivi/.test(pied) && await page.locator('a.card').count() > 0, 'site de l\'enfant : quiz visibles, seul lien parent « 🔒 Espace parent »');
+  await ev('CONFIG.espace = "parent"; CONFIG.urlParent = ""');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('#espace-parent').isVisible() && /Ajouter un quiz/.test(await page.locator('#foot').innerText()), 'espace parent : bandeau « Espace parent » et liens des parents');
+  await ev('CONFIG.espace = ""');
+
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {
     const d = DriveApp.createFolder('Universal Quiz');

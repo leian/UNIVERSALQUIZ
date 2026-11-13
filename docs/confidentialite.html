@@ -17,12 +17,14 @@
 <ul>
 <li>créer dans le compte de cette personne un projet Apps Script nommé « SoccaQuiz » ;</li>
 <li>y copier le code du moteur de quiz (publié publiquement sur GitHub) ;</li>
-<li>publier ce projet en site web, puis le mettre à jour à sa demande.</li>
+<li>publier ce projet en site web à deux adresses : le site de l'enfant (ouvert à toute personne qui a le lien, sans les pages des parents) et l'espace parent (accessible seulement avec le compte Google de la famille) ;</li>
+<li>mettre à jour ces deux publications à sa demande, ou les désactiver si la personne choisit « Repartir de zéro ».</li>
 </ul>
-<p>Il n'accède ni au Google Drive, ni aux e-mails, ni aux contacts, ni à aucun autre fichier. Pour proposer les mises à jour, il retient, dans l'espace de stockage propre à chaque utilisateur que fournit Google Apps Script, l'identifiant du projet créé, l'adresse du site et le prénom saisi (facultatif). Ces informations ne sont accessibles qu'aux exécutions de cette même personne et ne sont pas consultables par l'éditeur.</p>
+<p>Il n'accède ni au Google Drive, ni aux e-mails, ni aux contacts, ni à aucun autre fichier. Pour proposer les mises à jour, il retient, dans l'espace de stockage propre à chaque utilisateur que fournit Google Apps Script, l'identifiant du projet créé, les adresses du site (enfant et parent) et le prénom saisi (facultatif). Ces informations ne sont accessibles qu'aux exécutions de cette même personne et ne sont pas consultables par l'éditeur.</p>
 
 <h2>2. Le site SoccaQuiz de chaque famille</h2>
 <p>Le site installé appartient entièrement à la famille, dans son compte Google. Il crée et utilise uniquement son dossier Drive « SoccaQuiz » (les quiz) et le Google Sheets « SoccaQuiz – Résultats » (scores des parties) ; un site installé avant le 11 novembre 2026 utilise les mêmes éléments sous le nom « Universal Quiz ». Ces données restent dans le compte Google de la famille. L'éditeur n'y a pas accès.</p>
+<p>Le site de l'enfant ne donne accès qu'aux quiz et aux contrôles : l'ajout de quiz, la clé Gemini et le suivi des résultats sont réservés à l'espace parent, que Google n'ouvre qu'au compte de la famille.</p>
 
 <h2>3. Les IA utilisées pour créer les quiz</h2>
 <p>Les photos de leçons sont envoyées par le parent directement au service d'IA de son choix (Claude, ChatGPT, Grok…), selon les conditions de ce service. Si le parent choisit Gemini depuis la page « Ajouter un quiz », les photos partent de son navigateur vers l'API Gemini de Google, avec la clé Gemini que la famille a créée elle-même et qui est gardée dans son propre site ; elles sont soumises aux conditions de Google pour cette API. L'éditeur ne reçoit aucune photo et n'a pas accès à cette clé.</p>

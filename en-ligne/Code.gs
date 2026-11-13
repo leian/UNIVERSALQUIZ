@@ -35,7 +35,7 @@ function apiEtat() {
   const p = PropertiesService.getUserProperties().getProperties();
   let derniere = '';
   try { derniere = moteur_().version; } catch (e) { return { erreur: e.message }; }
-  return { installe: !!p.scriptId, url: p.url || '', prenom: p.prenom || '', version: p.version || '', derniere };
+  return { installe: !!p.scriptId, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere };
 }
 /* Remarque : on ne peut pas savoir à l'avance si l'interrupteur « API Google Apps Script » est activé
    (Google répond « introuvable » avant de vérifier l'interrupteur). C'est l'installation qui le dit. */
@@ -56,12 +56,13 @@ function apiInstaller(prenom) {
    Le projet Apps Script de l'ancien site reste dans le Drive (l'API ne permet pas de le supprimer). */
 function apiRecommencer() {
   const props = PropertiesService.getUserProperties();
-  const id = props.getProperty('scriptId'), dep = props.getProperty('deploymentId');
+  const id = props.getProperty('scriptId');
   let desactive = false;
-  if (id && dep) {
+  [props.getProperty('deploymentId'), props.getProperty('deploymentIdParent')].forEach(dep => {
+    if (!id || !dep) return;
     try { appel_('delete', '/' + id + '/deployments/' + dep); desactive = true; }
-    catch (e) { desactive = e.code === 404; }      // déjà supprimé : même résultat
-  }
+    catch (e) { if (e.code === 404) desactive = true; }      // déjà supprimé : même résultat
+  });
   props.deleteAllProperties();
   return { ok: true, desactive };
 }
@@ -76,39 +77,53 @@ function apiMettreAJour() {
 function publier_(maj) {
   const props = PropertiesService.getUserProperties();
   const moteur = moteur_();
+  const prenom = props.getProperty('prenom') || '';
   let id = props.getProperty('scriptId');
-  let dep = props.getProperty('deploymentId');
+  let dep = props.getProperty('deploymentId');               // site de l'enfant
+  let depP = props.getProperty('deploymentIdParent');        // espace parent
+  const avait = !!dep, avaitParent = !!depP;
 
   if (id) {
     try { appel_('get', '/' + id); }
-    catch (e) { if (e.code === 404 || e.code === 403 && !/Apps Script API/i.test(e.message)) { id = null; dep = null; } else throw e; }
+    catch (e) { if (e.code === 404 || e.code === 403 && !/Apps Script API/i.test(e.message)) { id = null; } else throw e; }
   }
   if (!id) {
     id = appel_('post', '', { title: 'SoccaQuiz' }).scriptId;
     props.setProperty('scriptId', id);
-    props.deleteProperty('deploymentId');
-    dep = null;
+    props.deleteProperty('deploymentId'); props.deleteProperty('deploymentIdParent');
+    dep = depP = null;
   }
 
-  appel_('put', '/' + id + '/content', { files: fichiers_(moteur, props.getProperty('prenom') || '') });
+  // envoie le code d'un des deux espaces, en fait une version et la publie (sur sa publication existante si possible)
+  const urls = { urlEnfant: dep ? props.getProperty('url') || '' : '', urlParent: depP ? props.getProperty('urlParent') || '' : '' };
   const description = 'SoccaQuiz ' + moteur.version;
-  const version = appel_('post', '/' + id + '/versions', { description }).versionNumber;
-  const config = { versionNumber: version, manifestFileName: 'appsscript', description };
-
-  let d = null;
-  if (dep) {
-    try { d = appel_('put', '/' + id + '/deployments/' + dep, { deploymentConfig: Object.assign({ scriptId: id }, config) }); }
-    catch (e) { if (e.code !== 404) throw e; }
+  function deployer(espace, depId) {
+    appel_('put', '/' + id + '/content', { files: fichiers_(moteur, prenom, { espace, urlEnfant: urls.urlEnfant, urlParent: urls.urlParent }) });
+    const version = appel_('post', '/' + id + '/versions', { description: description + ' (' + espace + ')' }).versionNumber;
+    const config = { versionNumber: version, manifestFileName: 'appsscript', description: description + ' – ' + (espace === 'parent' ? 'espace parent' : 'site de l\'enfant') };
+    let d = null;
+    if (depId) {
+      try { d = appel_('put', '/' + id + '/deployments/' + depId, { deploymentConfig: Object.assign({ scriptId: id }, config) }); }
+      catch (e) { if (e.code !== 404) throw e; }
+    }
+    return d || appel_('post', '/' + id + '/deployments', config);
   }
-  if (!d) d = appel_('post', '/' + id + '/deployments', config);
 
-  const url = urlSite_(d);
-  props.setProperties({ deploymentId: d.deploymentId, url, version: moteur.version });
-  return { ok: true, url, version: moteur.version, maj: !!maj && !!dep };
+  // 1. crée les publications qui manquent : leurs adresses ne sont connues qu'une fois créées
+  if (!dep) { const d = deployer('enfant', null); dep = d.deploymentId; urls.urlEnfant = urlSite_(d); }
+  if (!depP) { const d = deployer('parent', null); depP = d.deploymentId; urls.urlParent = urlSite_(d); }
+  // 2. publie les deux espaces, chacun connaissant l'adresse de l'autre
+  const dE = deployer('enfant', dep), dP = deployer('parent', depP);
+  const url = urlSite_(dE), urlParent = urlSite_(dP);
+
+  props.setProperties({ deploymentId: dE.deploymentId, deploymentIdParent: dP.deploymentId, url, urlParent, version: moteur.version });
+  return { ok: true, url, urlParent, version: moteur.version, maj: !!maj && avait, nouveauParent: avait && !avaitParent };
 }
 
 /* fichiers du moteur, avec le prénom écrit dans les réglages de Code.gs */
-function fichiers_(moteur, prenom) {
+function fichiers_(moteur, prenom, espace) {
+  espace = espace || {};
+  const propre = u => String(u || '').replace(/['\\\s]/g, '');
   const p = String(prenom).replace(/\\/g, '').replace(/'/g, '’');
   // le site saura quelle version il porte et où proposer la mise à jour
   const ici = String(ScriptApp.getService().getUrl() || '').replace(/'/g, '');
@@ -117,8 +132,19 @@ function fichiers_(moteur, prenom) {
     ? { name: f.name, type: f.type, source: f.source
         .replace(/prenom: '[^'\n]*',/, "prenom: '" + p + "',")
         .replace(/version: '[^'\n]*',/, "version: '" + version + "',")
-        .replace(/installateur: '[^'\n]*'/, "installateur: '" + ici + "'") }
+        .replace(/installateur: '[^'\n]*'/, "installateur: '" + ici + "'")
+        .replace(/espace: '[^'\n]*'/, "espace: '" + (espace.espace === 'parent' ? 'parent' : espace.espace === 'enfant' ? 'enfant' : '') + "'")
+        .replace(/urlEnfant: '[^'\n]*'/, "urlEnfant: '" + propre(espace.urlEnfant) + "'")
+        .replace(/urlParent: '[^'\n]*'/, "urlParent: '" + propre(espace.urlParent) + "'") }
+    : f.name === 'appsscript' && espace.espace ? { name: f.name, type: f.type, source: manifeste_(f.source, espace.espace) }
     : f);
+}
+
+/* l'espace parent n'est ouvert qu'au compte Google de la famille (« Seulement moi ») ; le site de l'enfant reste ouvert sans compte */
+function manifeste_(source, espace) {
+  const m = JSON.parse(source);
+  m.webapp = Object.assign({}, m.webapp, { executeAs: 'USER_DEPLOYING', access: espace === 'parent' ? 'MYSELF' : 'ANYONE_ANONYMOUS' });
+  return JSON.stringify(m, null, 2);
 }
 
 /* dernière version du moteur : fichier universal-quiz.json de la Release GitHub */
@@ -212,8 +238,10 @@ function pageHtml_() {
   '<div id="deja" class="cache"><section class="etape">' +
   '<h2 id="deja-titre">✅ Ton site est prêt</h2>' +
   '<div id="deja-message"></div>' +
-  '<div class="actions"><a class="btn" id="lien-site" href="#">▶ Accéder à mon site</a>' +
+  '<div class="actions"><a class="btn" id="lien-site" href="#">▶ Site de l\'enfant</a>' +
+  '<a class="btn leger" id="lien-parent" href="#">🔒 Espace parent</a>' +
   '<a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></div>' +
+  '<p class="petit" id="explication-espaces" style="margin:4px 0 8px"><b>Site de l\'enfant</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' +
   '<div id="bloc-maj" class="maj cache"><p id="texte-maj" style="margin:0"></p><button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
   '<p class="petit" style="margin:6px 0 0">Ton adresse, tes quiz et tes résultats ne changent pas.</p></div>' +
   '<p id="info-version" class="petit"></p>' +
@@ -235,11 +263,12 @@ function scriptPage_() {
     var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
     var res = $('resultat');
     // première installation : l'autorisation à donner une seule fois, en ouvrant le site
-    var AUTORISER = '<div class="ok"><p><b>Dernière étape, une seule fois :</b> touche « Accéder à mon site ». Google demande d\'autoriser « SoccaQuiz » :</p>' +
+    var AUTORISER = '<div class="ok"><p><b>Dernière étape, une seule fois :</b> touche « ▶ Site de l\'enfant ». Google demande d\'autoriser « SoccaQuiz » :</p>' +
       '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
       '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
       '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
-      '<p class="petit" style="margin:0">Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive. Une fois dessus, mets-le en favori.</p></div>';
+      '<p class="petit" style="margin:0">Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive. Une fois dessus, mets-le en favori.</p>' +
+      '<p style="margin:8px 0 0">Ensuite, pour <b>ajouter des quiz et suivre les résultats</b>, utilise « 🔒 Espace parent » (mets-le aussi en favori). Ton enfant, lui, n\'utilise que le lien « Site de l\'enfant ».</p></div>';
     // le lien est mis dans le mail et copié en plus. La page est dans un cadre de Google : on ouvre la messagerie
     // dans une nouvelle fenêtre (un mailto: direct y est bloqué), et on propose Gmail en ligne si rien ne s'ouvre
     var OBJET_ENFANT = 'Ton site de quiz pour réviser';
@@ -280,9 +309,10 @@ function scriptPage_() {
           bouton.disabled = false;
           if (!r || r.erreur) { zone.innerHTML = ''; return erreur(r); }
           zone.innerHTML = ''; res.innerHTML = '';
-          afficherDeja({ url: r.url, version: r.version, derniere: r.version },
+          afficherDeja({ url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version },
             r.maj ? '🎉 Ton site est à jour' : '🎉 Ton site est créé !',
-            r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. Ton adresse ne change pas.</p></div>' : AUTORISER);
+            r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. L\'adresse du site de ton enfant ne change pas.</p>' +
+              (r.nouveauParent ? '<p style="margin:8px 0 0"><b>Nouveau : ton espace parent.</b> « Ajouter un quiz » et le suivi des résultats ne sont plus accessibles depuis le lien de ton enfant. Ils sont dans « 🔒 Espace parent », qui ne s\'ouvre qu\'avec ton compte Google : mets-le en favori.</p>' : '') + '</div>' : AUTORISER);
         })
         .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(e && e.message); })[fn](arg);
     }
@@ -292,6 +322,9 @@ function scriptPage_() {
       $('deja-titre').textContent = titre || '✅ Ton site est prêt';
       $('deja-message').innerHTML = message || '';
       $('lien-site').href = e.url;
+      $('lien-parent').href = e.urlParent || '#';
+      $('lien-parent').style.display = e.urlParent ? '' : 'none';
+      $('explication-espaces').style.display = e.urlParent ? '' : 'none';
       $('mail-enfant').dataset.url = e.url;
       var aJour = !e.derniere || e.version === e.derniere;
       $('bloc-maj').style.display = aJour ? 'none' : 'block';

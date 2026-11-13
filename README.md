@@ -3,8 +3,10 @@
 Ce projet transforme une leçon prise en photo en quiz de révision interactif, hébergé gratuitement chez Google.
 
 - **Les quiz** (`.html`) et **les contrôles papier** (`.pdf`) se trouvent dans un dossier Google Drive. On publie un quiz en déposant son fichier, sans GitHub ni déploiement.
-- **Les résultats** s'enregistrent dans un Google Sheets, avec un tableau de bord pour les parents, des badges et des séries de jours.
-- **Le site** est une « application web » Google Apps Script, avec une seule adresse : `https://script.google.com/macros/s/…/exec`.
+- **Les résultats** s'enregistrent dans un Google Sheets, avec un tableau de bord pour les parents, des badges, des séries de jours et le bilan « Ma semaine ».
+- **Le site** est une « application web » Google Apps Script, publiée à **deux adresses** `https://script.google.com/macros/s/…/exec` :
+  - **le site de l'enfant**, ouvert à toute personne qui a le lien, sans compte : les quiz, les contrôles papier, l'accueil. Les pages et les actions des parents y sont refusées par le serveur, et seul un lien « 🔒 Espace parent » y mène ;
+  - **l'espace parent**, réglé sur « Seulement moi » : Google vérifie que c'est bien le compte de la famille. On y trouve tout le site, plus « ➕ Ajouter un quiz » (avec la clé Gemini), le suivi des résultats et la gestion des quiz.
 
 Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'importe quelle famille puisse l'installer.
 
@@ -12,7 +14,7 @@ Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'imp
 
 ### L'installateur en ligne (téléphone, tablette ou ordinateur)
 
-L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur. Le même lien sert ensuite aux mises à jour, et l'adresse du site ne change pas.
+L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur, et l'installateur affiche deux boutons : **▶ Site de l'enfant** (le lien à envoyer à l'enfant) et **🔒 Espace parent** (à garder en favori, il ne s'ouvre qu'avec le compte Google du parent). Le même lien d'installateur sert ensuite aux mises à jour, et les adresses ne changent pas. Un site installé avant l'espace parent le reçoit à sa prochaine mise à jour.
 
 L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis.
 
@@ -29,7 +31,7 @@ Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUI
 | `src/Code.gs` | Le serveur : pages, catalogue automatique, résultats dans Sheets, installation automatique, réglages (prénom…) |
 | `src/pont.html` | Inséré dans chaque page : redirige `fetch('/api/resultats')` vers Google et corrige les liens |
 | `src/exemple-quiz.html` | Le quiz d'exemple créé à l'installation, qui sert aussi de modèle pour l'IA |
-| `src/appsscript.json` | Le manifeste : application web exécutée par le propriétaire, accessible avec le lien |
+| `src/appsscript.json` | Le manifeste : application web exécutée par le propriétaire ; l'installateur règle l'accès de chaque publication (enfant : tout le monde ; parent : « Seulement moi ») |
 | `construire.mjs` | Assemble `moteur/` et `src/` dans `build/`, d'où est tiré `universal-quiz.json` |
 | `en-ligne/` | L'installateur en ligne (installation et mise à jour depuis un téléphone) et sa mise en place |
 | `outils/fabriquer-charge.mjs` | Fabrique `universal-quiz.json`, le moteur lu par l'installateur en ligne |
@@ -40,7 +42,7 @@ Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUI
 Tout se fait depuis le site, aussi sur téléphone, avec Claude, ChatGPT ou Grok :
 
 1. Prends la leçon en photo.
-2. Sur le site, ouvre **➕ Ajouter un quiz** (en bas de la page d'accueil), puis appuie sur **Claude**, **ChatGPT** ou **Grok** : l'IA s'ouvre avec les consignes déjà écrites, et elles sont aussi copiées dans le presse-papiers au cas où.
+2. Dans l'**espace parent**, ouvre **➕ Ajouter un quiz** (en bas de la page d'accueil), puis appuie sur **Claude**, **ChatGPT** ou **Grok** : l'IA s'ouvre avec les consignes déjà écrites, et elles sont aussi copiées dans le presse-papiers au cas où.
 3. L'IA répond « Envoie-moi les photos » : joins les photos et envoie. Si les consignes sont seulement écrites dans la case sans être envoyées, joins les photos puis envoie le tout.
 4. Copie la réponse de l'IA, colle-la dans le cadre du site, puis clique sur **Créer le quiz**.
 
@@ -52,7 +54,8 @@ L'IA répond en JSON (titre, matière, icône, badge, questions `qcm` / `vf` / `
 
 - Google affiche un bandeau en haut des pages (« Cette application a été créée par un utilisateur de Google Apps Script »).
 - Une page met 1 à 2 secondes à s'ouvrir.
-- Un projet peut avoir au plus 200 versions. Au-delà, supprime les anciennes dans « Gérer les déploiements ».
+- Un projet peut avoir au plus 200 versions, et chaque mise à jour en crée deux (site de l'enfant et espace parent). Au-delà, supprime les anciennes dans « Gérer les déploiements ».
+- L'espace parent s'ouvre seulement avec le compte Google de la famille. Si plusieurs comptes Google sont connectés dans le navigateur, Google peut afficher « Impossible d'ouvrir le fichier » : ouvrir l'espace parent dans une fenêtre où seul ce compte est connecté.
 
 ## Licence
 

@@ -1,5 +1,5 @@
 /* =====================================================================
-   UNIVERSAL QUIZ — version Google Apps Script
+   SOCCAQUIZ (ex-Universal Quiz) — version Google Apps Script
    Required Notice: Copyright 2026 leian (https://github.com/leian/UNIVERSALQUIZ)
    Licence PolyForm Noncommercial 1.0.0 — usage commercial interdit :
    https://polyformproject.org/licenses/noncommercial/1.0.0
@@ -9,6 +9,13 @@
      …/exec?page=<nom du quiz>   → un quiz (fichier <nom>.html du dossier Drive)
      …/exec?page=tableau-de-bord → suivi des résultats (parents)
      …/exec?page=controles       → contrôles papier (PDF du dossier Drive)
+     …/exec?page=ajouter         → ajout d'un quiz (parents)
+
+   Deux publications du même site (créées par l'installateur en ligne) :
+     • le site de l'enfant (accès : tout le monde, sans compte) : quiz, contrôles, accueil ;
+     • l'espace parent (accès : « Seulement moi », Google vérifie le compte du parent) :
+       tout le site, plus « Ajouter un quiz », le suivi des résultats et la clé Gemini.
+   Dans le site de l'enfant, les pages et les actions réservées aux parents sont refusées.
 
    Où sont les choses :
      • le moteur (commun/…) et les pages d'accueil : dans ce projet (dossier lib/)
@@ -26,7 +33,10 @@ const CONFIG = {
   partagerPdf: true,              // rend les PDF lisibles par lien, pour que l'enfant puisse les ouvrir
   dureeCacheCatalogue: 60,        // secondes : délai max avant qu'un nouveau quiz apparaisse dans la liste
   version: '',                    // rempli par l'installateur en ligne (ex. v2.0)
-  installateur: ''                // adresse de l'installateur en ligne, pour proposer les mises à jour
+  installateur: '',               // adresse de l'installateur en ligne, pour proposer les mises à jour
+  espace: '',                     // rempli par l'installateur : 'enfant' ou 'parent' ('' = site installé à la main : tout est ouvert)
+  urlEnfant: '',                  // adresse du site de l'enfant (rempli par l'installateur)
+  urlParent: ''                   // adresse de l'espace parent (rempli par l'installateur)
 };
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 /* ------------------------------------------------------ */
@@ -36,6 +46,13 @@ const NOM_SHEETS = 'SoccaQuiz – Résultats';
 const ANCIEN_DOSSIER = 'Universal Quiz', ANCIEN_SHEETS = 'Universal Quiz – Résultats';
 const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions'];
 const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles', 'ajouter': 'lib/page-ajouter' };
+// pages et actions réservées à l'espace parent
+const PAGES_PARENT = ['tableau-de-bord', 'ajouter'];
+function estEnfant_() { return CONFIG.espace === 'enfant'; }
+function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espace parent.' }; }
+function urlIci_() {
+  return (estEnfant_() ? CONFIG.urlEnfant : CONFIG.espace === 'parent' ? CONFIG.urlParent : '') || ScriptApp.getService().getUrl() || '';
+}
 const COMMUN = {
   'moteur-quiz.css': 'lib/moteur-quiz-css',
   'suivi.js': 'lib/suivi-js',
@@ -61,6 +78,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   const page = nettoyerNom_(p.page || 'index');
   try {
+    if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
     const inst = installer_();
     let html;
     if (PAGES[page]) {
@@ -181,7 +199,10 @@ function assembler_(html, page, inst) {
   });
 
   const cfg = {
-    url: ScriptApp.getService().getUrl() || '',
+    url: urlIci_(),
+    espace: CONFIG.espace,
+    urlEnfant: CONFIG.urlEnfant,
+    urlParent: CONFIG.urlParent,
     page: page,
     chemin: '/' + page + '.html',
     liens: cat.liens,
@@ -189,7 +210,7 @@ function assembler_(html, page, inst) {
     installateur: CONFIG.installateur
   };
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
-  if (page === 'ajouter') cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
+  if (page === 'ajouter' && !estEnfant_()) cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
@@ -209,9 +230,21 @@ function servir_(html) {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
+/* page affichée dans le site de l'enfant quand on demande une page des parents */
+function pageEspaceParent_() {
+  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  return HtmlService.createHtmlOutput(
+    '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:2px solid #eadfce;border-radius:16px;background:#fff;color:#2b2350">' +
+    '<h2 style="margin-top:0">🔒 Espace parent</h2>' +
+    '<p>Cette page est réservée aux parents. Elle s\'ouvre avec le lien « Espace parent », en étant connecté au compte Google du parent.</p>' +
+    (CONFIG.urlParent ? '<p><a href="' + h(CONFIG.urlParent) + '" target="_top" style="display:inline-block;background:#7c3aed;color:#fff;border-radius:999px;padding:10px 18px;text-decoration:none;font-weight:600">🔒 Ouvrir l\'espace parent</a></p>' : '') +
+    (CONFIG.urlEnfant ? '<p><a href="' + h(CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>')
+    .setTitle('Espace parent').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
 function pageErreur_(titre, message) {
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const accueil = ScriptApp.getService().getUrl() || '';
+  const accueil = urlIci_();
   return HtmlService.createHtmlOutput(
     '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:1px solid #e5e7eb;border-radius:14px">' +
     '<h2 style="margin-top:0">😕 ' + h(titre) + '</h2><p>' + h(message) + '</p>' +
@@ -396,6 +429,7 @@ function apiLister(q) {
 }
 
 function apiSupprimer(id) {
+  if (estEnfant_()) return refusEnfant_();
   if (typeof id !== 'string' || !/^r:[0-9T:.\-Z]+:[a-z0-9]+$/.test(id)) return { __status: 400, erreur: 'Identifiant invalide' };
   const sh = feuille_();
   const n = sh.getLastRow();
@@ -409,6 +443,7 @@ function apiSupprimer(id) {
 
 /* suppression d'un quiz depuis la page d'accueil : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
 function apiSupprimerQuiz(nom) {
+  if (estEnfant_()) return refusEnfant_();
   nom = String(nom || '').split('/').pop();
   if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
   const inst = installer_();
@@ -431,6 +466,7 @@ const COULEURS_ = { francais: '#7c3aed', maths: '#c2410c', sciences: '#15803d', 
 
 /* clé Gemini (gratuite, créée par la famille sur aistudio.google.com/apikey) : vérifiée par la page, gardée ici */
 function apiGeminiCle(d) {
+  if (estEnfant_()) return refusEnfant_();
   const cle = String((d && d.cle) || '').trim();
   const props = PropertiesService.getScriptProperties();
   if (!cle) { props.deleteProperty('GEMINI_CLE'); return { ok: true }; }
@@ -440,6 +476,7 @@ function apiGeminiCle(d) {
 }
 
 function apiAjouterQuiz(texte) {
+  if (estEnfant_()) return refusEnfant_();
   texte = String(texte || '').trim();
   if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
   if (texte.length > 900000) return { erreur: 'Texte trop long.' };

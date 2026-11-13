@@ -6,7 +6,8 @@ L'installateur en ligne permet à un ami de créer son site SoccaQuiz **depuis s
 
 1. il crée chez lui un projet « SoccaQuiz » (« Universal Quiz » pour les sites installés avant le 11 novembre 2026) ;
 2. il y copie la dernière version du moteur, prise dans le fichier `universal-quiz.json` de la dernière Release GitHub ;
-3. il le publie en site web.
+3. il le publie **deux fois** : le **site de l'enfant** (ouvert sans compte, sans les pages des parents) et l'**espace parent** (accès « Seulement moi » : il ne s'ouvre qu'avec le compte Google de l'ami, et contient « Ajouter un quiz », le suivi des résultats et la clé Gemini). Chaque publication connaît l'adresse de l'autre ;
+4. à chaque mise à jour, il republie les deux (deux versions par mise à jour). Un site installé avant l'espace parent le reçoit à sa prochaine mise à jour, sans changer l'adresse de l'enfant.
 
 L'installateur ne lit ni le Drive ni les fichiers de l'ami.
 
@@ -48,7 +49,7 @@ Un projet Apps Script « ordinaire » ne peut pas appeler l'API Apps Script. Il 
 
 ## 3. Essayer
 
-Ouvre le lien avec **un autre compte** que soccaquiz (le tien par exemple), de préférence sur un téléphone. Fais l'étape 1, installe, puis ouvre le site créé et autorise-le. La page « Mes quiz » doit s'afficher avec le quiz d'exemple.
+Ouvre le lien avec **un autre compte** que soccaquiz (le tien par exemple), de préférence sur un téléphone. Fais l'étape 1, installe, puis ouvre le site de l'enfant (« ▶ Site de l'enfant ») et autorise-le. Ouvre ensuite « 🔒 Espace parent » : il doit s'ouvrir avec ce compte, et afficher le bandeau « Espace parent » et les liens « Ajouter un quiz » et « Suivi des résultats ». Le site de l'enfant, lui, ne montre que « 🔒 Espace parent » en bas de page. La page « Mes quiz » doit s'afficher avec le quiz d'exemple.
 
 En cas d'erreur, le message affiché indique en général l'étape oubliée :
 - « l'installateur n'est pas complètement configuré » : l'Apps Script API n'est pas activée dans le projet Cloud (1.3) ou le projet Cloud n'est pas relié (2.2) ;
@@ -58,7 +59,7 @@ En cas d'erreur, le message affiché indique en général l'étape oubliée :
 
 L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour rejouer le parcours d'un nouvel ami avec un compte qui a déjà installé :
 
-1. Ouvre l'installateur : il affiche « Ton site est installé ». Touche **Repartir de zéro (créer un nouveau site)**, puis confirme. (L'adresse `…/exec?recommencer=1` fait la même chose.)
+1. Ouvre l'installateur : il affiche « Ton site est installé ». Ouvre **Options avancées**, touche **Repartir de zéro (créer un nouveau site)**, puis confirme : les deux adresses de l'ancien site (enfant et parent) sont désactivées, les quiz et les résultats sont gardés. (L'adresse `…/exec?recommencer=1` oublie le site sans le désactiver.)
 2. Pour revoir aussi les deux écrans d'autorisation de Google : sur https://myaccount.google.com/permissions, supprime l'accès des applications « SoccaQuiz » (et « Universal Quiz ») avant de recommencer.
 3. Facultatif : sur https://script.google.com, mets à la corbeille le projet « SoccaQuiz » (ou « Universal Quiz ») du test précédent. Sinon, les sites de test s'accumulent.
 

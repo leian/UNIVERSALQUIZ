@@ -67,6 +67,7 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
 .boite .bts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 .boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
 @media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
+[hidden]{display:none!important}
 </style>
 </head>
 <body>
@@ -76,7 +77,7 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
     <div class="filtres">
       <a class="btn" href="index.html"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="20" height="20" alt="" style="vertical-align:middle;border-radius:4px"> SoccaQuiz</a>
       <button class="btn" onclick="charger()">🔄 Actualiser</button>
-      <a class="btn" href="https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec" target="_top">🔧 Installateur</a>
+      <a class="btn" id="lien-installateur" href="#" target="_top" hidden>🔧 Installateur</a>
     </div>
   </header>
   <div id="etat"></div>
@@ -320,6 +321,8 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
 
 afficherQuiz();
 charger();
+
+(function () { var U = window.__UQ || {}, a = document.getElementById("lien-installateur"); if (U.installateur) { a.href = U.installateur; a.hidden = false; } })();
 </script>
 </body>
 </html>

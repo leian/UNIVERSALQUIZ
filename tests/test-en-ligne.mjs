@@ -38,7 +38,7 @@ function fausseApi(url, o) {
   if (!p) return reponse(404, { error: { code: 404, message: 'Requested entity was not found.' } });
   if (!quoi && methode === 'GET') return reponse(200, { scriptId: id, title: p.titre });
   if (quoi === 'content' && methode === 'PUT') { p.contenu = corps.files; return reponse(200, { scriptId: id, files: corps.files }); }
-  if (quoi === 'versions' && methode === 'POST') return reponse(200, { versionNumber: ++p.versions });
+  if (quoi === 'versions' && methode === 'POST') { ++p.versions; (p.instantanes = p.instantanes || {})[p.versions] = p.contenu; return reponse(200, { versionNumber: p.versions }); }
   const web = did => ({ deploymentId: did, entryPoints: [{ entryPointType: 'WEB_APP', webApp: { url: 'https://script.google.com/macros/s/' + did + '/exec' } }] });
   if (quoi === 'deployments' && methode === 'POST') { const did = 'AKfy' + (++n); p.deploiements[did] = corps.versionNumber; return reponse(200, web(did)); }
   if (quoi === 'deployments' && methode === 'DELETE') {
@@ -83,11 +83,18 @@ r = ctx.apiInstaller("Zoé l'aînée");
 const p1 = projets.script1;
 const code = p1 && p1.contenu.find(f => f.name === 'Code');
 ok(r.ok && /\/macros\/s\/AKfy\d+\/exec$/.test(r.url), 'installation : site créé (' + r.url + ')');
-ok(journal.join(' | ') === 'POST  | PUT /script1/content | POST /script1/versions | POST /script1/deployments', 'installation : création → envoi → version → publication');
+ok(journal.join(' | ') === 'POST  | PUT /script1/content | POST /script1/versions | POST /script1/deployments | PUT /script1/content | POST /script1/versions | POST /script1/deployments | PUT /script1/content | POST /script1/versions | PUT /script1/deployments/' + userProps.deploymentId + ' | PUT /script1/content | POST /script1/versions | PUT /script1/deployments/' + userProps.deploymentIdParent,
+  'installation : création → deux publications (enfant, parent) → republiées avec l\'adresse de l\'autre');
+// ce que sert chaque publication
+const servi = did => { const v = p1.deploiements[did]; const c = p1.instantanes[v]; return { code: c.find(f => f.name === 'Code').source, acces: JSON.parse(c.find(f => f.name === 'appsscript').source).webapp.access }; };
+const sE = servi(userProps.deploymentId), sP = servi(userProps.deploymentIdParent);
+ok(r.urlParent && r.urlParent !== r.url && userProps.urlParent === r.urlParent, 'installation : deux adresses, site de l\'enfant et espace parent');
+ok(sE.acces === 'ANYONE_ANONYMOUS' && /espace: 'enfant'/.test(sE.code), 'site de l\'enfant : ouvert sans compte, réglé en espace « enfant »');
+ok(sP.acces === 'MYSELF' && /espace: 'parent'/.test(sP.code), 'espace parent : accès « Seulement moi » (compte Google du parent)');
+ok(sE.code.includes("urlParent: '" + r.urlParent + "'") && sP.code.includes("urlEnfant: '" + r.url + "'"), 'chaque espace connaît l\'adresse de l\'autre');
 ok(code && /prenom: 'Zoé l’aînée',/.test(code.source), 'prénom écrit dans les réglages (apostrophe neutralisée)');
 const charge = JSON.parse(CHARGE);
 ok(p1.contenu.length === charge.fichiers.length && p1.contenu.some(f => f.name === 'lib/page-ajouter' && f.type === 'HTML') && p1.contenu.some(f => f.name === 'appsscript' && f.type === 'JSON'), 'tous les fichiers du moteur sont envoyés (' + p1.contenu.length + ')');
-ok(JSON.parse(p1.contenu.find(f => f.name === 'appsscript').source).webapp.access === 'ANYONE_ANONYMOUS', 'le site de la famille reste ouvert sans compte pour l\'enfant');
 ok(/version: 'v-test',/.test(code.source) && /installateur: 'https:\/\/script\.google\.com\/macros\/s\/INSTALLATEUR\/exec'/.test(code.source), 'version et adresse de l\'installateur écrites dans le site (bandeau « mise à jour »)');
 const url1 = r.url;
 
@@ -95,10 +102,15 @@ const url1 = r.url;
 journal.length = 0;
 r = ctx.apiMettreAJour();
 ok(r.ok && r.maj && r.url === url1 && Object.keys(projets).length === 1, 'mise à jour : même adresse, pas de nouveau projet');
-ok(/PUT \/script1\/deployments\/AKfy/.test(journal.join(' | ')) && p1.versions === 2, 'mise à jour : nouvelle version publiée sur le même déploiement');
+ok(r.urlParent === userProps.urlParent && !/POST \/script1\/deployments/.test(journal.join(' | ')) && p1.versions === 6, 'mise à jour : deux nouvelles versions publiées sur les deux mêmes publications');
 ok(/prenom: 'Zoé l’aînée',/.test(p1.contenu.find(f => f.name === 'Code').source), 'mise à jour : le prénom est conservé');
 e = ctx.apiEtat();
 ok(e.installe && e.url === url1 && e.version === 'v-test', 'état après installation : site et version connus');
+
+// 4 bis. site installé avant l'espace parent : la mise à jour le crée, l'adresse de l'enfant ne change pas
+delete userProps.deploymentIdParent; delete userProps.urlParent;
+r = ctx.apiMettreAJour();
+ok(r.ok && r.maj && r.nouveauParent && r.url === url1 && r.urlParent && servi(userProps.deploymentIdParent).acces === 'MYSELF', 'ancien site mis à jour : espace parent ajouté, adresse de l\'enfant inchangée');
 
 // 5. projet supprimé par la famille → réinstallation propre
 delete projets.script1;
@@ -114,9 +126,9 @@ r = ctx.apiInstaller('Test');
 ok(r.ok && Object.keys(projets).length === avant + 1, 'après ?recommencer=1 : nouvelle installation complète');
 
 // 6 bis. bouton « Repartir de zéro »
-const sid = userProps.scriptId, did = userProps.deploymentId;
+const sid = userProps.scriptId, did = userProps.deploymentId, didP = userProps.deploymentIdParent;
 r = ctx.apiRecommencer();
-ok(r.desactive && !(did in projets[sid].deploiements) && !ctx.apiEtat().installe, 'bouton « Repartir de zéro » : ancien site désactivé (déploiement supprimé), l\'installateur l\'oublie');
+ok(r.desactive && !(did in projets[sid].deploiements) && !(didP in projets[sid].deploiements) && !ctx.apiEtat().installe, 'bouton « Repartir de zéro » : ancien site désactivé (déploiement supprimé), l\'installateur l\'oublie');
 
 // 7. la page : HTML complet et script valide
 const html = ctx.doGet({ parameter: {} }).html;

@@ -5,6 +5,7 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 ## Organisation
 - `moteur/` : le moteur de quiz et les pages d'accueil. `{{PRENOM}}` y est remplacé par le prénom des réglages ; garde des textes neutres en genre (« Bien joué ! », jamais « Trop forte ! »). `construire.mjs` adapte le chemin de la page au moment de la construction.
 - `src/` : ce qui est propre à Apps Script (`Code.gs`, `pont.html`, manifeste, quiz d'exemple).
+- Deux publications par site, créées par l'installateur (`en-ligne/Code.gs`, `publier_`) : le **site de l'enfant** (`CONFIG.espace = 'enfant'`, accès ANYONE_ANONYMOUS) et l'**espace parent** (`'parent'`, accès MYSELF). L'installateur écrit `espace`, `urlEnfant` et `urlParent` dans `CONFIG` et l'accès dans le manifeste de chaque version. Côté enfant, `PAGES_PARENT` (ajouter, tableau-de-bord) et les actions des parents (`apiAjouterQuiz`, `apiGeminiCle`, `apiSupprimer`, `apiSupprimerQuiz`) sont refusées par le serveur : toute nouvelle page ou action réservée aux parents doit y être ajoutée. `espace = ''` (site installé à la main) : tout reste ouvert.
 - `build/` : produit par `node construire.mjs`, jamais versionné.
 
 ## Diffuser une modification
