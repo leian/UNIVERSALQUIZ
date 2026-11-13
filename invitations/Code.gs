@@ -16,7 +16,7 @@ const OBJET = "SoccaQuiz : des quiz de révision à partir d'une photo de leçon
 
 function doGet() {
   return HtmlService.createHtmlOutput(pageHtml_())
-    .setTitle('Envoyer les invitations')
+    .setTitle('SoccaQuiz – Envoyer les invitations')
     .setFaviconUrl('https://leian.github.io/UNIVERSALQUIZ/icone.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -102,9 +102,11 @@ label{font-weight:600;display:block;margin-top:8px}
 input,textarea{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:4px 0;background:var(--bg);color:var(--ink)}
 .btn{display:inline-block;font:600 1rem system-ui,sans-serif;border:none;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--accent);color:#fff;margin:8px 6px 0 0}
 .btn.leger{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.6}
+.marque{display:flex;align-items:center;justify-content:center;gap:12px;font-size:1.6rem}.marque img{border-radius:13px}.marque em{font-style:normal;color:#b3001b}.sous-titre{text-align:center;font-size:1.1rem;margin:0 0 4px}
 .petit{font-size:.9rem;color:var(--soft)}ul{padding-left:20px}.ok{color:var(--ok)}.ko{color:var(--ko)}
 </style></head><body><main>
-<h1>✉️ Envoyer les invitations</h1>
+<h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="56" height="56" alt=""><span>Socca<em>Quiz</em></span></h1>
+<h2 class="sous-titre">✉️ Envoyer les invitations</h2>
 <p class="petit" style="text-align:center">Depuis ce compte Gmail, avec le mail d'invitation mis en forme.</p>
 <section class="etape">
   <label for="liste">Les amis, un par ligne</label>
