@@ -50,11 +50,20 @@ function apiInstaller(prenom) {
   });
 }
 
-/* Tout recommencer : l'installateur oublie le site de cette personne (qui n'est ni modifié ni supprimé).
-   La prochaine installation créera un nouveau site, à une nouvelle adresse. */
+/* Tout recommencer : l'ancien site est désactivé (son déploiement est supprimé : son adresse ne répond plus),
+   puis l'installateur l'oublie. La prochaine installation créera un nouveau site, à une nouvelle adresse.
+   Les quiz et les résultats (dossier Drive et Sheets) ne sont pas touchés : le nouveau site les reprend.
+   Le projet Apps Script de l'ancien site reste dans le Drive (l'API ne permet pas de le supprimer). */
 function apiRecommencer() {
-  PropertiesService.getUserProperties().deleteAllProperties();
-  return { ok: true };
+  const props = PropertiesService.getUserProperties();
+  const id = props.getProperty('scriptId'), dep = props.getProperty('deploymentId');
+  let desactive = false;
+  if (id && dep) {
+    try { appel_('delete', '/' + id + '/deployments/' + dep); desactive = true; }
+    catch (e) { desactive = e.code === 404; }      // déjà supprimé : même résultat
+  }
+  props.deleteAllProperties();
+  return { ok: true, desactive };
 }
 
 /* Mise à jour : même projet, même adresse. */
@@ -211,8 +220,8 @@ function pageHtml_() {
   '<details class="avance"><summary>Options avancées</summary>' +
   '<p class="petit"><a href="#" id="reinstaller">Réinstaller la dernière version</a> (si ton site fonctionne mal)</p>' +
   '<p class="petit"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
-  '<div id="confirmer" class="cache ko"><p>Ton site actuel restera en ligne, mais l\'installateur l\'oubliera : la prochaine installation créera un <b>nouveau site, à une nouvelle adresse</b>. Tes quiz et tes résultats, rangés dans ton Drive, sont conservés.</p>' +
-  '<button class="btn" id="oui-recommencer" type="button">Oui, repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
+  '<div id="confirmer" class="cache ko"><p><b>Ton site actuel sera désactivé :</b> son adresse ne fonctionnera plus, y compris le lien envoyé à ton enfant et tes favoris. Tu pourras ensuite installer un <b>nouveau site, qui aura une nouvelle adresse</b> (à renvoyer à ton enfant).</p><p><b>Tes quiz et tes résultats sont conservés</b> (dossier « SoccaQuiz » et tableau des résultats, dans ton Drive) : le nouveau site les reprendra automatiquement.</p>' +
+  '<button class="btn" id="oui-recommencer" type="button">Oui, désactiver mon site et repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
   '</details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
@@ -303,10 +312,11 @@ function scriptPage_() {
     $('recommencer').onclick = function (ev) { ev.preventDefault(); $('confirmer').style.display = 'block'; };
     $('non-recommencer').onclick = function () { $('confirmer').style.display = 'none'; };
     $('oui-recommencer').onclick = function () {
-      google.script.run.withSuccessHandler(function () {
+      google.script.run.withSuccessHandler(function (r) {
         $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; afficherNouveau(false);
         $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
-        res.innerHTML = '<p class="petit">C\'est reparti de zéro. Pour revoir aussi les écrans d\'autorisation de Google, retire d\'abord les accès « SoccaQuiz » sur myaccount.google.com/permissions.</p>';
+        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>' + (r && r.desactive ? '✅ Ton ancien site est désactivé : son adresse ne fonctionne plus.' : '✅ C\'est reparti de zéro.') + '</b> Tes quiz et tes résultats sont conservés.</p>' +
+          '<p class="petit" style="margin:0">Il reste un fichier « SoccaQuiz » (le programme de l\'ancien site) sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus. Installe maintenant ton nouveau site ci-dessus.</p></div>';
       }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
     };
     google.script.run

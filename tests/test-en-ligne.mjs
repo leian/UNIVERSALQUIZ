@@ -41,6 +41,10 @@ function fausseApi(url, o) {
   if (quoi === 'versions' && methode === 'POST') return reponse(200, { versionNumber: ++p.versions });
   const web = did => ({ deploymentId: did, entryPoints: [{ entryPointType: 'WEB_APP', webApp: { url: 'https://script.google.com/macros/s/' + did + '/exec' } }] });
   if (quoi === 'deployments' && methode === 'POST') { const did = 'AKfy' + (++n); p.deploiements[did] = corps.versionNumber; return reponse(200, web(did)); }
+  if (quoi === 'deployments' && methode === 'DELETE') {
+    if (!(sous in p.deploiements)) return reponse(404, { error: { code: 404, message: 'not found' } });
+    delete p.deploiements[sous]; return reponse(200, {});
+  }
   if (quoi === 'deployments' && methode === 'PUT') {
     if (!(sous in p.deploiements)) return reponse(404, { error: { code: 404, message: 'not found' } });
     p.deploiements[sous] = corps.deploymentConfig.versionNumber; return reponse(200, web(sous));
@@ -110,8 +114,9 @@ r = ctx.apiInstaller('Test');
 ok(r.ok && Object.keys(projets).length === avant + 1, 'après ?recommencer=1 : nouvelle installation complète');
 
 // 6 bis. bouton « Repartir de zéro »
-ctx.apiRecommencer();
-ok(!ctx.apiEtat().installe, 'bouton « Repartir de zéro » : l\'installateur oublie le site');
+const sid = userProps.scriptId, did = userProps.deploymentId;
+r = ctx.apiRecommencer();
+ok(r.desactive && !(did in projets[sid].deploiements) && !ctx.apiEtat().installe, 'bouton « Repartir de zéro » : ancien site désactivé (déploiement supprimé), l\'installateur l\'oublie');
 
 // 7. la page : HTML complet et script valide
 const html = ctx.doGet({ parameter: {} }).html;
