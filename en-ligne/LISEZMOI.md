@@ -1,6 +1,6 @@
 # Installateur en ligne — mise en place par l'éditeur (une seule fois)
 
-**Adresse de l'installateur (déployé le 11 novembre 2026 par soccaquiz)** : https://script.google.com/macros/s/AKfycbxv33ZGQhg1x0FQeRQZy7JIpL9KH2pZ_koOUqVW4Jhw8yjfhrt4hYU4HGkffU_CX5PN/exec
+**Adresse de l'installateur (déployé le 11 novembre 2026 par soccaquiz)** : https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec
 
 L'installateur en ligne permet à un ami de créer son site SoccaQuiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
 
@@ -76,6 +76,6 @@ Voir [`VALIDATION-GOOGLE.md`](VALIDATION-GOOGLE.md).
 
 Seulement si `en-ligne/Code.gs` ou `en-ligne/appsscript.json` change :
 1. recolle les fichiers dans le projet « Installateur Universal Quiz » ;
-2. **Déployer → Gérer les déploiements** → ✏️ → *Version* : **Nouvelle version** → **Déployer**.
+2. **Déployer → Gérer les déploiements** → sélectionne le déploiement **« Install officielle »** (ID `AKfycbxseeW1…`, celui du mail d'invitation ; jamais un autre) → ✏️ → *Version* : **Nouvelle version** → **Déployer**. Ne crée jamais de « Nouveau déploiement » : cela donne une autre adresse.
 
 L'adresse ne change pas.
