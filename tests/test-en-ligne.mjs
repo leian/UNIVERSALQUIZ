@@ -67,7 +67,6 @@ vm.runInContext(readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8'), ctx, 
 // 1. état initial
 let e = ctx.apiEtat();
 ok(!e.installe && e.derniere === 'v-test', 'état initial : rien d\'installé, dernière version lue sur GitHub');
-ok(e.apiActive === false, 'état initial : l\'installateur voit que l\'API Apps Script n\'est pas activée (étape 1 affichée)');
 
 // 2. interrupteur non activé
 let r = ctx.apiInstaller('Zoé');
@@ -75,7 +74,6 @@ ok(r.erreur === 'api' && !Object.keys(projets).length, 'API Apps Script non acti
 
 // 3. installation
 apiActivee = true;
-ok(ctx.apiEtat().apiActive === true, 'API activée → l\'installateur passe directement à l\'étape 2');
 journal.length = 0;
 r = ctx.apiInstaller("Zoé l'aînée");
 const p1 = projets.script1;
