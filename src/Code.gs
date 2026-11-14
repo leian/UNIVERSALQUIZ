@@ -744,7 +744,11 @@ function lireFormatLignes_(texte) {
     if (sorte === 'G') {                       // G|texte avec [mot] ou [mot;variante]|explication
       Object.assign(q, { type: 'trous', q: 'Complète.', texte: pos[0], exp: pos[1] || '' });
     } else if (sorte === 'O') {                // O|consigne|élément 1|élément 2|… (dans le bon ordre)
-      Object.assign(q, { type: 'ordre', items: pos.slice(1) });
+      // explication recopiée par l'IA comme dernier élément : on la remet à sa place
+      let items = pos.slice(1);
+      const n = s => String(s).trim().split(/\s+/).length, der = items[items.length - 1] || '';
+      if (items.length >= 3 && n(der) >= 5 && /[.!]$/.test(der.trim()) && items.slice(0, -1).every(a => n(a) * 2 < n(der))) { q.exp = der; items = items.slice(0, -1); }
+      Object.assign(q, { type: 'ordre', items });
     } else if (sorte === 'A') {                // A|consigne|gauche=droite|…
       Object.assign(q, { type: 'paires', paires: pos.slice(1).map(x => x.split('=')).filter(x => x.length === 2).map(x => [x[0].trim(), x[1].trim()]) });
     } else if (sorte === 'C') {                // C|consigne|Catégorie: a;b|Catégorie: c;d

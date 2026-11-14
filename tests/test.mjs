@@ -242,7 +242,7 @@ try {
   await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', ['T|Huit types|Essai|autre|🧪|🏆', '## Tout',
     'G|Il [a] faim et [est;était] fatigué.|a / est.',
-    'O|Range du plus petit au plus grand.|1|5|12|40',
+    'O|Range du plus petit au plus grand.|1|5|12|40|On range les nombres du plus petit au plus grand.',
     'A|Relie.|dog=chien|cat=chat|bird=oiseau',
     'C|Classe.|Noms: table;chat|Verbes: courir;lire',
     'X|Touche les verbes.|Le chat *dort* et *ronronne* au soleil.|dort, ronronne.',

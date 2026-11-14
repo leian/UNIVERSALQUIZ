@@ -98,6 +98,8 @@
   }
   const texteReponse = (q, r) => r ? (r.texte != null ? r.texte : (C.texteReponse ? C.texteReponse(q, r.given) : (typeDe(q) === 'input' ? esc(r.given) : (C.optionHTML ? C.optionHTML(q, r.given) : r.given)))) : '—';
   const texteQuestion = q => C.texteQuestion ? C.texteQuestion(q) : q.q;
+  // une « phrase d'explication » : au moins 5 mots, ponctuée, nettement plus longue que les autres éléments
+  const estPhraseExplication = (t, autres) => { const n = s => String(s).trim().split(/\s+/).length; return n(t) >= 5 && /[.!]$/.test(String(t).trim()) && autres.every(a => n(a) * 2 < n(t)); };
 
   /* ---------- profils par âge : le thème posé par le serveur sur <html data-theme> règle
      le nombre de questions, le nombre de choix, la lecture à voix haute, les animaux et les statistiques,
@@ -155,10 +157,10 @@
   function visuel(q) {
     const svg = (C.figure && C.figure(q)) || q.svg || (C.illustrations && C.illustrations[q.cat]);
     if (svg) return `<div class="fig-box">${svg}</div>`;
-    // image de la question (img=🐘) ou, à défaut, emoji de sa catégorie (## Catégorie|✂️)
-    const ico = C.icones && C.icones[q.cat], emo = q.img || ico;
-    if (emo) return `<div class="emo-box">${C.deco || DECO_DEFAUT}${emojiImg(emo, 'emo-grand')}${q.img && ico && ico !== q.img ? emojiImg(ico, 'emo-coin') : ''}</div>`;
-    return `<div class="deco-box">${C.deco || DECO_DEFAUT}</div>`;
+    // grande image seulement si la question en a une utile (img=🐘 : objet ou être concret) ;
+    // sinon rien : la question monte et l'emoji de la catégorie reste en petit dans l'étiquette
+    if (q.img) return `<div class="emo-box">${C.deco || DECO_DEFAUT}${emojiImg(q.img, 'emo-grand')}</div>`;
+    return C.deco ? `<div class="deco-box">${C.deco}</div>` : '';
   }
   const appli = () => document.getElementById('app');
 
@@ -617,7 +619,8 @@
     }
     let expBlock = '';
     if (answered) {
-      const intro = ok ? ton().ok : `${ton().ko} <strong>${attendu(q)}</strong>.`;
+      const att = String(attendu(q)).replace(/\s+$/, '');
+      const intro = ok ? ton().ok : `${ton().ko} <strong>${att}</strong>${/[.!?…»]$/.test(att.replace(/<[^>]*>/g, '')) ? '' : '.'}`;
       const exp = q.exp || q.e || '';
       expBlock = ok ? `<div class="explanation">${intro}${exp ? '<br>' + exp : ''}</div>`
         : `<div class="explanation avec-mascotte"><span class="mascotte m-encouragement" aria-hidden="true"></span><div>${intro}${exp ? '<br>' + exp : ''}</div></div>`;
@@ -633,7 +636,7 @@
       </div>
       <div class="streak-bar">${dots}</div>
       <div class="question-card">
-        <span class="cat-tag">${q.cat || ''}</span>
+        <span class="cat-tag">${C.icones && C.icones[q.cat] ? emojiImg(C.icones[q.cat]) + ' ' : ''}${q.cat || ''}</span>
         ${visuel(q)}
         <div class="question-text">${texteQuestion(q)}</div>
         ${C.blocQuestion ? (C.blocQuestion(q, answered) || '') : ''}
@@ -775,6 +778,8 @@
         Object.defineProperty(q, '_orig', { value: q, enumerable: false, configurable: true });
         // X dont tous les mots sont à toucher = phrase à reconstituer : on la joue en « remettre dans l'ordre », mots mélangés
         if (q.type === 'cliquer') { const m = motsDe(q); if (m.length >= 2 && m.length <= 8 && m.every(x => x.bon)) { q.type = 'ordre'; q.items = m.map(x => x.mot); } }
+        // O : une explication recopiée par l'IA comme dernier élément redevient l'explication
+        if (q.type === 'ordre' && Array.isArray(q.items) && q.items.length >= 3) { const der = String(q.items[q.items.length - 1]); if (estPhraseExplication(der, q.items.slice(0, -1))) { q.items = q.items.slice(0, -1); if (!q.exp) q.exp = der; } }
       });
       if (C.titre) document.title = 'Quiz – ' + C.titre.replace(/<[^>]+>/g, '');
       appliquerCouleur(C.couleur);
