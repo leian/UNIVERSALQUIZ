@@ -274,3 +274,18 @@
   .coche-fin path { stroke-dasharray: 36; stroke-dashoffset: 36; animation: trace .35s .55s ease-out forwards; }
   @keyframes trace { to { stroke-dashoffset: 0; } }
   @media (prefers-reduced-motion: reduce) { .coche-fin circle, .coche-fin path { animation: none; stroke-dashoffset: 0; } }
+
+/* ---------- toucher : réactivité, cibles assez grandes, pas de survol « collé » sur mobile ---------- */
+button, .ex-case, .opt-btn { touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+.opt-btn:active:not(:disabled), .ex-puce:active:not(:disabled), .ex-motbtn:active:not(:disabled), .validate-btn:active:not(:disabled), .next-btn:active { transform: scale(.97); }
+.ex-motbtn { padding: 3px 6px; min-height: 40px; margin: 2px 0; }
+.ex-puce:focus-visible, .ex-motbtn:focus-visible, .ex-touche:focus-visible, .validate-btn:focus-visible, .next-btn:focus-visible { outline: 3px solid #e8a83a; outline-offset: 2px; }
+.ex-valider.attente { background: #e5e7eb; color: #6b7280; cursor: default; font-weight: 600; }
+.ex-legende.clignote { animation: ex-clignote .6s ease 2; color: var(--main-dark); font-weight: 700; }
+@keyframes ex-clignote { 50% { background: var(--main-light); } }
+@media (hover: none) {
+  .opt-btn:hover:not(:disabled) { background: #f9fafb; border-color: #e5e7eb; }
+  .ex-motbtn:not(:disabled):hover { border-color: transparent; }
+  .btn-prev:hover:not(:disabled), .btn-myquiz:hover, .btn-home:hover { background: white; }
+}
+@media (prefers-reduced-motion: reduce) { .ex-legende.clignote { animation: none; } }

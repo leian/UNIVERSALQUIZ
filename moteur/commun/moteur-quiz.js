@@ -369,10 +369,13 @@
 
   /* ---------- réponses ---------- */
   function enregistrer(donne, ok, texte) {
-    if (selected !== null) return;
+    if (selected !== null || tropTot()) return;
     selected = donne === undefined ? '' : donne;
     answers[cur] = { given: donne, ok: !!ok, texte, i: indicesVus.has(cur) };
     renderQuestion();
+    // la correction et le bouton « suivant » sous le pouce : on les fait apparaître s'ils sont sous l'écran
+    const suite = appli().querySelector('.next-btn');
+    if (suite && suite.getBoundingClientRect().bottom > window.innerHeight) suite.scrollIntoView({ block: 'end' });
     if (ok) recompenseReponse();
   }
   function recompenseReponse() {
@@ -493,8 +496,11 @@
   const NOMS_NOTES = ['do', 'do♯', 'ré', 'ré♯', 'mi', 'fa', 'fa♯', 'sol', 'sol♯', 'la', 'la♯', 'si'];
   const nomNote = m => NOMS_NOTES[((m % 12) + 12) % 12];
   const melangeDifferent = n => { const idx = [...Array(n).keys()]; if (n < 2) return idx; let m; do { m = shuffle(idx); } while (m.every((v, i) => v === i)); return m; };
-  const puce = (txt, cls, action, n, off) => `<button type="button" class="ex-puce ${cls || ''}" ${off ? 'disabled' : `onclick="${ex(action, n)}"`}>${txt}</button>`;
-  const valider = (pret, action) => pret ? `<button class="validate-btn ex-valider" onclick="${ex(action)}">Valider ✓</button>` : '';
+  const puce = (txt, cls, action, n, off) => `<button type="button" class="ex-puce ${cls || ''}"${/choisi/.test(cls || '') ? ' aria-pressed="true"' : ''} ${off ? 'disabled' : `onclick="${ex(action, n)}"`}>${txt}</button>`;
+  // le bouton Valider est toujours visible : grisé, il dit ce qui manque (un bouton qui apparaît d'un coup ne se devine pas)
+  const valider = (pret, action, manque) => pret ? `<button class="validate-btn ex-valider" onclick="${ex(action)}">Valider ✓</button>`
+    : manque ? `<button class="validate-btn ex-valider attente" disabled>${manque}</button>` : '';
+  const aPlacer = (n, mot) => `Encore ${n} ${mot}${n > 1 ? 's' : ''} à placer`;
   const trousDe = q => { const parts = []; String(q.texte || '').split(/\[([^\]]+)\]/).forEach((p, i) => parts.push(i % 2 ? { rep: p.split(';').map(s => s.trim()).filter(Boolean) } : { txt: p })); return parts; };
   const motsDe = q => { const t = []; String(q.texte || '').replace(/\*([^*]+)\*|([^\s*]+)/g, (m, bon, autre) => { t.push({ mot: bon || autre, bon: !!bon }); }); return t; };
   function jouerMidi(m) {
@@ -522,17 +528,25 @@
     trous: {
       corps(q, c) {
         let k = 0;
-        const html = trousDe(q).map(p => {
+        const parts = trousDe(q), nb = parts.filter(p => p.rep).length;
+        // même largeur pour tous les trous : la taille de la case ne trahit pas la longueur de la réponse
+        const larg = Math.max(5, ...parts.filter(p => p.rep).map(p => Math.max(...p.rep.map(r => r.length)) + 2));
+        const html = parts.map(p => {
           if (p.txt != null) return esc(p.txt);
           const i = k++;
-          if (!c.repondu) return `<input class="ex-trou" data-i="${i}" autocomplete="off" autocapitalize="off" spellcheck="false" style="width:${Math.max(4, p.rep[0].length + 2)}ch">`;
+          if (!c.repondu) return `<input class="ex-trou" data-i="${i}" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="${i + 1 < nb ? 'next' : 'done'}" aria-label="Trou ${i + 1}" style="width:${larg}ch">`;
           const donne = (Array.isArray(c.donne) ? c.donne : [])[i] || '', bon = p.rep.map(norm).includes(norm(donne));
           return `<span class="ex-mot ${bon ? 'ok' : 'ko'}">${esc(donne || '…')}</span>`;
         }).join('');
         return `<div class="ex-texte">${html}</div>${c.repondu ? '' : `<button class="validate-btn ex-valider" onclick="${ex('trous')}">Valider ✓</button>`}`;
       },
       monter(q, c) { if (!c.repondu) { const i = document.querySelector('.ex-trou'); if (i) setTimeout(() => i.focus(), 30); } },
-      entree: () => actionExercice('trous'),
+      entree: () => {   // Entrée : passe au trou vide suivant, valide quand tout est rempli
+        const t = [...document.querySelectorAll('.ex-trou')], i = t.indexOf(document.activeElement);
+        const suivant = t.slice(i + 1).concat(t.slice(0, i + 1)).find(x => !x.value.trim());
+        if (suivant && suivant !== document.activeElement) return suivant.focus();
+        actionExercice('trous');
+      },
       attendu: q => trousDe(q).map(p => p.txt != null ? esc(p.txt) : `<b>${esc(p.rep[0])}</b>`).join('')
     },
     // O : remettre dans l'ordre — O|consigne|élément 1|élément 2|élément 3 (écrits dans le bon ordre)
@@ -543,14 +557,14 @@
         const rep = choix.map((i, p) => puce(esc(q.items[i]), c.repondu ? (i === p ? 'ok' : 'ko') : 'pose', 'ordre-retirer', p, c.repondu)).join('');
         const reste = c.repondu ? '' : s.melange.filter(i => !s.choisis.includes(i)).map(i => puce(esc(q.items[i]), '', 'ordre-ajouter', i)).join('');
         return `<div class="ex-zone"><div class="ex-legende">Ta réponse (touche un élément pour le retirer)</div><div class="ex-ligne ordre">${rep || '<span class="ex-vide">Touche les éléments dans l\'ordre…</span>'}</div></div>` +
-          (reste ? `<div class="ex-ligne">${reste}</div>` : '') + valider(!c.repondu && s.choisis.length === q.items.length, 'ordre-valider');
+          (reste ? `<div class="ex-ligne">${reste}</div>` : '') + valider(!c.repondu && s.choisis.length === q.items.length, 'ordre-valider', !c.repondu && aPlacer(q.items.length - s.choisis.length, 'élément'));
       },
       attendu: q => q.items.map(esc).join(' → ')
     },
     // A : associer — A|consigne|dog=chien|cat=chat
     paires: {
       corps(q, c) {
-        const s = etat(q, () => ({ droite: melangeDifferent(q.paires.length), sel: null, lien: {} }));
+        const s = etat(q, () => ({ droite: melangeDifferent(q.paires.length), sel: null, selD: null, lien: {} }));
         const lien = c.repondu ? (c.donne && typeof c.donne === 'object' ? c.donne : {}) : s.lien;
         const numDroite = {}; Object.keys(lien).forEach(g => { numDroite[lien[g]] = +g; });
         const gauche = q.paires.map((p, i) => {
@@ -558,11 +572,11 @@
           return puce((lie ? `<span class="ex-num">${i + 1}</span>` : '') + esc(p[0]), cls, 'paire-g', i, c.repondu);
         }).join('');
         const droite = s.droite.map(j => {
-          const g = numDroite[j], cls = c.repondu ? (g === j ? 'ok' : g == null ? '' : 'ko') : g != null ? 'pose' : '';
+          const g = numDroite[j], cls = c.repondu ? (g === j ? 'ok' : g == null ? '' : 'ko') : s.selD === j ? 'choisi' : g != null ? 'pose' : '';
           return puce((g != null ? `<span class="ex-num">${g + 1}</span>` : '') + esc(q.paires[j][1]), cls, 'paire-d', j, c.repondu);
         }).join('');
-        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément à gauche, puis celui qui va avec à droite.</div>'}<div class="ex-paires"><div class="ex-col">${gauche}</div><div class="ex-col">${droite}</div></div>` +
-          valider(!c.repondu && Object.keys(s.lien).length === q.paires.length, 'paire-valider');
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis celui qui va avec dans l\'autre colonne.</div>'}<div class="ex-paires"><div class="ex-col">${gauche}</div><div class="ex-col">${droite}</div></div>` +
+          valider(!c.repondu && Object.keys(s.lien).length === q.paires.length, 'paire-valider', !c.repondu && `Encore ${q.paires.length - Object.keys(s.lien).length} paire${q.paires.length - Object.keys(s.lien).length > 1 ? 's' : ''} à former`);
       },
       attendu: q => q.paires.map(p => esc(p[0]) + ' = ' + esc(p[1])).join(' ; ')
     },
@@ -577,8 +591,8 @@
           const dedans = s.ordre.filter(i => place[i] === gi).map(i => puce(esc(tous[i].t), c.repondu ? (tous[i].gi === gi ? 'ok' : 'ko') : 'pose', 'classer-retirer', i, c.repondu)).join('');
           return `<div class="ex-case" ${c.repondu ? '' : `onclick="if(!event.target.closest('.ex-puce'))${ex('classer-poser', gi)}"`}><div class="ex-case-nom">${esc(g.nom)}</div><div class="ex-ligne">${dedans}</div></div>`;
         }).join('');
-        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis la case où il va.</div>'}${libres ? `<div class="ex-ligne">${libres}</div>` : ''}<div class="ex-cases${!c.repondu && s.sel != null ? ' pret' : ''}">${cases}</div>` +
-          valider(!c.repondu && Object.keys(s.place).length === tous.length, 'classer-valider');
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis la case où il va. Touche un élément rangé pour le déplacer.</div>'}${libres ? `<div class="ex-ligne">${libres}</div>` : ''}<div class="ex-cases${!c.repondu && s.sel != null ? ' pret' : ''}">${cases}</div>` +
+          valider(!c.repondu && Object.keys(s.place).length === tous.length, 'classer-valider', !c.repondu && aPlacer(tous.length - Object.keys(s.place).length, 'élément'));
       },
       attendu: q => q.groupes.map(g => '<b>' + esc(g.nom) + '</b> : ' + g.items.map(esc).join(', ')).join(' ; ')
     },
@@ -592,14 +606,14 @@
           const cls = c.repondu ? (m.bon && pris ? 'ok' : m.bon ? 'manque' : pris ? 'ko' : '') : pris ? 'choisi' : '';
           return `<button type="button" class="ex-motbtn ${cls}" ${c.repondu ? 'disabled' : `onclick="${ex('cliquer', i)}"`}>${esc(m.mot)}</button>`;
         }).join(' ');
-        return `<div class="ex-texte">${mots}</div>` + valider(!c.repondu && s.sel.length > 0, 'cliquer-valider');
+        return `<div class="ex-texte">${mots}</div>` + valider(!c.repondu && s.sel.length > 0, 'cliquer-valider', !c.repondu && 'Touche au moins un mot');
       },
       attendu: q => motsDe(q).filter(m => m.bon).map(m => '<b>' + esc(m.mot) + '</b>').join(', ')
     },
     // N : nombre avec tolérance — N|√2 ≈ ?|1,414|0,01|explication
     nombre: {
       corps(q, c) {
-        return `<div class="input-row"><input id="ans-input" class="ans-input ${c.repondu ? (c.ok ? 'ok' : 'ko') : ''}" inputmode="decimal" autocomplete="off" value="${c.repondu ? esc(c.donne) : ''}" ${c.repondu ? 'disabled' : ''} placeholder="Ta réponse…">` +
+        return `<div class="input-row"><input id="ans-input" class="ans-input ${c.repondu ? (c.ok ? 'ok' : 'ko') : ''}" inputmode="${parseFloat(String(q.a).replace(',', '.')) < 0 ? 'text' : 'decimal'}" enterkeyhint="done" autocomplete="off" value="${c.repondu ? esc(c.donne) : ''}" ${c.repondu ? 'disabled' : ''} placeholder="Ta réponse…">` +
           `${q.unit ? `<span class="unit">${esc(q.unit)}</span>` : ''}${c.repondu ? '' : `<button class="validate-btn" onclick="${ex('nombre')}">Valider ✓</button>`}</div>`;
       },
       monter(q, c) { if (!c.repondu) { const i = document.getElementById('ans-input'); if (i) setTimeout(() => i.focus(), 30); } },
@@ -640,8 +654,13 @@
     }
   };
 
+  // un toucher trop rapide juste après le changement de question (double toucher sur « Question suivante ») est ignoré
+  let toucher = false, tQuestion = 0;
+  document.addEventListener('pointerdown', e => { toucher = e.pointerType === 'touch'; }, true);
+  const tropTot = () => toucher && !navigator.webdriver && Date.now() - tQuestion < 400;   // (les tests automatiques enchaînent vite)
+  function clignoter(sel) { const el = appli().querySelector(sel); if (!el) return; el.classList.remove('clignote'); void el.offsetWidth; el.classList.add('clignote'); }
   function actionExercice(action, n) {
-    const q = shuffled && shuffled[cur]; if (!q || selected !== null) return;
+    const q = shuffled && shuffled[cur]; if (!q || selected !== null || tropTot()) return;
     const s = E && E.q === q ? E : null;
     switch (action) {
       case 'trous': {
@@ -654,17 +673,22 @@
       case 'ordre-ajouter': s.choisis.push(n); break;
       case 'ordre-retirer': s.choisis.splice(n, 1); break;
       case 'ordre-valider': return enregistrer(s.choisis.slice(), s.choisis.every((i, p) => q.items[i] === q.items[p]), s.choisis.map(i => esc(q.items[i])).join(' → '));
-      case 'paire-g': if (s.lien[n] != null) { delete s.lien[n]; s.sel = null; } else s.sel = s.sel === n ? null : n; break;
+      // paires dans les deux sens : on peut commencer à gauche ou à droite ; toucher un élément déjà relié le détache et le choisit
+      case 'paire-g': {
+        if (s.selD != null) { Object.keys(s.lien).forEach(k => { if (s.lien[k] === s.selD) delete s.lien[k]; }); s.lien[n] = s.selD; s.selD = null; break; }
+        if (s.sel === n) { s.sel = null; break; }
+        delete s.lien[n]; s.sel = n; break;
+      }
       case 'paire-d': {
-        if (s.sel == null) { const g = Object.keys(s.lien).find(k => s.lien[k] === n); if (g != null) delete s.lien[g]; break; }
-        Object.keys(s.lien).forEach(k => { if (s.lien[k] === n) delete s.lien[k]; });
-        s.lien[s.sel] = n; s.sel = null; break;
+        if (s.sel != null) { Object.keys(s.lien).forEach(k => { if (s.lien[k] === n) delete s.lien[k]; }); s.lien[s.sel] = n; s.sel = null; break; }
+        if (s.selD === n) { s.selD = null; break; }
+        Object.keys(s.lien).forEach(k => { if (s.lien[k] === n) delete s.lien[k]; }); s.selD = n; break;
       }
       case 'paire-valider': return enregistrer(Object.assign({}, s.lien), q.paires.every((p, i) => s.lien[i] === i || q.paires[s.lien[i]] && q.paires[s.lien[i]][1] === p[1]),
         q.paires.map((p, i) => esc(p[0]) + ' = ' + esc(q.paires[s.lien[i]][1])).join(' ; '));
       case 'classer-choisir': s.sel = s.sel === n ? null : n; break;
-      case 'classer-poser': if (s.sel == null) return; s.place[s.sel] = n; s.sel = null; break;
-      case 'classer-retirer': delete s.place[n]; break;
+      case 'classer-poser': if (s.sel == null) return clignoter('.ex-legende'); s.place[s.sel] = n; s.sel = null; break;
+      case 'classer-retirer': delete s.place[n]; s.sel = n; break;      // un élément mal rangé est repris en main : un toucher sur la bonne case suffit
       case 'classer-valider': {
         const tous = []; q.groupes.forEach((g, gi) => g.items.forEach(t => tous.push({ t, gi })));
         return enregistrer(Object.assign({}, s.place), tous.every((x, i) => s.place[i] === x.gi || q.groupes[s.place[i]].items.includes(x.t)),
@@ -678,7 +702,7 @@
       case 'nombre': {
         const inp = document.getElementById('ans-input'), v = inp ? inp.value.trim() : '';
         if (!v) { if (inp) inp.focus(); return; }
-        const x = parseFloat(v.replace(/\s/g, '').replace(',', '.')), a = parseFloat(String(q.a).replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
+        const x = parseFloat(v.replace(/\s/g, '').replace(',', '.').replace(/[−–]/, '-')), a = parseFloat(String(q.a).replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
         return enregistrer(v, isFinite(x) && Math.abs(x - a) <= tol + 1e-9);
       }
       case 'parler': {
@@ -723,7 +747,7 @@
   function next() {
     quitter();
     if (cur + 1 >= shuffled.length) { renderResult(); return; }
-    cur++; selected = null;
+    cur++; selected = null; tQuestion = Date.now();
     renderQuestion();
   }
 

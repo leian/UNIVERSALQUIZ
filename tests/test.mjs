@@ -419,6 +419,33 @@ try {
     await page.locator('.next-btn').click();
   }
   ok(/^8/.test(await page.locator('.result-score').innerText()) && new Set(typesJoues).size === 8, 'nouveaux types : texte à trous, ordre, paires, classement, mots à toucher, nombre, micro, clavier jouables au toucher (8/8)');
+  // mécanique des exercices au toucher
+  const meca = await page.evaluate(() => {
+    const r = {}, poser = q => { MoteurQuiz.home(); MoteurQuiz.start(); const e = MoteurQuiz._etat(); e.shuffled[0] = Object.assign({ cat: 'Test' }, q); MoteurQuiz.rafraichir(); };
+    const btn = (sel, txt) => [...document.querySelectorAll(sel)].find(b => b.textContent.trim().replace(/^\d+/, '') === txt);
+    poser({ type: 'paires', q: 'Associe.', paires: [['dog', 'chien'], ['cat', 'chat']] });
+    r.attentePaires = (document.querySelector('.ex-valider.attente') || {}).textContent;
+    btn('.ex-col:nth-child(2) .ex-puce', 'chat').click(); btn('.ex-col:nth-child(1) .ex-puce', 'cat').click();
+    r.droiteDabord = document.querySelectorAll('.ex-col:nth-child(1) .ex-puce.pose').length === 1;
+    poser({ type: 'classer', q: 'Classe.', groupes: [{ nom: 'Noms', items: ['table'] }, { nom: 'Verbes', items: ['courir'] }] });
+    document.querySelector('.ex-case').click();
+    r.clignote = !!document.querySelector('.ex-legende.clignote');
+    btn('.ex-puce', 'courir').click(); document.querySelectorAll('.ex-case')[0].click();
+    btn('.ex-case .ex-puce', 'courir').click();
+    r.repris = !!document.querySelector('.ex-puce[aria-pressed="true"]') && !document.querySelector('.ex-case .ex-puce');
+    poser({ type: 'trous', q: 'Complète.', texte: 'Il [a] faim et [était] très fatigué.' });
+    const w = [...document.querySelectorAll('.ex-trou')].map(i => i.style.width);
+    r.largeurs = w.length === 2 && w[0] === w[1];
+    poser({ type: 'nombre', q: 'Température ?', a: '-5', tol: 0 });
+    r.moins = document.getElementById('ans-input').getAttribute('inputmode') === 'text';
+    return r;
+  });
+  ok(meca.attentePaires === 'Encore 2 paires à former' && meca.droiteDabord, 'paires : Valider grisé dit ce qui manque, on peut commencer par la colonne de droite');
+  ok(meca.clignote && meca.repris, 'classer : toucher une case sans mot choisi fait clignoter la consigne ; un mot rangé se reprend en main d\'un toucher');
+  ok(meca.largeurs, 'texte à trous : même largeur pour tous les trous (pas d\'indice sur la longueur)');
+  ok(meca.moins, 'nombre négatif : clavier texte (le pavé décimal de l\'iPhone n\'a pas de signe moins)');
+  await page.evaluate(() => MoteurQuiz.home());
+
 
   await page.goto(BASE + '/exec');
   ok((await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}))).badge === '🏅' && (await page.evaluate(() => (QUIZ.find(q => /listen-and-notes/.test(q.fichier)) || {}).matiere)) === 'anglais', 'catalogue : badge et matière du quiz créé');
