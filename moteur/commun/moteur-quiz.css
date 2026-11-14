@@ -47,6 +47,7 @@
   .fin-mascotte { display: flex; justify-content: center; align-items: flex-end; gap: 4px; margin-bottom: 0.5rem; }
   .fin-mascotte .mascotte { width: 120px; height: 120px; }
   .fin-emoji { font-size: 2rem; }
+  .result-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 14px; margin: -0.3rem 0 1rem; font-size: 13px; color: #4b5563; }
   span.emo { width: auto; height: auto; }
   .emo-box { position: relative; width: 100%; height: 120px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--main-bg); display: flex; align-items: center; justify-content: center; }
   .emo-box > svg { position: absolute; inset: 0; width: 100%; height: 100%; }

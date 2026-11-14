@@ -99,6 +99,47 @@
   const texteReponse = (q, r) => r ? (r.texte != null ? r.texte : (C.texteReponse ? C.texteReponse(q, r.given) : (typeDe(q) === 'input' ? esc(r.given) : (C.optionHTML ? C.optionHTML(q, r.given) : r.given)))) : '—';
   const texteQuestion = q => C.texteQuestion ? C.texteQuestion(q) : q.q;
 
+  /* ---------- profils par âge : le thème posé par le serveur sur <html data-theme> règle
+     le nombre de questions, le nombre de choix, la lecture à voix haute, les animaux et les statistiques,
+     ainsi que le ton des messages ---------- */
+  const PROFILS = {
+    petits:       { nb: 8,  choix: 3, lecture: 'auto' },
+    lecteurs:     { nb: 10, choix: 3, lecture: 'bouton' },
+    explorateurs: {},
+    college:      { stats: true },
+    lycee:        { stats: true, animaux: false },
+    parent:       { stats: true, animaux: false }
+  };
+  const TONS = {
+    defaut:   { ok: '✅ Bonne réponse, bravo !', ko: '❌ La bonne réponse était :', fin: ['Excellent travail ! Tu maîtrises ce chapitre.', 'Bravo ! Tu connais bien ce chapitre.', 'Pas mal, mais il reste quelques points à revoir.', 'Continue à réviser, tu vas y arriver !'] },
+    petits:   { ok: '🎉 Bravo, c\'est ça !', ko: '😊 Presque ! C\'était :', fin: ['Waouh ! Tu as tout compris, bravo !', 'Bravo, c\'est très bien !', 'C\'est bien ! On rejoue pour faire encore mieux ?', 'On rejoue ensemble ? Tu vas y arriver !'] },
+    lecteurs: { ok: '🎉 Bravo, bonne réponse !', ko: '😊 Pas tout à fait. La bonne réponse était :', fin: ['Super ! Tu as tout compris.', 'Bravo, tu connais bien ta leçon !', 'C\'est bien parti ! Relis les erreurs et rejoue.', 'Courage ! Relis ta leçon, puis rejoue.'] },
+    college:  { ok: '✅ Bien joué !', ko: '❌ Raté, la réponse était :', fin: ['Chapitre maîtrisé, bien joué !', 'Bon score ! Encore quelques points à caler.', 'Pas mal, mais plusieurs notions sont à revoir.', 'À retravailler : lance « Refaire mes erreurs ».'] },
+    lycee:    { ok: '✅ Correct.', ko: '❌ Réponse attendue :', fin: ['Excellent : chapitre maîtrisé.', 'Bon niveau : quelques points à consolider.', 'Bases présentes, plusieurs notions à revoir.', 'Chapitre à retravailler : commence par tes erreurs.'] }
+  };
+  TONS.parent = TONS.lycee;
+  const themeActuel = () => document.documentElement.getAttribute('data-theme') || 'explorateurs';
+  const profil = () => PROFILS[themeActuel()] || {};
+  const ton = () => TONS[themeActuel()] || TONS.defaut;
+  const nbParDefaut = () => Math.min(C.nbQuestions, profil().nb || Infinity);
+  // lecture à voix haute de la question (petits : automatique ; lecteurs : bouton)
+  function lireQuestion() {
+    const q = shuffled && shuffled[cur]; if (!q || !('speechSynthesis' in window)) return;
+    couperSon();
+    const d = document.createElement('div'); d.innerHTML = texteQuestion(q);
+    const u = new SpeechSynthesisUtterance(d.textContent.replace(/_{2,}/g, ' … ').trim());
+    u.lang = 'fr-FR'; u.rate = 0.85;
+    const v = speechSynthesis.getVoices().find(x => x.lang.toLowerCase().startsWith('fr')); if (v) u.voice = v;
+    speechSynthesis.speak(u);
+  }
+  const meilleurScore = (pct) => {
+    const k = 'sq.meilleur.' + (C.titre || '');
+    let avant = null; try { avant = JSON.parse(localStorage.getItem(k)); } catch (e) {}
+    try { if (avant == null || pct > avant) localStorage.setItem(k, JSON.stringify(pct)); } catch (e) {}
+    return avant;
+  };
+  let tDebut = 0;
+
   function hexToRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
   function mix(hex, t, base) { const a = hexToRgb(hex), b = base || [255, 255, 255]; return '#' + a.map((v, i) => Math.round(v * (1 - t) + b[i] * t).toString(16).padStart(2, '0')).join(''); }
   function appliquerCouleur(c) {
@@ -144,7 +185,7 @@
   function renderStart() {
     state = 'start';
     quitter();
-    const n = nbChoisi || C.nbQuestions;
+    const n = nbChoisi || nbParDefaut();
     const pills = [`🎯 ${n} questions`, `🃏 ${C.questions.length} questions au total`, '🔀 Tirage aléatoire', ...(C.pills || [])];
     const choix = C.choixNombre ? `<div class="start-choice"><b>Combien de questions ?</b><div>${C.choixNombre.map(k =>
       `<button class="choice-btn ${k === n ? 'on' : ''}" onclick="MoteurQuiz.nombre(${k})">${k}</button>`).join('')}</div></div>` : '';
@@ -172,13 +213,20 @@
   function preparerQuestion0(q) {
     const t = typeDe(q);
     if (t === 'vf') return { ...q, type: 'qcm', opts: shuffle(['Vrai', 'Faux']), a: q.a === true ? 'Vrai' : q.a === false ? 'Faux' : q.a };
-    if (t === 'qcm' && Array.isArray(q.opts)) return { ...q, type: 'qcm', opts: (q.garderOrdre || q.fixed) ? [...q.opts] : shuffle(q.opts) };
+    if (t === 'qcm' && Array.isArray(q.opts)) {
+      if (q.garderOrdre || q.fixed) return { ...q, type: 'qcm', opts: [...q.opts] };
+      // petits et lecteurs : moins de choix (la bonne réponse est toujours gardée)
+      const max = profil().choix, autres = q.opts.filter(o => o !== q.a);
+      const opts = max && q.opts.length > max && autres.length < q.opts.length ? [q.a, ...shuffle(autres).slice(0, max - 1)] : q.opts;
+      return { ...q, type: 'qcm', opts: shuffle(opts) };
+    }
     return { ...q, type: t };
   }
 
   function startQuiz(liste) {
     quitter();
-    const n = Math.min(nbChoisi || C.nbQuestions, C.questions.length);
+    const n = Math.min(nbChoisi || nbParDefaut(), C.questions.length);
+    tDebut = Date.now();
     const base = liste || (C.preparer ? C.preparer(n) : shuffle(C.questions).slice(0, n));
     shuffled = base.map(preparerQuestion);
     cur = 0; answers = []; selected = null;
@@ -193,7 +241,7 @@
     selected = donne === undefined ? '' : donne;
     answers[cur] = { given: donne, ok: !!ok, texte };
     renderQuestion();
-    if (ok && window.celebrate) celebrate();
+    if (ok && window.celebrate && profil().animaux !== false) celebrate();
   }
   function handleAnswer(idx) {
     if (selected !== null) return;
@@ -284,6 +332,7 @@
     let h = '';
     if (q.portee && q.notes) h += porteeSVG(q);
     const b = [];
+    if (profil().lecture && !repondu) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.lire()">🔊 Lire la question</button>`);
     if (q.dire) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter()">🔊 ${repondu ? 'Réécouter' : 'Écouter'}</button><button class="ecoute-btn lent" onclick="MoteurQuiz.ecouter('lent')">🐢 Lentement</button>`);
     if (q.notes && q.portee !== 'seule' && sequence(q).length) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter('notes')">🎵 ${repondu ? 'Réécouter' : 'Écouter'}</button>`);
     return h + (b.length ? `<div class="ecoute-row">${b.join('')}</div>` : '');
@@ -568,7 +617,7 @@
     }
     let expBlock = '';
     if (answered) {
-      const intro = ok ? '✅ Bonne réponse, bravo !' : `❌ La bonne réponse était : <strong>${attendu(q)}</strong>.`;
+      const intro = ok ? ton().ok : `${ton().ko} <strong>${attendu(q)}</strong>.`;
       const exp = q.exp || q.e || '';
       expBlock = ok ? `<div class="explanation">${intro}${exp ? '<br>' + exp : ''}</div>`
         : `<div class="explanation avec-mascotte"><span class="mascotte m-encouragement" aria-hidden="true"></span><div>${intro}${exp ? '<br>' + exp : ''}</div></div>`;
@@ -598,6 +647,7 @@
     if (!answered) {
       if (q.type === 'input') { const inp = document.getElementById('ans-input'); if (inp) setTimeout(() => inp.focus(), 30); }
       if (C.avantQuestion) try { C.avantQuestion(q); } catch (e) { console.warn(e); }
+      if (profil().lecture === 'auto' && !q.dire) setTimeout(lireQuestion, 250);
     }
   }
 
@@ -606,10 +656,20 @@
     state = 'result';
     const sc = score(), n = shuffled.length, pct = Math.round((sc / n) * 100);
     let msg, emoji;
-    if (pct >= 85) { msg = C.msgExcellent || 'Excellent travail ! Tu maîtrises ce chapitre.'; emoji = '🏅'; }
-    else if (pct >= 60) { msg = C.msgBien || 'Bravo ! Tu connais bien ce chapitre.'; emoji = '👍'; }
-    else if (pct >= 40) { msg = 'Pas mal, mais il reste quelques points à revoir.'; emoji = '📖'; }
-    else { msg = 'Continue à réviser, tu vas y arriver !'; emoji = '💪'; }
+    const T0 = ton().fin;
+    if (pct >= 85) { msg = C.msgExcellent || T0[0]; emoji = '🏅'; }
+    else if (pct >= 60) { msg = C.msgBien || T0[1]; emoji = '👍'; }
+    else if (pct >= 40) { msg = T0[2]; emoji = '📖'; }
+    else { msg = T0[3]; emoji = '💪'; }
+    // collège, lycée, parent : durée et meilleur score sur ce quiz
+    const avant = meilleurScore(pct);
+    let stats = '';
+    if (profil().stats) {
+      const sec = Math.max(1, Math.round((Date.now() - (tDebut || Date.now())) / 1000));
+      const duree = sec < 60 ? sec + ' s' : Math.floor(sec / 60) + ' min' + (sec % 60 ? ' ' + (sec % 60) + ' s' : '');
+      stats = `<div class="result-stats"><span>⏱️ ${duree} · ${Math.round(sec / n)} s par question</span>` +
+        `<span>${avant == null ? '🆕 Premier essai sur ce quiz' : pct > avant ? `🏆 Nouveau record (avant : ${avant} %)` : `🏆 Meilleur score : ${avant} %`}</span></div>`;
+    }
 
     const catStats = {};
     shuffled.forEach((q, i) => { const c = q.cat || '—'; catStats[c] = catStats[c] || { ok: 0, total: 0 }; catStats[c].total++; if (answers[i] && answers[i].ok) catStats[c].ok++; });
@@ -645,6 +705,7 @@
         <div class="result-score">${sc}<span style="font-size:28px;color:#6b7280">/${n}</span></div>
         <div class="result-label">${pct}% de bonnes réponses</div>
         <div class="result-msg">${msg}</div>
+        ${stats}
         <table class="cat-table"><thead><tr><th>Thème</th><th>Score</th><th>Résultat</th></tr></thead><tbody>${catRows}</tbody></table>
         <p style="font-size:13px;color:#6b7280;margin-bottom:0.5rem">Les questions changent à chaque partie !</p>
         <div class="result-btns">
@@ -667,7 +728,7 @@
       const msgEl = appli().querySelector('.result-msg');
       if (msgEl) msgEl.insertAdjacentHTML('afterend', `<div class="bp-nouveau">${Badges.badgeHTML()}<div><b>Nouveau badge gagné !</b>Sans aucune faute : le badge « ${Badges.titre() || C.titre} » rejoint tes récompenses.</div></div>`);
     }
-    if ((n - sc) / n < 0.25 && window.showCapybara) setTimeout(showCapybara, 500);
+    if ((n - sc) / n < 0.25 && window.showCapybara && profil().animaux !== false) setTimeout(showCapybara, 500);
   }
   function refaireErreurs() {
     // repart des questions d'origine, en remettant à zéro les états de manipulation (rangement, clic…)
@@ -722,7 +783,7 @@
       chargerBadges();
     },
     start: () => startQuiz(), home: renderStart, answer: handleAnswer, validate: validateInput, prev: prevQuestion, next,
-    ecouter, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
+    ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     rafraichir: () => renderQuestion(),
     _ex: (action, n) => actionExercice(action, n),
