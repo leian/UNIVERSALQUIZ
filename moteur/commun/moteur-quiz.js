@@ -60,6 +60,19 @@
 (function () {
   let C, state = 'start', shuffled, cur, answers, selected, nbChoisi, lastKey = null;
   const NUMS = ['1', '2', '3', '4', '5', '6', '7', '8'];
+  /* icônes à traits (style Lucide, licence ISC), cohérentes avec le site et l'espace parent */
+  const ICQ = {
+    prec: '<path d="m15 18-6-6 6-6"/>',
+    etoile: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
+    cible: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+    debut: '<path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/>',
+    rejouer: '<path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/>',
+    chrono: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+    liste: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
+    melange: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
+    trophee: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'
+  };
+  const ic = (n, st) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${st ? ` style="${st}"` : ''}>${ICQ[n]}</svg>`;
   const MES_QUIZ = `<a class="btn-myquiz" href="index.html"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="20" height="20" alt="" style="vertical-align:middle;border-radius:4px"> SoccaQuiz</a>`;
 
   const DECO_DEFAUT = `<svg viewBox="0 0 640 90" xmlns="http:\/\/www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
@@ -188,7 +201,7 @@
     state = 'start';
     quitter();
     const n = nbChoisi || nbParDefaut();
-    const pills = [`🎯 ${n} questions`, `🃏 ${C.questions.length} questions au total`, '🔀 Tirage aléatoire', ...(C.pills || [])];
+    const pills = [`${ic('cible')} ${n} questions`, `${ic('liste')} ${C.questions.length} questions au total`, `${ic('melange')} Tirage aléatoire`, ...(C.pills || [])];
     const choix = C.choixNombre ? `<div class="start-choice"><b>Combien de questions ?</b><div>${C.choixNombre.map(k =>
       `<button class="choice-btn ${k === n ? 'on' : ''}" onclick="MoteurQuiz.nombre(${k})">${k}</button>`).join('')}</div></div>` : '';
     appli().innerHTML = `
@@ -628,11 +641,11 @@
     const nextLabel = cur + 1 >= shuffled.length ? 'Voir le résultat ›' : 'Question suivante ›';
 
     appli().innerHTML = `
-      <div class="top-bar"><span class="counter">Question ${cur + 1} / ${shuffled.length}</span><span class="score-badge">⭐ ${score()} pts</span></div>
-      <div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div>
-      <div class="ctrl-bar">
-        <button class="btn-prev" onclick="MoteurQuiz.prev()" ${cur === 0 ? 'disabled' : ''}>◀ Question précédente</button>
-        ${MES_QUIZ}
+      <div class="barre-quiz">
+        <a class="btn-myquiz ib" href="index.html" title="Retour à SoccaQuiz" aria-label="Retour à SoccaQuiz"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="26" height="26" alt=""></a>
+        <button class="btn-prev ib" onclick="MoteurQuiz.prev()" ${cur === 0 ? 'disabled' : ''} title="Question précédente" aria-label="Question précédente">${ic('prec')}</button>
+        <div class="prog"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span class="counter">Question ${cur + 1} / ${shuffled.length}</span></div>
+        <span class="score-badge">${ic('etoile', 'fill:#e8a83a;stroke:#e8a83a')} ${score()} pts</span>
       </div>
       <div class="streak-bar">${dots}</div>
       <div class="question-card">
@@ -670,8 +683,8 @@
     if (profil().stats) {
       const sec = Math.max(1, Math.round((Date.now() - (tDebut || Date.now())) / 1000));
       const duree = sec < 60 ? sec + ' s' : Math.floor(sec / 60) + ' min' + (sec % 60 ? ' ' + (sec % 60) + ' s' : '');
-      stats = `<div class="result-stats"><span>⏱️ ${duree} · ${Math.round(sec / n)} s par question</span>` +
-        `<span>${avant == null ? '🆕 Premier essai sur ce quiz' : pct > avant ? `🏆 Nouveau record (avant : ${avant} %)` : `🏆 Meilleur score : ${avant} %`}</span></div>`;
+      stats = `<div class="result-stats"><span>${ic('chrono')} ${duree} · ${Math.round(sec / n)} s par question</span>` +
+        `<span>${ic('trophee')} ${avant == null ? 'Premier essai sur ce quiz' : pct > avant ? `Nouveau record (avant : ${avant} %)` : `Meilleur score : ${avant} %`}</span></div>`;
     }
 
     const catStats = {};
@@ -712,9 +725,9 @@
         <table class="cat-table"><thead><tr><th>Thème</th><th>Score</th><th>Résultat</th></tr></thead><tbody>${catRows}</tbody></table>
         <p style="font-size:13px;color:#6b7280;margin-bottom:0.5rem">Les questions changent à chaque partie !</p>
         <div class="result-btns">
-          <button class="btn-replay" onclick="MoteurQuiz.start()">🔄 Rejouer</button>
-          ${wrong.length ? `<button class="btn-home" onclick="MoteurQuiz.erreurs()">🎯 Refaire mes erreurs (${wrong.length})</button>` : ''}
-          <button class="btn-home" onclick="MoteurQuiz.home()">↩ Début du quiz</button>
+          <button class="btn-replay" onclick="MoteurQuiz.start()">${ic('rejouer')} Rejouer</button>
+          ${wrong.length ? `<button class="btn-home" onclick="MoteurQuiz.erreurs()">${ic('cible')} Refaire mes erreurs (${wrong.length})</button>` : ''}
+          <button class="btn-home" onclick="MoteurQuiz.home()">${ic('debut')} Début du quiz</button>
           ${MES_QUIZ}
         </div>
         ${reviewSection}

@@ -25,6 +25,20 @@
   .score-badge { font-size: 13px; font-weight: 600; background: white; border: 1px solid #e5e7eb; border-radius: 99px; padding: 4px 12px; color: #111; }
   .progress-bar { width: 100%; height: 6px; background: #e5e7eb; border-radius: 99px; margin-bottom: 1rem; }
   .progress-fill { height: 6px; background: var(--main); border-radius: 99px; transition: width 0.4s ease; }
+  /* barre du haut : retour, question précédente, progression, points — sur une seule ligne */
+  .ic { width: 1.15em; height: 1.15em; flex: none; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; vertical-align: -0.2em; }
+  .barre-quiz { display: flex; align-items: center; gap: 8px; margin-bottom: 0.6rem; }
+  .barre-quiz .ib { width: 42px; height: 42px; padding: 0; justify-content: center; border-radius: 12px; flex: none; }
+  .barre-quiz .ib img { border-radius: 6px; }
+  .barre-quiz .ib .ic { width: 22px; height: 22px; }
+  .barre-quiz .prog { flex: 1; min-width: 0; }
+  .barre-quiz .progress-bar { margin: 0 0 4px; height: 8px; }
+  .barre-quiz .progress-fill { height: 8px; }
+  .barre-quiz .counter { display: block; font-size: 12px; }
+  .barre-quiz .score-badge { flex: none; display: inline-flex; align-items: center; gap: 4px; }
+  .btn-replay .ic, .btn-home .ic { margin-right: 4px; }
+  .result-stats .ic, .info-pill .ic { margin-right: 3px; }
+  .btn-prev:focus-visible, .btn-myquiz:focus-visible, .opt-btn:focus-visible { outline: 3px solid #e8a83a; outline-offset: 2px; }
   .streak-bar { display: flex; gap: 4px; margin-bottom: 1rem; flex-wrap: wrap; }
   .streak-dot { width: 10px; height: 10px; border-radius: 50%; background: #e5e7eb; }
   .streak-dot.correct { background: #16a34a; }
