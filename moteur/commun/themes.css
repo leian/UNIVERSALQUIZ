@@ -106,19 +106,21 @@ html[data-saison="rentree"]   { --s1:#7c3aed; --s2:#f59e0b; --s3:#10b981; }
 html[data-saison="automne"]   { --s1:#c2410c; --s2:#b45309; --s3:#7f1d1d; --flocon:rgba(194,65,12,.55); }
 html[data-saison="halloween"] { --s1:#f97316; --s2:#6d28d9; --s3:#111827; --flocon:rgba(109,40,217,.5); }
 
-/* frise de saison en haut de chaque page, dans une marge réservée (bordure transparente) :
-   images 8 × plus larges que hautes, décor sur les côtés, centre léger. Plus petite pour les grands. */
-html[data-saison] { --frise-l: min(100vw, 1100px); }
-html[data-saison]:is([data-theme="college"], [data-theme="lycee"], [data-theme="parent"]) { --frise-l: min(70vw, 640px); }
-html[data-saison] body { border-top: calc(var(--frise-l) / 8) solid transparent; background-repeat: no-repeat; background-position: top center; background-size: var(--frise-l) auto; background-origin: border-box; background-clip: border-box; }
-html[data-saison="noel"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/frise.webp"); }
-html[data-saison="hiver"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/frise.webp"); }
-html[data-saison="paques"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/frise.webp"); }
-html[data-saison="printemps"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/frise.webp"); }
-html[data-saison="ete"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/frise.webp"); }
-html[data-saison="rentree"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/frise.webp"); }
-html[data-saison="automne"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/frise.webp"); }
-html[data-saison="halloween"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/frise.webp"); }
+/* frise de saison sur toute la largeur de l'écran, quel que soit l'appareil : trois morceaux
+   (gauche, centre, droite) collés aux bords et au milieu, d'une hauteur qui suit la largeur
+   de l'écran sans devenir énorme sur un grand écran. Plus basse pour les grands.
+   Elle occupe une marge réservée (bordure transparente) : elle ne recouvre jamais le contenu. */
+html[data-saison] { --frise-h: clamp(44px, 12vw, 96px); }
+html[data-saison]:is([data-theme="college"], [data-theme="lycee"], [data-theme="parent"]) { --frise-h: clamp(40px, 10vw, 72px); }
+html[data-saison] body { border-top: var(--frise-h) solid transparent; background-repeat: no-repeat; background-size: auto var(--frise-h); background-origin: border-box; background-clip: border-box; }
+html[data-saison="noel"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="hiver"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="paques"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="printemps"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="ete"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="rentree"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/frise-d.webp"); background-position: left top, right top; }
+html[data-saison="automne"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/frise-c.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/frise-d.webp"); background-position: left top, center top, right top; }
+html[data-saison="halloween"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/frise-g.webp"), url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/frise-d.webp"); background-position: left top, right top; }
 
 /* mascotte costumée (accueil et bravo) pour les petits et le primaire ; les grands gardent leur mascotte d'âge */
 html[data-saison="noel"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/accueil.webp"); }
