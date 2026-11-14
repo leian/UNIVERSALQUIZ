@@ -311,7 +311,8 @@
     let j = 0, ok = 0; a.forEach(m => { const k = b.indexOf(m, j); if (k >= 0) { ok++; j = k + 1; } });
     return ok / a.length;
   }
-  const Reco = () => window.SpeechRecognition || window.webkitSpeechRecognition;
+  // Brave (comme Firefox) n'a pas le service de reconnaissance vocale de Google : on y propose seulement l'auto-évaluation
+  const Reco = () => navigator.brave ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
 
   const INTEGRES = {
     // G : texte à trous — G|Il [a] faim et [est;était] fatigué.|explication
@@ -490,7 +491,7 @@
           if (ok) return enregistrer(meilleur, true, esc(meilleur));
           s.erreur = 'Presque ! Réécoute le modèle, puis réessaie.'; renderQuestion();
         };
-        r.onerror = e => { s.ecoute = false; s.erreur = e.error === 'not-allowed' ? 'Le micro est bloqué : autorise-le dans le navigateur, ou utilise les boutons ci-dessous.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.'; renderQuestion(); };
+        r.onerror = e => { s.ecoute = false; s.erreur = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Le micro est bloqué. Dans Chrome : touche le cadenas (ou ⓘ) à gauche de l\'adresse → Micro → Autoriser, puis recharge la page. Sinon, utilise les boutons ci-dessous.' : e.error === 'network' ? 'La reconnaissance vocale a besoin d\'internet et de Chrome. Utilise les boutons ci-dessous.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.'; renderQuestion(); };
         r.onend = () => { if (s.ecoute) { s.ecoute = false; renderQuestion(); } };
         s.ecoute = true; s.erreur = ''; try { r.start(); } catch (e) { s.ecoute = false; }
         break;
