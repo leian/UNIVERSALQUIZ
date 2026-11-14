@@ -326,7 +326,7 @@ try {
   ok(/Espace parent/.test(await page.locator('body').innerText()) && await page.locator('#reponse').count() === 0, 'site de l\'enfant : « Ajouter un quiz » renvoie vers l\'espace parent');
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   ok(/réservée aux parents/.test(await page.locator('body').innerText()), 'site de l\'enfant : le suivi des résultats est réservé aux parents');
-  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc")]');
+  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" })]');
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
   const pied = await page.locator('#foot').innerText();
@@ -336,6 +336,13 @@ try {
   ok(await page.locator('#actions').isVisible() && /Créer un quiz/.test(await page.locator('#actions').innerText()) && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (actions, pas la page de l\'enfant)');
   ok(await page.locator('#liste-quiz a.tester').count() > 0 && await page.locator('#liste-quiz button[data-f]').count() > 0, 'espace parent : chaque quiz peut être testé ou supprimé');
   ok(/Clé Gemini/.test(await page.locator('#info-gemini').innerText()), 'espace parent : état de la clé Gemini affiché');
+  // classe et thème : choix dans Réglages, thème posé sur <html>, montée automatique au 1er septembre
+  ok(await page.locator('html').getAttribute('data-theme') === 'explorateurs' && await page.locator('#choix-classe').count() === 1, 'espace parent : thème par défaut « explorateurs » et choix de la classe dans Réglages');
+  const cl = await ev('[apiClasse({ classe: "CP" }), apiClasse({ classe: "Z" }), (PropertiesService.getScriptProperties().setProperty("CLASSE_ANNEE", String(anneeScolaire_() - 2)), classe_()), apiClasse({ classe: "Tle" }), (PropertiesService.getScriptProperties().setProperty("CLASSE_ANNEE", String(anneeScolaire_() - 3)), classe_()), apiClasse({ classe: "adulte" }).theme]');
+  ok(cl.r[0].theme === 'lecteurs' && cl.r[1].erreur && cl.r[2] === 'CE2' && cl.r[4] === 'Tle' && cl.r[5] === 'parent', 'classe : thème déduit, classe inconnue refusée, passage en classe supérieure chaque année (sans dépasser la terminale), adulte → thème parent');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('html').getAttribute('data-theme') === 'parent', 'espace parent : le thème choisi est appliqué à la page');
+  ok((await ev('apiClasse({ classe: "" }).theme')).r === 'explorateurs', 'classe effacée : retour au thème de base');
   const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
   await ev('CONFIG.espace = ""');

@@ -1,0 +1,58 @@
+/* =====================================================================
+   THÈMES PAR ÂGE — posés par le serveur sur <html data-theme="…">
+   d'après la classe de l'enfant (Espace parent → Réglages).
+   petits (PS-GS) · lecteurs (CP-CE1) · explorateurs (CE2-CM2, style de base)
+   college (6e-3e) · lycee (2de-Tle) · parent (adulte)
+   Chaque thème remplace les couleurs des pages (--bg, --card, --ink, --soft, --line),
+   le fond des quiz et, si besoin, la police. La couleur de la matière reste l'accent.
+   ===================================================================== */
+
+/* ---- Petits : chaud, très rond, gros textes ---- */
+html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }
+html[data-theme="petits"] body { background:#fff4d6; }
+html[data-theme="petits"] body { font-size:1.08rem; }
+html[data-theme="petits"] .opt-btn, html[data-theme="petits"] .validate-btn, html[data-theme="petits"] .next-btn,
+html[data-theme="petits"] .ex-puce, html[data-theme="petits"] .ex-motbtn { font-size:1.2rem; border-radius:18px; }
+html[data-theme="petits"] .question-card, html[data-theme="petits"] .card, html[data-theme="petits"] .box { border-radius:24px; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="petits"] { --bg:#2a2112; --card:#3a2e19; --ink:#fff4dc; --soft:#e2c995; --line:#5a4724; }
+  html[data-theme="petits"] body { background:#2a2112; }
+}
+
+/* ---- Lecteurs : clair, police pensée pour les apprentis lecteurs ---- */
+html[data-theme="lecteurs"] { --bg:#eef7ff; --card:#ffffff; --ink:#1e2b4a; --soft:#4f6285; --line:#cfe3fa; }
+html[data-theme="lecteurs"] body { background:#eef7ff; font-size:1.05rem; }
+html[data-theme="lecteurs"] body *:not(.emo) { font-family:"Andika", "Nunito", system-ui, sans-serif !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="lecteurs"] { --bg:#13213a; --card:#1b2c4b; --ink:#e8f1ff; --soft:#a9bddf; --line:#2c4268; }
+  html[data-theme="lecteurs"] body { background:#13213a; }
+}
+
+/* ---- Collège : plus graphique, moins enfantin ---- */
+html[data-theme="college"] { --bg:#f1f5f9; --card:#ffffff; --ink:#0f172a; --soft:#475569; --line:#e2e8f0; }
+html[data-theme="college"] body { background:#f1f5f9; }
+html[data-theme="college"] body *:not(.emo) { font-family:"Nunito", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="college"] { --bg:#0b1220; --card:#131c2e; --ink:#e2e8f0; --soft:#94a3b8; --line:#1f2a40; }
+  html[data-theme="college"] body { background:#0b1220; }
+}
+
+/* ---- Lycée : sobre et moderne ---- */
+html[data-theme="lycee"] { --bg:#f7f7f8; --card:#ffffff; --ink:#18181b; --soft:#52525b; --line:#e4e4e7; }
+html[data-theme="lycee"] body { background:#f7f7f8; }
+html[data-theme="lycee"] body *:not(.emo) { font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important; }
+html[data-theme="lycee"] .emo-box .emo-grand { animation:none; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="lycee"] { --bg:#09090b; --card:#18181b; --ink:#f4f4f5; --soft:#a1a1aa; --line:#27272a; }
+  html[data-theme="lycee"] body { background:#09090b; }
+}
+
+/* ---- Parent : épuré, élégant ---- */
+html[data-theme="parent"] { --bg:#faf9f7; --card:#ffffff; --ink:#1c1917; --soft:#57534e; --line:#e7e5e4; }
+html[data-theme="parent"] body { background:#faf9f7; }
+html[data-theme="parent"] body *:not(.emo) { font-family:system-ui, -apple-system, "Segoe UI", Roboto, sans-serif !important; }
+html[data-theme="parent"] .emo-box .emo-grand { animation:none; }
+@media (prefers-color-scheme: dark) {
+  html[data-theme="parent"] { --bg:#0c0a09; --card:#1c1917; --ink:#f5f5f4; --soft:#a8a29e; --line:#292524; }
+  html[data-theme="parent"] body { background:#0c0a09; }
+}

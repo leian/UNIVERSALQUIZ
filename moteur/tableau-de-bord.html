@@ -136,6 +136,10 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
   </div>
   <div class="panneau" id="p-reglages" hidden>
     <div class="box">
+      <h2>🎒 Classe de {{PRENOM}}</h2>
+      <div id="classe"></div>
+    </div>
+    <div class="box">
       <h2>⚙️ Cet appareil</h2>
       <div id="appareil"></div>
     </div>
@@ -304,6 +308,29 @@ async function supprimer(id) {
   const r = await fetch("/api/resultats?id=" + encodeURIComponent(id), { method: "DELETE", credentials: "same-origin" });
   if (r.ok) { TOUT = TOUT.filter(x => x.id !== id); aSupprimer = null; afficher(); }
 }
+
+/* ---------- classe : choisit le thème du site, monte toute seule chaque 1er septembre ---------- */
+const NOMS_THEMES = { petits: "Petits", lecteurs: "Lecteurs", explorateurs: "Explorateurs", college: "Collège", lycee: "Lycée", parent: "Parent" };
+function afficherClasse() {
+  const U = window.__UQ || {}, el = document.getElementById("classe");
+  if (!el || !U.classes) return;
+  const groupes = [["Maternelle", U.classes.slice(0, 3)], ["Élémentaire", U.classes.slice(3, 8)], ["Collège", U.classes.slice(8, 12)], ["Lycée", U.classes.slice(12)]];
+  const opt = c => `<option value="${esc(c)}" ${c === U.classe ? "selected" : ""}>${esc(c)}</option>`;
+  el.innerHTML = `<p><select id="choix-classe" style="font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
+    `<option value="" ${U.classe ? "" : "selected"}>— Choisir —</option>` +
+    groupes.map(([n, cs]) => `<optgroup label="${n}">${cs.map(opt).join("")}</optgroup>`).join("") +
+    `<optgroup label="Adulte"><option value="adulte" ${U.classe === "adulte" ? "selected" : ""}>Révisions d'un adulte</option></optgroup></select></p>` +
+    `<p class="small">Le site s'habille selon la classe : thème <b>${esc(NOMS_THEMES[U.theme] || "Explorateurs")}</b>. La classe passe toute seule à la suivante chaque 1er septembre.</p>`;
+  document.getElementById("choix-classe").onchange = e => {
+    if (!(window.google && google.script && google.script.run)) return;
+    e.target.disabled = true;
+    google.script.run
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; alert(r.erreur); return; } window.open(U.url || location.href, "_top"); })
+      .withFailureHandler(() => { e.target.disabled = false; alert("Enregistrement impossible, réessaie."); })
+      .apiClasse({ classe: e.target.value });
+  };
+}
+afficherClasse();
 
 function afficherAppareil() {
   const actif = !window.Suivi || Suivi.actif();

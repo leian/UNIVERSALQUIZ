@@ -36,7 +36,9 @@ const CONFIG = {
   installateur: '',               // adresse de l'installateur en ligne, pour proposer les mises à jour
   espace: '',                     // rempli par l'installateur : 'enfant' ou 'parent' ('' = site installé à la main : tout est ouvert)
   urlEnfant: '',                  // adresse du site de l'enfant (rempli par l'installateur)
-  urlParent: ''                   // adresse de l'espace parent (rempli par l'installateur)
+  urlParent: '',                  // adresse de l'espace parent (rempli par l'installateur)
+  classe: '',                     // classe de l'enfant à l'installation (PS … Tle, ou 'adulte') ; ensuite : Espace parent → Réglages
+  classeAnnee: 0                  // année scolaire de cette classe (2026 = année 2026-2027)
 };
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 /* ------------------------------------------------------ */
@@ -55,6 +57,7 @@ function urlIci_() {
 }
 const COMMUN = {
   'moteur-quiz.css': 'lib/moteur-quiz-css',
+  'themes.css': 'lib/themes-css',
   'suivi.js': 'lib/suivi-js',
   'recompenses.js': 'lib/recompenses-js',
   'moteur-quiz.js': 'lib/moteur-quiz-js',
@@ -209,8 +212,11 @@ function assembler_(html, page, inst) {
     chemin: '/' + page + '.html',
     liens: cat.liens,
     version: CONFIG.version,
-    installateur: CONFIG.installateur
+    installateur: CONFIG.installateur,
+    classe: classe_(),
+    classes: CLASSES
   };
+  cfg.theme = themeDe_(cfg.classe);
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
   if (page === 'ajouter' && !estEnfant_()) cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
@@ -220,6 +226,10 @@ function assembler_(html, page, inst) {
   const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar CONTROLES = ' + jsonScript_(cat.CONTROLES) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
   const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
 
+  // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
+  const styleTheme = (cfg.theme === 'lecteurs' ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap">\n' : '') + lib_(COMMUN['themes.css'], false);
+  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"');
+  html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
     : tete + html;
@@ -470,6 +480,36 @@ const COULEURS_ = { francais: '#7c3aed', maths: '#c2410c', sciences: '#15803d', 
   histoire: '#1d4ed8', geographie: '#0f766e', musique: '#be185d', autre: '#475569' };
 
 /* clé Gemini (gratuite, créée par la famille sur aistudio.google.com/apikey) : vérifiée par la page, gardée ici */
+/* ---------------- classe et thème ----------------
+   La classe choisie est gardée avec son année scolaire : elle monte toute seule chaque 1er septembre
+   (jusqu'à la terminale). Le thème du site en découle. */
+const CLASSES = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle'];
+function anneeScolaire_(d) { d = d || new Date(); return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; }
+function classe_() {
+  const p = PropertiesService.getScriptProperties();
+  const c = p.getProperty('CLASSE') || CONFIG.classe || '';
+  if (c === 'adulte') return c;
+  const i = CLASSES.indexOf(c);
+  if (i < 0) return '';
+  const depuis = +(p.getProperty('CLASSE') ? p.getProperty('CLASSE_ANNEE') : CONFIG.classeAnnee) || anneeScolaire_();
+  return CLASSES[Math.min(CLASSES.length - 1, i + Math.max(0, anneeScolaire_() - depuis))];
+}
+function themeDe_(c) {
+  if (c === 'adulte') return 'parent';
+  const i = CLASSES.indexOf(c);
+  return i < 0 ? 'explorateurs' : i <= 2 ? 'petits' : i <= 4 ? 'lecteurs' : i <= 7 ? 'explorateurs' : i <= 11 ? 'college' : 'lycee';
+}
+function apiClasse(d) {
+  if (estEnfant_()) return refusEnfant_();
+  const c = String((d && d.classe) || '');
+  if (c && c !== 'adulte' && CLASSES.indexOf(c) < 0) return { erreur: 'Classe inconnue.' };
+  const p = PropertiesService.getScriptProperties();
+  if (c) p.setProperties({ CLASSE: c, CLASSE_ANNEE: String(anneeScolaire_()) });
+  else { p.deleteProperty('CLASSE'); p.deleteProperty('CLASSE_ANNEE'); }
+  const classe = classe_();
+  return { ok: true, classe, theme: themeDe_(classe) };
+}
+
 function apiGeminiCle(d) {
   if (estEnfant_()) return refusEnfant_();
   const cle = String((d && d.cle) || '').trim();

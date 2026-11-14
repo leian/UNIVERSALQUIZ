@@ -39,6 +39,7 @@ const CHEMIN = '(window.__UQ ? window.__UQ.chemin : location.pathname)';
 
 const COMMUN = {
   'moteur-quiz.css': ['moteur-quiz-css', t => t],
+  'themes.css':      ['themes-css', t => t],
   'suivi.js':        ['suivi-js', t => remplacer(t, /location\.pathname/g, CHEMIN, 'suivi.js')],
   'recompenses.js':  ['recompenses-js', t => t],
   'moteur-quiz.js':  ['moteur-quiz-js', t => t],
