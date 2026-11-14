@@ -402,8 +402,10 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
   $("info-version").textContent = "Version " + U.version + ".";
   // une nouvelle version est-elle publiée ? (dernière Release GitHub, une vérification par jour)
   (async function () {
+    const vnum = v => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0), plusRecente = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
     let derniere = "";
-    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 864e5) derniere = m.v; } catch (e) {}
+    // la mémoire du jour est ignorée si le site est déjà plus récent qu'elle (mise à jour faite entre-temps)
+    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 864e5 && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
     if (!derniere) {
       try {
         const r = await fetch('https:\/\/api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
@@ -413,7 +415,7 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
       } catch (e) { return; }
     }
     if (!derniere) return;
-    if (derniere.toLowerCase() === String(U.version).toLowerCase()) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
+    if (!plusRecente(derniere, U.version)) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
     if (!U.installateur) return;
     $("maj").hidden = false;
     $("maj").innerHTML = `🔄 <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(U.installateur)}" target="_top">🔄 Mettre à jour mon site</a>`;
