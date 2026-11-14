@@ -186,6 +186,22 @@ try {
   });
   ok(ind.bouton && ind.i === true && ind.ok, 'indice : bouton aussi sur un QCM, son usage est noté avec la réponse');
 
+  // récompenses selon l'âge
+  const rec = await page.evaluate(() => {
+    const H = document.documentElement, r = {};
+    const bonne = () => { MoteurQuiz.home(); MoteurQuiz.start(); const e = MoteurQuiz._etat(), q = e.shuffled[0]; e.shuffled[0] = q.opts ? q : e.shuffled.find(x => x.opts && !x._ecrit) || q; MoteurQuiz.rafraichir(); const p = MoteurQuiz._etat().shuffled[0]; MoteurQuiz.answer(p.opts.indexOf(p.a)); };
+    H.dataset.theme = 'petits'; bonne(); const m = document.getElementById('saut-mascotte');
+    r.petits = !!m && m.classList.contains('go') && getComputedStyle(m).backgroundImage.includes('petits/saut.webp');
+    m && m.remove();
+    H.dataset.theme = 'college'; bonne(); r.college = !document.getElementById('saut-mascotte');
+    window.__UQ.maitrise = { q: {}, notions: { Capitales: [3, 95, 20] } }; MoteurQuiz.home();
+    r.emblemes = document.querySelectorAll('.notions img.embleme[src*="niveau-3"]').length === 1;
+    return r;
+  });
+  ok(rec.petits, 'petits : la socca au bonnet fait un saut de joie à chaque bonne réponse');
+  ok(rec.college && rec.emblemes, 'collège : pas d\'animal ni de saut, emblème de niveau (arbre pour « Maîtrisé ») sur les notions');
+  await page.evaluate(() => { document.documentElement.dataset.theme = 'explorateurs'; window.__UQ.maitrise = {}; MoteurQuiz.home(); });
+
   // défi en famille
   await page.evaluate(() => { window.__UQ.maitrise = {}; MoteurQuiz.home(); });
   await page.locator('.btn-famille').click();
@@ -206,6 +222,7 @@ try {
   for (let i = 0; i < 30; i++) { lignesApres = Object.values((await ev('1')).sheets)[0].rows.length; if (lignesApres > lignesAvant) break; await page.waitForTimeout(100); }
   ok(lignesApres === lignesAvant + 1, 'défi en famille : seules les réponses de l\'enfant (joueur 1) sont enregistrées');
   await page.goto(BASE + '/exec');
+  ok(await page.locator('#album .alb span').count() === 24, 'primaire : album de 24 autocollants sur l\'accueil');
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
 
   // tableau de bord

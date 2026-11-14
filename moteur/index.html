@@ -60,6 +60,17 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .card .maitrise .seg{display:flex;gap:3px;flex:1;max-width:140px}
 .card .maitrise .seg i{flex:1;height:7px;border-radius:99px;background:var(--line)}
 .card .maitrise .seg i.n1{background:#f59e0b}.card .maitrise .seg i.n2{background:#16a34a}.card .maitrise .seg i.n3{background:#e8a83a;box-shadow:0 0 0 1px #c98a1e inset}
+#album .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+#album h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
+#album .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
+#album p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
+#album .alb{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
+#album .alb span{aspect-ratio:1;border-radius:50%;background:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/autocollants.webp") no-repeat;background-size:600% 400%}
+#album .alb span.vide{filter:grayscale(1) brightness(1.15);opacity:.28}
+#album .alb span.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
+@keyframes colle{0%{transform:scale(0) rotate(-30deg)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){#album .alb span.neuf{animation:none}}
+.card .maitrise .emb{display:flex;gap:2px}.card .maitrise .emb img{width:20px;height:20px}
 .card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
 .marque{display:flex;align-items:center;gap:10px}
 .marque img{border-radius:14px}
@@ -124,7 +135,7 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <main id="list"></main>
   <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Ajouter un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
  </div>
- <aside id="cote"><div id="semaine"></div><div id="recompenses"></div></aside>
+ <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="recompenses"></div></aside>
 </div>
 
 <script src="commun/catalogue.js"></script>
@@ -213,8 +224,39 @@ function maitrise(q) {
   const cats = N ? Object.keys(N) : [];
   if (!cats.length) return "";
   const nbM = cats.filter(c => N[c][0] === 3).length;
+  if (document.documentElement.dataset.theme === "college")   // collège : emblèmes graine → arbre
+    return `<div class="maitrise"><span class="emb">${cats.sort((a, b) => N[b][0] - N[a][0]).slice(0, 8).map(c => `<img src="https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/niveau-${N[c][0]}.webp" alt="${NIVEAUX[N[c][0]]}" title="${esc(c)} : ${NIVEAUX[N[c][0]]}">`).join("")}</span>${nbM}/${cats.length} maîtrisée${nbM > 1 ? "s" : ""}</div>`;
   const seg = cats.sort((a, b) => N[b][0] - N[a][0]).map(c => `<i class="n${N[c][0]}" title="${esc(c)} : ${NIVEAUX[N[c][0]]}"></i>`).join("");
   return `<div class="maitrise"><span class="seg">${seg}</span>${nbM} notion${nbM > 1 ? "s" : ""} maîtrisée${nbM > 1 ? "s" : ""} sur ${cats.length}</div>`;
+}
+/* ---------- album d'autocollants (primaire) : chaque notion maîtrisée colle un autocollant de sa matière ----------
+   planche de 24 : 4 par matière dans l'ordre français, maths, sciences, anglais, histoire, géographie ;
+   musique et autres matières remplissent la première place libre */
+const ORDRE_ALBUM = ["francais", "maths", "sciences", "anglais", "histoire", "geographie"];
+function album() {
+  const el = document.getElementById("album"), th = document.documentElement.dataset.theme || "explorateurs";
+  if (!el || !["lecteurs", "explorateurs"].includes(th)) return;
+  const N = ((window.__UQ || {}).maitrise || {}).notions || {}, colles = new Array(24).fill(false), surplus = [];
+  QUIZ.forEach(q => {
+    const cats = N[cle(q.fichier)] || {}, nb = Object.values(cats).filter(v => v[0] === 3).length;
+    const m = ORDRE_ALBUM.indexOf(q.matiere);
+    for (let i = 0; i < nb; i++) {
+      const place = m < 0 ? -1 : [0, 1, 2, 3].map(k => m * 4 + k).find(k => !colles[k]);
+      if (place >= 0) colles[place] = true; else surplus.push(1);
+    }
+  });
+  surplus.forEach(() => { const k = colles.indexOf(false); if (k >= 0) colles[k] = true; });
+  const total = colles.filter(Boolean).length;
+  let vu = 0; try { vu = +localStorage.getItem("sq.album") || 0; } catch (e) {}
+  let neufs = Math.max(0, total - vu);
+  try { localStorage.setItem("sq.album", total); } catch (e) {}
+  const cases = colles.map((c, k) => {
+    const neuf = c && neufs > 0 && colles.slice(k + 1).filter(Boolean).length < neufs;
+    return `<span class="${c ? (neuf ? "neuf" : "") : "vide"}" style="background-position:${(k % 6) * 20}% ${Math.floor(k / 6) * 100 / 3}%"></span>`;
+  }).join("");
+  el.innerHTML = `<div class="panneau"><h3>📒 Mon album <span class="alb-n">${total}/24</span></h3>
+    <p>${total ? (neufs ? `${neufs > 1 ? neufs + " nouveaux autocollants" : "Un nouvel autocollant"} ! ` : "") + "Chaque notion maîtrisée colle un autocollant." : "Maîtrise une notion pour coller ton premier autocollant !"}</p>
+    <div class="alb">${cases}</div></div>`;
 }
 function calculerStats(liste) {
   STATS = {};
@@ -301,6 +343,7 @@ afficherFiltres();
 afficherListe();
 chargerScores();
 Badges.monter();
+album();
 /* ---------- site de l'enfant / espace parent ---------- */
 (function () {
   var U = window.__UQ || {}, f = document.getElementById("foot");

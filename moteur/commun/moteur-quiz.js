@@ -132,12 +132,14 @@
      le nombre de questions, le nombre de choix, la lecture à voix haute, les animaux et les statistiques,
      ainsi que le ton des messages ---------- */
   const PROFILS = {
-    petits:       { nb: 8,  choix: 3, lecture: 'auto' },
-    lecteurs:     { nb: 10, choix: 3, lecture: 'bouton' },
-    explorateurs: {},
-    college:      { stats: true },
-    lycee:        { stats: true, animaux: false },
-    parent:       { stats: true, animaux: false }
+    // récompenses : saut de la mascotte à chaque bonne réponse (petits) ou en fin de quiz (primaire),
+    // animaux de plus en plus rares avec l'âge, emblèmes de niveau au collège, coche sobre au lycée
+    petits:       { nb: 8,  choix: 3, lecture: 'auto', saut: 'reponse', animal: 0.2 },
+    lecteurs:     { nb: 10, choix: 3, lecture: 'bouton', saut: 'fin', animal: 0.15 },
+    explorateurs: { saut: 'fin', animal: 0.15 },
+    college:      { stats: true, animaux: false, emblemes: true },
+    lycee:        { stats: true, animaux: false, coche: true },
+    parent:       { stats: true, animaux: false, coche: true }
   };
   const TONS = {
     defaut:   { ok: '✅ Bonne réponse, bravo !', ko: '❌ La bonne réponse était :', fin: ['Excellent travail ! Tu maîtrises ce chapitre.', 'Bravo ! Tu connais bien ce chapitre.', 'Pas mal, mais il reste quelques points à revoir.', 'Continue à réviser, tu vas y arriver !'] },
@@ -261,7 +263,8 @@
     const nbM = cats.filter(c => (etatNotion(c) || [0])[0] === 3).length;
     return `<div class="notions"><div class="notions-t">${ic('cible')} Tes notions <small>${nbM} sur ${cats.length} maîtrisée${nbM > 1 ? 's' : ''}</small></div><div class="notions-l">${cats.map(c => {
       const v = etatNotion(c) || [0];
-      return `<span class="notion n${v[0]}"${v[2] ? ` title="${v[1]} % sur les dernières réponses"` : ''}>${C.icones && C.icones[c] ? emojiImg(C.icones[c]) + ' ' : ''}${esc(c)}<b>${NIVEAUX[v[0]]}</b></span>`;
+      const emb = profil().emblemes ? `<img class="embleme" src="https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/niveau-${v[0]}.webp" alt="">` : '';
+      return `<span class="notion n${v[0]}${emb ? ' avec-embleme' : ''}"${v[2] ? ` title="${v[1]} % sur les dernières réponses"` : ''}>${emb}${C.icones && C.icones[c] && !emb ? emojiImg(C.icones[c]) + ' ' : ''}${esc(c)}<b>${NIVEAUX[v[0]]}</b></span>`;
     }).join('')}</div></div>`;
   }
 
@@ -369,7 +372,19 @@
     selected = donne === undefined ? '' : donne;
     answers[cur] = { given: donne, ok: !!ok, texte, i: indicesVus.has(cur) };
     renderQuestion();
-    if (ok && window.celebrate && profil().animaux !== false) celebrate();
+    if (ok) recompenseReponse();
+  }
+  function recompenseReponse() {
+    const p = profil();
+    if (p.saut === 'reponse') sauter();
+    if (p.animaux !== false && window.celebrate && Math.random() < (p.animal == null ? 1 : p.animal)) celebrate();
+  }
+  // la mascotte de la tranche d'âge fait un saut de joie (feuille de 6 images animée en CSS)
+  function sauter() {
+    if (!profil().saut) return;
+    let m = document.getElementById('saut-mascotte');
+    if (!m) { m = document.createElement('div'); m.id = 'saut-mascotte'; m.setAttribute('aria-hidden', 'true'); document.body.appendChild(m); }
+    m.classList.remove('go'); void m.offsetWidth; m.classList.add('go');
   }
   function handleAnswer(idx) {
     if (selected !== null) return;
@@ -876,6 +891,7 @@
     appli().innerHTML = `
       <div class="result-card">
         <div class="fin-mascotte"><span class="mascotte ${pct >= 60 ? 'm-bravo' : 'm-encouragement'}" aria-hidden="true"></span><span class="fin-emoji">${emoji}</span></div>
+        ${profil().coche && pct >= 60 ? '<svg class="coche-fin" viewBox="0 0 52 52" aria-hidden="true"><circle cx="26" cy="26" r="24"/><path d="M15 27l7 7 15-16"/></svg>' : ''}
         <div class="result-score">${sc}<span style="font-size:28px;color:#6b7280">/${n}</span></div>
         <div class="result-label">${pct}% de bonnes réponses</div>
         <div class="result-msg">${msg}</div>
@@ -902,7 +918,11 @@
       const msgEl = appli().querySelector('.result-msg');
       if (msgEl) msgEl.insertAdjacentHTML('afterend', `<div class="bp-nouveau">${Badges.badgeHTML()}<div><b>Nouveau badge gagné !</b>Sans aucune faute : le badge « ${Badges.titre() || C.titre} » rejoint tes récompenses.</div></div>`);
     }
-    if ((n - sc) / n < 0.25 && window.showCapybara && profil().animaux !== false) setTimeout(showCapybara, 500);
+    const P = profil();
+    if (P.saut && pct >= 60) setTimeout(sauter, 400);
+    // primaire : la scène du capybara devient une surprise rare (une partie parfaite sur trois)
+    const capy = P.animal != null ? pct === 100 && Math.random() < 1 / 3 : (n - sc) / n < 0.25;
+    if (capy && window.showCapybara && P.animaux !== false) setTimeout(showCapybara, P.saut ? 1600 : 500);
   }
   function refaireErreurs() {
     // repart des questions d'origine, en remettant à zéro les états de manipulation (rangement, clic…)
@@ -963,7 +983,7 @@
     start: () => startQuiz(), home: renderStart, answer: handleAnswer, validate: validateInput, prev: prevQuestion, next,
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
-    famille: renderFamille, duel: () => lancerDuel(), revanche: () => lancerDuel(true), propositions: voirPropositions,
+    famille: renderFamille, duel: () => lancerDuel(), revanche: () => lancerDuel(true), propositions: voirPropositions, sauter,
     rafraichir: () => renderQuestion(),
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau

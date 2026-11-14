@@ -154,3 +154,13 @@ html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"],
   }
 }
 @keyframes saison-chute { to { background-position: 30px 160px, 10px 170px, 120px 250px; } }
+
+/* ---------- saut de joie de la mascotte (feuille de 6 images), petits et primaire ---------- */
+#saut-mascotte { position: fixed; right: 12px; bottom: 12px; z-index: 60; height: clamp(110px, 24vw, 170px); aspect-ratio: 170 / 260; pointer-events: none; opacity: 0;
+  background: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/saut.webp") no-repeat 0 0 / 600% 100%; }
+html[data-theme="petits"] #saut-mascotte { aspect-ratio: 188 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/saut.webp"); }
+html[data-theme="lecteurs"] #saut-mascotte { aspect-ratio: 172 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/saut.webp"); }
+#saut-mascotte.go { animation: saut-images .7s steps(5, jump-none) 2, saut-visible 1.6s ease forwards; }
+@keyframes saut-images { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@keyframes saut-visible { 0% { opacity: 0; transform: translateY(24px); } 12%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+@media (prefers-reduced-motion: reduce) { #saut-mascotte.go { animation: saut-visible 1.6s ease forwards; background-position: 40% 0; } }

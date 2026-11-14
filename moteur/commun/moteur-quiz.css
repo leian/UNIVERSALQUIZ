@@ -265,3 +265,11 @@
   .duel-scores .j0 b { color: #c8102e; } .duel-scores .j1 b { color: #1d4ed8; }
   .duel-scores .gagne { border-color: #e8a83a; background: #fffbeb; }
   @media (max-width: 480px) { .famille-noms { grid-template-columns: 1fr; } }
+  .notion.avec-embleme { padding-left: 4px; }
+  .notion .embleme { width: 24px; height: 24px; }
+  /* lycée, parent : coche sobre qui se dessine */
+  .coche-fin { width: 54px; height: 54px; display: block; margin: 0 auto 8px; fill: none; stroke: #16a34a; stroke-width: 3.5; stroke-linecap: round; stroke-linejoin: round; }
+  .coche-fin circle { stroke-dasharray: 151; stroke-dashoffset: 151; animation: trace .6s ease-out forwards; }
+  .coche-fin path { stroke-dasharray: 36; stroke-dashoffset: 36; animation: trace .35s .55s ease-out forwards; }
+  @keyframes trace { to { stroke-dashoffset: 0; } }
+  @media (prefers-reduced-motion: reduce) { .coche-fin circle, .coche-fin path { animation: none; stroke-dashoffset: 0; } }
