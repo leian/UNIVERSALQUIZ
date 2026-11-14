@@ -275,8 +275,8 @@ function album() {
 }
 /* ---------- petits : habiller la socca. Chaque notion acquise (ou maîtrisée) débloque un accessoire ----------
    [centre x, centre y, taille] dans l'image de la mascotte (384 px), 1 = derrière (cape) */
-const ACCESSOIRES = [["chapeau de chef",212,44,130],["couronne",212,32,100],["casquette",212,48,118],["écharpe",205,316,160],["lunettes de soleil",212,166,140],["nœud papillon",205,286,84],
-  ["cape",205,240,320,1],["bonnet",212,42,118],["casque d'astronaute",210,148,245],["chapeau de pirate",212,44,130],["couronne de fleurs",212,68,128],["médaille",205,306,80]];
+const ACCESSOIRES = [["chapeau de chef",212,44,130],["couronne",212,32,100],["casquette",212,48,118],["écharpe",205,296,170],["lunettes de soleil",212,166,140],["nœud papillon",205,286,84],
+  ["cape",205,230,300,1],["bonnet",212,42,118],["casque d'astronaute",210,148,245],["chapeau de pirate",212,44,130],["couronne de fleurs",212,68,128],["médaille",205,306,80]];
 function poupee(k, cls) {
   const a = ACCESSOIRES[k];
   const acc = a ? `<span class="acc" style="left:${((a[1] - a[3] / 2) / 3.84).toFixed(2)}%;top:${((a[2] - a[3] / 2) / 3.84).toFixed(2)}%;width:${(a[3] / 3.84).toFixed(2)}%;height:${(a[3] / 3.84).toFixed(2)}%;background-position:${(k * 100 / 11).toFixed(3)}% 0;z-index:${a[4] ? 0 : 2}"></span>` : "";
