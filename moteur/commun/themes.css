@@ -93,9 +93,9 @@ html[data-theme="parent"] .emo-box .emo-grand { animation:none; }
 /* =====================================================================
    SAISONS — posées par le serveur sur <html data-saison="…"> d'après la date
    (Espace parent → Réglages pour les éteindre ; …/exec?saison=noel pour un aperçu).
-   Couleurs : --s1, --s2, --s3 (liseré du haut, confettis). Animation légère
+   Couleurs : --s1, --s2, --s3 (confettis). Animation légère
    pour les petits et le primaire seulement. Frises et mascottes costumées :
-   docs/themes/saisons/<saison>/, branchées ici quand les images existent.
+   docs/themes/saisons/<saison>/ (frise.webp, accueil.webp, bravo.webp).
    ===================================================================== */
 html[data-saison="noel"]      { --s1:#c8102e; --s2:#1f6f43; --s3:#e0b54a; --flocon:rgba(120,165,215,.75); }
 html[data-saison="hiver"]     { --s1:#3b82f6; --s2:#93c5fd; --s3:#cbd5e1; --flocon:rgba(110,160,220,.7); }
@@ -106,8 +106,37 @@ html[data-saison="rentree"]   { --s1:#7c3aed; --s2:#f59e0b; --s3:#10b981; }
 html[data-saison="automne"]   { --s1:#c2410c; --s2:#b45309; --s3:#7f1d1d; --flocon:rgba(194,65,12,.55); }
 html[data-saison="halloween"] { --s1:#f97316; --s2:#6d28d9; --s3:#111827; --flocon:rgba(109,40,217,.5); }
 
-/* liseré de saison en haut de chaque page (trois bandes de couleur) */
-html[data-saison] body { box-shadow: inset 0 5px 0 var(--s1), inset 0 8px 0 var(--s2), inset 0 10px 0 var(--s3); }
+/* frise de saison en haut de chaque page, dans une marge réservée (bordure transparente) :
+   images 8 × plus larges que hautes, décor sur les côtés, centre léger. Plus petite pour les grands. */
+html[data-saison] { --frise-l: min(100vw, 1100px); }
+html[data-saison]:is([data-theme="college"], [data-theme="lycee"], [data-theme="parent"]) { --frise-l: min(70vw, 640px); }
+html[data-saison] body { border-top: calc(var(--frise-l) / 8) solid transparent; background-repeat: no-repeat; background-position: top center; background-size: var(--frise-l) auto; background-origin: border-box; background-clip: border-box; }
+html[data-saison="noel"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/frise.webp"); }
+html[data-saison="hiver"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/frise.webp"); }
+html[data-saison="paques"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/frise.webp"); }
+html[data-saison="printemps"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/frise.webp"); }
+html[data-saison="ete"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/frise.webp"); }
+html[data-saison="rentree"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/frise.webp"); }
+html[data-saison="automne"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/frise.webp"); }
+html[data-saison="halloween"] body { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/frise.webp"); }
+
+/* mascotte costumée (accueil et bravo) pour les petits et le primaire ; les grands gardent leur mascotte d'âge */
+html[data-saison="noel"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/accueil.webp"); }
+html[data-saison="noel"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel/bravo.webp"); }
+html[data-saison="hiver"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/accueil.webp"); }
+html[data-saison="hiver"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver/bravo.webp"); }
+html[data-saison="paques"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/accueil.webp"); }
+html[data-saison="paques"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques/bravo.webp"); }
+html[data-saison="printemps"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/accueil.webp"); }
+html[data-saison="printemps"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps/bravo.webp"); }
+html[data-saison="ete"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/accueil.webp"); }
+html[data-saison="ete"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete/bravo.webp"); }
+html[data-saison="rentree"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/accueil.webp"); }
+html[data-saison="rentree"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree/bravo.webp"); }
+html[data-saison="automne"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/accueil.webp"); }
+html[data-saison="automne"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne/bravo.webp"); }
+html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/accueil.webp"); }
+html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/bravo.webp"); }
 
 /* petite animation (neige, pétales, feuilles…) : petits, lecteurs, explorateurs, sans mouvement réduit */
 @media (prefers-reduced-motion: no-preference) {
