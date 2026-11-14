@@ -91,6 +91,11 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 .btn.principal{background:var(--rouge);border-color:var(--rouge);color:#fff}
 .btn.principal:hover{background:var(--rouge-f);border-color:var(--rouge-f)}
 .btn.tester{border-color:#f3c6c6}
+.pastille-maj{position:relative;display:inline-grid;place-items:center;width:42px;height:42px;border-radius:50%;background:var(--rouge);color:#fff;text-decoration:none;box-shadow:0 2px 8px rgba(200,16,46,.35)}
+.pastille-maj .ic{width:20px;height:20px}
+.pastille-maj::after{content:"";position:absolute;top:-2px;right:-2px;width:12px;height:12px;border-radius:50%;background:var(--dore);border:2px solid var(--card,#fff);animation:pastille 1.8s ease-in-out infinite}
+@keyframes pastille{50%{transform:scale(1.3)}}
+@media (prefers-reduced-motion:reduce){.pastille-maj::after{animation:none}}
 .msg.maj{background:var(--rouge-c);border:1px solid #f3c6c6;color:var(--ink)}
 </style>
 </head>
@@ -101,6 +106,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
     <div class="actions-tete">
       <a class="btn" id="lien-enfant" href="index.html"><i data-ic="eye"></i> Site de l'enfant</a>
       <a class="btn principal" href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a>
+      <a class="pastille-maj" id="pastille-maj" href="#maj" hidden title="Nouvelle version disponible" aria-label="Nouvelle version disponible"><i data-ic="refresh"></i></a>
     </div>
   </header>
   <h1 class="titre-page">Suivi de {{PRENOM}}</h1>
@@ -513,6 +519,9 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
     if (!derniere) return;
     if (!plusRecente(derniere, U.version)) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
     if (!U.installateur) return;
+    // pastille ronde en haut à droite : on la voit même quand le bandeau est loin (onglets Quiz, Réglages)
+    const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : touche pour mettre à jour";
+    p.innerHTML = I("refresh"); p.href = U.installateur; p.target = "_top";
     $("maj").hidden = false;
     $("maj").innerHTML = `${I("refresh")} <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(U.installateur)}" target="_top">${I("refresh")} Mettre à jour mon site</a>`;
   })();

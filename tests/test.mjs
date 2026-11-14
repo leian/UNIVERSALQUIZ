@@ -242,6 +242,13 @@ try {
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   await page.waitForTimeout(800);
   ok(/capitales/i.test(await page.locator('body').innerText()), 'tableau de bord : la partie apparaît');
+  await ev(`CONFIG.installateur = 'https:\\/\\/script.google.com/macros/s/test/exec'; CONFIG.version = 'v2.0'`);
+  await page.evaluate(() => localStorage.setItem('uq.maj', JSON.stringify({ t: Date.now(), v: 'v99.0' })));
+  await page.reload();
+  const pastille = await page.evaluate(() => ({ inst: !!(window.__UQ || {}).installateur, vue: !document.getElementById('pastille-maj').hidden, bandeau: !document.getElementById('maj').hidden }));
+  await ev(`CONFIG.installateur = ''; CONFIG.version = ''`);
+  ok(pastille.inst && pastille.vue && pastille.bandeau, 'espace parent : nouvelle version → pastille ronde en haut à droite et bandeau — ' + JSON.stringify(pastille));
+  await page.evaluate(() => localStorage.removeItem('uq.maj'));
   ok(await page.locator('.niv-barre span').count() >= 2 && /Notions encore fragiles/.test(await page.locator('body').innerText()), 'tableau de bord : maîtrise des notions et notions fragiles');
 
   // ajout d'un quiz depuis le site : réponse d'IA collée (JSON dans un bloc de code, avec du texte autour)
