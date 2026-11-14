@@ -128,6 +128,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   // consignes : une seule source, src/consignes.txt, insérée ici à la construction et publiée sur GitHub Pages
   const CONSIGNES = '__CONSIGNES__';
+  const RELECTURE = '__RELECTURE__';      // src/relecture.txt : 2e passage de Gemini, qui corrige les questions hors sujet ou ambiguës
   const URL_CONSIGNES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/consignes/__CONSIGNES_ID__.txt';
   const demande = () => {
     const classe = $('classe').value.trim();
@@ -267,10 +268,14 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     if (/location is not supported/i.test(m)) return 'Gemini n\'est pas disponible depuis ce pays.';
     return 'Gemini a répondu une erreur (' + r.status + (m ? ' : ' + m.slice(0, 160) : '') + ').';
   }
-  async function demanderGemini(texte) {
-    const corps = JSON.stringify({ contents: [{ parts: [{ text: texte }].concat(photos.map(p => ({ inline_data: { mime_type: 'image/jpeg', data: p.split(',')[1] } }))) }] });
+  // un appel à Gemini : consignes en instruction système, demande + photos dans le message
+  async function appelGemini(modeles, systeme, texte) {
+    const corps = JSON.stringify({
+      system_instruction: { parts: [{ text: systeme }] },
+      contents: [{ role: 'user', parts: [{ text: texte }].concat(photos.map(p => ({ inline_data: { mime_type: 'image/jpeg', data: p.split(',')[1] } }))) }]
+    });
     let derniere = '';
-    for (const m of MODELES) {
+    for (const m of modeles) {
       const r = await fetch(API_GEMINI + m + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle }, body: corps });
       if (r.ok) {
         const d = await r.json();
@@ -281,16 +286,31 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
         continue;
       }
       derniere = await messageErreur(r);
-      if (r.status !== 404 && r.status < 500) break;       // 404 : modèle retiré, 5xx : surchargé → on essaie le suivant
+      if (r.status !== 404 && r.status !== 429 && r.status < 500) break;   // 404 : modèle retiré, 429 : quota du modèle atteint, 5xx : surchargé → on essaie le suivant
     }
     throw new Error(derniere || 'Gemini ne répond pas. Réessaie dans un instant.');
+  }
+  const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPK]\s*\|/gim) || []).length;
+  // 1. création ; 2. relecture par Flash-Lite (autre quota gratuit), qui corrige les questions hors sujet ou ambiguës.
+  // Si la relecture échoue ou perd des questions, on garde le premier quiz.
+  async function demanderGemini(texte, etape) {
+    const quiz = await appelGemini(MODELES, CONSIGNES, texte);
+    const n = nbQuestions(quiz);
+    if (n < 3) return quiz;
+    etape && etape();
+    try {
+      const relu = await appelGemini(MODELES.slice().reverse(), RELECTURE + '\n\n--- Consignes du quiz ---\n' + CONSIGNES,
+        texte + '\n\nQuiz à relire :\n' + quiz);
+      if (/^\s*T\s*\|/m.test(relu) && nbQuestions(relu) >= Math.ceil(n * 0.8)) return relu;
+    } catch (e) {}
+    return quiz;
   }
   $('g-creer').addEventListener('click', async () => {
     const res = $('g-resultat'), b = $('g-creer');
     b.disabled = true;
     res.innerHTML = '<p class="petit">⏳ Gemini lit la leçon et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
     try {
-      const texte = await demanderGemini(demande() + '.\n\n' + CONSIGNES);
+      const texte = await demanderGemini(demande() + '.', () => { res.innerHTML = '<p class="petit">🔎 Gemini relit chaque question pour vérifier qu\'elle porte bien sur la leçon… (encore quelques secondes)</p>'; });
       const r = await creer(texte, res, null);
       if (r && r.erreur) res.innerHTML += '<p class="petit">Réponse de Gemini : « ' + h(texte.slice(0, 300)) + (texte.length > 300 ? '…' : '') + ' »</p>';
     } catch (e) {

@@ -311,6 +311,28 @@ try {
      && /"icones":\{"Formes contractées":"✂️"\}/.test(html) && /"img":"😄"/.test(html),
     'format en lignes : catégories, bonne réponse, écoute, notes, article facultatif, badge (⭐ remplacé par l\'icône), emoji de catégorie, image');
   ok(!!(await jouer()), 'format en lignes : le quiz se joue jusqu\'au résultat');
+  // analyse de la leçon (# Sujet…), contrôles automatiques : choix en double, « A ou B », question en double, X mal employé
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
+  await page.fill('#reponse', [
+    '```', '# Sujet : le futur simple', '## Notions : terminaisons ; verbes en -yer', '# Supports : Léa ; Hugo',
+    'T|Le futur|Conjugue|francais|🔮|🎪', '## Conjugaison|🧩',
+    'Q|Futur : je … (essuyer)|j\'essuierai|j\'essuierai ou j\'essuyerai|j\'essuirai|Le y devient i.',
+    'Q|Futur : tu … (jouer)|joueras|Joueras|jouras|On garde le e.',
+    'Q|Futur : nous … (chanter)|chanterons|chanterez|chanteront|-ons avec nous.',
+    'Q|Futur : nous … (chanter)|chanterons|chanterez|chanteront|-ons avec nous.',
+    'X|Écris le mot manquant.|Le nombre du bas est le *dénominateur*.|Le bas.',
+    'X|Touche les verbes au futur.|Demain, je *chanterai* et tu *danseras*.|Deux verbes.',
+    'V|Envoyer est irrégulier.|V|J\'enverrai.', '```'].join('\n'));
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  const ctrl = await page.locator('#resultat').innerText();
+  await page.locator('#resultat a.btn').click();
+  await page.waitForURL(/page=quiz_le-futur_/);
+  const htmlCtrl = await page.content();
+  ok(/5 questions/.test(ctrl) && /ambigu/.test(ctrl) && /double/.test(ctrl) && !/"cat":"Notions/.test(htmlCtrl) && !/Sujet/.test(htmlCtrl)
+     && /"opts":\["joueras","jouras"\]/.test(htmlCtrl) && /"type":"trous","texte":"Le nombre du bas est le \[dénominateur\]\."/.test(htmlCtrl) && /"type":"cliquer"/.test(htmlCtrl),
+    'contrôles : analyse ignorée, choix « A ou B » et question en double écartés, choix en double fusionnés, X à un seul mot à écrire → texte à trous');
   // bouton unique « Coller et créer » : lit le presse-papiers
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
   await page.goto(BASE + '/exec?page=ajouter');
@@ -347,9 +369,11 @@ try {
   await page.locator('#g-creer').click();
   await page.locator('#g-resultat .ok').waitFor({ timeout: 8000 });
   const gen = appels.filter(a => /generateContent/.test(a.u));
-  ok(/3 questions/.test(await page.locator('#g-resultat').innerText()) && gen.length === 2 && /flash-lite/.test(gen[1].u)
-     && (gen[1].corps.match(/"inline_data"/g) || []).length === 2 && gen[1].corps.includes('Q|question|BONNE réponse'),
-    'Gemini : 2 photos + consignes envoyées, repli sur le 2e modèle, quiz créé sans copier-coller');
+  ok(/3 questions/.test(await page.locator('#g-resultat').innerText()) && gen.length === 3 && /flash-lite/.test(gen[1].u)
+     && (gen[1].corps.match(/"inline_data"/g) || []).length === 2 && /"system_instruction".*Q\|question\|BONNE réponse/.test(gen[1].corps),
+    'Gemini : 2 photos + consignes (instruction système) envoyées, repli sur le 2e modèle, quiz créé sans copier-coller');
+  ok(/flash-lite/.test(gen[2].u) && gen[2].corps.includes('relit un quiz') && gen[2].corps.includes('Quiz à relire') && (gen[2].corps.match(/"inline_data"/g) || []).length === 2,
+    'Gemini : 2e passage de relecture (Flash-Lite, avec les photos) avant la création du quiz');
   await page.unroute(/generativelanguage\.googleapis\.com/);
 
   // quiz d'anglais et de musique : phrases à écouter, notes jouées, portée, badge

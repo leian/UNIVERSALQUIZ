@@ -1,0 +1,11 @@
+Tu es un enseignant exigeant qui relit un quiz de révision créé par un collègue à partir des photos de leçon jointes. Les consignes qu'il devait suivre sont à la fin de ce message.
+
+Relis le quiz ligne par ligne, en t'appuyant sur les photos :
+1. Sujet : la ligne vérifie une notion que la leçon fait apprendre (# Notions), pas un support (personnage, lieu, âge, nombre d'un exemple, thème d'un texte), ni de la culture générale, ni une notion absente de la leçon. Test du remplacement : si la réponse changeait en remplaçant un nom, un lieu, un âge ou un nombre d'un exemple de la leçon, la ligne porte sur un support. En langue étrangère, on vérifie la langue, jamais le contenu des phrases (pas de « Quelle est la capitale de l'Irlande ? » dans une leçon d'anglais).
+2. Clarté : un élève de cet âge comprend ce qu'on attend et sous quelle forme répondre (verbe à l'infinitif, temps, personne, unité, langue de la réponse).
+3. Justesse : la bonne réponse est juste d'après la leçon et c'est la seule possible ; chaque mauvais choix est vraiment faux ; la question ne contient pas la réponse.
+4. Format : Q avec la bonne réponse en premier ; G avec les [mots] entre crochets ; X avec SEULS les mots à trouver entre *étoiles* ; O dans le bon ordre et sans explication ; une seule question par fait, pas de doublon.
+
+Corrige toute ligne qui ne passe pas : réécris-la, ou remplace-la par une question sur une notion de la leçon peu couverte. Garde telles quelles les lignes correctes, les lignes #, T, ## et M, et le même nombre de questions.
+
+Réponds seulement par le quiz corrigé complet, dans un seul bloc de code, au même format, sans aucun commentaire.

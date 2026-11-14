@@ -23,6 +23,9 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 - Une seule source : `src/consignes.txt`. `construire.mjs` l'insère dans la page « Ajouter » et écrit `docs/consignes/<empreinte>.txt` (GitHub Pages) : **committe ce fichier** quand il apparaît, et ne supprime jamais les anciens (les sites pas encore mis à jour s'en servent).
 - Claude, ChatGPT et Grok ne reçoivent qu'une phrase avec le lien vers ces consignes ; le texte complet reste copiable en secours.
 - Gemini est appelé depuis le navigateur (pas de nouvelle autorisation Apps Script à faire accepter aux familles). La clé est dans les propriétés du script (`GEMINI_CLE`) et n'est donnée qu'à la page `ajouter`.
+- Gemini : les consignes partent en instruction système ; l'IA écrit d'abord 3 lignes d'analyse (`# Sujet`, `# Notions`, `# Supports`, ignorées par `lireFormatLignes_`). Puis un **2e appel de relecture** (`src/relecture.txt`, inséré par `construire.mjs`, Flash-Lite d'abord pour ménager le quota du modèle principal, avec les photos) corrige les questions hors sujet ou ambiguës ; il est écarté s'il perd plus de 20 % des questions ou n'a pas de ligne T.
+- Contrôles automatiques à la création (`apiAjouterQuiz`) : choix de QCM en double fusionnés, choix « A ou B » contenant la bonne réponse et « les deux » / « aucune » écartés, questions en double écartées, X à un seul mot avec « écris / complète » joué en texte à trous.
+- Essayer les consignes sur de vraies photos : `GEMINI_CLE=… node outils/essai-gemini.mjs <dossier de photos> [nb] [classe]` (création + relecture, lignes réécrites affichées). Le workspace de Claude ne peut pas joindre l'API Gemini : c'est l'utilisateur qui le lance.
 
 ## Avant chaque commit
 - Lance `node tests/test.mjs` : il construit le projet, simule Google et joue un quiz dans Chrome. Tout doit être vert.

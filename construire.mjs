@@ -79,6 +79,10 @@ if (!existsSync(publiees) || lire(publiees) !== consignes) {
 let ajouter = lire(join(SRC, 'page-ajouter.html'));
 ajouter = remplacer(ajouter, /'__CONSIGNES__'/, () => JSON.stringify(consignes), 'page-ajouter.html');
 ajouter = remplacer(ajouter, /__CONSIGNES_ID__/, idConsignes, 'page-ajouter.html');
+// relecture du quiz par Gemini (2e appel) : seulement dans la page, pas besoin de la publier
+const relecture = lire(join(SRC, 'relecture.txt')).replace(/\r\n/g, '\n');
+verifierInline(relecture, 'relecture.txt');
+ajouter = remplacer(ajouter, /'__RELECTURE__'/, () => JSON.stringify(relecture), 'page-ajouter.html');
 writeFileSync(join(BUILD, 'lib', 'page-ajouter.html'), ajouter);
 
 // 2. moteur commun

@@ -727,7 +727,12 @@ function apiAjouterQuiz(texte) {
       let a = txt(q.a != null ? q.a : q.reponse, 160);
       const trouve = opts.find(o => o === a) || opts.find(o => o.toLowerCase() === a.toLowerCase());
       if (opts.length < 2 || !trouve) { avert.push('Question ' + (i + 1) + ' ignorée (bonne réponse absente des choix).'); return; }
-      questions.push(Object.assign(base, { type: 'qcm', opts, a: trouve }));
+      // choix en double (« are » et « Are ») : on n'en garde qu'un ; plus qu'un seul choix → question ignorée
+      const vus = new Set(), uniques = opts.filter(o => { const k = o.toLowerCase().replace(/[\s.!?]+/g, ' ').trim(); if (vus.has(k)) return false; vus.add(k); return true; });
+      if (uniques.length < 2 || !uniques.includes(trouve)) { avert.push('Question ' + (i + 1) + ' ignorée (choix en double).'); return; }
+      // un mauvais choix qui contient « ou », « les deux », « aucune » rend la question ambiguë
+      if (uniques.some(o => o !== trouve && (/^(les deux|aucune?)( |$)/i.test(o) || (/\s+ou\s+/i.test(o) && o.toLowerCase().includes(trouve.toLowerCase()))))) { avert.push('Question ' + (i + 1) + ' ignorée (choix ambigu du type « A ou B », « les deux »).'); return; }
+      questions.push(Object.assign(base, { type: 'qcm', opts: uniques, a: trouve }));
     } else if (type === 'vf' || type === 'vrai-faux' || type === 'vraifaux') {
       const v = q.a != null ? q.a : q.reponse;
       const a = v === true || /^(vrai|true|oui)$/i.test(String(v).trim()) ? true
@@ -765,6 +770,8 @@ function apiAjouterQuiz(texte) {
       if (!/\*[^*]+\*/.test(texte)) { avert.push('Question ' + (i + 1) + ' ignorée (aucun *mot* à toucher).'); return; }
       // tous les mots entre *étoiles* : c'est une phrase à reconstituer, jouée en « remettre dans l'ordre »
       const mots = texte.match(/\*[^*]+\*|[^\s*]+/g) || [];
+      // un seul mot étoilé avec « écris / complète » : c'est un mot à trouver, joué en texte à trous (sinon la réponse serait affichée)
+      if ((texte.match(/\*[^*]+\*/g) || []).length === 1 && /[ée]cri|compl[eè]t|manqu|trouve/i.test(base.q)) { questions.push(Object.assign(base, { type: 'trous', texte: texte.replace(/\*([^*]+)\*/, '[$1]') })); return; }
       if (mots.length >= 2 && mots.length <= 8 && mots.every(m => /^\*.+\*$/.test(m))) { questions.push(Object.assign(base, { type: 'ordre', items: mots.map(m => m.slice(1, -1).trim()) })); return; }
       questions.push(Object.assign(base, { type: 'cliquer', texte }));
     } else if (type === 'nombre') {
@@ -786,6 +793,14 @@ function apiAjouterQuiz(texte) {
       questions.push(Object.assign(base, { type: 'clavier', notes }));
     }
   });
+  // même question posée deux fois (l'IA remplit parfois ainsi) : on garde la première
+  const dejaVues = new Set();
+  const gardees = questions.filter(q => {
+    const k = (q.type + ' ' + (q.texte || q.q) + ' ' + JSON.stringify(q.items || q.paires || q.a || q.ans || '')).toLowerCase().replace(/\s+/g, ' ');
+    if (dejaVues.has(k)) { avert.push('Question en double ignorée : « ' + String(q.texte || q.q).slice(0, 60) + ' ».'); return false; }
+    dejaVues.add(k); return true;
+  });
+  questions.length = 0; gardees.forEach(q => questions.push(q));
   if (questions.length < 3) return { erreur: "Je n'ai trouvé que " + questions.length + " question(s) valable(s). Redemande le quiz à l'IA." };
 
   const titre = txt(d.titre || d.title, 100) || 'Quiz';
@@ -832,6 +847,7 @@ function lireFormatLignes_(texte) {
   let cat = '', vu = false;
   String(texte).split(/\r?\n/).forEach(brute => {
     const l = brute.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)?/, '').trim();
+    if (/^#+\s*\**\s*(sujet|notions?|supports?)\s*\**\s*:/i.test(l)) return;   // analyse de la leçon écrite par l'IA (# Sujet, # Notions, # Supports)
     const titreCat = l.match(/^#{2,}\s*(.+)$/);
     if (titreCat) {                             // ## Catégorie|✂️ : l'emoji illustre ses questions
       const [nom, ico] = titreCat[1].split('|').map(s => s.replace(/[#*]/g, '').trim());
