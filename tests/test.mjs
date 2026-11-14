@@ -220,6 +220,12 @@ try {
   await page.waitForURL(/page=ajouter/);
   const msgs = await page.evaluate(() => ({ court: window.__consignes.messageCourt(), complet: window.__consignes.messageComplet() }));
   ok(msgs.complet.includes('Q|question|BONNE réponse') && !/Q\|question/.test(await page.locator('main').innerText()), 'page « Ajouter » : consignes prêtes, jamais affichées');
+  const phrase = await ev(`(() => { const d = lireFormatLignes_('✅ Quiz prêt ! Touche Copier sur le bloc, puis reviens sur SoccaQuiz.\\n\\u0060\\u0060\\u0060\\nT|Titre|Accroche|maths|🔢|🧮\\nQ|2+2 ?|4|3|5|Deux plus deux.\\n\\u0060\\u0060\\u0060'); return d && d.titre + '/' + d.questions.length; })()`);
+  ok(phrase.r === 'Titre/1', 'réponse de l\'IA : la phrase « ✅ Quiz prêt ! » avant le bloc est ignorée — ' + JSON.stringify(phrase.r));
+  ok(msgs.complet.includes('✅ Quiz prêt !') && await page.locator('.apercu b', { hasText: 'Copier' }).count() === 1, 'page « Ajouter » : l\'IA annonce le quiz en une phrase, aperçu du bouton Copier sans contenu');
+  await page.evaluate(() => { const a = document.querySelector('a.ia'); a.addEventListener('click', e => e.preventDefault(), { once: true }); a.click(); window.dispatchEvent(new Event('focus')); });
+  ok(await page.locator('#barre-retour:not([hidden]) #coller-retour').count() === 1, 'retour depuis l\'IA : grand bouton « créer le quiz » en bas de l\'écran');
+  await page.locator('#fermer-retour').click();
   const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
   const urlConsignes = (msgs.court.match(/https:\/\/leian\.github\.io\/UNIVERSALQUIZ\/consignes\/(\w+)\.txt/) || [])[1];
   const publiees = urlConsignes && existsSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt')) ? readFileSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt'), 'utf8') : '';

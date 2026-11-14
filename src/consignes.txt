@@ -14,7 +14,7 @@ Contenu :
 - Au plus un A, C ou O par catégorie (ils valent plusieurs questions).
 - Niveau : maternelle-CP → phrases très courtes, 2 ou 3 choix, emojis (compter 🍎🍎🍎, A avec emojis), dire= en français (langue=fr-FR sur la ligne) pour lire la question, pas de S long ; collège-lycée → plus de S, N, X et O de méthode.
 
-Format : réponds UNIQUEMENT avec un bloc de code, sans rien avant ni après. Une ligne par élément, champs séparés par |.
+Format : écris seulement « ✅ Quiz prêt ! Touche Copier sur le bloc, puis reviens sur SoccaQuiz. », puis le bloc de code, rien après. Une ligne par élément, champs séparés par |.
 T|titre|accroche courte|matière|emoji du thème|autre emoji du thème pour le badge gagné à 100 % (jamais ⭐)
 ## Catégorie courte|emoji qui l'illustre (vaut pour les questions qui suivent)
 Q|question|BONNE réponse|faux|faux|explication

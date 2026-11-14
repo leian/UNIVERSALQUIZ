@@ -35,6 +35,16 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 input[type=file]{display:none}
 .choix{display:inline-flex;align-items:center;gap:6px;font:600 1rem system-ui,sans-serif;border-radius:999px;padding:10px 18px;cursor:pointer;background:var(--card);color:var(--ink);border:2px solid var(--line)}
 ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
+/* aperçu de la réponse de l'IA : on montre où toucher, pas le contenu */
+.apercu{position:relative;margin:10px 0;border-radius:12px;background:#f3efe9;border:2px solid var(--line);padding:30px 12px 12px;max-width:340px}
+.apercu i{display:block;height:8px;border-radius:4px;background:#d9cfc2;margin:7px 0;filter:blur(1px)}
+.apercu i:nth-child(2){width:80%}.apercu i:nth-child(3){width:90%}.apercu i:nth-child(4){width:60%}
+.apercu b{position:absolute;top:6px;right:8px;font:700 .8rem system-ui,sans-serif;background:var(--accent);color:#fff;border-radius:999px;padding:2px 10px;animation:pouls 1.6s ease-in-out infinite}
+@keyframes pouls{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 25%,transparent)}}
+@media (prefers-reduced-motion:reduce){.apercu b{animation:none}}
+.barre-retour{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:2px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.12);padding:12px 16px calc(12px + env(safe-area-inset-bottom));text-align:center}
+.barre-retour .btn{font-size:1.1rem;padding:14px 22px}
+.barre-retour p{margin:6px 0 0}
   .maj { background: #eff6ff; border: 2px solid #bfdbfe; border-radius: 16px; padding: 12px 16px; margin: 14px 0; }
 </style>
 </head>
@@ -88,7 +98,9 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
     </div>
     <p class="petit" id="copie-ok"></p>
-    <p>Quand l'IA a fini, touche <b>Copier</b> sous sa réponse, reviens ici et touche :</p>
+    <p>L'IA répond par un bloc de texte : c'est le quiz, écrit pour le site. <b>Pas besoin de le lire</b>, touche simplement son bouton <b>Copier</b> :</p>
+    <div class="apercu" aria-hidden="true"><b>Copier</b><i></i><i></i><i></i><i></i></div>
+    <p>Puis reviens ici et touche :</p>
     <button class="btn" id="coller-creer" type="button">📥 Coller et créer le quiz</button>
     <details id="secours">
       <summary>Un souci ?</summary>
@@ -99,6 +111,10 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     </details>
     <div id="resultat" aria-live="polite"></div>
   </section>
+  <div class="barre-retour" id="barre-retour" hidden>
+    <button class="btn" id="coller-retour" type="button">📥 J'ai copié la réponse : créer le quiz</button>
+    <p class="petit">L'IA n'a pas encore fini ? <a href="#" id="fermer-retour">Plus tard</a></p>
+  </div>
 
   <div id="maj" class="maj" hidden></div>
   <a class="retour" href="index.html">📚 Revenir à mes quiz</a>
@@ -169,6 +185,15 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h((e && e.message) || e) + '</div>'; fini(null); })
       .apiAjouterQuiz(texte));
   }
+  // retour depuis l'IA : grand bouton en bas de l'écran, sans avoir à chercher l'étape 3
+  let partiIA = false;
+  liensIA.forEach(a => a.addEventListener('click', () => { partiIA = true; }));
+  const montrerRetour = () => { if (partiIA && document.visibilityState === 'visible') $('barre-retour').hidden = false; };
+  document.addEventListener('visibilitychange', montrerRetour);
+  window.addEventListener('focus', montrerRetour);
+  $('fermer-retour').addEventListener('click', e => { e.preventDefault(); $('barre-retour').hidden = true; });
+  $('coller-retour').addEventListener('click', () => { $('barre-retour').hidden = true; partiIA = false; $('coller-creer').scrollIntoView({ block: 'center' }); $('coller-creer').click(); });
+
   $('coller-creer').addEventListener('click', async () => {
     let texte = '';
     try { texte = await navigator.clipboard.readText(); } catch (e) {}
