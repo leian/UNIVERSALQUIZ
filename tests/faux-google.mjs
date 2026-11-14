@@ -63,7 +63,7 @@ const ctx = {
     getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); },
     getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o), deleteProperty: k => { delete props[k]; }
   }) },
-  CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; } }) },
+  CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { formatDate: d => d.toISOString().slice(0, 10) },

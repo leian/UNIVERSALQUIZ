@@ -52,13 +52,20 @@
      avantQuestion(q)            après affichage d'une question non répondue
      quitterQuestion()           avant de quitter une question (ex. couper le son)
 
+   APPRENTISSAGE (données posées par le serveur dans window.__UQ.maitrise)
+     tirage intelligent          questions nouvelles, ratées ou de notions fragiles tirées plus souvent
+     passage à l'écrit           QCM réussi 2 fois de suite → revient en réponse à écrire (bouton « Voir les propositions »)
+     notions                     niveau de chaque catégorie sur l'accueil du quiz
+     q.hint (indice=…)           bouton « Voir un indice » sur tous les types ; réponse juste avec l'indice = demi-réussite
+     défi en famille             deux joueurs à tour de rôle sur le même appareil, sans enjeu
+
    Règles maison intégrées : pas de minuteur, « Question précédente »,
    touche Entrée globale, propositions mélangées, tirage aléatoire,
    récompenses, bouton « SoccaQuiz » (avec le logo), « Refaire mes erreurs »,
    envoi des résultats au suivi, défilement adapté au téléphone.
    ===================================================================== */
 (function () {
-  let C, state = 'start', shuffled, cur, answers, selected, nbChoisi, lastKey = null;
+  let C, state = 'start', shuffled, cur, answers, selected, nbChoisi, lastKey = null, indicesVus = new Set(), duel = null;
   const NUMS = ['1', '2', '3', '4', '5', '6', '7', '8'];
   /* icônes à traits (style Lucide, licence ISC), cohérentes avec le site et l'espace parent */
   const ICQ = {
@@ -70,6 +77,8 @@
     chrono: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
     liste: '<path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>',
     melange: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
+    duo: '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M16 3.1a4 4 0 0 1 0 7.8M22 21v-2a4 4 0 0 0-3-3.9"/>',
+    crayon: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
     trophee: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'
   };
   const ic = (n, st) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${st ? ` style="${st}"` : ''}>${ICQ[n]}</svg>`;
@@ -101,7 +110,12 @@
     base.filter(a => a != null && a !== '').forEach(a => { const n = norm(a); list.push(n); if (q.both && n.length === 3) list.push(n.split('').reverse().join('')); });
     return list;
   }
-  function bonneSaisie(q, val) { return C.verifier ? !!C.verifier(q, val) : reponsesAcceptees(q).includes(norm(val)); }
+  function bonneSaisie(q, val) {
+    if (C.verifier && !q._ecrit) return !!C.verifier(q, val);
+    if (reponsesAcceptees(q).includes(norm(val))) return true;
+    // réponse à écrire (ancien QCM) : l'article est facultatif (« passé composé » pour « le passé composé »)
+    return !!q._ecrit && reponsesAcceptees({ ans: q.ans.map(sansArticle) }).includes(norm(sansArticle(val)));
+  }
   function attendu(q) {
     const t = custom(q);
     if (t && t.attendu) return t.attendu(q);
@@ -163,6 +177,41 @@
     return 'q' + (h >>> 0).toString(36);
   }
 
+  /* ---------- maîtrise (calculée par le serveur à partir des résultats) ---------- */
+  const NIVEAUX = ['Découverte', 'En progrès', 'Acquis', 'Maîtrisé'];
+  const MAI = () => (window.__UQ || {}).maitrise || {};
+  const etatQuestion = q => (MAI().q || {})[cleQuestion(q)];           // [réponses, série de bonnes réponses]
+  const etatNotion = cat => (MAI().notions || {})[cat];                  // [niveau, taux %, réponses]
+  // tirage intelligent : nouvelle 3, ratée la dernière fois 4, réussie 1 fois 2, 2 fois 1, 3 fois et plus 0,5 ;
+  // ×0,6 si la notion est maîtrisée, ×1,4 si elle est en progrès
+  function poidsQuestion(q) {
+    const st = etatQuestion(q), no = etatNotion(q.cat);
+    let w = !st ? 3 : st[1] === 0 ? 4 : st[1] === 1 ? 2 : st[1] === 2 ? 1 : 0.5;
+    if (no) w *= no[0] === 3 ? 0.6 : no[0] === 1 ? 1.4 : 1;
+    return w;
+  }
+  const tirer = (pool, n) => pool.map(q => ({ q, c: Math.pow(Math.random(), 1 / poidsQuestion(q)) }))
+    .sort((a, b) => b.c - a.c).slice(0, n).map(x => x.q);
+  // passage à l'écrit : un QCM réussi 2 fois de suite revient sans les choix, si la réponse s'écrit facilement
+  // et si la question se comprend sans les propositions
+  const SANS_CHOIX_IMPOSSIBLE = /parmi|laquelle|lequel|lesquel|quelle (phrase|proposition|réponse|écriture)|ci-dessous|suivant|intrus|correcte?\b|juste|bien écrit|choisis|entoure|vrai|faux/i;
+  function versEcrit(p) {
+    const o = p._orig || p, st = etatQuestion(p);
+    if (!st || st[1] < 2 || p.type !== 'qcm' || typeDe(o) !== 'qcm' || themeActuel() === 'petits') return false;
+    if (C.optionHTML || C.texteQuestion || p.garderOrdre || p.fixed || typeof p.a !== 'string') return false;
+    const a = p.a.trim();
+    if (!a || /[<>]/.test(a) || a.length > 25 || a.split(/\s+/).length > 3) return false;
+    const d = document.createElement('div'); d.innerHTML = String(p.q || '');
+    return !SANS_CHOIX_IMPOSSIBLE.test(d.textContent);
+  }
+  function enEcrit(p) {
+    const e = Object.assign({}, p, { type: 'input', ans: [p.a, ...(p.alt || p.alts || [])], _ecrit: true, _qcm: p });
+    delete e.opts;
+    Object.defineProperty(e, '_orig', { value: p._orig || p, enumerable: false, configurable: true });
+    return e;
+  }
+  const sansArticle = s => String(s).trim().replace(/^(le|la|les|un|une|des|du|de la|the|a|an)\s+/i, '').replace(/^l['’]\s*/i, '');
+
   function hexToRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
   function mix(hex, t, base) { const a = hexToRgb(hex), b = base || [255, 255, 255]; return '#' + a.map((v, i) => Math.round(v * (1 - t) + b[i] * t).toString(16).padStart(2, '0')).join(''); }
   function appliquerCouleur(c) {
@@ -205,8 +254,59 @@
   }
 
   /* ---------- accueil ---------- */
+  // niveau de chaque notion (catégorie) du quiz, dès qu'au moins une a été travaillée
+  function blocNotions() {
+    const cats = [...new Set(C.questions.map(q => q && q.cat).filter(Boolean))];
+    if (!cats.length || !cats.some(etatNotion)) return '';
+    const nbM = cats.filter(c => (etatNotion(c) || [0])[0] === 3).length;
+    return `<div class="notions"><div class="notions-t">${ic('cible')} Tes notions <small>${nbM} sur ${cats.length} maîtrisée${nbM > 1 ? 's' : ''}</small></div><div class="notions-l">${cats.map(c => {
+      const v = etatNotion(c) || [0];
+      return `<span class="notion n${v[0]}"${v[2] ? ` title="${v[1]} % sur les dernières réponses"` : ''}>${C.icones && C.icones[c] ? emojiImg(C.icones[c]) + ' ' : ''}${esc(c)}<b>${NIVEAUX[v[0]]}</b></span>`;
+    }).join('')}</div></div>`;
+  }
+
+  /* ---------- défi en famille : deux joueurs à tour de rôle sur le même appareil ---------- */
+  const PRENOM_ENFANT = '{{PRENOM}}';
+  function renderFamille() {
+    state = 'famille';
+    quitter();
+    let noms = []; try { noms = JSON.parse(localStorage.getItem('sq.famille')) || []; } catch (e) {}
+    const maxN = Math.floor(C.questions.length / 2), choix = [3, 5, 10].filter(k => k <= maxN);
+    if (!choix.length) choix.push(maxN);
+    const n = duel && choix.includes(duel.n) ? duel.n : choix.includes(5) ? 5 : choix[choix.length - 1];
+    appli().innerHTML = `
+      <div class="start-card">
+        <div class="start-top">${MES_QUIZ}</div>
+        <div class="start-icon">${emojiImg(C.icone || '📝')}</div>
+        <div class="start-title">Défi en famille</div>
+        <div class="start-subtitle">Chacun son tour sur le même appareil, chacun ses questions. Pour le plaisir !</div>
+        <div class="famille-noms">
+          <label class="j0">Joueur 1<input id="fam-0" maxlength="20" value="${esc(noms[0] || PRENOM_ENFANT)}"></label>
+          <label class="j1">Joueur 2<input id="fam-1" maxlength="20" value="${esc(noms[1] || '')}" placeholder="Papa, maman, un frère…"></label>
+        </div>
+        <div class="start-choice"><b>Questions par joueur</b><div>${choix.map(k => `<button class="choice-btn ${k === n ? 'on' : ''}" onclick="this.parentNode.querySelectorAll('.on').forEach(b=>b.classList.remove('on'));this.classList.add('on')" data-n="${k}">${k}</button>`).join('')}</div></div>
+        <button class="start-btn" onclick="MoteurQuiz.duel()">▶ C'est parti !</button>
+        <div><button class="btn-famille" onclick="MoteurQuiz.home()">${ic('prec')} Jouer seul</button></div>
+      </div>`;
+    defiler('famille');
+  }
+  function lancerDuel(memes) {
+    if (!memes) {
+      const lire = i => (document.getElementById('fam-' + i) || {}).value || '';
+      const noms = [lire(0).trim() || 'Joueur 1', lire(1).trim() || 'Joueur 2'];
+      const on = appli().querySelector('.choice-btn.on');
+      duel = { noms, n: on ? +on.dataset.n : 5 };
+      try { localStorage.setItem('sq.famille', JSON.stringify(noms)); } catch (e) {}
+    }
+    duel.n = Math.min(duel.n, Math.floor(C.questions.length / 2));
+    startQuiz(shuffle(C.questions).slice(0, duel.n * 2), true);
+  }
+  const joueur = i => i % 2;
+  const scoreDe = j => answers.filter((x, i) => x && x.ok && joueur(i) === j).length;
+
   function renderStart() {
     state = 'start';
+    duel = null;
     quitter();
     const n = nbChoisi || nbParDefaut();
     const pills = [`${ic('cible')} ${n} questions`, `${ic('liste')} ${C.questions.length} questions au total`, `${ic('melange')} Tirage aléatoire`, ...(C.pills || [])];
@@ -221,6 +321,8 @@
         <div class="start-infos">${pills.map(p => `<span class="info-pill">${p}</span>`).join('')}</div>
         ${choix}
         <button class="start-btn" onclick="MoteurQuiz.start()">▶ Commencer le quiz</button>
+        ${C.questions.length >= 4 && C.famille !== false ? `<div><button class="btn-famille" onclick="MoteurQuiz.famille()">${ic('duo')} Défi en famille</button></div>` : ''}
+        ${blocNotions()}
         <div class="start-hint">Astuce : la touche Entrée valide et passe à la suite.</div>
         ${typeof C.accueilHTML === 'function' ? C.accueilHTML() : (C.accueilHTML || '')}
       </div>`;
@@ -246,13 +348,16 @@
     return { ...q, type: t };
   }
 
-  function startQuiz(liste) {
+  function startQuiz(liste, enDuel) {
     quitter();
+    if (!enDuel) duel = null;
     const n = Math.min(nbChoisi || nbParDefaut(), C.questions.length);
     tDebut = Date.now();
-    const base = liste || (C.preparer ? C.preparer(n) : shuffle(C.questions).slice(0, n));
-    shuffled = base.map(preparerQuestion);
-    cur = 0; answers = []; selected = null;
+    const base = liste || (C.preparer ? C.preparer(n) : shuffle(tirer(C.questions, n)));
+    // partie normale : jusqu'à un tiers des QCM déjà réussis 2 fois de suite passent à l'écrit
+    let ecrits = 0; const maxEcrits = liste ? 0 : Math.ceil(base.length / 3);
+    shuffled = base.map(q => { const p = preparerQuestion(q); if (ecrits < maxEcrits && versEcrit(p)) { ecrits++; return enEcrit(p); } return p; });
+    cur = 0; answers = []; selected = null; indicesVus = new Set();
     state = 'q';
     if (window.Suivi) Suivi.debut();
     renderQuestion();
@@ -262,7 +367,7 @@
   function enregistrer(donne, ok, texte) {
     if (selected !== null) return;
     selected = donne === undefined ? '' : donne;
-    answers[cur] = { given: donne, ok: !!ok, texte };
+    answers[cur] = { given: donne, ok: !!ok, texte, i: indicesVus.has(cur) };
     renderQuestion();
     if (ok && window.celebrate && profil().animaux !== false) celebrate();
   }
@@ -279,7 +384,9 @@
     if (!val) { inp.focus(); return; }
     enregistrer(val, bonneSaisie(q, val));
   }
-  function montrerIndice() { const h = document.getElementById('hint-text'), b = document.getElementById('hint-btn'); if (h) h.style.display = ''; if (b) b.remove(); }
+  function montrerIndice() { indicesVus.add(cur); const h = document.getElementById('hint-text'), b = document.getElementById('hint-btn'); if (h) h.style.display = ''; if (b) b.remove(); }
+  // réponse à écrire trop difficile : on revient aux propositions, sans pénalité
+  function voirPropositions() { const q = shuffled && shuffled[cur]; if (!q || !q._qcm || selected !== null) return; shuffled[cur] = q._qcm; renderQuestion(); }
 
   /* ---------- écoute : phrase lue (synthèse vocale) et notes de musique ---------- */
   const LETTRES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
@@ -616,6 +723,9 @@
     const answered = selected !== null;
     const ok = answered && answers[cur] && answers[cur].ok;
     const T = custom(q);
+    const indice = q.hint && !answered
+      ? (C.indicesVisibles ? `<div class="input-hint">💡 ${q.hint}</div>`
+        : `<button class="hint-btn" id="hint-btn" onclick="MoteurQuiz.indice()">💡 Voir un indice</button><div id="hint-text" class="input-hint" style="display:none">💡 ${q.hint}</div>`) : '';
 
     let body;
     if (T) body = T.corps(q, ctxDe(q));
@@ -626,16 +736,13 @@
         return `<button class="${cls}" ${answered ? 'disabled' : ''} onclick="MoteurQuiz.answer(${i})"><span class="opt-letter">${NUMS[i]}</span><span class="opt-body">${C.optionHTML ? C.optionHTML(q, opt) : opt}</span></button>`;
       }).join('')}</div>`;
     } else {
-      const indice = q.hint && !answered
-        ? (C.indicesVisibles ? `<div class="input-hint">💡 ${q.hint}</div>`
-          : `<button class="hint-btn" id="hint-btn" onclick="MoteurQuiz.indice()">💡 Voir un indice</button><div id="hint-text" class="input-hint" style="display:none">💡 ${q.hint}</div>`) : '';
-      body = `<div class="input-row">
+      body = `${q._ecrit && !answered ? `<div class="ecrit-tag">${ic('crayon')} Niveau supérieur : écris la réponse !</div>` : ''}<div class="input-row">
           <input id="ans-input" class="ans-input ${answered ? (ok ? 'ok' : 'ko') : ''}" type="text" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false"
             placeholder="${esc(C.placeholder || 'Ta réponse…')}" value="${answered ? esc(selected) : ''}" ${answered ? 'disabled' : ''}>
           ${q.unit ? `<span class="unit">${q.unit}</span>` : ''}
           ${answered ? '' : '<button class="validate-btn" onclick="MoteurQuiz.validate()">Valider ✓</button>'}
         </div>
-        ${indice}
+        ${q._ecrit && !answered ? '<button class="hint-btn btn-props" onclick="MoteurQuiz.propositions()">Voir les propositions</button>' : ''}
         ${!answered && C.noteSaisie ? `<div class="input-note">${typeof C.noteSaisie === 'function' ? C.noteSaisie(q) : C.noteSaisie}</div>` : ''}`;
     }
     let expBlock = '';
@@ -646,23 +753,27 @@
       expBlock = ok ? `<div class="explanation">${intro}${exp ? '<br>' + exp : ''}</div>`
         : `<div class="explanation avec-mascotte"><span class="mascotte m-encouragement" aria-hidden="true"></span><div>${intro}${exp ? '<br>' + exp : ''}</div></div>`;
     }
-    const nextLabel = cur + 1 >= shuffled.length ? 'Voir le résultat ›' : 'Question suivante ›';
+    const nextLabel = cur + 1 >= shuffled.length ? 'Voir le résultat ›' : duel ? `Au tour de ${esc(duel.noms[joueur(cur + 1)])} ›` : 'Question suivante ›';
+    const points = duel ? `<span class="score-badge duel"><span class="j0">${esc(duel.noms[0])} ${scoreDe(0)}</span><span class="j1">${esc(duel.noms[1])} ${scoreDe(1)}</span></span>`
+      : `<span class="score-badge">${ic('etoile', 'fill:#e8a83a;stroke:#e8a83a')} ${score()} pts</span>`;
 
     appli().innerHTML = `
       <div class="barre-quiz">
         <a class="btn-myquiz ib" href="index.html" title="Retour à SoccaQuiz" aria-label="Retour à SoccaQuiz"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="26" height="26" alt=""></a>
         <button class="btn-prev ib" onclick="MoteurQuiz.prev()" ${cur === 0 ? 'disabled' : ''} title="Question précédente" aria-label="Question précédente">${ic('prec')}</button>
         <div class="prog"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span class="counter">Question ${cur + 1} / ${shuffled.length}</span></div>
-        <span class="score-badge">${ic('etoile', 'fill:#e8a83a;stroke:#e8a83a')} ${score()} pts</span>
+        ${points}
       </div>
       <div class="streak-bar">${dots}</div>
       <div class="question-card">
+        ${duel ? `<div class="duel-tour j${joueur(cur)}">${ic('duo')} À toi, ${esc(duel.noms[joueur(cur)])} !</div>` : ''}
         <span class="cat-tag">${C.icones && C.icones[q.cat] ? emojiImg(C.icones[q.cat]) + ' ' : ''}${q.cat || ''}</span>
         ${visuel(q)}
         <div class="question-text">${texteQuestion(q)}</div>
         ${C.blocQuestion ? (C.blocQuestion(q, answered) || '') : ''}
         ${blocEcoute(q, answered)}
         ${body}
+        ${indice}
         ${expBlock}
       </div>
       ${answered ? `<div class="clearfix"><button class="next-btn" onclick="MoteurQuiz.next()">${nextLabel}</button></div>` : ''}`;
@@ -671,13 +782,52 @@
     if (!answered) {
       if (q.type === 'input') { const inp = document.getElementById('ans-input'); if (inp) setTimeout(() => inp.focus(), 30); }
       if (C.avantQuestion) try { C.avantQuestion(q); } catch (e) { console.warn(e); }
-      if (profil().lecture === 'auto' && !q.dire) setTimeout(lireQuestion, 250);
+      if (profil().lecture === 'auto' && !q.dire && !duel) setTimeout(lireQuestion, 250);
     }
   }
 
   /* ---------- résultats ---------- */
+  function renderResultDuel() {
+    const s = [scoreDe(0), scoreDe(1)], N = duel.noms, n = duel.n;
+    const titre = s[0] === s[1] ? 'Égalité, belle équipe !' : `Bravo ${esc(N[s[0] > s[1] ? 0 : 1])} !`;
+    const msg = s[0] === s[1] ? 'Vous êtes aussi forts l\'un que l\'autre.' : `${esc(N[s[0] > s[1] ? 1 : 0])}, une revanche ?`;
+    const wrong = shuffled.map((q, i) => ({ q, i, r: answers[i] })).filter(x => !x.r || !x.r.ok);
+    appli().innerHTML = `
+      <div class="result-card">
+        <div class="fin-mascotte"><span class="mascotte m-bravo" aria-hidden="true"></span><span class="fin-emoji">${s[0] === s[1] ? '🤝' : '🏆'}</span></div>
+        <div class="result-msg" style="font-size:22px;font-weight:700">${titre}</div>
+        <div class="duel-scores">${[0, 1].map(j => `<div class="j${j}${s[j] > s[1 - j] ? ' gagne' : ''}"><b>${s[j]}<small>/${n}</small></b><span>${esc(N[j])}</span></div>`).join('')}</div>
+        <div class="result-msg">${msg}</div>
+        <div class="result-btns">
+          <button class="btn-replay" onclick="MoteurQuiz.revanche()">${ic('rejouer')} Revanche</button>
+          <button class="btn-home" onclick="MoteurQuiz.famille()">${ic('duo')} Changer les joueurs</button>
+          <button class="btn-home" onclick="MoteurQuiz.home()">${ic('debut')} Jouer seul</button>
+        </div>
+        ${wrong.length ? `<div class="review-section"><div class="review-title">Les questions à revoir ensemble</div>${wrong.map(x => `<div class="review-item">
+          <div class="review-item-num"><span class="duel-nom j${joueur(x.i)}">${esc(N[joueur(x.i)])}</span> · ${x.q.cat || ''}</div>
+          <div class="review-item-q">${texteQuestion(x.q)}</div>
+          <div class="review-item-answers"><div class="review-ans correct-ans"><span class="review-ans-label">Bonne réponse</span><span>${attendu(x.q)}</span></div></div>
+          ${x.q.exp ? `<div class="review-exp">💡 ${x.q.exp}</div>` : ''}</div>`).join('')}</div>` : ''}
+      </div>`;
+    defiler('result');
+    if (s[0] !== s[1] && window.celebrate && profil().animaux !== false) celebrate();
+    // l'enfant (joueur 1 avec son prénom) : ses réponses comptent pour ses révisions et sa maîtrise
+    if (window.Suivi && N[0] === PRENOM_ENFANT) {
+      const miens = shuffled.map((q, i) => ({ q, i })).filter(x => joueur(x.i) === 0);
+      Suivi.enregistrer({ titre: C.titre, matiere: C.matiere, score: s[0], total: miens.length, questions: miens.map(x => resumeQuestion(x.q, x.i)) });
+    }
+  }
+  // ce qu'on envoie au suivi pour une question (la question entière si elle est ratée, pour « Mes révisions »)
+  function resumeQuestion(q, i) {
+    const ok = !!(answers[i] && answers[i].ok), k = cleQuestion(q);
+    let o = '';
+    if (!ok && !C.texteQuestion && !C.figure) { try { const src = q._orig || q; o = JSON.stringify(Object.assign({}, src, { k, src: src.src || C.titre, mat: src.mat || C.matiere, ico: src.ico || (C.icones && C.icones[q.cat]) || '' })); if (o.length > 6000) o = ''; } catch (e) { o = ''; } }
+    return { q: texteQuestion(q), cat: q.cat, donne: answers[i] ? texteReponse(q, answers[i]) : '', attendu: attendu(q), ok, k, o, i: !!(answers[i] && answers[i].i) };
+  }
+
   function renderResult() {
     state = 'result';
+    if (duel) return renderResultDuel();
     const sc = score(), n = shuffled.length, pct = Math.round((sc / n) * 100);
     let msg, emoji;
     const T0 = ton().fin;
@@ -746,13 +896,7 @@
 
     if (window.Suivi) Suivi.enregistrer({
       titre: C.titre, matiere: C.matiere, score: sc, total: n,
-      questions: shuffled.map((q, i) => {
-        const ok = !!(answers[i] && answers[i].ok), k = cleQuestion(q);
-        // question ratée : on garde la question entière pour « Mes révisions » et le défi du mois
-        let o = '';
-        if (!ok && !C.texteQuestion && !C.figure) { try { const src = q._orig || q; o = JSON.stringify(Object.assign({}, src, { k, src: src.src || C.titre, mat: src.mat || C.matiere, ico: src.ico || (C.icones && C.icones[q.cat]) || '' })); if (o.length > 6000) o = ''; } catch (e) { o = ''; } }
-        return { q: texteQuestion(q), cat: q.cat, donne: answers[i] ? texteReponse(q, answers[i]) : '', attendu: attendu(q), ok, k, o };
-      })
+      questions: shuffled.map((q, i) => resumeQuestion(q, i))
     });
     if (sc === n && window.Badges && Badges.gagner()) {
       const msgEl = appli().querySelector('.result-msg');
@@ -790,6 +934,7 @@
     const capy = document.getElementById('capy-overlay');
     if (capy) { e.preventDefault(); if (window.closeCapybara) closeCapybara(); else capy.remove(); return; }
     if (state === 'start') { e.preventDefault(); startQuiz(); return; }
+    if (state === 'famille') { e.preventDefault(); lancerDuel(); return; }
     if (state !== 'q') return;
     const q = shuffled[cur], T = custom(q);
     if (selected !== null) { e.preventDefault(); next(); return; }
@@ -818,10 +963,12 @@
     start: () => startQuiz(), home: renderStart, answer: handleAnswer, validate: validateInput, prev: prevQuestion, next,
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
+    famille: renderFamille, duel: () => lancerDuel(), revanche: () => lancerDuel(true), propositions: voirPropositions,
     rafraichir: () => renderQuestion(),
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc,
-    _etat: () => ({ state, shuffled, cur, answers, selected, pool: C ? C.questions.length : 0 })      // pour les tests
+    _etat: () => ({ state, shuffled, cur, answers, selected, duel, pool: C ? C.questions.length : 0, questions: C ? C.questions : [] }),
+    _poids: q => poidsQuestion(q), _cle: q => cleQuestion(q)      // pour les tests
   };
 })();

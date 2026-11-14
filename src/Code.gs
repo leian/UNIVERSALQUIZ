@@ -79,7 +79,8 @@ const MATIERES = {
    ===================================================================== */
 function doGet(e) {
   const p = (e && e.parameter) || {};
-  SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';     // …/exec?saison=noel : aperçu d'une saison
+  SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
+  CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
@@ -221,6 +222,7 @@ function assembler_(html, page, inst) {
     classe: classe_(),
     classes: CLASSES,
     revisions: (page === 'index' && CONFIG.espace !== 'parent') ? (() => { try { const r = revisions_(); return { n: r.aRevoir.length, defi: r.defi.length, mois: r.moisDefi, nouveau: r.nouveauDefi }; } catch (e) { return null; } })() : null,
+    maitrise: page === 'ajouter' || page === 'controles' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
     saison: saison_(),
     saisonDuJour: saisonDe_(),
     saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1'
@@ -413,13 +415,14 @@ function apiEnregistrer(brut) {
   let questions = Array.isArray(r.questions) ? r.questions.slice(0, 200).map(q => {
     const x = { q: str(q.q, 400), cat: str(q.cat, 80), donne: str(q.donne, 200), attendu: str(q.attendu, 200), ok: !!q.ok };
     if (q.k) x.k = str(q.k, 40);
+    if (q.i) x.i = 1;                                                          // réponse trouvée avec l'indice
     if (!x.ok && typeof q.o === 'string' && q.o.length <= 6000) x.o = q.o;     // question entière, pour les révisions
     return x;
   }) : [];
   let jsonQ = JSON.stringify(questions);
   while (jsonQ.length > 49000 && questions.some(q => q.o)) { const q = questions.find(q => q.o); delete q.o; jsonQ = JSON.stringify(questions); }
   if (jsonQ.length > 49000) {         // une cellule Sheets contient au plus 50 000 caractères
-    questions = questions.map(q => ({ q: q.q.slice(0, 120), cat: q.cat.slice(0, 40), donne: q.donne.slice(0, 60), attendu: q.attendu.slice(0, 60), ok: q.ok, k: q.k }));
+    questions = questions.map(q => ({ q: q.q.slice(0, 120), cat: q.cat.slice(0, 40), donne: q.donne.slice(0, 60), attendu: q.attendu.slice(0, 60), ok: q.ok, k: q.k, i: q.i }));
     jsonQ = JSON.stringify(questions);
     while (jsonQ.length > 49000 && questions.length) { questions.pop(); jsonQ = JSON.stringify(questions); }
   }
@@ -433,7 +436,7 @@ function apiEnregistrer(brut) {
     questions: jsonQ
   };
   feuille_().appendRow(COLONNES.map(c => ligne[c]));
-  CacheService.getScriptCache().remove('revisions');
+  CacheService.getScriptCache().removeAll(['revisions', 'maitrise']);
   return { ok: true, id };
 }
 
@@ -472,11 +475,65 @@ function revisions_(maintenant) {
   if (!maintenant) { const t = JSON.stringify(r); if (t.length < 90000) cache.put('revisions', t, 600); }
   return r;
 }
+/* ---------------- Maîtrise par notion (catégorie d'un quiz) et par question ----------------
+   Chaque réponse vaut 1 (juste), 0,5 (juste avec l'indice) ou 0 (fausse).
+   Notion : Découverte (moins de 3 réponses), En progrès (moins de 70 % sur ses 10 dernières réponses),
+   Acquis (70 % ou plus), Maîtrisé (90 % ou plus et au moins 2 jours différents réussis à 80 % ou plus).
+   Question : nombre de réponses et série de bonnes réponses sans indice (sert au tirage et au passage à l'écrit).
+   Les réponses données dans « Mes révisions » et le défi comptent pour le quiz d'origine. */
+const NIVEAUX = ['Découverte', 'En progrès', 'Acquis', 'Maîtrisé'];
+function maitrise_() {
+  const cache = CacheService.getScriptCache();
+  const c = cache.get('maitrise'); if (c) return JSON.parse(c);
+  const origine = {}, notions = {}, questions = {}, titres = {};
+  lireLignes_().map(complet_).filter(l => l.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(l => {
+    const virtuel = l.quiz === 'revisions' || l.quiz === 'defi', jour = l.date.slice(0, 10);
+    if (!virtuel && l.titre) titres[l.quiz] = l.titre;
+    (l.questions || []).forEach(x => {
+      let quiz = l.quiz, cat = x.cat || '—';
+      if (x.k) { if (virtuel) { const o = origine[x.k]; if (!o) return; quiz = o[0]; cat = o[1]; } else origine[x.k] = [quiz, cat]; }
+      else if (virtuel) return;
+      const v = x.ok ? (x.i ? 0.5 : 1) : 0;
+      const n = ((notions[quiz] = notions[quiz] || {})[cat] = notions[quiz][cat] || { r: [], j: {} });
+      n.r.push(v); if (n.r.length > 10) n.r.shift();
+      const j = n.j[jour] = n.j[jour] || [0, 0]; j[0] += v; j[1]++;
+      if (x.k) {
+        const q = ((questions[quiz] = questions[quiz] || {})[x.k] = questions[quiz][x.k] || [0, 0]);
+        q[0]++; q[1] = !x.ok ? 0 : x.i ? q[1] : q[1] + 1;
+      }
+    });
+  });
+  const res = { notions: {}, q: questions, titres };
+  Object.keys(notions).forEach(quiz => {
+    res.notions[quiz] = {};
+    Object.keys(notions[quiz]).forEach(cat => {
+      const n = notions[quiz][cat], nb = Object.keys(n.j).reduce((t, d) => t + n.j[d][1], 0);
+      const taux = Math.round(n.r.reduce((a, b) => a + b, 0) / n.r.length * 100);
+      const bonsJours = Object.keys(n.j).filter(d => n.j[d][0] / n.j[d][1] >= 0.8).length;
+      const niv = nb < 3 ? 0 : taux < 70 ? 1 : taux >= 90 && bonsJours >= 2 ? 3 : 2;
+      res.notions[quiz][cat] = [niv, taux, nb];
+    });
+  });
+  const t = JSON.stringify(res); if (t.length < 90000) cache.put('maitrise', t, 600);
+  return res;
+}
+/* la partie utile à une page : tout le site pour l'accueil et le tableau de bord, un seul quiz sinon */
+function maitrisePour_(page, cles) {
+  const m = maitrise_();
+  if (page === 'index' || page === 'tableau-de-bord') return { notions: m.notions, titres: m.titres };
+  if (!cles) return { notions: m.notions[page] || {}, q: m.q[page] || {} };
+  const q = {};                                  // « Mes révisions », défi : les questions de la page, tous quiz confondus
+  Object.keys(m.q).forEach(quiz => Object.keys(m.q[quiz]).forEach(k => { if (cles[k]) q[k] = m.q[quiz][k]; }));
+  return { notions: {}, q };
+}
+
 /* page de quiz fabriquée à partir des questions à revoir ('revisions') ou du défi du mois ('defi') */
+let CLES_PAGE_ = null;
 function pageRevision_(page) {
   const r = revisions_();
   const defi = page === 'defi', liste = defi ? r.defi : r.aRevoir;
   if (!liste.length) return null;
+  CLES_PAGE_ = {}; liste.forEach(o => { if (o.k) CLES_PAGE_[o.k] = 1; });
   const icones = {};
   const questions = liste.map(o => { const q = Object.assign({}, o); q.cat = o.src || o.cat || 'Révision'; if (o.ico) icones[q.cat] = o.ico; return q; });
   return fabriquerQuizHtml_({

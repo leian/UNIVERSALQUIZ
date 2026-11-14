@@ -120,10 +120,99 @@ try {
   await page.goto(BASE + '/exec?page=revisions');
   ok(await page.locator('text=Mes révisions').count() > 0, 'page « Mes révisions » : le quiz s\'ouvre');
 
+  // maîtrise par notion et par question (serveur)
+  const mq = await ev(`(() => {
+    const jour = 864e5, t0 = Date.now() - 5 * jour, rows = feuille_();
+    const ajoute = (dt, quiz, qs) => rows.appendRow(COLONNES.map(c => ({ id: 'r:' + new Date(dt).toISOString() + ':m' + Math.random().toString(36).slice(2, 6), date: new Date(dt).toISOString(), quiz, titre: 'Maîtrise', matiere: 'autre', score: '0', total: String(qs.length), questions: JSON.stringify(qs) })[c] || ''));
+    const r = (cat, ok, k, i) => ({ q: 'x', cat, ok, k, i });
+    ajoute(t0, 'mq', [r('N1', true, 'a1'), r('N1', true, 'a2'),
+      r('N2', false, 'b1'), r('N2', true, 'b2'), r('N2', false, 'b3'), r('N2', true, 'b4'), r('N2', false, 'b1'),
+      ...[1,2,3,4,5].map(n => r('N3', true, 'c' + n)), ...[1,2,3,4,5].map(n => r('N4', n > 1, 'd' + n)), r('N5', true, 'e1'), r('N5', true, 'e2'), r('N5', true, 'e3', 1)]);
+    ajoute(t0 + jour, 'mq', [...[1,2,3,4,5].map(n => r('N3', true, 'c' + n)), ...[1,2,3,4,5].map(n => r('N4', n > 1, 'd' + n))]);
+    ajoute(t0 + 2 * jour, 'revisions', [r('Maîtrise', true, 'b1'), r('Autre', true, 'inconnue')]);
+    CacheService.getScriptCache().remove('maitrise');
+    const m = maitrise_();
+    return { n: m.notions.mq, q: m.q.mq, rev: maitrisePour_('revisions', { b1: 1 }), quiz: maitrisePour_('mq'), index: Object.keys(maitrisePour_('index').notions).includes('mq') };
+  })()`);
+  const N = (mq.r || {}).n || {};
+  ok(N.N1 && N.N1[0] === 0 && N.N2[0] === 1 && N.N3[0] === 3 && N.N4[0] === 2 && N.N4[1] === 80, 'maîtrise : Découverte (2 réponses), En progrès, Maîtrisé (100 % sur 2 jours), Acquis (80 %) — ' + JSON.stringify(N));
+  ok(N.N5 && N.N5[1] === 83 && mq.r.q.e3[1] === 0 && mq.r.q.c1.join() === '2,2', 'maîtrise : réponse juste avec l\'indice = demi-réussite, sans allonger la série de la question');
+  ok(N.N2 && N.N2[2] === 6 && mq.r.q.b1.join() === '3,1' && mq.r.rev.q.b1 && !mq.r.rev.q.c1, 'maîtrise : une réponse donnée dans « Mes révisions » compte pour le quiz et la notion d\'origine');
+  ok(mq.r.index && mq.r.quiz.q.c1 && mq.r.quiz.notions.N3, 'maîtrise : tout le site pour l\'accueil, un seul quiz pour la page du quiz');
+
+  // moteur : tirage intelligent, passage à l'écrit, notions, indices
+  await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
+  const mo = await page.evaluate(() => {
+    const qs = MoteurQuiz._etat().questions, k = q => MoteurQuiz._cle(q), m = { q: {}, notions: { Capitales: [3, 95, 20], 'À écrire': [1, 40, 8] } };
+    qs.forEach((q, i) => { if (q.type === 'qcm') m.q[k(q)] = [3, 2]; else if (i === 5) m.q[k(q)] = [1, 0]; });
+    window.__UQ.maitrise = m;
+    const poids = qs.map(q => Math.round(MoteurQuiz._poids(q) * 100) / 100);
+    MoteurQuiz.home();
+    const notions = document.querySelectorAll('.notions .notion').length, txt = (document.querySelector('.notions') || {}).textContent || '';
+    MoteurQuiz.start();
+    const e = MoteurQuiz._etat();
+    return { poids, notions, txt, ecrits: e.shuffled.filter(q => q._ecrit).length, n: e.shuffled.length };
+  });
+  ok(mo.poids[0] === 0.6 && mo.poids[5] === 4 && mo.poids[8] === 4.2, 'tirage : QCM réussi 2 fois dans une notion maîtrisée 0,6 ; ratée la dernière fois 4 ; nouvelle dans une notion fragile 4,2 — ' + mo.poids.join(' '));
+  ok(mo.notions === 3 && /1 sur 3 maîtrisée/.test(mo.txt) && /En progrès/.test(mo.txt) && /Découverte/.test(mo.txt), 'accueil du quiz : niveau de chaque notion');
+  ok(mo.ecrits >= 1 && mo.ecrits <= Math.ceil(mo.n / 3), `passage à l'écrit : ${mo.ecrits} QCM réussis 2 fois reviennent en réponse à écrire (un tiers au plus)`);
+  await page.evaluate(() => { const e = MoteurQuiz._etat(); for (let i = 0; i < e.shuffled.length && !e.shuffled[e.cur]._ecrit; i++) { MoteurQuiz.answer ? null : 0; } });
+  // avance jusqu'à la première question à écrire
+  for (let i = 0; i < 12; i++) {
+    const ecrit = await page.evaluate(() => { const e = MoteurQuiz._etat(); return !!e.shuffled[e.cur]._ecrit; });
+    if (ecrit) break;
+    if (await page.locator('.opt-btn:not([disabled])').count()) await page.locator('.opt-btn').first().click();
+    else if (await page.locator('#ans-input:not([disabled])').count()) { await page.fill('#ans-input', 'x'); await page.keyboard.press('Enter'); }
+    await page.locator('.next-btn').click();
+  }
+  ok(await page.locator('.ecrit-tag').count() === 1 && await page.locator('.opt-btn').count() === 0, 'question à écrire : « Niveau supérieur », sans les propositions');
+  await page.locator('.btn-props').click();
+  ok(await page.locator('.opt-btn').count() >= 3 && await page.locator('.ecrit-tag').count() === 0, '« Voir les propositions » : retour au QCM sans pénalité');
+  const ecritOk = await page.evaluate(() => {
+    MoteurQuiz.home(); MoteurQuiz.start();
+    const e = MoteurQuiz._etat(), i = e.shuffled.findIndex(q => q._ecrit); if (i < 0) return null;
+    const q = e.shuffled[i]; e.shuffled.splice(i, 1); e.shuffled.unshift(q); MoteurQuiz.rafraichir();
+    document.getElementById('ans-input').value = 'la ' + q.a.toLowerCase(); MoteurQuiz.validate();
+    return MoteurQuiz._etat().answers[0].ok;
+  });
+  ok(ecritOk === true, 'réponse écrite : majuscules et article facultatifs (« la madrid » accepté)');
+  const ind = await page.evaluate(() => {
+    MoteurQuiz.home(); MoteurQuiz.start();
+    const e = MoteurQuiz._etat(); e.shuffled[0] = Object.assign({}, e.shuffled.find(q => q.type === 'qcm' && !q._ecrit) || e.shuffled[0], { hint: 'Un coup de pouce' });
+    MoteurQuiz.rafraichir();
+    const bouton = !!document.getElementById('hint-btn'); MoteurQuiz.indice();
+    const q = MoteurQuiz._etat().shuffled[0]; MoteurQuiz.answer(q.opts.indexOf(q.a));
+    return { bouton, i: MoteurQuiz._etat().answers[0].i, ok: MoteurQuiz._etat().answers[0].ok };
+  });
+  ok(ind.bouton && ind.i === true && ind.ok, 'indice : bouton aussi sur un QCM, son usage est noté avec la réponse');
+
+  // défi en famille
+  await page.evaluate(() => { window.__UQ.maitrise = {}; MoteurQuiz.home(); });
+  await page.locator('.btn-famille').click();
+  await page.fill('#fam-1', 'Papa');
+  await page.locator('.choice-btn[data-n="3"]').click();
+  await page.locator('.start-btn').click();
+  const d1 = await page.evaluate(() => ({ tour: document.querySelector('.duel-tour').textContent, n: MoteurQuiz._etat().shuffled.length, nom0: MoteurQuiz._etat().duel.noms[0] }));
+  ok(d1.n === 6 && /Papa/.test(await page.locator('.score-badge.duel').innerText()) && /À toi/.test(d1.tour), `défi en famille : 3 questions chacun, scores côte à côte, « À toi, ${d1.nom0} »`);
+  const avantDuel = (await ev('1')).sheets; const lignesAvant = Object.values(avantDuel)[0].rows.length;
+  for (let i = 0; i < 6; i++) {
+    if (await page.locator('.opt-btn:not([disabled])').count()) await page.locator('.opt-btn').first().click();
+    else if (await page.locator('#ans-input:not([disabled])').count()) { await page.fill('#ans-input', 'Paris'); await page.keyboard.press('Enter'); }
+    if (i === 0) ok(/Au tour de Papa/.test(await page.locator('.next-btn').innerText()), 'défi en famille : « Au tour de Papa »');
+    await page.locator('.next-btn').click();
+  }
+  ok(await page.locator('.duel-scores > div').count() === 2 && await page.locator('.btn-replay', { hasText: 'Revanche' }).count() === 1, 'défi en famille : résultat côte à côte, bouton « Revanche »' + (await page.locator('.duel-scores').count() ? '' : ' — ' + (await page.locator('#app').innerText()).slice(0, 200)));
+  let lignesApres = lignesAvant;
+  for (let i = 0; i < 30; i++) { lignesApres = Object.values((await ev('1')).sheets)[0].rows.length; if (lignesApres > lignesAvant) break; await page.waitForTimeout(100); }
+  ok(lignesApres === lignesAvant + 1, 'défi en famille : seules les réponses de l\'enfant (joueur 1) sont enregistrées');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
+
   // tableau de bord
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   await page.waitForTimeout(800);
   ok(/capitales/i.test(await page.locator('body').innerText()), 'tableau de bord : la partie apparaît');
+  ok(await page.locator('.niv-barre span').count() >= 2 && /Notions encore fragiles/.test(await page.locator('body').innerText()), 'tableau de bord : maîtrise des notions et notions fragiles');
 
   // ajout d'un quiz depuis le site : réponse d'IA collée (JSON dans un bloc de code, avec du texte autour)
   await page.goto(BASE + '/exec');

@@ -62,6 +62,8 @@ tr.click:hover td{background:rgba(0,0,0,.03)}
 .filtres{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card);color:var(--ink)}
 .small{font-size:.85rem;color:var(--soft)}
+.niv-barre{display:flex;gap:3px;height:14px;border-radius:99px;overflow:hidden}
+.niv-barre span{min-width:6px}
 .voile{position:fixed;inset:0;background:rgba(20,16,40,.45);display:grid;place-items:center;padding:16px;z-index:50}
 .boite{background:var(--card);color:var(--ink);border-radius:18px;padding:20px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
 .boite h3{margin:0 0 8px;font-family:"Fredoka",sans-serif}.boite p{margin:6px 0;color:var(--soft);font-size:.95rem}
@@ -301,12 +303,20 @@ function afficher() {
     <thead><tr><th>Quiz</th><th>Parties</th><th>Meilleur</th><th>Dernier</th><th class="hide-m">Moyenne</th><th class="hide-m">Dernière fois</th></tr></thead>
     <tbody>${lignesQuiz}</tbody></table></div></div>`;
 
-  // --- thèmes les plus faibles
-  const pt = {};
-  L.forEach(r => (r.questions || []).forEach(q => { if (!q.cat) return; const k = r.titre + " › " + q.cat; const p = pt[k] = pt[k] || { ok: 0, t: 0 }; p.t++; if (q.ok) p.ok++; }));
-  const faibles = Object.entries(pt).filter(([, p]) => p.t >= 3).map(([k, p]) => [k, p, Math.round(p.ok / p.t * 100)]).sort((a, b) => a[2] - b[2]).slice(0, 8);
-  const themes = faibles.length ? `<div class="box"><h2>${I('target')}Thèmes à retravailler</h2><div class="small" style="margin-bottom:6px">Thèmes vus au moins 3 fois, du plus faible au plus solide.</div>${faibles.map(([k, p, pc]) =>
-    `<div class="row"><div style="font-size:.85rem">${esc(k)}</div><div class="track"><div class="fill" style="width:${pc}%;background:${couleur(pc)}"></div></div><div style="text-align:right;font-weight:700">${pc} %<div class="small">${p.ok}/${p.t}</div></div></div>`).join("")}</div>` : "";
+  // --- maîtrise des notions (calculée par le serveur sur tous les résultats, révisions comprises)
+  const MN = ((window.__UQ || {}).maitrise || {}), NIV = ["Découverte", "En progrès", "Acquis", "Maîtrisé"], COUL = ["var(--line)", "var(--moy)", "var(--ok)", "var(--dore)"];
+  const toutes = [];
+  Object.entries(MN.notions || {}).forEach(([quiz, cats]) => { const c = CAT[quiz], titre = c ? c.titre : ((MN.titres || {})[quiz] || quiz).replace(/^Quiz\s*[–-]\s*/, "");
+    Object.entries(cats).forEach(([cat, v]) => toutes.push({ quiz, titre, cat, niv: v[0], taux: v[1], n: v[2] })); });
+  const parNiv = [0, 1, 2, 3].map(k => toutes.filter(x => x.niv === k).length);
+  const fragiles = toutes.filter(x => x.niv === 1).sort((a, b) => a.taux - b.taux).slice(0, 10);
+  const themes = toutes.length ? `<div class="box"><h2>${I('target')}Maîtrise des notions</h2>
+    <div class="niv-barre">${[3, 2, 1, 0].map(k => parNiv[k] ? `<span style="flex:${parNiv[k]};background:${COUL[k]}" title="${NIV[k]} : ${parNiv[k]}"></span>` : "").join("")}</div>
+    <div class="legend">${[3, 2, 1, 0].map(k => `<span><i style="background:${COUL[k]}"></i>${NIV[k]} : <b>${parNiv[k]}</b></span>`).join("")}</div>
+    ${fragiles.length ? `<div class="small" style="margin:12px 0 6px">Notions encore fragiles (moins de 70 % sur leurs 10 dernières réponses), à retravailler en priorité :</div>${fragiles.map(x =>
+      `<div class="row"><div style="font-size:.85rem">${esc(x.cat)}<div class="small">${esc(x.titre)}</div></div><div class="track"><div class="fill" style="width:${x.taux}%;background:${couleur(x.taux)}"></div></div><div style="text-align:right;font-weight:700">${x.taux} %</div></div>`).join("")}`
+      : `<p class="small" style="margin:10px 0 0">Aucune notion fragile en ce moment, bravo à {{PRENOM}} !</p>`}
+    <details class="small" style="margin-top:10px"><summary>Comment sont calculés les niveaux ?</summary>Chaque catégorie d'un quiz est une notion. <b>Découverte</b> : moins de 3 réponses. <b>En progrès</b> : moins de 70 % de réussite sur ses 10 dernières réponses. <b>Acquis</b> : 70 % ou plus. <b>Maîtrisé</b> : 90 % ou plus, et réussie à 80 % ou plus sur au moins 2 jours différents. Une bonne réponse trouvée avec l'indice compte pour moitié. Le site pose plus souvent les questions des notions fragiles, et repose à l'écrit, sans les choix, les questions déjà réussies deux fois.</details></div>` : "";
 
   // --- questions les plus ratées
   const pqq = {};

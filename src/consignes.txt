@@ -34,6 +34,7 @@ M|point clé à retenir (3 à 6 lignes M à la fin)
 - S : 1 à 3 mots ou un nombre. Variantes seulement si vraiment différentes (22;twenty-two) : majuscules, accents et articles sont déjà tolérés.
 - Explication : une phrase courte et bienveillante.
 - Image : ajoute img=emoji seulement aux questions qu'un objet ou un être concret illustre vraiment (img=🐘), jamais un emoji qui donne la réponse ; aucune image pour la grammaire ou la conjugaison.
+- Indice : sur les questions difficiles (une sur quatre environ), ajoute indice=coup de pouce qui aide à trouver sans donner la réponse (indice=Regarde le sujet).
 - Matière : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
 - Anglais : sur un tiers des questions, ajoute le champ dire=phrase anglaise que l'appareil lira (ne l'écris pas dans la question). Autre langue : ajoute langue=es-ES (ou de-DE, it-IT) à la ligne T.
 - Musique : champ notes=C4 E4 C4+E4+G4 (C4 = do du milieu, # ou b permis, + = accord) ; ajoute portee pour dessiner aussi les notes, portee=seule pour les dessiner sans les jouer. Ne donne pas la réponse dans la question.
@@ -46,7 +47,7 @@ T|Le verbe BE|Conjugue to be|anglais|🇬🇧|🎩
 Q|He is = ?|He's|His|He'm|He is se contracte en He's.
 V|We are se contracte en We're.|V|We are → We're.
 ## Conjugaison|🧩
-S|Complète avec be : They ___ happy.|are|Avec they, on emploie are.
+S|Complète avec be : They ___ happy.|are|Avec they, on emploie are.|indice=They = ils, elles
 Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Are you happy? = Es-tu content ?|dire=Are you happy?
 G|We [are] friends and she [is] my sister.|we → are, she → is.
 A|Relie.|I am=I'm|you are=you're|he is=he's

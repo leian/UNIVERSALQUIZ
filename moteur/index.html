@@ -56,6 +56,10 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .card .d{color:var(--soft);font-size:.9rem;margin-top:8px}
 .card{position:relative}
 .card .score{display:inline-flex;align-items:center;gap:6px;margin-top:8px;font:600 .82rem "Fredoka",sans-serif;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:2px 10px}
+.card .maitrise{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:.8rem;color:var(--soft)}
+.card .maitrise .seg{display:flex;gap:3px;flex:1;max-width:140px}
+.card .maitrise .seg i{flex:1;height:7px;border-radius:99px;background:var(--line)}
+.card .maitrise .seg i.n1{background:#f59e0b}.card .maitrise .seg i.n2{background:#16a34a}.card .maitrise .seg i.n3{background:#e8a83a;box-shadow:0 0 0 1px #c98a1e inset}
 .card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
 .marque{display:flex;align-items:center;gap:10px}
 .marque img{border-radius:14px}
@@ -185,7 +189,7 @@ function afficherListe(){
     return `<section><h2 style="--c:${M.c}"><span class="tuile">${I(m)}</span>${M.nom}</h2><div class="grid">` +
       qs.map(q => `<a class="card" style="--c:${M.c}" href="${encodeURI(q.fichier)}">
         <div class="tete"><span class="tuile">${I(m)}</span><div class="t">${esc(q.titre)}</div></div>
-        <div class="d">${esc(q.description)}</div>${badge(q)}</a>`).join("") + `</div></section>`;
+        <div class="d">${esc(q.description)}</div>${badge(q)}${maitrise(q)}</a>`).join("") + `</div></section>`;
   }).join("");
 }
 
@@ -201,6 +205,16 @@ function badge(q) {
   const nb = s.best >= 90 ? 3 : s.best >= 70 ? 2 : s.best >= 50 ? 1 : 0;
   const etoiles = [0, 1, 2].map(i => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;${i < nb ? "fill:#e8a83a;stroke:#e8a83a" : "opacity:.35"}">${ICONES.star}</svg>`).join("");
   return `<span class="score" title="Meilleur score">${etoiles} ${s.best} % · ${s.n} partie${s.n > 1 ? "s" : ""}</span>`;
+}
+/* ---------- maîtrise des notions (calculée par le serveur) : une barre par notion travaillée ---------- */
+const NIVEAUX = ["Découverte", "En progrès", "Acquis", "Maîtrisé"];
+function maitrise(q) {
+  const N = (((window.__UQ || {}).maitrise || {}).notions || {})[cle(q.fichier)];
+  const cats = N ? Object.keys(N) : [];
+  if (!cats.length) return "";
+  const nbM = cats.filter(c => N[c][0] === 3).length;
+  const seg = cats.sort((a, b) => N[b][0] - N[a][0]).map(c => `<i class="n${N[c][0]}" title="${esc(c)} : ${NIVEAUX[N[c][0]]}"></i>`).join("");
+  return `<div class="maitrise"><span class="seg">${seg}</span>${nbM} notion${nbM > 1 ? "s" : ""} maîtrisée${nbM > 1 ? "s" : ""} sur ${cats.length}</div>`;
 }
 function calculerStats(liste) {
   STATS = {};
