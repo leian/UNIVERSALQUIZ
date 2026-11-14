@@ -31,13 +31,17 @@ function fausseApi(url, o) {
   journal.push(methode + ' ' + url.replace('https://script.googleapis.com/v1/projects', ''));
   if (!/^Bearer jeton/.test(o.headers && o.headers.Authorization)) return reponse(401, { error: { message: 'pas de jeton' } });
   if (!apiActivee) return reponse(403, { error: { code: 403, message: 'User has not enabled the Apps Script API. Enable it by visiting https://script.google.com/home/usersettings then retry.' } });
-  const m = url.match(/projects(?:\/([^/]+))?(?:\/(content|versions|deployments))?(?:\/([^/]+))?$/);
+  const m = url.replace(/\?.*$/, '').match(/projects(?:\/([^/]+))?(?:\/(content|versions|deployments))?(?:\/([^/]+))?$/);
   const [, id, quoi, sous] = m;
   if (!id && methode === 'POST') { const sid = 'script' + (++n); projets[sid] = { titre: corps.title, versions: 0, deploiements: {} }; return reponse(200, { scriptId: sid }); }
   const p = projets[id];
   if (!p) return reponse(404, { error: { code: 404, message: 'Requested entity was not found.' } });
   if (!quoi && methode === 'GET') return reponse(200, { scriptId: id, title: p.titre });
   if (quoi === 'content' && methode === 'PUT') { p.contenu = corps.files; return reponse(200, { scriptId: id, files: corps.files }); }
+  if (quoi === 'versions' && methode === 'GET') {           // liste paginée (50 par page)
+    const tous = [...Array(p.versions).keys()].map(i => ({ versionNumber: i + 1 })), debut = +((url.match(/pageToken=(\d+)/) || [])[1] || 0);
+    return reponse(200, Object.assign({ versions: tous.slice(debut, debut + 50) }, debut + 50 < tous.length ? { nextPageToken: String(debut + 50) } : {}));
+  }
   if (quoi === 'versions' && methode === 'POST') { ++p.versions; (p.instantanes = p.instantanes || {})[p.versions] = p.contenu; return reponse(200, { versionNumber: p.versions }); }
   const web = did => ({ deploymentId: did, entryPoints: [{ entryPointType: 'WEB_APP', webApp: { url: 'https://script.google.com/macros/s/' + did + '/exec' } }] });
   if (quoi === 'deployments' && methode === 'POST') { const did = 'AKfy' + (++n); p.deploiements[did] = corps.versionNumber; return reponse(200, web(did)); }
@@ -106,6 +110,13 @@ ok(r.urlParent === userProps.urlParent && !/POST \/script1\/deployments/.test(jo
 ok(/prenom: 'Zoé l’aînée',/.test(p1.contenu.find(f => f.name === 'Code').source), 'mise à jour : le prénom est conservé');
 e = ctx.apiEtat();
 ok(e.installe && e.url === url1 && e.version === 'v-test', 'état après installation : site et version connus');
+ok(e.versions === 6 && !e.alerteVersions && /projects\/script1\/edit$/.test(e.lienProjet), 'état : nombre de versions du site compté, pas d\'alerte');
+p1.versions = 172; e = ctx.apiEtat();
+ok(e.versions === 172 && e.alerteVersions, 'état : alerte « ménage des versions » à partir de 170 (liste paginée)');
+p1.versions = 199; const avantMaj = JSON.stringify(p1.deploiements);
+r = ctx.apiMettreAJour();
+ok(r.erreur === 'versions' && r.versions === 199 && p1.versions === 199 && JSON.stringify(p1.deploiements) === avantMaj, 'plus de place pour 2 versions : mise à jour refusée proprement, site intact');
+p1.versions = 6;
 
 // 4 bis. site installé avant l'espace parent : la mise à jour le crée, l'adresse de l'enfant ne change pas
 delete userProps.deploymentIdParent; delete userProps.urlParent;

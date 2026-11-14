@@ -35,8 +35,27 @@ function apiEtat() {
   const p = PropertiesService.getUserProperties().getProperties();
   let derniere = '';
   try { derniere = moteur_().version; } catch (e) { return { erreur: e.message }; }
-  return { installe: !!p.scriptId, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere };
+  // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
+  let versions = 0;
+  if (p.scriptId) { try { versions = nbVersions_(p.scriptId); } catch (e) {} }
+  return { installe: !!p.scriptId, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere,
+    versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: p.scriptId ? lienProjet_(p.scriptId) : '' };
 }
+
+/* Versions : Google en garde 200 au plus par projet, et son API ne sait pas en supprimer (seulement l'éditeur,
+   « Historique du projet » → suppression en masse). Chaque mise à jour en crée 2 (enfant + parent) :
+   l'installateur prévient dès 170 et bloque proprement avant d'atteindre la limite. */
+const MAX_VERSIONS = 200, ALERTE_VERSIONS = 170;
+function nbVersions_(id) {
+  let n = 0, page = '';
+  do {
+    const r = appel_('get', '/' + id + '/versions?pageSize=50' + (page ? '&pageToken=' + encodeURIComponent(page) : ''));
+    n += (r.versions || []).length; page = r.nextPageToken || '';
+  } while (page);
+  return n;
+}
+function lienProjet_(id) { return 'https://script.google.com/home/projects/' + encodeURIComponent(id) + '/edit'; }
+function tropDeVersions_(id, n) { return { erreur: 'versions', versions: n, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(id) }; }
 /* Remarque : on ne peut pas savoir à l'avance si l'interrupteur « API Google Apps Script » est activé
    (Google répond « introuvable » avant de vérifier l'interrupteur). C'est l'installation qui le dit. */
 
@@ -92,6 +111,10 @@ function publier_(maj) {
     props.setProperty('scriptId', id);
     props.deleteProperty('deploymentId'); props.deleteProperty('deploymentIdParent');
     dep = depP = null;
+  } else {
+    // place pour les versions de cette mise à jour (2, ou 4 s'il manque une publication) ?
+    let n = -1; try { n = nbVersions_(id); } catch (e) {}
+    if (n >= 0 && n + 2 + (dep ? 0 : 1) + (depP ? 0 : 1) > MAX_VERSIONS) return tropDeVersions_(id, n);
   }
 
   // envoie le code d'un des deux espaces, en fait une version et la publie (sur sa publication existante si possible)
@@ -194,7 +217,7 @@ function traduire_(e) {
   const m = String(e && e.message || e);
   if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
   if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return { erreur: "L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien." };
-  if (/version/i.test(m) && /limit|200/i.test(m)) return { erreur: 'Ton site a atteint 200 versions : ouvre le projet SoccaQuiz sur script.google.com, menu Déployer → Gérer les déploiements, et supprime les anciennes versions.' };
+  if (/version/i.test(m) && /limit|200/i.test(m)) { const id = PropertiesService.getUserProperties().getProperty('scriptId'); if (id) return tropDeVersions_(id, MAX_VERSIONS); }
   return { erreur: m };
 }
 
@@ -292,6 +315,7 @@ function scriptPage_() {
       info.innerHTML = '✅ Lien copié. Ta messagerie ne s\'est pas ouverte ? <a href="' + h(gmailEnfant(url)) + '" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.';
     });
     function erreur(r) {
+      if (r && r.erreur === 'versions') { $('deja-message').innerHTML = carteMenage(r, true); return; }
       if (r && r.erreur === 'api') {
         $('e1-alerte').innerHTML = '<div class="ko" style="margin-bottom:8px">' + h(r.message) + ' Fais cette étape, puis reviens et touche à nouveau « Installer mon site » (Google peut demander une minute).</div>';
         afficherNouveau(true);
@@ -316,11 +340,23 @@ function scriptPage_() {
         })
         .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(e && e.message); })[fn](arg);
     }
+    // Ménage des versions : Google en garde 200 au plus par site et seul l'éditeur sait les supprimer
+    function carteMenage(e, bloque) {
+      return '<div class="' + (bloque ? 'ko' : 'maj') + '" style="margin-bottom:10px"><p style="margin:0 0 6px"><b>🧹 Petit ménage à faire (2 minutes, plus simple sur ordinateur)</b></p>' +
+        '<p style="margin:0 0 6px">Ton site garde une copie de chaque mise à jour : il en a <b>' + h(e.versions) + ' sur ' + h(e.maxVersions || 200) + '</b> au maximum autorisé par Google. ' +
+        (bloque ? 'Il n\'y a plus de place pour la mise à jour : fais ce ménage, puis touche à nouveau « Mettre à jour mon site ».' : 'Au-delà, les mises à jour ne passeront plus.') + '</p>' +
+        '<ol style="margin:0 0 6px;padding-left:20px"><li>Ouvre le programme de ton site : <a class="btn leger" href="' + h(e.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme SoccaQuiz</a></li>' +
+        '<li>Dans la barre de gauche, clique sur l\'horloge <b>« Historique du projet »</b>.</li>' +
+        '<li>En bas à droite, clique sur la corbeille <b>« Supprimer des versions en masse »</b>.</li>' +
+        '<li>Coche <b>tout</b>, puis <b>Supprimer</b> et confirme. Les versions utilisées par ton site ne sont pas proposées : il continue de fonctionner.</li>' +
+        '<li>Reviens ici et recharge la page.</li></ol>' +
+        '<p class="petit" style="margin:0">Ne modifie rien d\'autre dans le programme.</p></div>';
+    }
     function afficherDeja(e, titre, message) {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
       $('intro').textContent = 'Ton site de quiz, dans ton propre compte Google.';
       $('deja-titre').textContent = titre || '✅ Ton site est prêt';
-      $('deja-message').innerHTML = message || '';
+      $('deja-message').innerHTML = (message || '') + (e.alerteVersions ? carteMenage(e, false) : '');
       $('lien-site').href = e.url;
       $('lien-parent').href = e.urlParent || '#';
       $('lien-parent').style.display = e.urlParent ? '' : 'none';
