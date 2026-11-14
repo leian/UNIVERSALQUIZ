@@ -223,6 +223,19 @@ try {
   ok(lignesApres === lignesAvant + 1, 'défi en famille : seules les réponses de l\'enfant (joueur 1) sont enregistrées');
   await page.goto(BASE + '/exec');
   ok(await page.locator('#album .alb span').count() === 24, 'primaire : album de 24 autocollants sur l\'accueil');
+  const habit = await page.evaluate(() => {
+    if (typeof socca !== 'function') return 'socca() introuvable';
+    localStorage.removeItem('sq.tenue'); localStorage.removeItem('sq.accessoires');
+    document.documentElement.dataset.theme = 'petits';
+    window.__UQ.maitrise = { notions: { a: { x: [2, 80, 9], y: [3, 95, 9] }, b: { z: [1, 40, 5] } } };
+    socca();
+    const r = { libres: document.querySelectorAll('#socca .garde button:not(:disabled)').length, porte: !!document.querySelector('.salut .poupee .acc') };
+    document.querySelector('#socca .garde button[data-k="0"]').click();
+    r.choix = document.querySelector('#socca .garde button.on').dataset.k === '0' && localStorage.getItem('sq.tenue') === '0';
+    document.documentElement.dataset.theme = 'explorateurs';
+    return r;
+  });
+  ok(habit.libres === 2 && habit.porte && habit.choix, 'petits : 2 notions acquises = 2 accessoires, la socca porte le nouveau, on peut en changer — ' + JSON.stringify(habit));
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
 
   // tableau de bord

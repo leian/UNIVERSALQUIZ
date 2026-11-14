@@ -60,7 +60,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .card .maitrise .seg{display:flex;gap:3px;flex:1;max-width:140px}
 .card .maitrise .seg i{flex:1;height:7px;border-radius:99px;background:var(--line)}
 .card .maitrise .seg i.n1{background:#f59e0b}.card .maitrise .seg i.n2{background:#16a34a}.card .maitrise .seg i.n3{background:#e8a83a;box-shadow:0 0 0 1px #c98a1e inset}
-#album .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+#socca .panneau,#album .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
 #album h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
 #album .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
 #album p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
@@ -70,6 +70,21 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 #album .alb span.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 @keyframes colle{0%{transform:scale(0) rotate(-30deg)}100%{transform:none}}
 @media (prefers-reduced-motion:reduce){#album .alb span.neuf{animation:none}}
+/* petits : la socca à habiller (mascotte sans bonnet + accessoire posé par-dessus) */
+.poupee{position:relative;display:block}
+.poupee span{position:absolute;background-repeat:no-repeat}
+.poupee .doll{inset:0;background:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/accueil.webp") center/contain no-repeat;z-index:1}
+.poupee .acc{background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires.webp");background-size:1200% 100%}
+.salut .poupee{width:80px;height:80px;flex:none}
+#socca .grand{width:150px;height:150px;margin:6px auto 10px}
+#socca h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
+#socca .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
+#socca p{margin:0;font-size:.82rem;color:var(--soft);text-align:center}
+#socca .garde{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:10px}
+#socca .garde button{aspect-ratio:1;border:2px solid var(--line);border-radius:12px;background:var(--bg) url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires.webp") no-repeat;background-size:1200% 100%;cursor:pointer;padding:0}
+#socca .garde button.on{border-color:var(--accent,#c8102e);box-shadow:0 0 0 2px var(--accent,#c8102e)}
+#socca .garde button:disabled{filter:grayscale(1);opacity:.3;cursor:default}
+#socca .garde button.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 .card .maitrise .emb{display:flex;gap:2px}.card .maitrise .emb img{width:20px;height:20px}
 .card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
 .marque{display:flex;align-items:center;gap:10px}
@@ -135,7 +150,7 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <main id="list"></main>
   <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Ajouter un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
  </div>
- <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="recompenses"></div></aside>
+ <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="socca"></div><div id="recompenses"></div></aside>
 </div>
 
 <script src="commun/catalogue.js"></script>
@@ -258,6 +273,39 @@ function album() {
     <p>${total ? (neufs ? `${neufs > 1 ? neufs + " nouveaux autocollants" : "Un nouvel autocollant"} ! ` : "") + "Chaque notion maîtrisée colle un autocollant." : "Maîtrise une notion pour coller ton premier autocollant !"}</p>
     <div class="alb">${cases}</div></div>`;
 }
+/* ---------- petits : habiller la socca. Chaque notion acquise (ou maîtrisée) débloque un accessoire ----------
+   [centre x, centre y, taille] dans l'image de la mascotte (384 px), 1 = derrière (cape) */
+const ACCESSOIRES = [["chapeau de chef",212,44,130],["couronne",212,32,100],["casquette",212,48,118],["écharpe",205,316,160],["lunettes de soleil",212,166,140],["nœud papillon",205,286,84],
+  ["cape",205,240,320,1],["bonnet",212,42,118],["casque d'astronaute",210,148,245],["chapeau de pirate",212,44,130],["couronne de fleurs",212,68,128],["médaille",205,306,80]];
+function poupee(k, cls) {
+  const a = ACCESSOIRES[k];
+  const acc = a ? `<span class="acc" style="left:${((a[1] - a[3] / 2) / 3.84).toFixed(2)}%;top:${((a[2] - a[3] / 2) / 3.84).toFixed(2)}%;width:${(a[3] / 3.84).toFixed(2)}%;height:${(a[3] / 3.84).toFixed(2)}%;background-position:${(k * 100 / 11).toFixed(3)}% 0;z-index:${a[4] ? 0 : 2}"></span>` : "";
+  return `<span class="poupee ${cls}" aria-hidden="true">${acc}<span class="doll"></span></span>`;
+}
+function socca() {
+  const el = document.getElementById("socca");
+  if (!el || document.documentElement.dataset.theme !== "petits") return;
+  const N = ((window.__UQ || {}).maitrise || {}).notions || {};
+  const nb = Math.min(12, Object.values(N).reduce((t, cats) => t + Object.values(cats).filter(v => v[0] >= 2).length, 0));
+  let tenue = -1, vu = 0;
+  try { tenue = +(localStorage.getItem("sq.tenue") ?? -1); vu = +localStorage.getItem("sq.accessoires") || 0; localStorage.setItem("sq.accessoires", nb); } catch (e) {}
+  if (tenue >= nb) tenue = -1;
+  if (nb > vu && tenue < 0) tenue = nb - 1;                 // nouvel accessoire : la socca le met tout de suite
+  const dessiner = () => {
+    const salut = document.querySelector(".salut .mascotte, .salut .poupee");
+    if (salut) salut.outerHTML = tenue >= 0 ? poupee(tenue, "") : '<span class="mascotte m-accueil" aria-hidden="true"></span>';
+    el.innerHTML = `<div class="panneau"><h3>🎁 Ma socca <span class="alb-n">${nb}/12</span></h3>
+      ${poupee(tenue, "grand")}
+      <p>${nb > vu ? (nb - vu > 1 ? "Nouveaux accessoires" : "Nouvel accessoire") + " ! " : ""}${nb ? "Touche un accessoire pour habiller ta socca." : "Réussis bien un quiz pour gagner ton premier accessoire !"}</p>
+      <div class="garde">${ACCESSOIRES.map((a, k) => `<button type="button" title="${a[0]}" aria-label="${a[0]}" class="${k === tenue ? "on" : ""}${k < nb && k >= vu ? " neuf" : ""}" data-k="${k}" ${k < nb ? "" : "disabled"} style="background-position:${(k * 100 / 11).toFixed(3)}% 0"></button>`).join("")}</div></div>`;
+    el.querySelectorAll(".garde button").forEach(b => b.addEventListener("click", () => {
+      tenue = +b.dataset.k === tenue ? -1 : +b.dataset.k; vu = nb;
+      try { localStorage.setItem("sq.tenue", tenue); } catch (e) {}
+      dessiner();
+    }));
+  };
+  dessiner();
+}
 function calculerStats(liste) {
   STATS = {};
   const jours = new Set();
@@ -344,6 +392,7 @@ afficherListe();
 chargerScores();
 Badges.monter();
 album();
+socca();
 /* ---------- site de l'enfant / espace parent ---------- */
 (function () {
   var U = window.__UQ || {}, f = document.getElementById("foot");
