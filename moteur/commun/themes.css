@@ -14,6 +14,27 @@
 .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/bravo.webp"); }
 .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/encouragement.webp"); }
 .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/reflexion.webp"); }
+/* versions par âge (le thème Parent garde la version de base en attendant sa planche) */
+html[data-theme="petits"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/accueil.webp"); }
+html[data-theme="petits"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/bravo.webp"); }
+html[data-theme="petits"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/encouragement.webp"); }
+html[data-theme="petits"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/reflexion.webp"); }
+html[data-theme="lecteurs"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/accueil.webp"); }
+html[data-theme="lecteurs"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/bravo.webp"); }
+html[data-theme="lecteurs"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/encouragement.webp"); }
+html[data-theme="lecteurs"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/reflexion.webp"); }
+html[data-theme="explorateurs"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/accueil.webp"); }
+html[data-theme="explorateurs"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/bravo.webp"); }
+html[data-theme="explorateurs"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/encouragement.webp"); }
+html[data-theme="explorateurs"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/reflexion.webp"); }
+html[data-theme="college"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college/accueil.webp"); }
+html[data-theme="college"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college/bravo.webp"); }
+html[data-theme="college"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college/encouragement.webp"); }
+html[data-theme="college"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college/reflexion.webp"); }
+html[data-theme="lycee"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/accueil.webp"); }
+html[data-theme="lycee"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/bravo.webp"); }
+html[data-theme="lycee"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/encouragement.webp"); }
+html[data-theme="lycee"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/reflexion.webp"); }
 
 /* ---- Petits : chaud, très rond, gros textes ---- */
 html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }
