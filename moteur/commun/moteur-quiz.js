@@ -700,7 +700,12 @@
   window.MoteurQuiz = {
     lancer(cfg) {
       C = Object.assign({ nbQuestions: 20 }, cfg);
-      C.questions.forEach(q => { if (q && typeof q === 'object') Object.defineProperty(q, '_orig', { value: q, enumerable: false, configurable: true }); });
+      C.questions.forEach(q => {
+        if (!q || typeof q !== 'object') return;
+        Object.defineProperty(q, '_orig', { value: q, enumerable: false, configurable: true });
+        // X dont tous les mots sont à toucher = phrase à reconstituer : on la joue en « remettre dans l'ordre », mots mélangés
+        if (q.type === 'cliquer') { const m = motsDe(q); if (m.length >= 2 && m.length <= 8 && m.every(x => x.bon)) { q.type = 'ordre'; q.items = m.map(x => x.mot); } }
+      });
       if (C.titre) document.title = 'Quiz – ' + C.titre.replace(/<[^>]+>/g, '');
       appliquerCouleur(C.couleur);
       if (!document.getElementById('app')) { const d = document.createElement('div'); d.className = 'container'; d.id = 'app'; document.body.prepend(d); }

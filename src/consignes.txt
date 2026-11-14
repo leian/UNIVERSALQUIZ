@@ -22,11 +22,12 @@ G|phrase avec les [mots] à trouver entre crochets, [mot;variante] possible|expl
 O|consigne|élément 1|élément 2|élément 3 (2 à 6, dans le BON ordre : le site mélange)
 A|consigne|gauche=droite|gauche=droite (2 à 5 paires)
 C|consigne|Catégorie: élément;élément|Catégorie: élément;élément (2 à 3 catégories, 8 éléments au plus)
-X|consigne|phrase où les mots à toucher sont entre *étoiles*|explication
+X|consigne|phrase où SEULS les mots à trouver sont entre *étoiles* (les autres restent sans étoiles)|explication
 N|question|valeur|tolérance|explication (ex. 1,414|0,01)
 P|consigne|phrase à dire à voix haute (* = réponse libre)
 K|consigne|notes de la mélodie à rejouer (ex. C4 D4 E4)
 M|point clé à retenir (3 à 6 lignes M à la fin)
+- Phrase à reconstituer : toujours O (le site mélange les mots), jamais X.
 - Q : 2 ou 3 mauvais choix, la bonne réponse toujours en premier (le site mélange).
 - S : 1 à 3 mots ou un nombre. Variantes seulement si vraiment différentes (22;twenty-two) : majuscules, accents et articles sont déjà tolérés.
 - Explication : une phrase courte et bienveillante.

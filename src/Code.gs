@@ -564,6 +564,9 @@ function apiAjouterQuiz(texte) {
     } else if (type === 'cliquer') {
       const texte = txt(q.texte, 600);
       if (!/\*[^*]+\*/.test(texte)) { avert.push('Question ' + (i + 1) + ' ignorée (aucun *mot* à toucher).'); return; }
+      // tous les mots entre *étoiles* : c'est une phrase à reconstituer, jouée en « remettre dans l'ordre »
+      const mots = texte.match(/\*[^*]+\*|[^\s*]+/g) || [];
+      if (mots.length >= 2 && mots.length <= 8 && mots.every(m => /^\*.+\*$/.test(m))) { questions.push(Object.assign(base, { type: 'ordre', items: mots.map(m => m.slice(1, -1).trim()) })); return; }
       questions.push(Object.assign(base, { type: 'cliquer', texte }));
     } else if (type === 'nombre') {
       const a = parseFloat(String(q.a).replace(/\s/g, '').replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
