@@ -57,7 +57,8 @@
     enregistrer(r) {
       try {
         const questions = (r.questions || []).slice(0, 200).map(x => ({
-          q: texte(x.q), cat: texte(x.cat), donne: texte(x.donne), attendu: texte(x.attendu), ok: !!x.ok
+          q: texte(x.q), cat: texte(x.cat), donne: texte(x.donne), attendu: texte(x.attendu), ok: !!x.ok,
+          k: String(x.k || '').slice(0, 40), o: typeof x.o === 'string' ? x.o.slice(0, 6000) : ''
         }));
         const cats = {};
         questions.forEach(x => { const c = x.cat || '—'; cats[c] = cats[c] || { ok: 0, total: 0 }; cats[c].total++; if (x.ok) cats[c].ok++; });

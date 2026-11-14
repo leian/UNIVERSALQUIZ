@@ -89,6 +89,9 @@ function doGet(e) {
     const pageServie = CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page;
     if (PAGES[pageServie]) {
       html = lib_(PAGES[pageServie], true);
+    } else if (page === 'revisions' || page === 'defi') {
+      html = pageRevision_(page);
+      if (!html) return pageErreur_('Rien à revoir pour l\'instant', 'Bravo ! Aucune question n\'attend d\'être revue. Reviens après avoir joué quelques quiz.');
     } else {
       const f = trouverFichier_(inst.dossier, page + '.html');
       if (!f) return pageErreur_('Quiz introuvable', 'Aucun fichier « ' + page + '.html » dans le dossier Drive « ' + inst.dossier.getName() + ' ».');
@@ -217,6 +220,7 @@ function assembler_(html, page, inst) {
     installateur: CONFIG.installateur,
     classe: classe_(),
     classes: CLASSES,
+    revisions: (page === 'index' && CONFIG.espace !== 'parent') ? (() => { try { const r = revisions_(); return { n: r.aRevoir.length, defi: r.defi.length, mois: r.moisDefi, nouveau: r.nouveauDefi }; } catch (e) { return null; } })() : null,
     saison: saison_(),
     saisonDuJour: saisonDe_(),
     saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1'
@@ -406,12 +410,16 @@ function apiEnregistrer(brut) {
   const id = 'r:' + date + ':' + Math.random().toString(36).slice(2, 8);
   let joueur = '';
   try { joueur = Session.getActiveUser().getEmail() || ''; } catch (e) {}
-  let questions = Array.isArray(r.questions) ? r.questions.slice(0, 200).map(q => ({
-    q: str(q.q, 400), cat: str(q.cat, 80), donne: str(q.donne, 200), attendu: str(q.attendu, 200), ok: !!q.ok
-  })) : [];
+  let questions = Array.isArray(r.questions) ? r.questions.slice(0, 200).map(q => {
+    const x = { q: str(q.q, 400), cat: str(q.cat, 80), donne: str(q.donne, 200), attendu: str(q.attendu, 200), ok: !!q.ok };
+    if (q.k) x.k = str(q.k, 40);
+    if (!x.ok && typeof q.o === 'string' && q.o.length <= 6000) x.o = q.o;     // question entière, pour les révisions
+    return x;
+  }) : [];
   let jsonQ = JSON.stringify(questions);
+  while (jsonQ.length > 49000 && questions.some(q => q.o)) { const q = questions.find(q => q.o); delete q.o; jsonQ = JSON.stringify(questions); }
   if (jsonQ.length > 49000) {         // une cellule Sheets contient au plus 50 000 caractères
-    questions = questions.map(q => ({ q: q.q.slice(0, 120), cat: q.cat.slice(0, 40), donne: q.donne.slice(0, 60), attendu: q.attendu.slice(0, 60), ok: q.ok }));
+    questions = questions.map(q => ({ q: q.q.slice(0, 120), cat: q.cat.slice(0, 40), donne: q.donne.slice(0, 60), attendu: q.attendu.slice(0, 60), ok: q.ok, k: q.k }));
     jsonQ = JSON.stringify(questions);
     while (jsonQ.length > 49000 && questions.length) { questions.pop(); jsonQ = JSON.stringify(questions); }
   }
@@ -425,7 +433,58 @@ function apiEnregistrer(brut) {
     questions: jsonQ
   };
   feuille_().appendRow(COLONNES.map(c => ligne[c]));
+  CacheService.getScriptCache().remove('revisions');
   return { ok: true, id };
+}
+
+/* ---------------- « Mes révisions » et défi du mois ----------------
+   Répétition espacée (boîtes de Leitner) sur les questions déjà ratées, à partir des résultats :
+   ratée → boîte 0 ; bonne réponse au moins 1, 3, 7 puis 21 jours après la précédente → boîte suivante ;
+   boîte 4 = acquise. Une question est « à revoir » quand son délai est écoulé.
+   Défi du mois : les questions ratées le mois précédent et pas encore acquises, proposées tout le mois. */
+const DELAIS_REVISION = [1, 3, 7, 21];
+const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+function revisions_(maintenant) {
+  const cache = CacheService.getScriptCache();
+  if (!maintenant) { const c = cache.get('revisions'); if (c) return JSON.parse(c); }
+  const now = maintenant || new Date(), JOUR = 864e5;
+  const debutMois = new Date(now.getFullYear(), now.getMonth(), 1), debutMoisPrec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const etat = {};
+  lireLignes_().map(complet_).filter(l => l.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(l => {
+    const d = new Date(l.date).getTime();
+    (l.questions || []).forEach(x => {
+      if (!x.k) return;
+      let s = etat[x.k];
+      if (!x.ok) {
+        let o = null; try { o = x.o ? JSON.parse(x.o) : null; } catch (e) {}
+        s = etat[x.k] = Object.assign(s || {}, { boite: 0, der: d });
+        if (o) s.o = o;
+        if (d >= debutMoisPrec.getTime() && d < debutMois.getTime()) s.moisPrec = true;
+      } else if (s && s.boite < 4 && d - s.der >= DELAIS_REVISION[s.boite] * JOUR * 0.9) {
+        s.boite++; s.der = d;
+      }
+    });
+  });
+  const avecQuestion = Object.keys(etat).map(k => etat[k]).filter(s => s.o && s.boite < 4);
+  const aRevoir = avecQuestion.filter(s => now.getTime() - s.der >= DELAIS_REVISION[s.boite] * JOUR * 0.9).map(s => s.o);
+  const defi = avecQuestion.filter(s => s.moisPrec).map(s => s.o);
+  const r = { aRevoir, defi, moisDefi: MOIS_FR[debutMoisPrec.getMonth()], nouveauDefi: now.getDate() <= 7 };
+  if (!maintenant) { const t = JSON.stringify(r); if (t.length < 90000) cache.put('revisions', t, 600); }
+  return r;
+}
+/* page de quiz fabriquée à partir des questions à revoir ('revisions') ou du défi du mois ('defi') */
+function pageRevision_(page) {
+  const r = revisions_();
+  const defi = page === 'defi', liste = defi ? r.defi : r.aRevoir;
+  if (!liste.length) return null;
+  const icones = {};
+  const questions = liste.map(o => { const q = Object.assign({}, o); q.cat = o.src || o.cat || 'Révision'; if (o.ico) icones[q.cat] = o.ico; return q; });
+  return fabriquerQuizHtml_({
+    titre: defi ? 'Défi de ' + r.moisDefi : 'Mes révisions',
+    sousTitre: defi ? 'Les questions ratées en ' + r.moisDefi + ' : relève le défi !' : 'Les questions que tu avais ratées, à revoir aujourd\'hui',
+    icone: defi ? '🏆' : '🎯', badge: defi ? '🏆' : '', matiere: 'autre', couleur: '#c8102e',
+    questions, memo: [], icones
+  });
 }
 
 function apiLister(q) {

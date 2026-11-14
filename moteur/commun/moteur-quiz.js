@@ -154,6 +154,14 @@
     return avant;
   };
   let tDebut = 0;
+  // identifiant stable d'une question (même question = même clé, d'une partie et d'un quiz de révision à l'autre)
+  function cleQuestion(q) {
+    const src = q._orig || q;
+    if (src.k) return String(src.k);
+    const t = [C.titre, src.type || '', src.q || '', src.texte || '', Array.isArray(src.items) ? src.items.join('|') : ''].join('§');
+    let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
+    return 'q' + (h >>> 0).toString(36);
+  }
 
   function hexToRgb(h) { h = h.replace('#', ''); if (h.length === 3) h = h.split('').map(c => c + c).join(''); const n = parseInt(h, 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; }
   function mix(hex, t, base) { const a = hexToRgb(hex), b = base || [255, 255, 255]; return '#' + a.map((v, i) => Math.round(v * (1 - t) + b[i] * t).toString(16).padStart(2, '0')).join(''); }
@@ -738,7 +746,13 @@
 
     if (window.Suivi) Suivi.enregistrer({
       titre: C.titre, matiere: C.matiere, score: sc, total: n,
-      questions: shuffled.map((q, i) => ({ q: texteQuestion(q), cat: q.cat, donne: answers[i] ? texteReponse(q, answers[i]) : '', attendu: attendu(q), ok: !!(answers[i] && answers[i].ok) }))
+      questions: shuffled.map((q, i) => {
+        const ok = !!(answers[i] && answers[i].ok), k = cleQuestion(q);
+        // question ratée : on garde la question entière pour « Mes révisions » et le défi du mois
+        let o = '';
+        if (!ok && !C.texteQuestion && !C.figure) { try { const src = q._orig || q; o = JSON.stringify(Object.assign({}, src, { k, src: src.src || C.titre, mat: src.mat || C.matiere, ico: src.ico || (C.icones && C.icones[q.cat]) || '' })); if (o.length > 6000) o = ''; } catch (e) { o = ''; } }
+        return { q: texteQuestion(q), cat: q.cat, donne: answers[i] ? texteReponse(q, answers[i]) : '', attendu: attendu(q), ok, k, o };
+      })
     });
     if (sc === n && window.Badges && Badges.gagner()) {
       const msgEl = appli().querySelector('.result-msg');

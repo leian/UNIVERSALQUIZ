@@ -99,6 +99,27 @@ try {
   await page.locator('.semaine').waitFor({ timeout: 5000 }).catch(() => {});
   ok(await page.locator('.semaine .sem-jour.fait').count() === 1 && /1\s*quiz joué/.test(await page.locator('.semaine').innerText()), '« Ma semaine » : 1 quiz joué, jour du jour coché');
 
+  // « Mes révisions » et défi du mois : répétition espacée sur les questions ratées
+  const rq = await ev(`(() => {
+    const o = k => JSON.stringify({ type: 'qcm', q: 'Capitale ' + k + ' ?', opts: ['A', 'B', 'C'], a: 'A', cat: 'Europe', exp: 'x', k, src: 'Capitales', mat: 'geographie' });
+    const jour = 864e5, t0 = Date.now();
+    const rows = feuille_();
+    const ajoute = (dt, qs) => rows.appendRow(COLONNES.map(c => ({ id: 'r:' + new Date(dt).toISOString() + ':t' + Math.random().toString(36).slice(2, 6), date: new Date(dt).toISOString(), quiz: 'capitales', titre: 'Capitales', matiere: 'geographie', score: '0', total: String(qs.length), questions: JSON.stringify(qs) })[c] || ''));
+    const moisPrec = new Date(new Date().getFullYear(), new Date().getMonth() - 1, 10).getTime();
+    ajoute(moisPrec, [{ q: 'Capitale a ?', ok: false, k: 'ka', o: o('ka') }, { q: 'Capitale b ?', ok: false, k: 'kb', o: o('kb') }]);
+    ajoute(moisPrec + 2 * jour, [{ q: 'Capitale b ?', ok: true, k: 'kb' }]);
+    ajoute(t0 - 3 * jour, [{ q: 'Capitale c ?', ok: false, k: 'kc', o: o('kc') }]);
+    ajoute(t0 - 3600e3, [{ q: 'Capitale d ?', ok: false, k: 'kd', o: o('kd') }]);
+    CacheService.getScriptCache().remove('revisions');
+    const r = revisions_(new Date());
+    return { revoir: r.aRevoir.map(x => x.k).sort().join(), defi: r.defi.map(x => x.k).sort().join(), html: /Mes révisions/.test(pageRevision_('revisions') || '') };
+  })()`);
+  ok(rq.r && rq.r.revoir === 'ka,kb,kc' && rq.r.defi === 'ka,kb' && rq.r.html, 'révisions : questions ratées à revoir quand leur délai est écoulé (pas celle ratée il y a une heure), défi du mois = ratées le mois dernier, quiz fabriqué');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('#pour-toi a.mis-en-avant').count() === 2, 'accueil : section « Pour toi » avec « Mes révisions » et le défi du mois');
+  await page.goto(BASE + '/exec?page=revisions');
+  ok(await page.locator('text=Mes révisions').count() > 0, 'page « Mes révisions » : le quiz s\'ouvre');
+
   // tableau de bord
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   await page.waitForTimeout(800);
