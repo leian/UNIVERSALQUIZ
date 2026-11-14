@@ -58,6 +58,17 @@ async function jouer() {
   return page.locator('.result-score').innerText();
 }
 
+// Google Apps Script casse les adresses « "https://…" » écrites entre guillemets droits dans un script
+// (« Invalid or unexpected token » sur le vrai site, pas dans la simulation) : elles doivent être entre apostrophes
+{
+  const fautifs = [];
+  for (const dossier of ['moteur', 'moteur/commun', 'src']) for (const f of readdirSync(join(RACINE, dossier))) {
+    if (!/\.(html|js)$/.test(f)) continue;
+    readFileSync(join(RACINE, dossier, f), "utf8").split('\n').forEach((l, i) => { if (/(?:[(,+?]|=\s|:\s)\s*"https?:\/\//.test(l)) fautifs.push(dossier + '/' + f + ':' + (i + 1)); });
+  }
+  ok(!fautifs.length, 'aucune adresse « "https://…" » entre guillemets droits dans les scripts' + (fautifs.length ? ' — ' + fautifs.join(', ') : ''));
+}
+
 try {
   // installation automatique
   await page.goto(BASE + '/exec');

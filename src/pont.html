@@ -81,6 +81,16 @@
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (a) corriger(a);
   }
+  // garde-fou : si un script de la page plante, on le dit au lieu de laisser une page à moitié vide
+  window.addEventListener('error', function (e) {
+    if (document.getElementById('uq-erreur')) return;
+    var b = document.createElement('div');
+    b.id = 'uq-erreur';
+    b.style.cssText = 'position:fixed;left:8px;right:8px;bottom:8px;z-index:99999;background:#fef2f2;color:#7f1d1d;border:2px solid #dc2626;border-radius:12px;padding:10px 14px;font:14px system-ui,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.2)';
+    b.textContent = '⚠️ Cette page ne fonctionne pas entièrement. Essaie « Mettre à jour mon site » sur l\'installateur. Message à transmettre : ' + String(e.message || e.error || 'erreur inconnue').slice(0, 200);
+    var montrer = function () { document.body.appendChild(b); };
+    if (document.body) montrer(); else document.addEventListener('DOMContentLoaded', montrer);
+  });
   document.addEventListener('click', auClic, true);
   document.addEventListener('auxclick', auClic, true);
 })();

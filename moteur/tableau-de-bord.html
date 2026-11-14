@@ -390,7 +390,7 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
       const texte = "Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n" + U.urlEnfant + "\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !";
       try { navigator.clipboard.writeText(U.urlEnfant); } catch (e) {}
       try { window.open("mailto:?subject=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte), "_blank"); } catch (e) {}
-      const gmail = "https://mail.google.com/mail/?view=cm&fs=1&su=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte);
+      const gmail = 'https://mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(objet) + '&body=' + encodeURIComponent(texte);
       $("info-lien").hidden = false;
       $("info-lien").innerHTML = `✅ Lien copié. Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.`;
     };
@@ -406,7 +406,8 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
     try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 864e5) derniere = m.v; } catch (e) {}
     if (!derniere) {
       try {
-        const r = await fetch("https://api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest");
+        // adresse entre apostrophes : Google casse les adresses « https:// » écrites entre guillemets droits dans un script
+        const r = await fetch('https://api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
         if (!r.ok) return;
         derniere = (await r.json()).tag_name || "";
         try { localStorage.setItem("uq.maj", JSON.stringify({ t: Date.now(), v: derniere })); } catch (e) {}
