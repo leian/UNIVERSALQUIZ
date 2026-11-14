@@ -7,6 +7,14 @@
    le fond des quiz et, si besoin, la police. La couleur de la matière reste l'accent.
    ===================================================================== */
 
+/* ---- Mascotte (la part de socca) : 4 attitudes, images sur GitHub Pages (docs/themes/<thème>/).
+   Chaque thème pourra remplacer ces images par sa version (même nom de fichier) ; en attendant : base. ---- */
+.mascotte { display:inline-block; flex:none; width:64px; height:64px; background:center / contain no-repeat; vertical-align:middle; }
+.m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/accueil.webp"); }
+.m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/bravo.webp"); }
+.m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/encouragement.webp"); }
+.m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/reflexion.webp"); }
+
 /* ---- Petits : chaud, très rond, gros textes ---- */
 html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }
 html[data-theme="petits"] body { background:#fff4d6; }

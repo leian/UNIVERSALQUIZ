@@ -570,7 +570,8 @@
     if (answered) {
       const intro = ok ? '✅ Bonne réponse, bravo !' : `❌ La bonne réponse était : <strong>${attendu(q)}</strong>.`;
       const exp = q.exp || q.e || '';
-      expBlock = `<div class="explanation">${intro}${exp ? '<br>' + exp : ''}</div>`;
+      expBlock = ok ? `<div class="explanation">${intro}${exp ? '<br>' + exp : ''}</div>`
+        : `<div class="explanation avec-mascotte"><span class="mascotte m-encouragement" aria-hidden="true"></span><div>${intro}${exp ? '<br>' + exp : ''}</div></div>`;
     }
     const nextLabel = cur + 1 >= shuffled.length ? 'Voir le résultat ›' : 'Question suivante ›';
 
@@ -640,7 +641,7 @@
 
     appli().innerHTML = `
       <div class="result-card">
-        <div style="font-size:3rem;margin-bottom:0.5rem">${emoji}</div>
+        <div class="fin-mascotte"><span class="mascotte ${pct >= 60 ? 'm-bravo' : 'm-encouragement'}" aria-hidden="true"></span><span class="fin-emoji">${emoji}</span></div>
         <div class="result-score">${sc}<span style="font-size:28px;color:#6b7280">/${n}</span></div>
         <div class="result-label">${pct}% de bonnes réponses</div>
         <div class="result-msg">${msg}</div>
