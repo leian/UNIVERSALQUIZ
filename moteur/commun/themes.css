@@ -14,7 +14,7 @@
 .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/bravo.webp"); }
 .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/encouragement.webp"); }
 .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/base/reflexion.webp"); }
-/* versions par âge (le thème Parent garde la version de base en attendant sa planche) */
+/* versions par âge */
 html[data-theme="petits"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/accueil.webp"); }
 html[data-theme="petits"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/bravo.webp"); }
 html[data-theme="petits"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/encouragement.webp"); }
@@ -35,6 +35,10 @@ html[data-theme="lycee"] .m-accueil { background-image:url("https:\/\/leian.gith
 html[data-theme="lycee"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/bravo.webp"); }
 html[data-theme="lycee"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/encouragement.webp"); }
 html[data-theme="lycee"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/reflexion.webp"); }
+html[data-theme="parent"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/accueil.webp"); }
+html[data-theme="parent"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/bravo.webp"); }
+html[data-theme="parent"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/encouragement.webp"); }
+html[data-theme="parent"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/reflexion.webp"); }
 
 /* ---- Petits : chaud, très rond, gros textes ---- */
 html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }
