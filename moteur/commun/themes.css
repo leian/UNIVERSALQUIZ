@@ -102,7 +102,7 @@ html[data-saison="hiver"]     { --s1:#3b82f6; --s2:#93c5fd; --s3:#cbd5e1; --floc
 html[data-saison="paques"]    { --s1:#f472b6; --s2:#6ee7b7; --s3:#fcd34d; --flocon:rgba(244,114,182,.55); }
 html[data-saison="printemps"] { --s1:#65a30d; --s2:#f9a8d4; --s3:#fde68a; --flocon:rgba(249,168,212,.75); }
 html[data-saison="ete"]       { --s1:#06b6d4; --s2:#facc15; --s3:#fb923c; }
-html[data-saison="rentree"]   { --s1:#7c3aed; --s2:#f59e0b; --s3:#10b981; }
+html[data-saison="rentree"]   { --s1:#c8102e; --s2:#f59e0b; --s3:#10b981; }
 html[data-saison="automne"]   { --s1:#c2410c; --s2:#b45309; --s3:#7f1d1d; --flocon:rgba(194,65,12,.55); }
 html[data-saison="halloween"] { --s1:#f97316; --s2:#6d28d9; --s3:#111827; --flocon:rgba(109,40,217,.5); }
 

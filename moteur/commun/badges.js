@@ -11,7 +11,7 @@
    Cloudflare (/api/resultats). Les emblèmes sont dans commun/catalogue.js.
    ===================================================================== */
 (function () {
-  const COUL = { francais: '#7c3aed', maths: '#ea580c', sciences: '#0891b2', anglais: '#b91c1c', histoire: '#a16207', geographie: '#15803d', musique: '#db2777', autre: '#475569' };
+  const COUL = { francais: '#2563eb', maths: '#ea580c', sciences: '#0891b2', anglais: '#b91c1c', histoire: '#a16207', geographie: '#15803d', musique: '#db2777', autre: '#475569' };
   const cle = f => { try { return decodeURIComponent(String(f || '').split('/').pop()).replace(/\.html$/i, ''); } catch (e) { return String(f); } };
   const gagnes = new Map();          // cle → date ISO de la première réussite à 100 %
   let panneau = null, dernierNouveau = null;

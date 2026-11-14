@@ -773,6 +773,7 @@
   window.MoteurQuiz = {
     lancer(cfg) {
       C = Object.assign({ nbQuestions: 20 }, cfg);
+      if (/^#7c3aed$/i.test(String(C.couleur || ''))) C.couleur = '#2563eb';   // ancien violet du français (charte SoccaQuiz : plus de violet)
       C.questions.forEach(q => {
         if (!q || typeof q !== 'object') return;
         Object.defineProperty(q, '_orig', { value: q, enumerable: false, configurable: true });

@@ -287,7 +287,7 @@ function nettoyerPrenom_(s) {
 function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top">' +
   '<style>' +
-  ':root{--bg:#fff8ef;--card:#fff;--ink:#2b2350;--soft:#6b6390;--line:#eadfce;--accent:#7c3aed;--ok:#15803d;--ko:#b91c1c}' +
+  ':root{--bg:#fff8ef;--card:#fff;--ink:#2a1f1a;--soft:#7a6658;--line:#eadfce;--accent:#c8102e;--ok:#15803d;--ko:#b91c1c}' +
   '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
   'main{max-width:560px;margin:0 auto;padding:20px 16px 40px}h1{font-size:1.6rem;text-align:center;margin:.2em 0}' +
   '.intro{text-align:center;color:var(--soft);margin:0 0 16px}' +

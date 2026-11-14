@@ -252,10 +252,10 @@ function servir_(html) {
 function pageEspaceParent_() {
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   return HtmlService.createHtmlOutput(
-    '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:2px solid #eadfce;border-radius:16px;background:#fff;color:#2b2350">' +
+    '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:2px solid #eadfce;border-radius:16px;background:#fff;color:#2a1f1a">' +
     '<h2 style="margin-top:0">🔒 Espace parent</h2>' +
     '<p>Cette page est réservée aux parents. Elle s\'ouvre avec le lien « Espace parent », en étant connecté au compte Google du parent.</p>' +
-    (CONFIG.urlParent ? '<p><a href="' + h(CONFIG.urlParent) + '" target="_top" style="display:inline-block;background:#7c3aed;color:#fff;border-radius:999px;padding:10px 18px;text-decoration:none;font-weight:600">🔒 Ouvrir l\'espace parent</a></p>' : '') +
+    (CONFIG.urlParent ? '<p><a href="' + h(CONFIG.urlParent) + '" target="_top" style="display:inline-block;background:#c8102e;color:#fff;border-radius:999px;padding:10px 18px;text-decoration:none;font-weight:600">🔒 Ouvrir l\'espace parent</a></p>' : '') +
     (CONFIG.urlEnfant ? '<p><a href="' + h(CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>')
     .setTitle('Espace parent').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
@@ -481,7 +481,7 @@ function apiSupprimerQuiz(nom) {
    (même structure que le quiz d'exemple) et on le range dans le dossier Drive.
    Un fichier .html complet collé tel quel est aussi accepté.
    ===================================================================== */
-const COULEURS_ = { francais: '#7c3aed', maths: '#c2410c', sciences: '#15803d', anglais: '#b91c1c',
+const COULEURS_ = { francais: '#2563eb', maths: '#c2410c', sciences: '#15803d', anglais: '#b91c1c',
   histoire: '#1d4ed8', geographie: '#0f766e', musique: '#be185d', autre: '#475569' };
 
 /* clé Gemini (gratuite, créée par la famille sur aistudio.google.com/apikey) : vérifiée par la page, gardée ici */
