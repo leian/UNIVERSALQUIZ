@@ -409,7 +409,7 @@ try {
     if (q.type === 'trous') { const t = page.locator('.ex-trou'); await t.nth(0).fill('a'); await t.nth(1).fill('était'); await page.keyboard.press('Enter'); }
     else if (q.type === 'ordre') { for (const x of q.items) await page.locator('.ex-ligne:not(.ordre) .ex-puce', { hasText: exact(x) }).click(); await page.locator('.ex-valider').click(); }
     else if (q.type === 'paires') { for (const [g, d] of q.paires) { await page.locator('.ex-col').nth(0).locator('.ex-puce', { hasText: exact(g) }).click(); await page.locator('.ex-col').nth(1).locator('.ex-puce', { hasText: exact(d) }).click(); } await page.locator('.ex-valider').click(); }
-    else if (q.type === 'classer') { for (const [gi, g] of q.groupes.entries()) for (const x of g.items) { await page.locator('.ex-ligne').first().locator('.ex-puce', { hasText: exact(x) }).click(); await page.locator('.ex-case-nom').nth(gi).click(); } await page.locator('.ex-valider').click(); }
+    else if (q.type === 'classer') { for (const [gi, g] of q.groupes.entries()) for (const x of g.items) { await page.locator('.ex-ligne').first().locator('.ex-puce', { hasText: exact(x) }).click(); const kase = page.locator('.ex-case').nth(gi), bb = await kase.boundingBox(); await kase.click({ position: { x: 8, y: bb.height - 6 } }); } await page.locator('.ex-valider').click(); }
     else if (q.type === 'cliquer') { await page.locator('.ex-motbtn', { hasText: /^dort$/ }).click(); await page.locator('.ex-motbtn', { hasText: /^ronronne$/ }).click(); await page.locator('.ex-valider').click(); }
     else if (q.type === 'nombre') { await page.fill('#ans-input', '1,41'); await page.keyboard.press('Enter'); }
     else if (q.type === 'parler') { await page.locator('.ex-puce.ok').click(); }

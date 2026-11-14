@@ -575,9 +575,9 @@
         const libres = c.repondu ? '' : s.ordre.filter(i => place[i] == null).map(i => puce(esc(tous[i].t), s.sel === i ? 'choisi' : '', 'classer-choisir', i)).join('');
         const cases = q.groupes.map((g, gi) => {
           const dedans = s.ordre.filter(i => place[i] === gi).map(i => puce(esc(tous[i].t), c.repondu ? (tous[i].gi === gi ? 'ok' : 'ko') : 'pose', 'classer-retirer', i, c.repondu)).join('');
-          return `<div class="ex-case" ${c.repondu ? '' : `onclick="if(event.target===this||event.target.classList.contains('ex-case-nom'))${ex('classer-poser', gi)}"`}><div class="ex-case-nom">${esc(g.nom)}</div><div class="ex-ligne">${dedans}</div></div>`;
+          return `<div class="ex-case" ${c.repondu ? '' : `onclick="if(!event.target.closest('.ex-puce'))${ex('classer-poser', gi)}"`}><div class="ex-case-nom">${esc(g.nom)}</div><div class="ex-ligne">${dedans}</div></div>`;
         }).join('');
-        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis la case où il va.</div>'}${libres ? `<div class="ex-ligne">${libres}</div>` : ''}<div class="ex-cases">${cases}</div>` +
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche un élément, puis la case où il va.</div>'}${libres ? `<div class="ex-ligne">${libres}</div>` : ''}<div class="ex-cases${!c.repondu && s.sel != null ? ' pret' : ''}">${cases}</div>` +
           valider(!c.repondu && Object.keys(s.place).length === tous.length, 'classer-valider');
       },
       attendu: q => q.groupes.map(g => '<b>' + esc(g.nom) + '</b> : ' + g.items.map(esc).join(', ')).join(' ; ')
