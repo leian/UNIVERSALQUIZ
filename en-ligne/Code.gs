@@ -30,16 +30,47 @@ function doGet(e) {
 
 /* ---------------- appelé par la page ---------------- */
 
-/* Ce que la page doit afficher : déjà installé ? nouvelle version ? */
+/* ---------------- plusieurs sites par compte ----------------
+   Site n° 0 = le site principal, rangé comme avant dans les propriétés de la personne (scriptId, url…).
+   Sites suivants (autre enfant, révisions d'un parent) : tableau JSON dans la propriété « autres ».
+   Chaque site a son propre projet, son dossier Drive (« SoccaQuiz – Prénom ») et son tableau des résultats. */
+const CLES_SITE = ['scriptId', 'deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'prenom', 'classe', 'classeAnnee', 'dossier'];
+const CLASSES = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle', 'adulte'];
+function autres_() { try { return JSON.parse(PropertiesService.getUserProperties().getProperty('autres') || '[]'); } catch (e) { return []; } }
+function lireSite_(n) {
+  if (n > 0) return autres_()[n - 1] || null;
+  const p = PropertiesService.getUserProperties().getProperties(), s = {};
+  CLES_SITE.forEach(k => { if (p[k]) s[k] = p[k]; });
+  return s;
+}
+function ecrireSite_(n, s) {
+  const props = PropertiesService.getUserProperties();
+  if (n > 0) { const a = autres_(); a[n - 1] = s; props.setProperty('autres', JSON.stringify(a)); return; }
+  CLES_SITE.forEach(k => { if (s[k] != null && s[k] !== '') props.setProperty(k, String(s[k])); else props.deleteProperty(k); });
+}
+function oublierSite_(n) {
+  if (n > 0) { const a = autres_(); a.splice(n - 1, 1); PropertiesService.getUserProperties().setProperty('autres', JSON.stringify(a)); }
+  else ecrireSite_(0, {});
+}
+function nSite_(n) { n = parseInt(n, 10); return isFinite(n) && n > 0 ? n : 0; }
+function anneeScolaire_(d) { d = d || new Date(); return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; }
+function nettoyerClasse_(c) { c = String(c || ''); return CLASSES.indexOf(c) >= 0 ? c : ''; }
+
+/* Ce que la page doit afficher : sites déjà installés, nouvelle version ? */
 function apiEtat() {
-  const p = PropertiesService.getUserProperties().getProperties();
   let derniere = '';
   try { derniere = moteur_().version; } catch (e) { return { erreur: e.message }; }
-  // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
-  let versions = 0;
-  if (p.scriptId) { try { versions = nbVersions_(p.scriptId); } catch (e) {} }
-  return { installe: !!p.scriptId, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere,
-    versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: p.scriptId ? lienProjet_(p.scriptId) : '' };
+  const sites = [lireSite_(0)].concat(autres_()).map((s, n) => {
+    if (!s || !s.scriptId) return null;
+    // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
+    let versions = 0; try { versions = nbVersions_(s.scriptId); } catch (e) {}
+    return { n, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: s.urlParent || '', version: s.version || '', derniere,
+      versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(s.scriptId) };
+  }).filter(Boolean);
+  const p = sites.find(x => x.n === 0) || {};
+  // champs du site principal à plat (pages et tests d'avant les sites multiples)
+  return Object.assign({ installe: !!p.url, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere,
+    versions: p.versions || 0, alerteVersions: !!p.alerteVersions, maxVersions: MAX_VERSIONS, lienProjet: p.lienProjet || '' }, { sites, classes: CLASSES });
 }
 
 /* Versions : Google en garde 200 au plus par projet, et son API ne sait pas en supprimer (seulement l'éditeur,
@@ -55,17 +86,39 @@ function nbVersions_(id) {
   return n;
 }
 function lienProjet_(id) { return 'https://script.google.com/home/projects/' + encodeURIComponent(id) + '/edit'; }
-function tropDeVersions_(id, n) { return { erreur: 'versions', versions: n, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(id) }; }
+function tropDeVersions_(id, n, site) { return { erreur: 'versions', versions: n, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(id), n: site || 0 }; }
 /* Remarque : on ne peut pas savoir à l'avance si l'interrupteur « API Google Apps Script » est activé
    (Google répond « introuvable » avant de vérifier l'interrupteur). C'est l'installation qui le dit. */
 
 /* Première installation (ou réinstallation si le projet a disparu). */
-function apiInstaller(prenom) {
+function apiInstaller(prenom, classe) {
   return avecVerrou_(() => {
-    const props = PropertiesService.getUserProperties();
-    if (props.getProperty('scriptId')) return publier_(false);
-    props.setProperty('prenom', nettoyerPrenom_(prenom));
-    return publier_(false);
+    const s = lireSite_(0);
+    if (!s.scriptId) {
+      s.prenom = nettoyerPrenom_(prenom);
+      const c = nettoyerClasse_(classe); if (c) { s.classe = c; s.classeAnnee = String(anneeScolaire_()); }
+      ecrireSite_(0, s);
+    }
+    return publier_(false, 0);
+  });
+}
+
+/* Un site de plus dans le même compte : autre enfant, ou révisions d'un parent (classe « adulte »).
+   Il a son propre dossier Drive, donc ses propres quiz et résultats. */
+function apiAjouterSite(d) {
+  return avecVerrou_(() => {
+    d = d || {};
+    const classe = nettoyerClasse_(d.classe), prenom = nettoyerPrenom_(d.prenom);
+    const tous = [lireSite_(0)].concat(autres_()).filter(Boolean);
+    let nom = 'SoccaQuiz – ' + (prenom || (classe === 'adulte' ? 'Mes révisions' : 'Site ' + (tous.length + 1))), k = 2;
+    const pris = tous.map(x => x.dossier || 'SoccaQuiz');
+    while (pris.indexOf(nom) >= 0) nom = nom.replace(/ \(\d+\)$/, '') + ' (' + (k++) + ')';
+    const a = autres_();
+    a.push({ prenom, classe, classeAnnee: classe ? String(anneeScolaire_()) : '', dossier: nom });
+    PropertiesService.getUserProperties().setProperty('autres', JSON.stringify(a));
+    const r = publier_(false, a.length);
+    if (r && r.erreur) { const b = autres_(); if (b[a.length - 1] && !b[a.length - 1].url) { b.splice(a.length - 1, 1); PropertiesService.getUserProperties().setProperty('autres', JSON.stringify(b)); } }
+    return r;
   });
 }
 
@@ -73,33 +126,34 @@ function apiInstaller(prenom) {
    puis l'installateur l'oublie. La prochaine installation créera un nouveau site, à une nouvelle adresse.
    Les quiz et les résultats (dossier Drive et Sheets) ne sont pas touchés : le nouveau site les reprend.
    Le projet Apps Script de l'ancien site reste dans le Drive (l'API ne permet pas de le supprimer). */
-function apiRecommencer() {
-  const props = PropertiesService.getUserProperties();
-  const id = props.getProperty('scriptId');
+function apiRecommencer(n) {
+  n = nSite_(n);
+  const s = lireSite_(n) || {}, id = s.scriptId;
   let desactive = false;
-  [props.getProperty('deploymentId'), props.getProperty('deploymentIdParent')].forEach(dep => {
+  [s.deploymentId, s.deploymentIdParent].forEach(dep => {
     if (!id || !dep) return;
     try { appel_('delete', '/' + id + '/deployments/' + dep); desactive = true; }
     catch (e) { if (e.code === 404) desactive = true; }      // déjà supprimé : même résultat
   });
-  props.deleteAllProperties();
-  return { ok: true, desactive };
+  oublierSite_(n);
+  return { ok: true, desactive, n };
 }
 
 /* Mise à jour : même projet, même adresse. */
-function apiMettreAJour() {
-  return avecVerrou_(() => publier_(true));
+function apiMettreAJour(n) {
+  return avecVerrou_(() => publier_(true, nSite_(n)));
 }
 
 /* ---------------- le travail ---------------- */
 
-function publier_(maj) {
-  const props = PropertiesService.getUserProperties();
+function publier_(maj, n) {
+  n = nSite_(n);
+  const site = lireSite_(n) || {};
   const moteur = moteur_();
-  const prenom = props.getProperty('prenom') || '';
-  let id = props.getProperty('scriptId');
-  let dep = props.getProperty('deploymentId');               // site de l'enfant
-  let depP = props.getProperty('deploymentIdParent');        // espace parent
+  const prenom = site.prenom || '';
+  let id = site.scriptId;
+  let dep = site.deploymentId;               // site de l'enfant
+  let depP = site.deploymentIdParent;        // espace parent
   const avait = !!dep, avaitParent = !!depP;
 
   if (id) {
@@ -107,21 +161,21 @@ function publier_(maj) {
     catch (e) { if (e.code === 404 || e.code === 403 && !/Apps Script API/i.test(e.message)) { id = null; } else throw e; }
   }
   if (!id) {
-    id = appel_('post', '', { title: 'SoccaQuiz' }).scriptId;
-    props.setProperty('scriptId', id);
-    props.deleteProperty('deploymentId'); props.deleteProperty('deploymentIdParent');
+    id = appel_('post', '', { title: n ? site.dossier || 'SoccaQuiz' : 'SoccaQuiz' }).scriptId;
+    site.scriptId = id; delete site.deploymentId; delete site.deploymentIdParent;
+    ecrireSite_(n, site);
     dep = depP = null;
   } else {
     // place pour les versions de cette mise à jour (2, ou 4 s'il manque une publication) ?
-    let n = -1; try { n = nbVersions_(id); } catch (e) {}
-    if (n >= 0 && n + 2 + (dep ? 0 : 1) + (depP ? 0 : 1) > MAX_VERSIONS) return tropDeVersions_(id, n);
+    let nb = -1; try { nb = nbVersions_(id); } catch (e) {}
+    if (nb >= 0 && nb + 2 + (dep ? 0 : 1) + (depP ? 0 : 1) > MAX_VERSIONS) return tropDeVersions_(id, nb, n);
   }
 
   // envoie le code d'un des deux espaces, en fait une version et la publie (sur sa publication existante si possible)
-  const urls = { urlEnfant: dep ? props.getProperty('url') || '' : '', urlParent: depP ? props.getProperty('urlParent') || '' : '' };
+  const urls = { urlEnfant: dep ? site.url || '' : '', urlParent: depP ? site.urlParent || '' : '' };
   const description = 'SoccaQuiz ' + moteur.version;
   function deployer(espace, depId) {
-    appel_('put', '/' + id + '/content', { files: fichiers_(moteur, prenom, { espace, urlEnfant: urls.urlEnfant, urlParent: urls.urlParent }) });
+    appel_('put', '/' + id + '/content', { files: fichiers_(moteur, prenom, { espace, urlEnfant: urls.urlEnfant, urlParent: urls.urlParent, classe: site.classe, classeAnnee: site.classeAnnee, dossier: n ? site.dossier : '' }) });
     const version = appel_('post', '/' + id + '/versions', { description: description + ' (' + espace + ')' }).versionNumber;
     const config = { versionNumber: version, manifestFileName: 'appsscript', description: description + ' – ' + (espace === 'parent' ? 'espace parent' : 'site de l\'enfant') };
     let d = null;
@@ -139,8 +193,9 @@ function publier_(maj) {
   const dE = deployer('enfant', dep), dP = deployer('parent', depP);
   const url = urlSite_(dE), urlParent = urlSite_(dP);
 
-  props.setProperties({ deploymentId: dE.deploymentId, deploymentIdParent: dP.deploymentId, url, urlParent, version: moteur.version });
-  return { ok: true, url, urlParent, version: moteur.version, maj: !!maj && avait, nouveauParent: avait && !avaitParent };
+  Object.assign(site, { deploymentId: dE.deploymentId, deploymentIdParent: dP.deploymentId, url, urlParent, version: moteur.version });
+  ecrireSite_(n, site);
+  return { ok: true, n, prenom, classe: site.classe || '', url, urlParent, version: moteur.version, maj: !!maj && avait, nouveauParent: avait && !avaitParent };
 }
 
 /* fichiers du moteur, avec le prénom écrit dans les réglages de Code.gs */
@@ -158,7 +213,10 @@ function fichiers_(moteur, prenom, espace) {
         .replace(/installateur: '[^'\n]*'/, "installateur: '" + ici + "'")
         .replace(/espace: '[^'\n]*'/, "espace: '" + (espace.espace === 'parent' ? 'parent' : espace.espace === 'enfant' ? 'enfant' : '') + "'")
         .replace(/urlEnfant: '[^'\n]*'/, "urlEnfant: '" + propre(espace.urlEnfant) + "'")
-        .replace(/urlParent: '[^'\n]*'/, "urlParent: '" + propre(espace.urlParent) + "'") }
+        .replace(/urlParent: '[^'\n]*'/, "urlParent: '" + propre(espace.urlParent) + "'")
+        .replace(/classe: '[^'\n]*'/, "classe: '" + nettoyerClasse_(espace.classe) + "'")
+        .replace(/classeAnnee: \d+/, 'classeAnnee: ' + (parseInt(espace.classeAnnee, 10) || 0))
+        .replace(/nomDossier: '[^'\n]*'/, m => espace.dossier ? "nomDossier: '" + String(espace.dossier).replace(/['\\\n]/g, '') + "'" : m) }
     : f.name === 'appsscript' && espace.espace ? { name: f.name, type: f.type, source: manifeste_(f.source, espace.espace) }
     : f);
 }
@@ -217,7 +275,7 @@ function traduire_(e) {
   const m = String(e && e.message || e);
   if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
   if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return { erreur: "L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien." };
-  if (/version/i.test(m) && /limit|200/i.test(m)) { const id = PropertiesService.getUserProperties().getProperty('scriptId'); if (id) return tropDeVersions_(id, MAX_VERSIONS); }
+  if (/version/i.test(m) && /limit|200/i.test(m)) { const id = PropertiesService.getUserProperties().getProperty('scriptId'); if (id) return tropDeVersions_(id, MAX_VERSIONS, 0); }
   return { erreur: m };
 }
 
@@ -238,7 +296,7 @@ function pageHtml_() {
   '.num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.95rem;flex:none}' +
   '.btn{display:inline-block;font:600 1rem system-ui,sans-serif;border:none;border-radius:999px;padding:12px 20px;cursor:pointer;background:var(--accent);color:#fff;text-decoration:none;margin-top:6px}' +
   '.btn.leger{background:var(--card);color:var(--ink);border:2px solid var(--line)}.btn:disabled{opacity:.6}' +
-  'input{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:6px 0}' +
+  'input,select{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--line);border-radius:12px;margin:6px 0;background:#fff;color:var(--ink)}summary.btn{list-style:none}summary.btn::-webkit-details-marker{display:none}.site h2 .cl{font-size:.85rem;font-weight:500;color:var(--soft)}' +
   '.petit{font-size:.9rem;color:var(--soft)}.ok{border-left:5px solid var(--ok);padding:10px 14px;background:#ecfdf3;border-radius:10px}' +
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
   '.actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:8px 0}.maj{background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin:10px 0}' +
@@ -255,29 +313,29 @@ function pageHtml_() {
   '<p class="petit" style="margin:6px 0 0">Déjà fait ? Passe directement à l\'étape 2.</p></div></section>' +
   '<section class="etape" id="e2"><h2><span class="num">2</span> Installe le site</h2>' +
   '<label for="prenom">Prénom de l\'enfant (facultatif)</label><input id="prenom" maxlength="40" autocomplete="off" placeholder="ex. Tom">' +
+  '<label for="classe">Classe (facultatif : le site s\'habille selon l\'âge)</label>' + choixClasse_('classe') +
   '<button class="btn" id="installer" type="button">✨ Installer mon site</button></section>' +
   '</div>' +
 
-  '<div id="deja" class="cache"><section class="etape">' +
-  '<h2 id="deja-titre">✅ Ton site est prêt</h2>' +
-  '<div id="deja-message"></div>' +
-  '<div class="actions"><a class="btn" id="lien-site" href="#">▶ Site de l\'enfant</a>' +
-  '<a class="btn leger" id="lien-parent" href="#">🔒 Espace parent</a>' +
-  '<a class="btn leger" id="mail-enfant" href="#">✉️ Envoyer le lien à mon enfant</a></div>' +
-  '<p class="petit" id="explication-espaces" style="margin:4px 0 8px"><b>Site de l\'enfant</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' +
-  '<div id="bloc-maj" class="maj cache"><p id="texte-maj" style="margin:0"></p><button class="btn" id="maj" type="button">🔄 Mettre à jour mon site</button>' +
-  '<p class="petit" style="margin:6px 0 0">Ton adresse, tes quiz et tes résultats ne changent pas.</p></div>' +
-  '<p id="info-version" class="petit"></p>' +
-  '<details class="avance"><summary>Options avancées</summary>' +
-  '<p class="petit"><a href="#" id="reinstaller">Réinstaller la dernière version</a> (si ton site fonctionne mal)</p>' +
-  '<p class="petit"><a href="#" id="recommencer">Repartir de zéro (créer un nouveau site)</a></p>' +
-  '<div id="confirmer" class="cache ko"><p><b>Ton site actuel sera désactivé :</b> son adresse ne fonctionnera plus, y compris le lien envoyé à ton enfant et tes favoris. Tu pourras ensuite installer un <b>nouveau site, qui aura une nouvelle adresse</b> (à renvoyer à ton enfant).</p><p><b>Tes quiz et tes résultats sont conservés</b> (dossier « SoccaQuiz » et tableau des résultats, dans ton Drive) : le nouveau site les reprendra automatiquement.</p>' +
-  '<button class="btn" id="oui-recommencer" type="button">Oui, désactiver mon site et repartir de zéro</button> <button class="btn leger" id="non-recommencer" type="button">Annuler</button></div>' +
-  '</details></section></div>' +
+  '<div id="deja" class="cache"><div id="sites"></div>' +
+  '<section class="etape" id="ajout"><h2>➕ Un autre site</h2>' +
+  '<p class="petit" style="margin:0 0 6px">Un site par enfant, ou un site pour tes propres révisions : chacun a ses quiz, ses résultats et son adresse.</p>' +
+  '<details id="ajout-form"><summary class="btn leger">Créer un autre site</summary>' +
+  '<label for="prenom2">Prénom</label><input id="prenom2" maxlength="40" autocomplete="off" placeholder="ex. Léa">' +
+  '<label for="classe2">Classe</label>' + choixClasse_('classe2') +
+  '<button class="btn" id="ajouter-site" type="button">✨ Créer ce site</button></details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte : personne d\'autre ne les voit.<br>Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
   '</main><script>' + scriptPage_() + '</script></body></html>';
+}
+
+/* liste des classes (le choix « adulte » = site pour les révisions d'un parent) */
+function choixClasse_(id) {
+  const groupes = [['Maternelle', 0, 3], ['Élémentaire', 3, 8], ['Collège', 8, 12], ['Lycée', 12, 15]];
+  return '<select id="' + id + '"><option value="">— Choisir —</option>' +
+    groupes.map(g => '<optgroup label="' + g[0] + '">' + CLASSES.slice(g[1], g[2]).map(c => '<option>' + c + '</option>').join('') + '</optgroup>').join('') +
+    '<optgroup label="Adulte"><option value="adulte">Pour moi (révisions d\'un adulte)</option></optgroup></select>';
 }
 
 function scriptPage_() {
@@ -314,8 +372,11 @@ function scriptPage_() {
       if (!info) { info = document.createElement('p'); info.className = 'petit info-mail'; a.parentNode.appendChild(info); }
       info.innerHTML = '✅ Lien copié. Ta messagerie ne s\'est pas ouverte ? <a href="' + h(gmailEnfant(url)) + '" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.';
     });
-    function erreur(r) {
-      if (r && r.erreur === 'versions') { $('deja-message').innerHTML = carteMenage(r, true); return; }
+    var ETAT = { sites: [] };
+    function carte(n) { return document.querySelector('.site[data-n="' + n + '"]'); }
+    function zoneMsg(n) { var c = carte(n); return c ? c.querySelector('.msg') : res; }
+    function erreur(r, n) {
+      if (r && r.erreur === 'versions') { zoneMsg(r.n != null ? r.n : n || 0).innerHTML = carteMenage(r, true); return; }
       if (r && r.erreur === 'api') {
         $('e1-alerte').innerHTML = '<div class="ko" style="margin-bottom:8px">' + h(r.message) + ' Fais cette étape, puis reviens et touche à nouveau « Installer mon site » (Google peut demander une minute).</div>';
         afficherNouveau(true);
@@ -323,50 +384,64 @@ function scriptPage_() {
         res.innerHTML = '<div class="ko">😕 ' + h((r && (r.erreur || r.message)) || r) + '</div>';
       }
     }
-    function lancer(fn, arg, bouton) {
+    // fn : apiInstaller (premier site), apiAjouterSite, apiMettreAJour (n = numéro du site)
+    function lancer(fn, arg, bouton, n) {
       var enPlace = fn === 'apiMettreAJour';          // une mise à jour s'affiche dans la carte du site, pas en dessous
-      var zone = enPlace ? $('deja-message') : res;
+      var zone = enPlace ? zoneMsg(n) : res;
       bouton.disabled = true; res.innerHTML = '';
       zone.innerHTML = '<p class="petit">' + (enPlace ? 'Mise à jour' : 'Installation') + ' en cours… (environ 30 secondes, ne ferme pas la page)</p>';
-      google.script.run
+      var appel = google.script.run
         .withSuccessHandler(function (r) {
           bouton.disabled = false;
-          if (!r || r.erreur) { zone.innerHTML = ''; return erreur(r); }
+          if (!r || r.erreur) { zone.innerHTML = ''; return erreur(r, n); }
           zone.innerHTML = ''; res.innerHTML = '';
-          afficherDeja({ url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version },
-            r.maj ? '🎉 Ton site est à jour' : '🎉 Ton site est créé !',
-            r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. L\'adresse du site de ton enfant ne change pas.</p>' +
-              (r.nouveauParent ? '<p style="margin:8px 0 0"><b>Nouveau : ton espace parent.</b> « Ajouter un quiz » et le suivi des résultats ne sont plus accessibles depuis le lien de ton enfant. Ils sont dans « 🔒 Espace parent », qui ne s\'ouvre qu\'avec ton compte Google : mets-le en favori.</p>' : '') + '</div>' : AUTORISER);
+          var s = { n: r.n || 0, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version };
+          var i = -1; ETAT.sites.forEach(function (x, k) { if (x.n === s.n) i = k; });
+          if (i >= 0) ETAT.sites[i] = s; else ETAT.sites.push(s);
+          afficherSites();
+          zoneMsg(s.n).innerHTML = r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. L\'adresse du site ne change pas.</p>' +
+              (r.nouveauParent ? '<p style="margin:8px 0 0"><b>Nouveau : ton espace parent.</b> « Ajouter un quiz » et le suivi des résultats ne sont plus accessibles depuis le lien de ton enfant. Ils sont dans « 🔒 Espace parent », qui ne s\'ouvre qu\'avec ton compte Google : mets-le en favori.</p>' : '') + '</div>' : AUTORISER;
+          var c = carte(s.n); if (c && fn !== 'apiInstaller') c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          carte(s.n).querySelector('h2 .titre').textContent = r.maj ? '🎉 ' + titreSite(s) + ' : à jour' : '🎉 ' + titreSite(s) + ' : créé !';
         })
-        .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(e && e.message); })[fn](arg);
+        .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(e && e.message, n); });
+      if (fn === 'apiInstaller') appel.apiInstaller(arg.prenom, arg.classe); else appel[fn](arg);
     }
     // Ménage des versions : Google en garde 200 au plus par site et seul l'éditeur sait les supprimer
     function carteMenage(e, bloque) {
       return '<div class="' + (bloque ? 'ko' : 'maj') + '" style="margin-bottom:10px"><p style="margin:0 0 6px"><b>🧹 Petit ménage à faire (2 minutes, plus simple sur ordinateur)</b></p>' +
-        '<p style="margin:0 0 6px">Ton site garde une copie de chaque mise à jour : il en a <b>' + h(e.versions) + ' sur ' + h(e.maxVersions || 200) + '</b> au maximum autorisé par Google. ' +
-        (bloque ? 'Il n\'y a plus de place pour la mise à jour : fais ce ménage, puis touche à nouveau « Mettre à jour mon site ».' : 'Au-delà, les mises à jour ne passeront plus.') + '</p>' +
-        '<ol style="margin:0 0 6px;padding-left:20px"><li>Ouvre le programme de ton site : <a class="btn leger" href="' + h(e.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme SoccaQuiz</a></li>' +
+        '<p style="margin:0 0 6px">Ce site garde une copie de chaque mise à jour : il en a <b>' + h(e.versions) + ' sur ' + h(e.maxVersions || 200) + '</b> au maximum autorisé par Google. ' +
+        (bloque ? 'Il n\'y a plus de place pour la mise à jour : fais ce ménage, puis touche à nouveau « Mettre à jour ».' : 'Au-delà, les mises à jour ne passeront plus.') + '</p>' +
+        '<ol style="margin:0 0 6px;padding-left:20px"><li>Ouvre le programme du site : <a class="btn leger" href="' + h(e.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme SoccaQuiz</a></li>' +
         '<li>Dans la barre de gauche, clique sur l\'horloge <b>« Historique du projet »</b>.</li>' +
         '<li>En bas à droite, clique sur la corbeille <b>« Supprimer des versions en masse »</b>.</li>' +
-        '<li>Coche <b>tout</b>, puis <b>Supprimer</b> et confirme. Les versions utilisées par ton site ne sont pas proposées : il continue de fonctionner.</li>' +
+        '<li>Coche <b>tout</b>, puis <b>Supprimer</b> et confirme. Les versions utilisées par le site ne sont pas proposées : il continue de fonctionner.</li>' +
         '<li>Reviens ici et recharge la page.</li></ol>' +
         '<p class="petit" style="margin:0">Ne modifie rien d\'autre dans le programme.</p></div>';
     }
-    function afficherDeja(e, titre, message) {
+    function titreSite(s) { return s.classe === 'adulte' ? (s.prenom ? 'Révisions de ' + s.prenom : 'Mes révisions') : s.prenom ? 'Site de ' + s.prenom : (s.n ? 'Site n° ' + (s.n + 1) : 'Ton site est prêt'); }
+    function carteSite(s, seul) {
+      var adulte = s.classe === 'adulte', aJour = !s.derniere || s.version === s.derniere;
+      return '<section class="etape site" data-n="' + s.n + '"><h2><span class="titre">✅ ' + h(titreSite(s)) + '</span>' + (s.classe && !adulte ? ' <span class="cl">' + h(s.classe) + '</span>' : '') + '</h2>' +
+        '<div class="msg">' + (s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
+        '<div class="actions"><a class="btn" href="' + h(s.url) + '">▶ ' + (adulte ? 'Mes quiz' : 'Site de l\'enfant') + '</a>' +
+        (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
+        (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '">✉️ Envoyer le lien à mon enfant</a>') + '</div>' +
+        (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>Site de l\'enfant</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
+        (aJour ? '<p class="petit">Version ' + h(s.version || '?') + ' : c\'est la dernière.</p>'
+          : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +
+            '<p class="petit" style="margin:6px 0 0">Son adresse, ses quiz et ses résultats ne changent pas.</p></div>') +
+        '<details class="avance"><summary>Options avancées</summary>' +
+        '<p class="petit"><a href="#" data-action="reinstaller">Réinstaller la dernière version</a> (si ce site fonctionne mal)</p>' +
+        '<p class="petit"><a href="#" data-action="recommencer">' + (s.n ? 'Supprimer ce site' : 'Repartir de zéro (créer un nouveau site)') + '</a></p>' +
+        '<div class="confirmer cache ko"><p><b>Ce site sera désactivé :</b> son adresse ne fonctionnera plus, y compris le lien envoyé et les favoris.' + (s.n ? '' : ' Tu pourras ensuite installer un <b>nouveau site, qui aura une nouvelle adresse</b>.') + '</p><p><b>Ses quiz et ses résultats sont conservés</b> dans ton Drive' + (s.n ? '.' : ' : le nouveau site les reprendra automatiquement.') + '</p>' +
+        '<button class="btn" data-action="oui-recommencer" type="button">Oui, désactiver ce site</button> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></div>' +
+        '</details></section>';
+    }
+    function afficherSites() {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
-      $('intro').textContent = 'Ton site de quiz, dans ton propre compte Google.';
-      $('deja-titre').textContent = titre || '✅ Ton site est prêt';
-      $('deja-message').innerHTML = (message || '') + (e.alerteVersions ? carteMenage(e, false) : '');
-      $('lien-site').href = e.url;
-      $('lien-parent').href = e.urlParent || '#';
-      $('lien-parent').style.display = e.urlParent ? '' : 'none';
-      $('explication-espaces').style.display = e.urlParent ? '' : 'none';
-      $('mail-enfant').dataset.url = e.url;
-      var aJour = !e.derniere || e.version === e.derniere;
-      $('bloc-maj').style.display = aJour ? 'none' : 'block';
-      $('texte-maj').innerHTML = '🔄 <b>Nouvelle version disponible : ' + h(e.derniere || '') + '</b>' + (e.version ? ' (tu as la ' + h(e.version) + ')' : '');
-      $('info-version').textContent = aJour ? 'Version ' + (e.version || '?') + ' : c\'est la dernière.' : '';
-      var info = document.querySelector('.info-mail'); if (info) info.remove();
+      $('intro').textContent = ETAT.sites.length > 1 ? 'Tes sites de quiz, dans ton propre compte Google.' : 'Ton site de quiz, dans ton propre compte Google.';
+      $('sites').innerHTML = ETAT.sites.map(function (s) { return carteSite(s, ETAT.sites.length === 1); }).join('');
     }
     // apiKo : l'installation vient d'échouer parce que l'interrupteur n'est pas activé → l'étape 1 est mise en avant
     function afficherNouveau(apiKo) {
@@ -375,24 +450,35 @@ function scriptPage_() {
       $('e2').className = 'etape' + (apiKo ? '' : ' active');
       if (apiKo) $('e1').scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
-    $('installer').onclick = function () { lancer('apiInstaller', $('prenom').value, $('installer')); };
-    $('maj').onclick = function () { lancer('apiMettreAJour', null, $('maj')); };
-    $('reinstaller').onclick = function (ev) { ev.preventDefault(); lancer('apiMettreAJour', null, $('maj')); };
-    $('recommencer').onclick = function (ev) { ev.preventDefault(); $('confirmer').style.display = 'block'; };
-    $('non-recommencer').onclick = function () { $('confirmer').style.display = 'none'; };
-    $('oui-recommencer').onclick = function () {
-      google.script.run.withSuccessHandler(function (r) {
-        $('confirmer').style.display = 'none'; $('deja').style.display = 'none'; afficherNouveau(false);
-        $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
-        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>' + (r && r.desactive ? '✅ Ton ancien site est désactivé : son adresse ne fonctionne plus.' : '✅ C\'est reparti de zéro.') + '</b> Tes quiz et tes résultats sont conservés.</p>' +
-          '<p class="petit" style="margin:0">Il reste un fichier « SoccaQuiz » (le programme de l\'ancien site) sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus. Installe maintenant ton nouveau site ci-dessus.</p></div>';
-      }).withFailureHandler(function (e) { erreur(e && e.message); }).apiRecommencer();
+    $('installer').onclick = function () { lancer('apiInstaller', { prenom: $('prenom').value, classe: $('classe').value }, $('installer'), 0); };
+    $('ajouter-site').onclick = function () {
+      if (!$('prenom2').value.trim() && $('classe2').value !== 'adulte') { res.innerHTML = '<div class="ko">Indique le prénom de l\'enfant (ou choisis « Pour moi » dans la classe).</div>'; return; }
+      lancer('apiAjouterSite', { prenom: $('prenom2').value, classe: $('classe2').value }, $('ajouter-site'));
+      $('ajout-form').open = false; $('prenom2').value = '';
     };
+    $('sites').addEventListener('click', function (ev) {
+      var b = ev.target.closest('[data-action]'); if (!b) return;
+      var c = b.closest('.site'), n = +c.dataset.n, a = b.dataset.action;
+      ev.preventDefault();
+      if (a === 'maj' || a === 'reinstaller') lancer('apiMettreAJour', n, b, n);
+      else if (a === 'recommencer') c.querySelector('.confirmer').style.display = 'block';
+      else if (a === 'non-recommencer') c.querySelector('.confirmer').style.display = 'none';
+      else if (a === 'oui-recommencer') google.script.run.withSuccessHandler(function (r) {
+        ETAT.sites = ETAT.sites.filter(function (x) { return x.n !== n; }).map(function (x) { return x.n > n && n > 0 ? Object.assign({}, x, { n: x.n - 1 }) : x; });
+        var principal = ETAT.sites.some(function (x) { return x.n === 0; });
+        if (ETAT.sites.length) afficherSites(); else $('deja').style.display = 'none';
+        if (!principal) { afficherNouveau(false); $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.'; }
+        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>' + (r && r.desactive ? '✅ Le site est désactivé : son adresse ne fonctionne plus.' : '✅ C\'est fait.') + '</b> Ses quiz et ses résultats sont conservés.</p>' +
+          '<p class="petit" style="margin:0">Il reste son programme « SoccaQuiz » sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus.' + (principal ? '' : ' Installe maintenant ton nouveau site ci-dessus.') + '</p></div>';
+      }).withFailureHandler(function (e) { erreur(e && e.message, n); }).apiRecommencer(n);
+    });
     google.script.run
       .withSuccessHandler(function (e) {
         $('chargement').style.display = 'none';
         if (e && e.erreur) { $('nouveau').style.display = 'block'; return erreur(e); }
-        if (e.installe) afficherDeja(e); else afficherNouveau(false);
+        ETAT.sites = e.sites || [];
+        if (ETAT.sites.length) afficherSites();
+        if (!e.installe) afficherNouveau(false);
       })
       .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(e && e.message); })
       .apiEtat();

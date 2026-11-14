@@ -138,7 +138,8 @@ function installer_() {
     dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
     if (!dossier) {
       const it = DriveApp.getRootFolder().getFoldersByName(CONFIG.nomDossier);
-      const ancien = it.hasNext() ? null : DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER);
+      // l'ancien dossier « Universal Quiz » n'est repris que par le site principal (les autres sites ont leur propre dossier)
+      const ancien = it.hasNext() || CONFIG.nomDossier !== 'SoccaQuiz' ? { hasNext: () => false } : DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER);
       dossier = it.hasNext() ? it.next() : ancien.hasNext() ? ancien.next() : DriveApp.createFolder(CONFIG.nomDossier);
       props.setProperty('DOSSIER', dossier.getId());
       if (!contientHtml_(dossier)) {

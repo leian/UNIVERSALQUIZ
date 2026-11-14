@@ -141,6 +141,29 @@ const sid = userProps.scriptId, did = userProps.deploymentId, didP = userProps.d
 r = ctx.apiRecommencer();
 ok(r.desactive && !(did in projets[sid].deploiements) && !(didP in projets[sid].deploiements) && !ctx.apiEtat().installe, 'bouton « Repartir de zéro » : ancien site désactivé (déploiement supprimé), l\'installateur l\'oublie');
 
+// 6 bis. plusieurs sites dans le même compte : un autre enfant, puis les révisions d'un parent
+r = ctx.apiInstaller('Tom', 'CE1');
+const principal = { id: userProps.scriptId, url: r.url };
+ok(r.ok && /classe: 'CE1',/.test(projets[principal.id].contenu.find(f => f.name === 'Code').source) && /classeAnnee: 20\d\d/.test(projets[principal.id].contenu.find(f => f.name === 'Code').source)
+  && /nomDossier: 'SoccaQuiz',/.test(projets[principal.id].contenu.find(f => f.name === 'Code').source), 'installation : la classe est écrite dans le site, dossier « SoccaQuiz » pour le site principal');
+const avantAjout = Object.keys(projets).length;
+let r2 = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
+const a1 = JSON.parse(userProps.autres)[0], codeLea = projets[a1.scriptId].contenu.find(f => f.name === 'Code').source;
+ok(r2.ok && r2.n === 1 && Object.keys(projets).length === avantAjout + 1 && projets[a1.scriptId].titre === 'SoccaQuiz – Léa' && /nomDossier: 'SoccaQuiz – Léa',/.test(codeLea) && /classe: '6e',/.test(codeLea) && /prenom: 'Léa',/.test(codeLea)
+  && userProps.scriptId === principal.id && r2.url !== principal.url, 'autre site : nouveau projet « SoccaQuiz – Léa », son propre dossier, sa classe ; le site principal est intact');
+let r3 = ctx.apiAjouterSite({ prenom: '', classe: 'adulte' });
+const a2 = JSON.parse(userProps.autres)[1];
+ok(r3.ok && r3.n === 2 && a2.dossier === 'SoccaQuiz – Mes révisions' && /classe: 'adulte',/.test(projets[a2.scriptId].contenu.find(f => f.name === 'Code').source), 'site pour moi : dossier « SoccaQuiz – Mes révisions », classe adulte');
+e = ctx.apiEtat();
+ok(e.sites.length === 3 && e.sites.map(x => x.n).join() === '0,1,2' && e.sites[1].prenom === 'Léa' && e.sites[2].classe === 'adulte' && e.installe && e.url === principal.url, 'état : les trois sites sont listés, le site principal reste aux champs habituels');
+const verLea = projets[a1.scriptId].versions;
+r = ctx.apiMettreAJour(1);
+ok(r.ok && r.maj && r.n === 1 && projets[a1.scriptId].versions === verLea + 2 && r.url === r2.url, 'mise à jour d\'un autre site : son projet seulement, même adresse');
+r = ctx.apiRecommencer(1);
+e = ctx.apiEtat();
+ok(r.desactive && e.sites.length === 2 && e.sites[1].classe === 'adulte' && e.sites[1].n === 1 && e.installe, 'suppression d\'un autre site : désactivé, les autres sites sont gardés et renumérotés');
+ctx.doGet({ parameter: { recommencer: '1' } });
+
 // 7. la page : HTML complet et script valide
 const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
