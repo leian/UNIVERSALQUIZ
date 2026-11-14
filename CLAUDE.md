@@ -26,7 +26,7 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 - Un nouveau fichier `moteur/commun/xxx.js` doit être déclaré dans `construire.mjs` (`COMMUN`) et dans `src/Code.gs` (`COMMUN`).
 
 ## Fabriquer un quiz pour quelqu'un
-Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie`, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `G|texte à [trous]|…`, `O|consigne|1|2|3`, `A|consigne|a=b|c=d`, `C|consigne|Cat: a;b|Cat: c;d`, `X|consigne|phrase à *mots*|…`, `N|question|valeur|tolérance|…`, `P|consigne|phrase à dire`, `K|consigne|C4 D4 E4`, `M|…`) décrit dans les consignes pour l'IA (`src/consignes.txt`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
+Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie|emoji`, champ `img=emoji` sur une question, `Q|question|bonne|faux|faux|explication`, `V|…|V|…`, `S|…|réponse;variante|…`, `G|texte à [trous]|…`, `O|consigne|1|2|3`, `A|consigne|a=b|c=d`, `C|consigne|Cat: a;b|Cat: c;d`, `X|consigne|phrase à *mots*|…`, `N|question|valeur|tolérance|…`, `P|consigne|phrase à dire`, `K|consigne|C4 D4 E4`, `M|…`) décrit dans les consignes pour l'IA (`src/consignes.txt`), qu'il colle sur son site. Ce format a été choisi pour coûter le moins de tokens possible à l'utilisateur : garde les consignes courtes. L'ancien JSON reste accepté par `apiAjouterQuiz`. Sinon, prends `src/exemple-quiz.html` comme modèle et produis un seul fichier `.html` :
 - garde telles quelles les lignes `<link href="commun/moteur-quiz.css">` et `<script src="commun/…">` ;
 - garde l'appel `MoteurQuiz.lancer({ titre, sousTitre, icone, matiere, couleur, questions, … })` ;
 - `matiere` vaut `francais`, `maths`, `sciences`, `anglais`, `histoire`, `geographie`, `musique` ou `autre` ;
@@ -34,7 +34,8 @@ Le plus simple pour l'utilisateur : le format en lignes (`T|…`, `## catégorie
 - ne pose que des questions dont la réponse découle de la leçon, chacune avec une catégorie (`cat`) et une explication (`exp`) ;
 - n'interroge que sur ce que la leçon veut faire apprendre, jamais sur un simple support (l'âge du personnage d'une phrase d'exemple dans une leçon sur le verbe BE, les nombres d'un exemple corrigé) ; dans un récit ou un compte rendu de lecture, en revanche, personnages et événements comptent ; une seule question par fait, réparties entre toutes les notions ;
 - chaque question se comprend sans la leçon sous les yeux : jamais « dans le bilan », « l'exemple donné », « d'après le document » ;
-- `icone` illustre le thème précis, `badge` est un autre emoji, gagné à 100 % ;
+- `icone` illustre le thème précis, `badge` est un autre emoji du thème (jamais ⭐, remplacé par l'icône), gagné à 100 % ;
+- image en haut des questions : `icones: { 'Catégorie': '✂️' }` et `img: '🐘'` sur une question, dessinés en Twemoji (jsDelivr), sans coût en tokens ;
 - anglais : `dire: 'phrase'` sur une question ajoute les boutons « Écouter » et « Lentement » (`langue` pour une autre langue) ;
 - musique : `notes: ['C4', 'E4']` joue les notes (C4 = do du milieu), `portee: true` les dessine aussi, `portee: 'seule'` les dessine sans les jouer.
 

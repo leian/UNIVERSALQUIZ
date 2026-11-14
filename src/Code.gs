@@ -349,7 +349,7 @@ function lireMeta_(html, nom, cree) {
   return {
     titre: titre.slice(0, 120),
     matiere: MATIERES[matiere] ? matiere : 'autre',
-    badge: champ('badge') || champ('icone') || '',
+    badge: (/^(⭐|🌟|✨)?$/u.test(champ('badge')) && champ('icone')) || champ('badge') || '',
     description: [sous, nb ? nb + ' questions' : ''].filter(Boolean).join(' · ').slice(0, 200),
     date: dateDepuisNom_(nom) || jour_(cree)
   };
@@ -515,6 +515,8 @@ function apiAjouterQuiz(texte) {
     const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
     if (!base.q && type !== 'trous') return;
     // écoute : phrase lue à voix haute (anglais…) et notes de musique
+    const img = emoji_(q.img || q.image);
+    if (img) base.img = img;
     const dire = txt(q.dire || q.ecoute || q.audio, 300);
     if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
     if (Array.isArray(q.notes) && type !== 'clavier') {
@@ -594,11 +596,17 @@ function apiAjouterQuiz(texte) {
   if (matiere === 'mathematiques') matiere = 'maths';
   if (!MATIERES[matiere]) matiere = 'autre';
   const memo = (Array.isArray(d.memo) ? d.memo : []).map(x => txt(x, 200)).filter(Boolean).slice(0, 12);
+  // un emoji par catégorie, dessiné en haut des questions qui n'ont pas leur propre image
+  const icones = {};
+  if (d.icones && typeof d.icones === 'object') Object.keys(d.icones).slice(0, 20).forEach(k => { const e = emoji_(d.icones[k]); if (e) icones[txt(k, 60)] = e; });
+  const icone = emoji_(d.icone || d.emoji) || MATIERES[matiere].emo;
+  // badge : un emoji propre au thème ; l'étoile générique (souvent recopiée de l'exemple) laisse la place à l'icône du quiz
+  let badge = emoji_(d.badge);
+  if (!badge || /^(⭐|🌟|✨)$/u.test(badge)) badge = icone;
   const html = fabriquerQuizHtml_({
     titre, matiere,
     sousTitre: txt(d.sousTitre || d.sous_titre || d.niveau, 150),
-    icone: txt(d.icone || d.emoji, 8) || MATIERES[matiere].emo,
-    badge: txt(d.badge, 8),
+    icone, badge, icones,
     langueAudio: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(txt(d.langueAudio || d.langue, 10)) ? txt(d.langueAudio || d.langue, 10) : '',
     couleur: COULEURS_[matiere], questions, memo
   });
@@ -613,22 +621,33 @@ function apiAjouterQuiz(texte) {
      Q|question|bonne réponse|faux|faux|explication
      V|affirmation|V ou F|explication            S|question|réponse;variante|explication
      M|point à retenir
-   Champs nommés possibles n'importe où : dire=…, notes=C4 E4 C4+E4+G4, portee, portee=seule, indice=…, langue=…
+   ## Catégorie|emoji : l'emoji illustre les questions de la catégorie.
+   Champs nommés possibles n'importe où : dire=…, img=emoji, notes=C4 E4 C4+E4+G4, portee, portee=seule, indice=…, langue=…
    Renvoie null si le texte n'est pas dans ce format (on essaie alors le JSON). */
+/* un emoji seul (ou une petite séquence), sans lettre ni balise ; sinon '' */
+function emoji_(v) {
+  const s = String(v == null ? '' : v).trim().slice(0, 16);
+  return s && /\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(s) && !/[\p{L}\p{N}<>"'&|]/u.test(s.replace(/[\u{1F1E6}-\u{1F1FF}]/gu, '')) ? s : '';
+}
+
 function lireFormatLignes_(texte) {
-  const d = { questions: [], memo: [] };
+  const d = { questions: [], memo: [], icones: {} };
   let cat = '', vu = false;
   String(texte).split(/\r?\n/).forEach(brute => {
     const l = brute.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)?/, '').trim();
     const titreCat = l.match(/^#{2,}\s*(.+)$/);
-    if (titreCat) { cat = titreCat[1].replace(/[#*]/g, '').trim(); return; }
+    if (titreCat) {                             // ## Catégorie|✂️ : l'emoji illustre ses questions
+      const [nom, ico] = titreCat[1].split('|').map(s => s.replace(/[#*]/g, '').trim());
+      cat = nom; if (ico) d.icones[cat] = ico;
+      return;
+    }
     const m = l.match(/^([TQVSMGOACXNPK])\s*[|:]\s*(.*)$/i);
     if (!m) return;
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
     const extra = {}, pos = [];
     champs.forEach(c => {
-      const k = c.match(/^(dire|notes|portee|portée|indice|langue)\s*(?:[=:]\s*(.*))?$/i);
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img)\s*(?:[=:]\s*(.*))?$/i);
       if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2] == null ? true : k[2].trim();
       else pos.push(c);
     });
@@ -667,6 +686,7 @@ function lireFormatLignes_(texte) {
       Object.assign(q, { type: 'saisie', ans: String(pos[1] || '').split(';').map(s => s.trim()).filter(Boolean), exp: pos[2] || '' });
     }
     if (typeof extra.dire === 'string') q.dire = extra.dire;
+    if (typeof extra.img === 'string') q.img = extra.img;
     if (typeof extra.langue === 'string') q.langue = extra.langue;
     if (typeof extra.indice === 'string') q.hint = extra.indice;
     if (typeof extra.notes === 'string' && q.type !== 'clavier') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
@@ -687,6 +707,7 @@ function fabriquerQuizHtml_(c) {
     nbQuestions: Math.min(20, c.questions.length), questions: c.questions, memo: memoHtml
   };
   if (c.badge) cfg.badge = c.badge;
+  if (c.icones && Object.keys(c.icones).length) cfg.icones = c.icones;
   if (c.langueAudio) cfg.langueAudio = c.langueAudio;
   const pills = [];
   if (c.questions.some(q => q.dire)) pills.push('🔊 Phrases à écouter');

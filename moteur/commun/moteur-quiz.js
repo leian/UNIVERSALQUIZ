@@ -107,9 +107,17 @@
     r.setProperty('--main', c); r.setProperty('--main-dark', mix(c, 0.25, [0, 0, 0]));
     r.setProperty('--main-bg', mix(c, 0.95)); r.setProperty('--main-light', mix(c, 0.85)); r.setProperty('--main-border', mix(c, 0.6));
   }
+  // Emoji dessiné (Twemoji, libre de droits, servi gratuitement par jsDelivr) : même rendu sur tous les appareils ;
+  // si l'image ne vient pas (hors ligne), l'emoji du téléphone prend sa place.
+  const codeEmoji = e => { const cps = [...String(e)].map(c => c.codePointAt(0).toString(16)); return (cps.includes('200d') ? cps : cps.filter(c => c !== 'fe0f')).join('-'); };
+  const emojiImg = (e, cls) => e ? `<img class="emo ${cls || ''}" src="https:\/\/cdn.jsdelivr.net/npm/@twemoji/svg@15.0.0/${codeEmoji(e)}.svg" alt="${esc(e)}" draggable="false" onerror="const s=document.createElement('span');s.className=this.className;s.textContent=this.alt;this.replaceWith(s)">` : '';
   function visuel(q) {
     const svg = (C.figure && C.figure(q)) || q.svg || (C.illustrations && C.illustrations[q.cat]);
-    return svg ? `<div class="fig-box">${svg}</div>` : `<div class="deco-box">${C.deco || DECO_DEFAUT}</div>`;
+    if (svg) return `<div class="fig-box">${svg}</div>`;
+    // image de la question (img=🐘) ou, à défaut, emoji de sa catégorie (## Catégorie|✂️)
+    const ico = C.icones && C.icones[q.cat], emo = q.img || ico;
+    if (emo) return `<div class="emo-box">${C.deco || DECO_DEFAUT}${emojiImg(emo, 'emo-grand')}${q.img && ico && ico !== q.img ? emojiImg(ico, 'emo-coin') : ''}</div>`;
+    return `<div class="deco-box">${C.deco || DECO_DEFAUT}</div>`;
   }
   const appli = () => document.getElementById('app');
 
@@ -143,7 +151,7 @@
     appli().innerHTML = `
       <div class="start-card">
         <div class="start-top">${MES_QUIZ}</div>
-        <div class="start-icon">${C.icone || '📝'}</div>
+        <div class="start-icon">${emojiImg(C.icone || '📝')}</div>
         <div class="start-title">${C.titre}</div>
         <div class="start-subtitle">${C.sousTitre || ''}</div>
         <div class="start-infos">${pills.map(p => `<span class="info-pill">${p}</span>`).join('')}</div>

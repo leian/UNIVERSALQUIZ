@@ -41,6 +41,14 @@
   .fig-box svg { width: 100%; height: auto; max-height: 250px; display: block; }
   .deco-box { width: 100%; height: 90px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--main-bg); }
   .deco-box svg { width: 100%; height: 90px; display: block; }
+  .emo { width: 1em; height: 1em; vertical-align: -0.12em; }
+  span.emo { width: auto; height: auto; }
+  .emo-box { position: relative; width: 100%; height: 120px; border-radius: 10px; overflow: hidden; margin-bottom: 1rem; background: var(--main-bg); display: flex; align-items: center; justify-content: center; }
+  .emo-box > svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+  .emo-box .emo-grand { position: relative; font-size: 84px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.15)); animation: emo-flotte 3.5s ease-in-out infinite; }
+  .emo-box .emo-coin { position: absolute; right: 12px; bottom: 10px; font-size: 30px; opacity: .55; }
+  @keyframes emo-flotte { 0%, 100% { transform: translateY(0) rotate(-3deg); } 50% { transform: translateY(-6px) rotate(3deg); } }
+  @media (prefers-reduced-motion: reduce) { .emo-box .emo-grand { animation: none; } }
   .question-text { font-size: 18px; font-weight: 600; color: #111; margin-bottom: 1.25rem; line-height: 1.6; }
   .options-grid { display: flex; flex-direction: column; gap: 8px; }
   .opt-btn { background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 10px; padding: 12px 16px; text-align: left; font-size: 16px; color: #111; cursor: pointer; transition: background 0.15s; display: flex; align-items: center; gap: 10px; width: 100%; line-height: 1.5; }

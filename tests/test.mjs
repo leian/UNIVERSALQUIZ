@@ -139,9 +139,9 @@ try {
   await page.evaluate(() => { document.getElementById('secours').open = true; });
   await page.fill('#reponse', [
     'Voici le quiz :', '```', 'T|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐',
-    '## Formes contractées', 'Q|He is = ?|He\'s|His|He\'m|He is se contracte en He\'s.',
+    '## Formes contractées|✂️', 'Q|He is = ?|He\'s|His|He\'m|He is se contracte en He\'s.',
     'V|We are se contracte en We\'re.|V|We are → We\'re.',
-    '## Conjugaison', 'S|Complète : They ___ happy.|are|Avec they, on emploie are.',
+    '## Conjugaison', 'S|Complète : They ___ happy.|are|Avec they, on emploie are.|img=😄',
     'S|Quel organe pompe le sang ?|le cœur|C\'est le cœur.',
     'Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Explication.|dire=Are you happy?',
     'V|Le son monte.|F|Il descend.|notes=G4 C4+E4 E4|portee',
@@ -154,8 +154,9 @@ try {
   await page.waitForURL(/page=quiz_le-verbe-be_/);
   const html = await page.content();
   ok(/"cat":"Formes contractées"/.test(html) && /"a":"He's"/.test(html) && /"dire":"Are you happy\?"/.test(html)
-     && /"notes":\["G4",\["C4","E4"\],"E4"\],"portee":true/.test(html) && /"ans":\["le cœur","cœur"\]/.test(html) && /"badge":"⭐"/.test(html),
-    'format en lignes : catégories, bonne réponse, écoute, notes, article facultatif, badge');
+     && /"notes":\["G4",\["C4","E4"\],"E4"\],"portee":true/.test(html) && /"ans":\["le cœur","cœur"\]/.test(html) && /"badge":"🇬🇧"/.test(html)
+     && /"icones":\{"Formes contractées":"✂️"\}/.test(html) && /"img":"😄"/.test(html),
+    'format en lignes : catégories, bonne réponse, écoute, notes, article facultatif, badge (⭐ remplacé par l\'icône), emoji de catégorie, image');
   ok(!!(await jouer()), 'format en lignes : le quiz se joue jusqu\'au résultat');
   // bouton unique « Coller et créer » : lit le presse-papiers
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
