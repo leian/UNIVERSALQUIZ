@@ -22,7 +22,7 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 ## Avant chaque commit
 - Lance `node tests/test.mjs` : il construit le projet, simule Google et joue un quiz dans Chrome. Tout doit être vert.
 - Un fichier de `moteur/commun/` est inséré dans une balise `<script>` : il ne doit jamais contenir `</script`.
-- Dans un script, une adresse `https://…` s'écrit entre apostrophes (`'https://…'`) ou dans un gabarit (`` `…` ``), jamais entre guillemets droits : Google Apps Script la casse (SyntaxError sur le vrai site, invisible dans la simulation). Le test le vérifie.
+- Dans le code d'un script (pages de `moteur/`, `src/`, fichiers de `moteur/commun/`), une adresse s'écrit `https:\/\/…`, jamais `https://…`, même entre apostrophes ou dans un gabarit : Google Apps Script retire ce qu'il prend pour des commentaires `//` avec un découpage naïf, ce qui casse la page sur le vrai site (SyntaxError invisible dans la simulation). Le test le vérifie.
 - Un nouveau fichier `moteur/commun/xxx.js` doit être déclaré dans `construire.mjs` (`COMMUN`) et dans `src/Code.gs` (`COMMUN`).
 
 ## Fabriquer un quiz pour quelqu'un

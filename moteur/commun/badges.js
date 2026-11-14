@@ -43,7 +43,7 @@
   function svgBadge(q, uid) {
     const c = COUL[q.matiere] || COUL.autre;
     const id = 'bp' + uid;
-    return `<svg viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    return `<svg viewBox="0 0 100 100" xmlns="http:\/\/www.w3.org/2000/svg" aria-hidden="true">
       <defs>
         <radialGradient id="${id}a" cx="50%" cy="35%" r="65%"><stop offset="0" stop-color="#fff"/><stop offset="1" stop-color="#fdf3dc"/></radialGradient>
         <linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${c}" stop-opacity=".8"/><stop offset="1" stop-color="${c}"/></linearGradient>

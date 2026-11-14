@@ -58,15 +58,18 @@ async function jouer() {
   return page.locator('.result-score').innerText();
 }
 
-// Google Apps Script casse les adresses « "https://…" » écrites entre guillemets droits dans un script
-// (« Invalid or unexpected token » sur le vrai site, pas dans la simulation) : elles doivent être entre apostrophes
+// Google Apps Script retire ce qu'il prend pour des commentaires « // » dans les scripts, avec un découpage naïf
+// qui se trompe sur les chaînes : une adresse « https://… » écrite telle quelle dans le code peut être coupée
+// (« Invalid or unexpected token » sur le vrai site, pas dans la simulation). On écrit donc « https:\/\/… ».
 {
   const fautifs = [];
   for (const dossier of ['moteur', 'moteur/commun', 'src']) for (const f of readdirSync(join(RACINE, dossier))) {
     if (!/\.(html|js)$/.test(f)) continue;
-    readFileSync(join(RACINE, dossier, f), "utf8").split('\n').forEach((l, i) => { if (/(?:[(,+?]|=\s|:\s)\s*"https?:\/\//.test(l)) fautifs.push(dossier + '/' + f + ':' + (i + 1)); });
+    const s = readFileSync(join(RACINE, dossier, f), 'utf8');
+    const blocs = f.endsWith('.js') ? [s] : [...s.matchAll(/<script>([\s\S]*?)<\/script>/g)].map(m => m[1]);
+    blocs.forEach(b => b.split('\n').forEach(l => { const t = l.trim(); if (l.includes('://') && !/^(\/\/|\*|\/\*)/.test(t)) fautifs.push(dossier + '/' + f + ' : ' + t.slice(0, 60)); }));
   }
-  ok(!fautifs.length, 'aucune adresse « "https://…" » entre guillemets droits dans les scripts' + (fautifs.length ? ' — ' + fautifs.join(', ') : ''));
+  ok(!fautifs.length, 'aucune adresse « :// » écrite telle quelle dans le code des scripts' + (fautifs.length ? ' — ' + fautifs.join(' | ') : ''));
 }
 
 try {

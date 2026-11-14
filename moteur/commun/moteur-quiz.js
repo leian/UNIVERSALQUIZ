@@ -60,9 +60,9 @@
 (function () {
   let C, state = 'start', shuffled, cur, answers, selected, nbChoisi, lastKey = null;
   const NUMS = ['1', '2', '3', '4', '5', '6', '7', '8'];
-  const MES_QUIZ = `<a class="btn-myquiz" href="index.html"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="20" height="20" alt="" style="vertical-align:middle;border-radius:4px"> SoccaQuiz</a>`;
+  const MES_QUIZ = `<a class="btn-myquiz" href="index.html"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="20" height="20" alt="" style="vertical-align:middle;border-radius:4px"> SoccaQuiz</a>`;
 
-  const DECO_DEFAUT = `<svg viewBox="0 0 640 90" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
+  const DECO_DEFAUT = `<svg viewBox="0 0 640 90" xmlns="http:\/\/www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice">
     <rect width="640" height="90" fill="var(--main-bg)"/>
     <circle cx="80" cy="45" r="28" fill="var(--main-light)"/><circle cx="560" cy="45" r="22" fill="var(--main-light)"/>
     <rect x="250" y="25" width="140" height="40" rx="20" fill="var(--main-light)"/>
@@ -270,7 +270,7 @@
       s += p < 4 ? `<line x1="${x + 8.6}" x2="${x + 8.6}" y1="${y - 2}" y2="${y - 44}" stroke="#1e293b" stroke-width="2"/>`
                  : `<line x1="${x - 8.6}" x2="${x - 8.6}" y1="${y + 2}" y2="${y + 44}" stroke="#1e293b" stroke-width="2"/>`;
     }));
-    return `<div class="portee"><svg viewBox="0 0 ${Math.max(440, x0 + dx * seq.length + 30)} 150" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Portée en clé de sol">${s}</svg></div>`;
+    return `<div class="portee"><svg viewBox="0 0 ${Math.max(440, x0 + dx * seq.length + 30)} 150" xmlns="http:\/\/www.w3.org/2000/svg" role="img" aria-label="Portée en clé de sol">${s}</svg></div>`;
   }
   function blocEcoute(q, repondu) {
     let h = '';

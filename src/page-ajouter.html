@@ -112,7 +112,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   // consignes : une seule source, src/consignes.txt, insérée ici à la construction et publiée sur GitHub Pages
   const CONSIGNES = '__CONSIGNES__';
-  const URL_CONSIGNES = 'https://leian.github.io/UNIVERSALQUIZ/consignes/__CONSIGNES_ID__.txt';
+  const URL_CONSIGNES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/consignes/__CONSIGNES_ID__.txt';
   const demande = () => {
     const classe = $('classe').value.trim();
     return `Crée un quiz de révision de ${$('nb').value} questions${classe ? ' pour un élève de ' + classe : ''} à partir des photos de leçon jointes`;
@@ -182,7 +182,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   $('creer').addEventListener('click', () => creer($('reponse').value, $('resultat'), $('creer')));
 
   /* ---------- Gemini : les photos partent du navigateur vers Google, la clé est gardée par le site ---------- */
-  const API_GEMINI = 'https://generativelanguage.googleapis.com/v1beta/models/';
+  const API_GEMINI = 'https:\/\/generativelanguage.googleapis.com/v1beta/models/';
   const MODELES = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
   let cle = U.gemini || '', photos = [];
   function etatGemini() {
@@ -281,7 +281,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     try { const m = JSON.parse(localStorage.getItem('uq.maj') || 'null'); if (m && Date.now() - m.t < 864e5) derniere = m.v; } catch (e) {}
     if (!derniere) {
       try {
-        const r = await fetch('https://api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
+        const r = await fetch('https:\/\/api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
         if (!r.ok) return;
         derniere = (await r.json()).tag_name || '';
         try { localStorage.setItem('uq.maj', JSON.stringify({ t: Date.now(), v: derniere })); } catch (e) {}
