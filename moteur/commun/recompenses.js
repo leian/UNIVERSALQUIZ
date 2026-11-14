@@ -880,7 +880,10 @@ function fireworks() {
   canvas.height = Math.round(height*dpr);
   ctx.setTransform(dpr,0,0,dpr,0,0);
 
-  const colors = ['#e45c81','#e89445','#eac056','#25a69d','#6d92d8','#9570c8'];
+  let colors = ['#e45c81','#e89445','#eac056','#25a69d','#6d92d8','#9570c8'];
+  // saison (posée par le serveur) : confettis à ses couleurs, mêlés aux couleurs habituelles
+  const cs = getComputedStyle(document.documentElement), saison = ['--s1','--s2','--s3'].map(v => cs.getPropertyValue(v).trim()).filter(Boolean);
+  if (saison.length) colors = saison.concat(saison, colors.slice(0, 2));
   const calm = quizMotion.matches;
   const duration = calm ? 420 : 1500;
   const speedScale = Math.min(1,width/520);

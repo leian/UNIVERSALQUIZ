@@ -79,6 +79,7 @@ const MATIERES = {
    ===================================================================== */
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';     // …/exec?saison=noel : aperçu d'une saison
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
@@ -215,7 +216,10 @@ function assembler_(html, page, inst) {
     version: CONFIG.version,
     installateur: CONFIG.installateur,
     classe: classe_(),
-    classes: CLASSES
+    classes: CLASSES,
+    saison: saison_(),
+    saisonDuJour: saisonDe_(),
+    saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1'
   };
   cfg.theme = themeDe_(cfg.classe);
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
@@ -229,7 +233,7 @@ function assembler_(html, page, inst) {
 
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
   const styleTheme = (cfg.theme === 'lecteurs' ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap">\n' : '') + lib_(COMMUN['themes.css'], false);
-  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"');
+  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
   html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
@@ -509,6 +513,42 @@ function apiClasse(d) {
   else { p.deleteProperty('CLASSE'); p.deleteProperty('CLASSE_ANNEE'); }
   const classe = classe_();
   return { ok: true, classe, theme: themeDe_(classe) };
+}
+
+/* ---------------- saisons ----------------
+   Décor de saison ajouté au thème d'âge (frise, couleurs, petite animation) : <html data-saison="…">.
+   Le parent peut l'éteindre dans Réglages (propriété SAISON_OFF). */
+const SAISONS = ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'];
+let SAISON_FORCEE = '';
+function paques_(an) {                      // dimanche de Pâques (algorithme de Meeus)
+  const a = an % 19, b = Math.floor(an / 100), c = an % 100, d = Math.floor(b / 4), e = b % 4, f = Math.floor((b + 8) / 25), g = Math.floor((b - f + 1) / 3);
+  const h = (19 * a + b - d - g + 15) % 30, i = Math.floor(c / 4), k = c % 4, l = (32 + 2 * e + 2 * i - h - k) % 7, m = Math.floor((a + 11 * h + 22 * l) / 451);
+  const mois = Math.floor((h + l - 7 * m + 114) / 31), jour = ((h + l - 7 * m + 114) % 31) + 1;
+  return new Date(an, mois - 1, jour);
+}
+function saisonDe_(d) {
+  d = d || new Date();
+  const jour = new Date(d.getFullYear(), d.getMonth(), d.getDate()), mmjj = (d.getMonth() + 1) * 100 + d.getDate();
+  const lundi = paques_(d.getFullYear()); lundi.setDate(lundi.getDate() + 1);
+  const debut = new Date(lundi), fin = new Date(lundi); debut.setDate(debut.getDate() - 14); fin.setDate(fin.getDate() + 7);
+  if (jour >= debut && jour <= fin) return 'paques';
+  if (mmjj >= 1201) return 'noel';
+  if (mmjj <= 320) return 'hiver';
+  if (mmjj <= 620) return 'printemps';
+  if (mmjj <= 831) return 'ete';
+  if (mmjj <= 920) return 'rentree';
+  if (mmjj >= 1015 && mmjj <= 1102) return 'halloween';
+  return 'automne';
+}
+function saison_() {
+  if (SAISON_FORCEE) return SAISON_FORCEE;
+  return PropertiesService.getScriptProperties().getProperty('SAISON_OFF') === '1' ? '' : saisonDe_();
+}
+function apiSaison(d) {
+  if (estEnfant_()) return refusEnfant_();
+  const p = PropertiesService.getScriptProperties();
+  if (d && d.active === false) p.setProperty('SAISON_OFF', '1'); else p.deleteProperty('SAISON_OFF');
+  return { ok: true, saison: saison_(), active: !(d && d.active === false) };
 }
 
 function apiGeminiCle(d) {

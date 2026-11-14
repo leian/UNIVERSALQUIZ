@@ -140,6 +140,10 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
       <div id="classe"></div>
     </div>
     <div class="box">
+      <h2>🎄 Décorations de saison</h2>
+      <div id="saison"></div>
+    </div>
+    <div class="box">
       <h2>⚙️ Cet appareil</h2>
       <div id="appareil"></div>
     </div>
@@ -331,6 +335,24 @@ function afficherClasse() {
   };
 }
 afficherClasse();
+
+/* ---------- décorations de saison (Noël, Halloween, été…) ---------- */
+const NOMS_SAISONS = { noel: "🎄 Noël", hiver: "❄️ Hiver", paques: "🐣 Pâques", printemps: "🌸 Printemps", ete: "☀️ Été", rentree: "🎒 Rentrée", automne: "🍂 Automne", halloween: "🎃 Halloween" };
+function afficherSaison() {
+  const U = window.__UQ || {}, el = document.getElementById("saison");
+  if (!el || !U.saisonDuJour) return;
+  el.innerHTML = `<p><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="choix-saison" ${U.saisonActive ? "checked" : ""} style="width:20px;height:20px"> Décorer le site selon la saison</label></p>` +
+    `<p class="small">En ce moment : <b>${esc(NOMS_SAISONS[U.saisonDuJour] || U.saisonDuJour)}</b>. Frise, couleurs et petite animation changent toutes seules au fil de l'année (discrètes au collège, au lycée et pour les adultes).</p>`;
+  document.getElementById("choix-saison").onchange = e => {
+    if (!(window.google && google.script && google.script.run)) return;
+    e.target.disabled = true;
+    google.script.run
+      .withSuccessHandler(() => window.open(U.url || location.href, "_top"))
+      .withFailureHandler(() => { e.target.disabled = false; alert("Enregistrement impossible, réessaie."); })
+      .apiSaison({ active: e.target.checked });
+  };
+}
+afficherSaison();
 
 function afficherAppareil() {
   const actif = !window.Suivi || Suivi.actif();

@@ -326,7 +326,7 @@ try {
   ok(/Espace parent/.test(await page.locator('body').innerText()) && await page.locator('#reponse').count() === 0, 'site de l\'enfant : « Ajouter un quiz » renvoie vers l\'espace parent');
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   ok(/réservée aux parents/.test(await page.locator('body').innerText()), 'site de l\'enfant : le suivi des résultats est réservé aux parents');
-  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" })]');
+  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false })]');
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
   const pied = await page.locator('#foot').innerText();
@@ -343,6 +343,15 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('html').getAttribute('data-theme') === 'parent', 'espace parent : le thème choisi est appliqué à la page');
   ok((await ev('apiClasse({ classe: "" }).theme')).r === 'explorateurs', 'classe effacée : retour au thème de base');
+  // saisons : calendrier (Pâques calculé), réglage parent, attribut posé sur la page
+  const sa = await ev('[2026, 2027].map(a => paques_(a).toDateString()).concat(["2026-12-10","2027-01-15","2027-03-20","2026-04-10","2026-05-20","2026-07-14","2026-09-05","2026-10-01","2026-10-31","2026-11-14"].map(x => { const [y, m, j] = x.split("-").map(Number); return saisonDe_(new Date(y, m - 1, j)); }))');
+  ok(sa.r.join() === 'Sun Apr 05 2026,Sun Mar 28 2027,noel,hiver,paques,paques,printemps,ete,rentree,automne,halloween,automne', 'saisons : Pâques 2026 et 2027, Noël, hiver, Pâques (même en mars), printemps, été, rentrée, automne, Halloween (seconde quinzaine d\'octobre)');
+  await page.goto(BASE + '/exec');
+  ok(!!(await page.locator('html').getAttribute('data-saison')) && await page.locator('#choix-saison').count() === 1, 'saisons : décor posé sur la page, case à cocher dans Réglages');
+  ok((await ev('apiSaison({ active: false }).saison')).r === '', 'saisons : le parent peut éteindre les décorations');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('html').getAttribute('data-saison') === null, 'saisons éteintes : plus de décor sur la page');
+  await ev('apiSaison({ active: true })');
   const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
   await ev('CONFIG.espace = ""');

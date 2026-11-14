@@ -89,3 +89,37 @@ html[data-theme="parent"] .emo-box .emo-grand { animation:none; }
   html[data-theme="parent"] { --bg:#0c0a09; --card:#1c1917; --ink:#f5f5f4; --soft:#a8a29e; --line:#292524; }
   html[data-theme="parent"] body { background:#0c0a09; }
 }
+
+/* =====================================================================
+   SAISONS — posées par le serveur sur <html data-saison="…"> d'après la date
+   (Espace parent → Réglages pour les éteindre ; …/exec?saison=noel pour un aperçu).
+   Couleurs : --s1, --s2, --s3 (liseré du haut, confettis). Animation légère
+   pour les petits et le primaire seulement. Frises et mascottes costumées :
+   docs/themes/saisons/<saison>/, branchées ici quand les images existent.
+   ===================================================================== */
+html[data-saison="noel"]      { --s1:#c8102e; --s2:#1f6f43; --s3:#e0b54a; --flocon:rgba(120,165,215,.75); }
+html[data-saison="hiver"]     { --s1:#3b82f6; --s2:#93c5fd; --s3:#cbd5e1; --flocon:rgba(110,160,220,.7); }
+html[data-saison="paques"]    { --s1:#f472b6; --s2:#6ee7b7; --s3:#fcd34d; --flocon:rgba(244,114,182,.55); }
+html[data-saison="printemps"] { --s1:#65a30d; --s2:#f9a8d4; --s3:#fde68a; --flocon:rgba(249,168,212,.75); }
+html[data-saison="ete"]       { --s1:#06b6d4; --s2:#facc15; --s3:#fb923c; }
+html[data-saison="rentree"]   { --s1:#7c3aed; --s2:#f59e0b; --s3:#10b981; }
+html[data-saison="automne"]   { --s1:#c2410c; --s2:#b45309; --s3:#7f1d1d; --flocon:rgba(194,65,12,.55); }
+html[data-saison="halloween"] { --s1:#f97316; --s2:#6d28d9; --s3:#111827; --flocon:rgba(109,40,217,.5); }
+
+/* liseré de saison en haut de chaque page (trois bandes de couleur) */
+html[data-saison] body { box-shadow: inset 0 5px 0 var(--s1), inset 0 8px 0 var(--s2), inset 0 10px 0 var(--s3); }
+
+/* petite animation (neige, pétales, feuilles…) : petits, lecteurs, explorateurs, sans mouvement réduit */
+@media (prefers-reduced-motion: no-preference) {
+  html[data-saison]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]):not([data-saison="ete"]):not([data-saison="rentree"])::after {
+    content: ""; position: fixed; inset: -20vh 0 0 0; pointer-events: none; z-index: -1;
+    background-image:
+      radial-gradient(circle, var(--flocon) 0 2.5px, transparent 3px),
+      radial-gradient(circle, var(--flocon) 0 1.8px, transparent 2.3px),
+      radial-gradient(circle, var(--flocon) 0 3px, transparent 3.5px);
+    background-size: 160px 160px, 110px 110px, 230px 230px;
+    background-position: 0 0, 40px 60px, 90px 20px;
+    animation: saison-chute 22s linear infinite; opacity: .8;
+  }
+}
+@keyframes saison-chute { to { background-position: 30px 160px, 10px 170px, 120px 250px; } }
