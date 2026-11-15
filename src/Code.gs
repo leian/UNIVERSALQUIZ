@@ -54,6 +54,21 @@ const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-
 const PAGES_PARENT = ['tableau-de-bord', 'ajouter'];
 function estEnfant_() { return CONFIG.espace === 'enfant'; }
 function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espace parent.' }; }
+/* Deux parents : l'espace parent s'exécute avec le compte de la personne qui l'ouvre (installateur : USER_ACCESSING,
+   tout compte Google). Ce qui donne accès, c'est le partage Drive du dossier de l'enfant. Les propriétés du script
+   (clé Gemini, classe…) et le cache ne passent pas par Drive : chaque action vérifie donc d'abord que le visiteur
+   est le parent qui a installé le site (il peut ouvrir le programme dans son Drive) ou qu'il a accès au dossier. */
+let PROPRIO_ = null, ACCES_ = null;
+function estProprietaire_() {
+  if (PROPRIO_ === null) try { DriveApp.getFileById(ScriptApp.getScriptId()); PROPRIO_ = true; } catch (e) { PROPRIO_ = false; }
+  return PROPRIO_;
+}
+function accesParent_() {
+  if (ACCES_ === null) ACCES_ = CONFIG.espace !== 'parent' || estProprietaire_() || !!ouvrirDossier_(PropertiesService.getScriptProperties().getProperty('DOSSIER'));
+  return ACCES_;
+}
+function interdit_() { return estEnfant_() || !accesParent_(); }
+const PAS_PARTAGE = 'Cet espace parent ne t\'est pas partagé. Demande au parent qui a installé SoccaQuiz de t\'inviter (Espace parent → Réglages → Autre parent), puis ouvre le lien avec le compte Google invité.';
 function urlIci_() {
   return (estEnfant_() ? CONFIG.urlEnfant : CONFIG.espace === 'parent' ? CONFIG.urlParent : '') || ScriptApp.getService().getUrl() || '';
 }
@@ -84,10 +99,11 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
-  INST_ = null; LIGNES_ = null;
+  INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null;
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
+    if (!accesParent_()) return pageErreur_('Espace non partagé', PAS_PARTAGE);
     const inst = installer_();
     try { inscrireFamille_(inst); } catch (err) { console.error(err); }   // jamais bloquant
     let html;
@@ -150,6 +166,8 @@ function installer0_() {
   let dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
   let ss = ouvrirSheets_(props.getProperty('RESULTATS'));
   if (dossier && ss) return { dossier, ss };
+  // l'autre parent (ou un inconnu) ne crée jamais rien : il ne ferait que changer les adresses enregistrées
+  if (CONFIG.espace === 'parent' && !estProprietaire_()) throw new Error(PAS_PARTAGE);
 
   const verrou = LockService.getScriptLock();
   verrou.waitLock(30000);
@@ -249,6 +267,10 @@ function assembler_(html, page, inst) {
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
   if (page === 'ajouter' && !estEnfant_()) cfg.gemini = cleGemini_();
   // espace parent : les autres enfants de la famille (sélecteur en haut, « ajouter aussi pour… »)
+  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0 && URL_SITE_.test(CONFIG.urlParent || '')) {
+    cfg.proprio = estProprietaire_();
+    if (cfg.proprio) try { cfg.parents = parentsDe_(lireFamille_()); cfg.liensParent = liensParent_(); } catch (e) { cfg.parents = []; }
+  }
   if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
@@ -697,7 +719,7 @@ function apiLister(q) {
 }
 
 function apiSupprimer(id) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   if (typeof id !== 'string' || !/^r:[0-9T:.\-Z]+:[a-z0-9]+$/.test(id)) return { __status: 400, erreur: 'Identifiant invalide' };
   const verrou = LockService.getScriptLock();
   verrou.waitLock(20000);
@@ -720,13 +742,13 @@ function apiSupprimer(id) {
 
 /* suppression d'un quiz depuis la page d'accueil : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
 function apiSupprimerQuiz(nom) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   nom = String(nom || '').split('/').pop();
   if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
   const inst = installer_();
   const f = trouverFichier_(inst.dossier, nom);
   if (!f) return { erreur: 'Ce quiz n\'existe plus (déjà supprimé ?).' };
-  f.setTrashed(true);
+  try { f.setTrashed(true); } catch (e) { inst.dossier.removeFile(f); }   // quiz créé par l'autre parent : seul lui peut le mettre à la corbeille
   CacheService.getScriptCache().remove('catalogue');
   return { ok: true };
 }
@@ -734,7 +756,7 @@ function apiSupprimerQuiz(nom) {
 /* Texte d'un quiz du site, au format en lignes : pour le proposer à la bibliothèque de la communauté.
    Seuls les quiz créés depuis le site (configuration en JSON) peuvent être relus ainsi. */
 function apiTexteQuiz(nom) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   nom = String(nom || '').split('/').pop();
   if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
   const f = trouverFichier_(installer_().dossier, nom);
@@ -821,7 +843,7 @@ function themeDe_(c) {
   return i < 0 ? 'explorateurs' : i <= 2 ? 'petits' : i <= 4 ? 'lecteurs' : i <= 7 ? 'explorateurs' : i <= 11 ? 'college' : 'lycee';
 }
 function apiClasse(d) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   const c = String((d && d.classe) || '');
   if (c && c !== 'adulte' && CLASSES.indexOf(c) < 0) return { erreur: 'Classe inconnue.' };
   const p = PropertiesService.getScriptProperties();
@@ -862,14 +884,14 @@ function saison_() {
   return PropertiesService.getScriptProperties().getProperty('SAISON_OFF') === '1' ? '' : saisonDe_();
 }
 function apiSaison(d) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   const p = PropertiesService.getScriptProperties();
   if (d && d.active === false) p.setProperty('SAISON_OFF', '1'); else p.deleteProperty('SAISON_OFF');
   return { ok: true, saison: saison_(), active: !(d && d.active === false) };
 }
 
 function apiGeminiCle(d) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   const cle = String((d && d.cle) || '').trim();
   const props = PropertiesService.getScriptProperties();
   if (cle && !CLE_GEMINI_.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
@@ -899,7 +921,9 @@ function fichierFamille_(creer) {
   const p = PropertiesService.getScriptProperties(), id = p.getProperty('FAMILLE');
   let f = null;
   if (id) try { f = DriveApp.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; }
-  if (!f) { const it = DriveApp.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
+  if (!f && (CONFIG.espace !== 'parent' || estProprietaire_())) { const it = DriveApp.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
+  const proprio = CONFIG.espace !== 'parent' || estProprietaire_();     // l'autre parent ne voit que le fichier partagé (par son id)
+  if (!proprio) return f;
   if (!f && creer) f = DriveApp.getRootFolder().createFile(NOM_FAMILLE, '{"sites":[]}', MimeType.PLAIN_TEXT);
   if (f && f.getId() !== id) p.setProperty('FAMILLE', f.getId());
   return f;
@@ -916,7 +940,9 @@ function ecrireFamille_(modifier) {
   const verrou = LockService.getScriptLock();     // pas de verrou entre projets : deux inscriptions simultanées sont très rares
   verrou.waitLock(20000);
   try {
-    const f = fichierFamille_(true), d = lireFamille_(f);
+    const f = fichierFamille_(true);
+    if (!f) return;                                  // autre parent sans accès au fichier : rien à écrire
+    const d = lireFamille_(f);
     modifier(d);
     f.setContent(JSON.stringify(d, null, 1));
   } finally { verrou.releaseLock(); }
@@ -925,13 +951,18 @@ function ecrireFamille_(modifier) {
 // le site se (ré)inscrit au plus toutes les 6 heures, et tout de suite après un changement de classe
 function inscrireFamille_(inst) {
   if (!URL_SITE_.test(CONFIG.urlParent || '')) return;      // site installé à la main : pas de famille
+  if (CONFIG.espace === 'parent' && !estProprietaire_()) return;   // l'autre parent n'inscrit rien
   const cache = CacheService.getScriptCache();
   if (cache.get('famille-inscrit')) return;
   const moi = { parent: CONFIG.urlParent, enfant: CONFIG.urlEnfant || '', prenom: CONFIG.prenom || '', classe: classe_(), dossier: inst.dossier.getId() };
+  let parents = [];
   ecrireFamille_(d => {
     const i = d.sites.findIndex(x => x.parent === moi.parent || x.dossier === moi.dossier);   // site réinstallé : même dossier
     if (i >= 0) d.sites[i] = moi; else d.sites.push(moi);
+    parents = parentsDe_(d);
   });
+  // nouvel enfant ajouté après l'invitation : son dossier est partagé lui aussi avec l'autre parent
+  if (parents.length) partager_(inst.dossier, parents, true);
   cache.put('famille-inscrit', '1', 21600);
 }
 // enfants de la famille dont le dossier existe encore (site supprimé : il disparaît de la liste)
@@ -1051,7 +1082,7 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
 }
 
 function apiAjouterQuiz(texte, aussi) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
   texte = String(texte || '').trim();
   if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
   if (texte.length > 900000) return { erreur: 'Texte trop long.' };
@@ -1115,9 +1146,53 @@ function apiAjouterQuiz(texte, aussi) {
   return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
 }
 
+/* ---------------- autre parent ----------------
+   Le parent qui a installé le site invite une adresse Google : le dossier de chaque enfant de la famille
+   (quiz et résultats) et le fichier de la famille lui sont partagés en modification. Il ouvre ensuite
+   l'espace parent avec son propre compte ; « Retirer » arrête ces partages. */
+const EMAIL_ = /^[^\s@<>"',;]+@[^\s@<>"',;]+\.[a-z]{2,}$/i;
+function parentsDe_(d) { return (Array.isArray(d.parents) ? d.parents : []).map(x => String(x).toLowerCase()).filter(x => EMAIL_.test(x)).slice(0, 10); }
+function editeurs_(o) { try { return o.getEditors().map(u => String(u.getEmail()).toLowerCase()); } catch (e) { return []; } }
+function partager_(o, emails, ajouter) {
+  const deja = editeurs_(o);
+  emails.forEach(m => { try { if (ajouter && deja.indexOf(m) < 0) o.addEditor(m); else if (!ajouter && deja.indexOf(m) >= 0) o.removeEditor(m); } catch (e) { console.error(e); } });
+}
+function dossiersFamille_() {
+  const ids = [installer_().dossier.getId()];
+  familleListe_().forEach(x => { if (x.dossier && ids.indexOf(x.dossier) < 0) ids.push(x.dossier); });
+  return ids.map(ouvrirDossier_).filter(Boolean);
+}
+function apiInviterParent(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut inviter quelqu\'un.' };
+  if (!URL_SITE_.test(CONFIG.urlParent || '')) return { erreur: 'Mets d\'abord ton site à jour depuis l\'installateur.' };
+  const email = String((d && d.email) || '').trim().toLowerCase();
+  if (!EMAIL_.test(email)) return { erreur: 'Adresse e-mail invalide.' };
+  dossiersFamille_().forEach(x => partager_(x, [email], true));
+  ecrireFamille_(f => { f.parents = parentsDe_(f).filter(x => x !== email).concat(email); });
+  const fam = fichierFamille_(false); if (fam) partager_(fam, [email], true);
+  return { ok: true, parents: parentsDe_(lireFamille_()), liens: liensParent_() };
+}
+function apiRetirerParent(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut retirer un accès.' };
+  const email = String((d && d.email) || '').trim().toLowerCase();
+  if (!EMAIL_.test(email)) return { erreur: 'Adresse e-mail invalide.' };
+  dossiersFamille_().forEach(x => partager_(x, [email], false));
+  const fam = fichierFamille_(false); if (fam) partager_(fam, [email], false);
+  ecrireFamille_(f => { f.parents = parentsDe_(f).filter(x => x !== email); });
+  return { ok: true, parents: parentsDe_(lireFamille_()) };
+}
+// adresses à envoyer à l'autre parent : l'espace parent de chaque enfant
+function liensParent_() {
+  const l = familleListe_();
+  return (l.length ? l : [{ prenom: CONFIG.prenom || '', parent: CONFIG.urlParent }]).map(x => ({ prenom: x.prenom, parent: x.parent }));
+}
+
 // site supprimé depuis l'installateur (son dossier est gardé) : le parent le retire de la liste à la main
 function apiFamilleRetirer(d) {
-  if (estEnfant_()) return refusEnfant_();
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut modifier la liste.' };
   const url = String((d && d.parent) || '');
   if (!url || url === CONFIG.urlParent) return { erreur: 'Ce site ne peut pas être retiré d\'ici.' };
   ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== url); });

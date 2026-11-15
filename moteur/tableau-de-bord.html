@@ -198,6 +198,10 @@ h2 .ic{color:var(--rouge);margin-right:6px}
       <h2><i data-ic="cap"></i>Classe de {{PRENOM}}</h2>
       <div id="classe"></div>
     </div>
+    <div class="box" id="box-parents" hidden>
+      <h2><i data-ic="mail"></i>Autre parent</h2>
+      <div id="parents" class="small"></div>
+    </div>
     <div class="box" id="box-famille" hidden>
       <h2><i data-ic="cap"></i>Enfants de la famille</h2>
       <div id="famille-reglages" class="small"></div>
@@ -846,7 +850,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   r.innerHTML = (l.length > 1
       ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe d'un espace parent à l'autre. Un site supprimé depuis l'installateur peut rester dans la liste : retire-le ici.</p>"
       : "<p style=\"margin:0 0 8px\">Pour l'instant, seul ce site est inscrit. Un autre site de ton compte apparaît ici, et dans le sélecteur « Enfant : » en haut de page, dès qu'il a été <b>mis à jour</b> (version 2.60 ou plus) puis <b>ouvert une fois</b> (son espace parent ou le lien de l'enfant).</p>") +
-    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(ce site)</small>" : ` <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button>`}</p>`).join("");
+    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(ce site)</small>" : (window.__UQ || {}).proprio === false ? "" : ` <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button>`}</p>`).join("");
   document.getElementById("box-famille").hidden = false;
   r.addEventListener("click", ev => {
     const b = ev.target.closest("[data-retirer]"); if (!b) return;
@@ -855,6 +859,39 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       if (!res || res.erreur) { b.disabled = false; b.insertAdjacentText("afterend", " " + ((res && res.erreur) || "Erreur")); return; }
       b.parentNode.textContent = "Retiré. Il disparaîtra du sélecteur au prochain chargement de la page.";
     }).withFailureHandler(() => { b.disabled = false; }).apiFamilleRetirer({ parent: b.getAttribute("data-retirer") });
+  });
+})();
+
+/* autre parent : invitation par adresse Google (partage Drive des dossiers des enfants), seulement pour le parent qui a installé le site */
+(() => {
+  const U = window.__UQ || {}, z = document.getElementById("parents");
+  if (!z || !U.proprio) return;
+  document.getElementById("box-parents").hidden = false;
+  let parents = U.parents || [], liens = U.liensParent || [];
+  const mail = email => {
+    const corps = "Bonjour,\n\nJe t'ai donné accès à l'espace parent SoccaQuiz, pour suivre les révisions et créer des quiz.\n\n" +
+      liens.map(x => (x.prenom ? x.prenom + " : " : "") + x.parent).join("\n") +
+      "\n\nOuvre ce lien avec ton compte Google " + email + ". La première fois, Google affiche « Google n'a pas validé cette application » : touche « Paramètres avancés », puis « Accéder à SoccaQuiz », et autorise (une fois par enfant).\n";
+    return "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent("Espace parent SoccaQuiz") + "&body=" + encodeURIComponent(corps);
+  };
+  function rendre(msg) {
+    z.innerHTML = "<p style=\"margin:0 0 8px\">Invite l'autre parent avec son adresse Google (Gmail) : il ouvrira cet espace avec son propre compte. Les dossiers des enfants (quiz et résultats) lui sont partagés dans Google Drive ; « Retirer » arrête ce partage.</p>" +
+      parents.map(m => `<p style="margin:4px 0"><b>${esc(m)}</b> <a class="btn" href="${esc(mail(m))}" target="_top">Renvoyer le lien</a> <button type="button" class="btn" data-retirer-parent="${esc(m)}">Retirer</button></p>`).join("") +
+      `<p style="margin:10px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="email" id="email-parent" placeholder="adresse@gmail.com" autocomplete="email" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="inviter-parent">Inviter</button></p>` +
+      (msg || "");
+  }
+  rendre();
+  z.addEventListener("click", ev => {
+    const inv = ev.target.closest("#inviter-parent"), ret = ev.target.closest("[data-retirer-parent]");
+    if (!inv && !ret) return;
+    const email = inv ? document.getElementById("email-parent").value.trim() : ret.getAttribute("data-retirer-parent");
+    (inv || ret).disabled = true;
+    google.script.run.withSuccessHandler(r => {
+      if (!r || r.erreur) { rendre(`<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`); return; }
+      parents = r.parents || parents; if (r.liens) liens = r.liens;
+      rendre(inv ? `<p class="ok" style="margin:8px 0 0">✅ Accès partagé avec <b>${esc(email.toLowerCase())}</b>. <a class="btn principal" href="${esc(mail(email.toLowerCase()))}" target="_top">Envoyer le lien par mail</a></p>`
+        : `<p class="ok" style="margin:8px 0 0">Accès retiré pour <b>${esc(email)}</b>.</p>`);
+    }).withFailureHandler(e => rendre(`<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`))[inv ? "apiInviterParent" : "apiRetirerParent"]({ email });
   });
 })();
 </script>

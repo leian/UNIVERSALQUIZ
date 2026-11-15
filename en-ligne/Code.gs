@@ -300,7 +300,9 @@ function fichiers_(moteur, prenom, espace) {
 /* l'espace parent n'est ouvert qu'au compte Google de la famille (« Seulement moi ») ; le site de l'enfant reste ouvert sans compte */
 function manifeste_(source, espace) {
   const m = JSON.parse(source);
-  m.webapp = Object.assign({}, m.webapp, { executeAs: 'USER_DEPLOYING', access: espace === 'parent' ? 'MYSELF' : 'ANYONE_ANONYMOUS' });
+  // espace parent : exécuté avec le compte de la personne qui l'ouvre (le parent qui a installé, ou l'autre parent
+  // invité depuis Réglages) ; l'accès réel est le partage Drive du dossier de l'enfant, vérifié par le site
+  m.webapp = Object.assign({}, m.webapp, espace === 'parent' ? { executeAs: 'USER_ACCESSING', access: 'ANYONE' } : { executeAs: 'USER_DEPLOYING', access: 'ANYONE_ANONYMOUS' });
   return JSON.stringify(m, null, 2);
 }
 

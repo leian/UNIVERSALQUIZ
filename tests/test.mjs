@@ -722,6 +722,36 @@ try {
     await ev(`apiClasse({ classe: ${JSON.stringify(classeAvant)} })`);
     const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
     ok(intrus.r === 0, 'famille : un enfant absent du fichier de la famille est refusé');
+    // deux parents : invitation (partage Drive), autre parent, inconnu
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    ok(await page.locator('#box-parents').isVisible(), 'autre parent : encadré « Autre parent » dans Réglages (parent qui a installé)');
+    await page.fill('#email-parent', 'Julie.Exemple@gmail.com');
+    await page.locator('#inviter-parent').click();
+    await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const partage = await ev(`(() => { const ids = [installer_().dossier.getId(), lireFamille_().sites.find(x => x.prenom === "Hugo").dossier, PropertiesService.getScriptProperties().getProperty("FAMILLE")];
+      return { dossiers: ids.map(id => [...(editeurs[id] || [])].join()), parents: lireFamille_().parents }; })()`);
+    ok(/Accès partagé/.test(await page.locator('#parents').innerText()) && await page.locator('#parents a[href^="mailto:julie.exemple"]').count() >= 1 && partage.r.dossiers.every(x => x === 'julie.exemple@gmail.com') && partage.r.parents.join() === 'julie.exemple@gmail.com',
+      'autre parent : dossiers des deux enfants et fichier de la famille partagés, mail d\'invitation prêt — ' + JSON.stringify(partage.r));
+    await ev('FAUX.proprio = false; CacheService.getScriptCache().remove("famille")');
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    ok(await page.locator('#onglets').isVisible() && !(await page.locator('#box-parents').isVisible()) && await page.locator('#famille-reglages [data-retirer]').count() === 0, 'autre parent : espace parent ouvert avec son compte, sans le droit d\'inviter ni de retirer');
+    const autre = await ev('[apiInviterParent({ email: "x@gmail.com" }).erreur, apiFamilleRetirer({ parent: "' + P2 + '" }).erreur, apiClasse({ classe: "CM1" }).ok, !!PropertiesService.getScriptProperties().getProperty("FAMILLE")]');
+    ok(!!autre.r[0] && !!autre.r[1] && autre.r[2] === true && autre.r[3], 'autre parent : peut gérer (classe…), pas inviter ; ne crée ni ne remplace jamais le fichier de la famille');
+    await ev('FAUX.etranger = true');
+    await page.goto(BASE + '/exec');
+    const inconnu = await ev('[apiClasse({ classe: "CP" }).__status, apiGeminiCle({ cle: "" }).__status, apiInviterParent({ email: "y@gmail.com" }).__status, (() => { try { apiLister({}); return "lu"; } catch (e) { return "refusé"; } })(), classe_()]');
+    ok(/ne t'est pas partagé/.test(await page.locator('body').innerText()) && inconnu.r.slice(0, 3).every(x => x === 403) && inconnu.r[3] === 'refusé' && inconnu.r[4] === 'CM1',
+      'inconnu avec un compte Google : page « espace non partagé », aucune action, rien de lu ni modifié — ' + JSON.stringify(inconnu.r));
+    await ev('FAUX.etranger = false; FAUX.proprio = true');
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    await page.locator('[data-retirer-parent="julie.exemple@gmail.com"]').click();
+    await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const retire = await ev(`[installer_().dossier.getId(), PropertiesService.getScriptProperties().getProperty("FAMILLE")].map(id => [...(editeurs[id] || [])].length).concat(lireFamille_().parents.length)`);
+    ok(/Accès retiré/.test(await page.locator('#parents').innerText()) && retire.r.every(x => x === 0), 'autre parent : « Retirer » arrête les partages Drive');
+
     await ev(`apiFamilleRetirer({ parent: "${P2}" }); CacheService.getScriptCache().remove("famille")`);
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();

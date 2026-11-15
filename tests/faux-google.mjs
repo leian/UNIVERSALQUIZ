@@ -1,5 +1,5 @@
 // Simulation minimale des services Google Apps Script pour tester Code.gs en local.
-import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, renameSync } from 'node:fs';
+import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
 import http from 'node:http';
@@ -13,10 +13,18 @@ const props = {};
 const cache = {};
 const sheets = {};   // id → { name, rows: [[...]] }
 const partages = {};
+// deux parents : FAUX.proprio = false → le visiteur n'est pas le parent qui a installé ; FAUX.etranger = true → aucun accès Drive
+const FAUX = { proprio: true, etranger: false };
+const editeurs = {};
+const avecEditeurs = (id, o) => Object.assign(o, {
+  getEditors: () => [...(editeurs[id] || [])].map(m => ({ getEmail: () => m })),
+  addEditor: (m) => { (editeurs[id] = editeurs[id] || new Set()).add(m); },
+  removeEditor: (m) => { if (editeurs[id]) editeurs[id].delete(m); }
+});
 const corbeille = new Set();
 let compteur = 0;
 
-const fichier = (chemin) => ({
+const fichier = (chemin) => avecEditeurs('f:' + chemin, {
   getName: () => chemin.split('/').pop(),
   getId: () => 'f:' + chemin,
   getUrl: () => 'drive://' + chemin,
@@ -31,13 +39,14 @@ const fichier = (chemin) => ({
   setTrashed: (t) => { if (t) { mkdirSync(join(DRIVE, '..', 'corbeille'), { recursive: true }); renameSync(chemin, join(DRIVE, '..', 'corbeille', chemin.split('/').pop())); } }
 });
 const iter = (l) => { let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; };
-const dossier = (chemin) => ({
+const dossier = (chemin) => avecEditeurs('d:' + chemin, {
   getId: () => 'd:' + chemin, getName: () => chemin.split('/').pop(), getUrl: () => 'drive://' + chemin,
   isTrashed: () => false,
   getFiles: () => iter(readdirSync(chemin).filter(n => statSync(join(chemin, n)).isFile()).map(n => fichier(join(chemin, n)))),
   getFilesByName: (n) => iter(existsSync(join(chemin, n)) ? [fichier(join(chemin, n))] : Object.entries(sheets).filter(([, s]) => s.name === n && s.dossier === chemin).map(([id]) => ({ id, isTrashed: () => false }))),
   getFoldersByName: (n) => iter(existsSync(join(chemin, n)) ? [dossier(join(chemin, n))] : []),
-  createFile: (n, contenu) => { writeFileSync(join(chemin, n), contenu); return fichier(join(chemin, n)); }
+  createFile: (n, contenu) => { writeFileSync(join(chemin, n), contenu); return fichier(join(chemin, n)); },
+  removeFile: (f) => { rmSync(f.getId().slice(2), { force: true }); }
 });
 
 const feuille = (s) => ({
@@ -70,17 +79,18 @@ const ctx = {
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }) },
   MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
-  ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }) },
+  ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script' },
+  FAUX, editeurs,
   DriveApp: {
     Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', ANYONE: 'ANYONE' }, Permission: { VIEW: 'VIEW' },
     getRootFolder: () => dossier(DRIVE),
     createFolder: (n) => { mkdirSync(join(DRIVE, n)); return dossier(join(DRIVE, n)); },
-    getFolderById: (id) => { const p = id.slice(2); if (!existsSync(p)) throw new Error('introuvable'); return dossier(p); },
-    getFileById: (id) => sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); } } : fichier(id.slice(2))
+    getFolderById: (id) => { if (FAUX.etranger) throw new Error('Accès refusé'); const p = id.slice(2); if (!existsSync(p)) throw new Error('introuvable'); return dossier(p); },
+    getFileById: (id) => id === 'projet-script' ? (FAUX.proprio ? { getId: () => id } : (() => { throw new Error('Accès refusé'); })()) : FAUX.etranger ? (() => { throw new Error('Accès refusé'); })() : sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); } } : fichier(id.slice(2))
   },
   SpreadsheetApp: {
     create: (n) => { const id = 'ss' + (++compteur); sheets[id] = { name: n, rows: [] }; return classeur(id); },
-    openById: (id) => { if (!sheets[id]) throw new Error('introuvable'); return classeur(id); },
+    openById: (id) => { if (FAUX.etranger) throw new Error('Accès refusé'); if (!sheets[id]) throw new Error('introuvable'); return classeur(id); },
     open: (f) => classeur(f.id)
   },
   HtmlService: {
