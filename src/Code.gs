@@ -943,7 +943,7 @@ function familleListe_() {
     l = lireFamille_().sites.filter(x => URL_SITE_.test(String(x.parent || '')) && (x.parent === CONFIG.urlParent || (() => {
       try { return !DriveApp.getFolderById(String(x.dossier)).isTrashed(); } catch (e) { return false; }
     })())).map(x => ({ prenom: String(x.prenom || '').slice(0, 40), classe: String(x.classe || '').slice(0, 10), parent: x.parent, dossier: String(x.dossier || '') }));
-    try { cache.put('famille', JSON.stringify(l), 300); } catch (e) {}
+    try { cache.put('famille', JSON.stringify(l), 60); } catch (e) {}      // court : une classe changée chez un autre enfant apparaît vite
   }
   if (l.length < 2) return [];
   return l.map(x => Object.assign(x, { ici: x.parent === CONFIG.urlParent }));
@@ -1113,6 +1113,15 @@ function apiAjouterQuiz(texte, aussi) {
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
   CacheService.getScriptCache().remove('catalogue');
   return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
+}
+
+// site supprimé depuis l'installateur (son dossier est gardé) : le parent le retire de la liste à la main
+function apiFamilleRetirer(d) {
+  if (estEnfant_()) return refusEnfant_();
+  const url = String((d && d.parent) || '');
+  if (!url || url === CONFIG.urlParent) return { erreur: 'Ce site ne peut pas être retiré d\'ici.' };
+  ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== url); });
+  return { ok: true };
 }
 
 // même quiz déposé dans le dossier d'autres enfants de la famille (adresses de leur espace parent) ;

@@ -14,6 +14,7 @@
   const COUL = { francais: '#2563eb', maths: '#ea580c', sciences: '#0891b2', anglais: '#b91c1c', histoire: '#a16207', geographie: '#15803d', musique: '#db2777', autre: '#475569' };
   const cle = f => { try { return decodeURIComponent(String(f || '').split('/').pop()).replace(/\.html$/i, ''); } catch (e) { return String(f); } };
   const gagnes = new Map();          // cle → date ISO de la première réussite à 100 %
+  const meilleurs = new Map();       // cle → meilleur pourcentage d'une partie normale (tous appareils)
   let panneau = null, dernierNouveau = null;
 
   const CSS = `
@@ -62,6 +63,7 @@
   // seule une partie normale à 100 % compte (pas « Refaire mes erreurs », pas le défi en famille,
   // pas les pages « Mes révisions » / défi du mois) ; les anciennes parties sans mode sont des parties normales
   function noter(quiz, score, total, date, mode) {
+    if (total > 0 && (!mode || mode === 'normal')) { const k0 = cle(quiz), p = Math.round(score / total * 100); if (!(meilleurs.get(k0) >= p)) meilleurs.set(k0, p); }
     if (!total || score < total || (mode && mode !== 'normal')) return;
     const k = cle(quiz);
     if (/^(revisions|defi)$/i.test(k)) return;
@@ -107,6 +109,12 @@
       else { document.body.classList.add('avec-badges'); document.body.appendChild(panneau); }
       chargerLocal(); rendre();
       await chargerDistant(); rendre();
+    },
+    // meilleur score avant cette partie (null : jamais joué), puis on retient celui-ci
+    meilleur(pct, quiz) {
+      const k = cle(quiz || location.pathname), avant = meilleurs.has(k) ? meilleurs.get(k) : null;
+      if (pct != null && !(avant >= pct)) meilleurs.set(k, pct);
+      return avant;
     },
     gagner(quiz) {
       const k = cle(quiz || location.pathname);

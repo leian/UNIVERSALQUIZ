@@ -198,6 +198,10 @@ h2 .ic{color:var(--rouge);margin-right:6px}
       <h2><i data-ic="cap"></i>Classe de {{PRENOM}}</h2>
       <div id="classe"></div>
     </div>
+    <div class="box" id="box-famille" hidden>
+      <h2><i data-ic="cap"></i>Enfants de la famille</h2>
+      <div id="famille-reglages" class="small"></div>
+    </div>
     <div class="box">
       <h2><i data-ic="snow"></i>Décorations de saison</h2>
       <div id="saison"></div>
@@ -800,15 +804,15 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk
     ? "🔑 Clé Gemini enregistrée : les quiz se créent directement à partir des photos."
     : "🔑 Pas encore de clé Gemini : <a href=\"ajouter.html\">ajoute-la sur « Créer un quiz »</a> pour créer les quiz directement à partir des photos.";
-  if (!U.version) return;
+  if (!U.version || !U.installateur) return;
   $("info-version").textContent = "Version " + U.version + ".";
-  // une nouvelle version est-elle publiée ? (dernière Release GitHub, une vérification par jour)
+  // une nouvelle version est-elle publiée ? (dernière Release GitHub, même source que l'installateur)
   (async function () {
     const vnum = v => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0), plusRecente = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
     let derniere = "";
-    // mémoire de la dernière version : 24 h quand une mise à jour est déjà annoncée, 1 h sinon (une version sortie
-    // juste après une vérification apparaît vite) ; ignorée si le site est déjà plus récent qu'elle
-    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < (plusRecente(m.v, U.version) ? 864e5 : 36e5) && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
+    // mémoire de la dernière version : 10 minutes, comme l'installateur (une version annoncée sur l'un l'est aussi
+    // sur l'autre) ; ignorée si le site est déjà plus récent qu'elle
+    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 6e5 && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
     if (!derniere) {
       try {
         const r = await fetch('https:\/\/api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
@@ -836,6 +840,19 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   el.innerHTML = "<b>Enfant :</b>" + l.map(x => x.ici ? `<span class="on" aria-current="page">${nom(x)}</span>`
     : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
   el.hidden = false;
+  // Réglages : retirer un site supprimé depuis l'installateur (son lien ne marche plus)
+  const r = document.getElementById("famille-reglages");
+  r.innerHTML = "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe d'un espace parent à l'autre. Un site supprimé depuis l'installateur peut rester dans la liste : retire-le ici.</p>" +
+    l.filter(x => !x.ici).map(x => `<p style="margin:4px 0">${nom(x)} <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button></p>`).join("");
+  document.getElementById("box-famille").hidden = false;
+  r.addEventListener("click", ev => {
+    const b = ev.target.closest("[data-retirer]"); if (!b) return;
+    b.disabled = true;
+    google.script.run.withSuccessHandler(res => {
+      if (!res || res.erreur) { b.disabled = false; b.insertAdjacentText("afterend", " " + ((res && res.erreur) || "Erreur")); return; }
+      const p = b.parentNode; p.textContent = "Retiré. Il disparaîtra du sélecteur au prochain chargement de la page.";
+    }).withFailureHandler(() => { b.disabled = false; }).apiFamilleRetirer({ parent: b.getAttribute("data-retirer") });
+  });
 })();
 </script>
 </body>

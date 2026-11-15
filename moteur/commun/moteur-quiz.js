@@ -256,6 +256,9 @@
     lancerLecture(u);
   }
   const meilleurScore = (pct) => {
+    // record tiré des résultats enregistrés (le même sur tous les appareils et dans l'espace parent) ;
+    // mémoire de l'appareil seulement pour un quiz ouvert hors d'un site SoccaQuiz
+    if (window.Badges && Badges.meilleur && window.__UQ) return Badges.meilleur(pct);
     const k = 'sq.meilleur.' + (C.titre || '');
     let avant = null; try { avant = JSON.parse(localStorage.getItem(k)); } catch (e) {}
     try { if (avant == null || pct > avant) localStorage.setItem(k, JSON.stringify(pct)); } catch (e) {}

@@ -536,7 +536,7 @@ function scriptPage_() {
         '<button class="btn" data-action="maj" type="button">✨ Terminer l\'installation</button>' +
         '<details class="avance"><summary>Options avancées</summary><p class="petit"><a href="#" data-action="recommencer">Abandonner ce site</a></p>' +
         '<div class="confirmer cache ko"><p>Ses publications éventuelles seront désactivées et l\'installateur l\'oubliera.</p><button class="btn" data-action="oui-recommencer" type="button">Oui, abandonner</button> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></div></details></section>';
-      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">✅ ' + h(titreSite(s)) + '</span>' + (s.classe && !adulte ? ' <span class="cl">' + h(s.classe) + '</span>' : '') + '</h2>' +
+      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">✅ ' + h(titreSite(s)) + '</span>' + '</h2>'   /* pas de classe ici : elle se change dans l'espace parent, que l'installateur ne voit pas */ +
         '<div class="msg">' + (s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
         '<div class="actions"><a class="btn" href="' + h(s.url) + '">▶ ' + (adulte ? 'Mes quiz' : 'Site de l\'enfant') + '</a>' +
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +

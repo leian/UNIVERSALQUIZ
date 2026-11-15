@@ -420,12 +420,12 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     b.disabled = !photos.length;
   });
 
-  // une nouvelle version du moteur est-elle publiée ? (dernière Release GitHub, une vérification par jour)
+  // une nouvelle version du moteur est-elle publiée ? (dernière Release GitHub, même source que l'installateur)
   (async function () {
     if (!U.installateur || !U.version) return;
     const vnum = v => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0), plusRecente = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
     let derniere = '';
-    try { const m = JSON.parse(localStorage.getItem('uq.maj') || 'null'); if (m && Date.now() - m.t < (plusRecente(m.v, U.version) ? 864e5 : 36e5) && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
+    try { const m = JSON.parse(localStorage.getItem('uq.maj') || 'null'); if (m && Date.now() - m.t < 6e5 && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}   // 10 min, comme l'installateur
     if (!derniere) {
       try {
         const r = await fetch('https:\/\/api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');

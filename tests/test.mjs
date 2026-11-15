@@ -97,6 +97,13 @@ try {
   const lignes = Object.values(s.sheets)[0].rows;
   ok(lignes.length === 2 && lignes[1][3] === 'quiz_exemple_capitales', 'résultat écrit dans le Sheets' + (lignes.length === 2 ? '' : ' — lignes : ' + JSON.stringify(lignes.map(l => l[3]))));
 
+  // record de fin de quiz : tiré des résultats enregistrés (même valeur sur tous les appareils), pas de l'appareil
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (/^sq\.meilleur|uqSuivi\.local/.test(k)) localStorage.removeItem(k); });
+  await page.reload(); await page.waitForTimeout(1200);
+  const attendu = Math.round(+lignes[1][6] / +lignes[1][7] * 100);
+  const record = await page.evaluate(() => window.Badges && Badges.meilleur ? Badges.meilleur(null) : 'absent');
+  ok(record === attendu, 'record de fin de quiz : repris des résultats enregistrés, pas de la mémoire de l\'appareil — ' + record + ' / ' + attendu);
+
   // dépôt d'un nouveau quiz + d'un PDF dans le dossier
   const dossier = join(DRIVE, 'SoccaQuiz');
   copyFileSync(join(RACINE, 'src', 'exemple-quiz.html'), join(dossier, 'quiz_Test_copie_12-11-2026.html'));
@@ -703,6 +710,11 @@ try {
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const htmlHugo = readdirSync(join(DRIVE, 'SoccaQuiz – Hugo')).filter(n => n.endsWith('.html'));
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    ok(await page.locator('#box-famille').isVisible() && await page.locator(`#famille-reglages [data-retirer="${P2}"]`).count() === 1, 'famille : Réglages → « Retirer de la liste » pour un site supprimé');
+    const ret = await ev(`[apiFamilleRetirer({ parent: "${P1}" }).erreur, (() => { ecrireFamille_(d => d.sites.push({ parent: "https://script.google.com/macros/s/VIEUX/exec", prenom: "Vieux", dossier: "d:${DRIVE}" })); return apiFamilleRetirer({ parent: "https://script.google.com/macros/s/VIEUX/exec" }).ok && !lireFamille_().sites.some(x => x.prenom === "Vieux"); })()]`);
+    ok(!!ret.r[0] && ret.r[1] === true, 'famille : un site retiré disparaît du fichier (le site actuel ne peut pas se retirer)');
     const classeAvant = (await ev('classe_()')).r;
     await ev('apiClasse({ classe: "CM2" })');
     await page.goto(BASE + '/exec?page=ajouter');
