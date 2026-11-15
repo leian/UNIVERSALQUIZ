@@ -36,6 +36,9 @@
   @media (min-width: 1180px) {
     .badges-panel.bp-quiz { position: fixed; right: 16px; top: 16px; width: 200px; max-height: calc(100vh - 32px); overflow-y: auto; margin: 0; z-index: 5; }
   }
+  /* téléphone et tablette : pas de badges (liens vers les autres quiz) sous « Question suivante » pendant les questions,
+     un toucher un peu bas faisait quitter le quiz ; ils restent sur l'accueil du quiz et l'écran de résultat */
+  @media (max-width: 1179px) { body.en-question .badges-panel.bp-quiz { display: none; } }
   @media (max-width: 480px) { .badges-panel .bp-grid { grid-template-columns: repeat(auto-fill, minmax(42px, 1fr)); gap: 6px; } }
   .bp-nouveau { margin: 1rem auto 0; max-width: 420px; display: flex; align-items: center; gap: 12px; text-align: left; background: #fffbeb; border: 2px solid #f5c542; border-radius: 14px; padding: 10px 14px; color: #78350f; font-size: 14px; }
   .bp-nouveau svg { width: 56px; height: 56px; flex-shrink: 0; animation: bp-pop 1.2s cubic-bezier(.2,1.6,.4,1); }

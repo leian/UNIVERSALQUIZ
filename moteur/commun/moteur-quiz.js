@@ -186,7 +186,13 @@
   }
   // 1 juste, 2 juste à un accent près (compté faux), 0 faux
   function bonneSaisie(q, val) {
-    if (C.verifier && !q._ecrit) return C.verifier(q, val) ? 1 : 0;
+    if (C.verifier && !q._ecrit) {
+      if (C.verifier(q, val)) return 1;
+      // vérification propre à un quiz fait à la main : on réessaie sans la ponctuation finale ajoutée par le clavier
+      // (double espace = « . » sur Android) ni les guillemets
+      const nu = String(val).replace(/^[\s«"“]+|[\s»"”.!?…;:,]+$/gu, '');
+      return nu && nu !== val && C.verifier(q, nu) ? 1 : 0;
+    }
     return comparer(reponsesAcceptees(q), val, regles(q));
   }
   function attendu(q) {
@@ -377,6 +383,7 @@
   /* ---------- défi en famille : deux joueurs à tour de rôle sur le même appareil ---------- */
   const PRENOM_ENFANT = '{{PRENOM}}';
   function renderFamille() {
+    enQuestion(false);
     state = 'famille';
     quitter();
     let noms = []; try { noms = JSON.parse(localStorage.getItem('sq.famille')) || []; } catch (e) {}
@@ -414,6 +421,7 @@
   const scoreDe = j => answers.filter((x, i) => x && x.ok && joueur(i) === j).length;
 
   function renderStart() {
+    enQuestion(false);
     state = 'start';
     duel = null;
     quitter();
@@ -1030,6 +1038,22 @@
     }
   }
 
+  // partie en cours : le premier toucher sur le logo prévient, le second (dans les 4 s) quitte
+  let quitterArme = 0;
+  function quitterQuiz(e) {
+    if (state !== 'q' || !answers || !answers.some(Boolean) || Date.now() - quitterArme < 4000) return true;
+    quitterArme = Date.now();
+    if (e) { e.preventDefault(); e.stopPropagation(); }
+    let b = document.getElementById('mq-quitter');
+    if (!b) { b = document.createElement('div'); b.id = 'mq-quitter'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+    b.textContent = 'Touche encore le logo pour quitter le quiz : ta partie en cours ne sera pas enregistrée.';
+    b.className = 'visible'; clearTimeout(b._t); b._t = setTimeout(() => { b.className = ''; }, 4000);
+    return false;
+  }
+  function enQuestion(oui) {
+    document.body.classList.toggle('en-question', !!oui);
+    if (!oui) { const b = document.getElementById('mq-quitter'); if (b) b.className = ''; }
+  }
   function quitter() { couperSon(); if (E && E.reco) try { E.reco.abort(); } catch (e) {} if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
 
   // revenir en arrière réaffiche la question telle qu'elle a été répondue, en lecture seule : la première réponse compte
@@ -1054,6 +1078,7 @@
   }
 
   function renderQuestion() {
+    enQuestion(true);
     const q = shuffled[cur];
     const pct = ((cur + 1) / shuffled.length) * 100;
     const dots = shuffled.map((_, i) => { const r = answers[i]; return `<div class="streak-dot ${r ? (r.ok ? 'correct' : 'wrong') : ''}"></div>`; }).join('');
@@ -1098,7 +1123,7 @@
 
     appli().innerHTML = `
       <div class="barre-quiz">
-        <a class="btn-myquiz ib" href="index.html" title="Retour à SoccaQuiz" aria-label="Retour à SoccaQuiz"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="26" height="26" alt=""></a>
+        <a class="btn-myquiz ib" href="index.html" title="Retour à SoccaQuiz" aria-label="Retour à SoccaQuiz" onclick="return MoteurQuiz.quitterQuiz(event)"><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone-96.png" width="26" height="26" alt=""></a>
         <button class="btn-prev ib" onclick="MoteurQuiz.prev()" ${cur === 0 ? 'disabled' : ''} title="Question précédente" aria-label="Question précédente">${ic('prec')}</button>
         <div class="prog"><div class="progress-bar"><div class="progress-fill" style="width:${pct}%"></div></div><span class="counter">Question ${cur + 1} / ${shuffled.length}</span></div>
         ${points}
@@ -1135,6 +1160,7 @@
 
   /* ---------- résultats ---------- */
   function renderResultDuel() {
+    enQuestion(false);
     const s = [scoreDe(0), scoreDe(1)], N = duel.noms, n = duel.n;
     const titre = s[0] === s[1] ? 'Égalité, belle équipe !' : `Bravo ${esc(N[s[0] > s[1] ? 0 : 1])} !`;
     const msg = s[0] === s[1] ? 'Vous êtes aussi forts l\'un que l\'autre.' : `${esc(N[s[0] > s[1] ? 1 : 0])}, une revanche ?`;
@@ -1174,6 +1200,7 @@
   }
 
   function renderResult() {
+    enQuestion(false);
     state = 'result';
     if (duel) return renderResultDuel();
     const sc = score(), n = shuffled.length, pct = Math.round((sc / n) * 100);
@@ -1333,7 +1360,7 @@
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     famille: renderFamille, duel: () => { debloquerVoix(); lancerDuel(); }, revanche: () => lancerDuel(true), propositions: voirPropositions, sauter,
-    rafraichir: () => renderQuestion(),
+    rafraichir: () => renderQuestion(), quitterQuiz,
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc, forme, comparer: (attendus, v, q) => comparer([].concat(attendus), v, regles(q || {})),

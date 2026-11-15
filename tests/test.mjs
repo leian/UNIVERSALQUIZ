@@ -157,6 +157,35 @@ try {
   ok(N.N2 && N.N2[2] === 6 && mq.r.q.b1.join() === '3,1' && mq.r.rev.q.b1 && !mq.r.rev.q.c1, 'maîtrise : une réponse donnée dans « Mes révisions » compte pour le quiz et la notion d\'origine');
   ok(mq.r.index && mq.r.quiz.q.c1 && mq.r.quiz.notions.N3, 'maîtrise : tout le site pour l\'accueil, un seul quiz pour la page du quiz');
 
+  // quiz fait à la main (comme ceux repris de lana-quizz) : vérification propre au quiz, partie protégée sur téléphone
+  {
+    const fait = readFileSync(join(RACINE, 'src', 'exemple-quiz.html'), 'utf8')
+      .replace(/MoteurQuiz\.lancer\(\{/, "MoteurQuiz.lancer({ verifier: (q, v) => String(q.a).toLowerCase() === String(v).trim().toLowerCase(),");
+    writeFileSync(join(DRIVE, 'SoccaQuiz', 'quiz_Test_verifier_15-11-2026.html'), fait);
+    await ev('CacheService.getScriptCache().remove("catalogue")');
+    await page.goto(BASE + '/exec?page=quiz_Test_verifier_15-11-2026');
+    await page.waitForFunction(() => window.MoteurQuiz && MoteurQuiz._etat().pool > 0);
+    const r = await page.evaluate(() => {
+      MoteurQuiz.start(); const e = MoteurQuiz._etat(), q = e.questions.find(x => x.type === 'saisie' || x.type === 'input');
+      const essai = v => { MoteurQuiz.start(); const e = MoteurQuiz._etat(); e.shuffled[0] = Object.assign({}, q, { type: 'input' }); MoteurQuiz.rafraichir(); document.getElementById('ans-input').value = v; MoteurQuiz.validate(); return MoteurQuiz._etat().answers[0].ok; };
+      const a = String(q.a);
+      return { point: essai(a + '.'), guillemets: essai('« ' + a + ' »'), faux: essai('zzz.'), badge: !!document.querySelector('.badges-panel'), cache: getComputedStyle(document.querySelector('.badges-panel') || document.body).display === 'none', classe: document.body.classList.contains('en-question') };
+    });
+    ok(r.point && r.guillemets && !r.faux, 'quiz fait à la main : la vérification du quiz accepte la bonne réponse suivie d\'un point (double espace du clavier Android) ou entre guillemets — ' + JSON.stringify(r));
+    ok(r.badge && r.cache && r.classe, 'téléphone : pas de badges (liens vers les autres quiz) sous « Question suivante » pendant les questions');
+    await page.evaluate(() => MoteurQuiz.home());
+    ok(await page.evaluate(() => getComputedStyle(document.querySelector('.badges-panel')).display !== 'none'), 'téléphone : badges de nouveau visibles sur l\'accueil du quiz');
+    await page.evaluate(() => { MoteurQuiz.start(); const q = MoteurQuiz._etat().shuffled[0]; if (q.opts) MoteurQuiz.answer(q.opts.indexOf(q.a)); else MoteurQuiz.repondre('x', true); });
+    await page.locator('.barre-quiz a.btn-myquiz').click();
+    await page.waitForTimeout(300);
+    const resteQ = /page=quiz_Test_verifier/.test(page.url()) && await page.locator('#mq-quitter.visible').count() === 1;
+    await page.locator('.barre-quiz a.btn-myquiz').click();
+    await page.waitForURL(BASE + '/exec', { timeout: 5000 }).catch(() => {});
+    ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo prévient (« Touche encore… »), le second quitte');
+    rmSync(join(DRIVE, 'SoccaQuiz', 'quiz_Test_verifier_15-11-2026.html'));
+    await ev('CacheService.getScriptCache().remove("catalogue")');
+  }
+
   // moteur : tirage intelligent, passage à l'écrit, notions, indices
   await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
   const mo = await page.evaluate(() => {

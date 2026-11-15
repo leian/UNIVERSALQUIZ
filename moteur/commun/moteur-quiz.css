@@ -324,3 +324,6 @@ button, .ex-case, .opt-btn { touch-action: manipulation; -webkit-tap-highlight-c
   .barre-quiz .score-badge.duel { order: 5; flex: 1 1 100%; min-width: 0; justify-content: center; }
   .score-badge.duel span { max-width: 48%; min-width: 0; }
 }
+/* logo touché pendant une partie : bulle « touche encore pour quitter » */
+#mq-quitter { position: fixed; left: 50%; top: 64px; transform: translate(-50%, -8px); z-index: 230; width: max-content; max-width: calc(100vw - 24px); box-sizing: border-box; padding: 10px 14px; border-radius: 12px; background: #3b2a20; color: #fff; font: 600 14px/1.35 system-ui, sans-serif; box-shadow: 0 8px 24px rgba(0,0,0,.25); opacity: 0; pointer-events: none; transition: opacity .18s, transform .2s; }
+#mq-quitter.visible { opacity: 1; transform: translate(-50%, 0); }
