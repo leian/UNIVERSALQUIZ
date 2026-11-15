@@ -703,6 +703,11 @@ try {
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const htmlHugo = readdirSync(join(DRIVE, 'SoccaQuiz – Hugo')).filter(n => n.endsWith('.html'));
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    const classeAvant = (await ev('classe_()')).r;
+    await ev('apiClasse({ classe: "CM2" })');
+    await page.goto(BASE + '/exec?page=ajouter');
+    ok(/Classe : CM2/.test(await page.locator('#classe-info').innerText()) && !(await page.locator('#classe').isVisible()) && await page.locator('#classe').inputValue() === 'CM2', 'page Ajouter : classe reprise des Réglages, plus de champ à remplir');
+    await ev(`apiClasse({ classe: ${JSON.stringify(classeAvant)} })`);
     const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
     ok(intrus.r === 0, 'famille : un enfant absent du fichier de la famille est refusé');
     await ev('CONFIG.espace = "enfant"');

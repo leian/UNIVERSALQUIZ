@@ -64,8 +64,9 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     <p>Une photo par page, bien droite et bien nette. Cadre seulement la leçon, sans la page d'à côté : l'IA en lit moins, ça va plus vite.</p>
     <p class="petit">Ne photographie ni le nom ni le visage de l'enfant.</p>
     <div class="ligne">
-      <label for="classe">Classe</label>
-      <input type="text" id="classe" placeholder="ex. CM1" size="10">
+      <span id="classe-saisie"><label for="classe">Classe</label>
+      <input type="text" id="classe" placeholder="ex. CM1" size="10"></span>
+      <span id="classe-info" hidden></span>
       <label for="nb">Questions</label>
       <select id="nb"><option selected>20</option><option>30</option><option>40</option></select>
     </div>
@@ -163,10 +164,19 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   function majLiens() { const m = messageCourt(); liensIA.forEach(a => { a.href = a.dataset.ia + encodeURIComponent(m); }); }
   $('classe').addEventListener('input', majLiens);
   $('nb').addEventListener('change', majLiens);
-  // classe : celle tapée ici sur cet appareil, sinon celle des Réglages de l'espace parent
-  let classeLocale = ''; try { classeLocale = localStorage.getItem('uq.classe') || ''; } catch (e) {}
-  $('classe').value = classeLocale || (U.classe && U.classe !== 'adulte' ? U.classe : '');
-  $('classe').addEventListener('change', () => { try { localStorage.setItem('uq.classe', $('classe').value.trim()); } catch (e) {} });
+  // classe : celle des Réglages de l'espace parent (montée automatique chaque 1er septembre) ;
+  // à taper ici seulement si elle n'y est pas renseignée (site installé à la main, ancien site)
+  if (U.classe) {
+    $('classe').value = U.classe === 'adulte' ? '' : U.classe;
+    $('classe-saisie').hidden = true;
+    const reglages = U.url ? U.url + '?page=tableau-de-bord#reglages' : 'tableau-de-bord.html#reglages';
+    $('classe-info').innerHTML = 'Classe : <b>' + h(U.classe === 'adulte' ? 'adulte' : U.classe) + '</b> <a class="petit" href="' + h(reglages) + '" target="_top">changer</a>';
+    $('classe-info').hidden = false;
+  } else {
+    let classeLocale = ''; try { classeLocale = localStorage.getItem('uq.classe') || ''; } catch (e) {}
+    $('classe').value = classeLocale;
+    $('classe').addEventListener('change', () => { try { localStorage.setItem('uq.classe', $('classe').value.trim()); } catch (e) {} });
+  }
   majLiens();
 
   async function copier(texte) {
