@@ -333,6 +333,7 @@
   function visuel(q) {
     const svg = (C.figure && C.figure(q)) || q.svg || (C.illustrations && C.illustrations[q.cat]);
     if (svg) return `<div class="fig-box">${svg}</div>`;
+    if (q.fig && window.Dessins && Dessins.geo) { const g = Dessins.geo(q.fig); if (g) return `<div class="fig-box dessin geo" role="img" aria-label="Figure de géométrie">${g}</div>`; }
     if (dessin(q.img)) return `<div class="fig-box dessin" role="img" aria-label="${esc(Dessins.nom(q.img))}">${Dessins.grand(q.img)}</div>`;
     // grande image seulement si la question en a une utile (img=🐘 : objet ou être concret) ;
     // sinon rien : la question monte et l'emoji de la catégorie reste en petit dans l'étiquette

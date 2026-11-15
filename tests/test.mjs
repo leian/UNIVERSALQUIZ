@@ -707,6 +707,30 @@ try {
     await ev(`CONFIG.espace = ${JSON.stringify(avantD)}`);
   }
 
+  // géométrie décrite en quelques mots (fig=), dessinée par le moteur
+  {
+    const avantG = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = ""');
+    const qg = await ev(`apiAjouterQuiz(${JSON.stringify("T|Les angles|Vocabulaire|maths|📐|📏\n## Angles|📐\nQ|Quel est le sommet de l'angle marqué ?|A|B|C|Le sommet est le point commun aux deux côtés.|fig=A(1,1) B(8,1) C(3,5); [AB]; [AC); angle BAC\nQ|Comment nomme-t-on la droite tracée ?|(d)|[d]|d|Une droite se note entre parenthèses.|fig=A(1,2) B(7,4); (AB)=d\nQ|Quelle figure est dessinée ?|Un carré|Un triangle|Un cercle|Quatre côtés égaux et quatre angles droits.|fig=<script>alert(1)</script> A(1,1)")})`);
+    ok(qg.r && qg.r.ok && qg.r.nb === 3, 'géométrie : quiz avec figures décrites accepté — ' + JSON.stringify(qg.r && (qg.r.erreur || qg.r.avertissements)));
+    const tg = (await ev(`apiTexteQuiz(${JSON.stringify(qg.r.page + '.html')})`)).r;
+    ok(tg && /fig=A\(1,1\) B\(8,1\) C\(3,5\); \[AB\]; \[AC\); angle BAC/.test(tg.texte || '') && !/script/.test(tg.texte || ''), 'géométrie : figure relue en lignes ; figure avec des caractères interdits écartée');
+    await page.goto(BASE + '/exec?page=' + qg.r.page);
+    await page.locator('.start-btn').click();
+    const vu = { angle: 0, droite: 0, aucune: -1 };
+    for (let i = 0; i < 10; i++) {
+      if (await page.locator('.result-card').count()) break;
+      if (await page.locator('.next-btn').count()) { await page.locator('.next-btn').click(); continue; }
+      const txt = await page.locator('.question-text').innerText();
+      if (/sommet/.test(txt)) vu.angle = await page.locator('.fig-box.geo svg path[stroke="#dc2626"]').count();
+      if (/droite tracée/.test(txt)) vu.droite = await page.locator('.fig-box.geo svg text', { hasText: '(d)' }).count();
+      if (/figure est dessinée/.test(txt)) vu.aucune = await page.locator('.fig-box.geo').count();
+      await page.locator('.opt-btn').first().click();
+    }
+    ok(vu.angle === 1 && vu.droite === 1 && vu.aucune === 0, 'géométrie : angle marqué et droite nommée dessinés, rien pour la figure refusée — ' + JSON.stringify(vu));
+    await ev(`CONFIG.espace = ${JSON.stringify(avantG)}`);
+  }
+
   // musique : placer une note sur la portée (L), sons à comparer (/), durée et intensité (*2, ^, _)
   {
     const avantM = (await ev('CONFIG.espace')).r;

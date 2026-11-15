@@ -808,6 +808,7 @@ function lignesDeQuiz_(c) {
     if (q.dire && !(q.type === 'parler' && q.dire === q.phrase)) l.push('dire=' + f(q.dire));
     if (q.langue && q.langue !== c.langueAudio) l.push('langue=' + f(q.langue));
     if (q.img) l.push('img=' + f(q.img));
+    if (q.fig) l.push('fig=' + f(q.fig));
     if (q.hint) l.push('indice=' + f(q.hint));
     if (q.notes && q.type !== 'clavier' && q.type !== 'placer') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
     if (q.portee) l.push(q.portee === 'seule' ? 'portee=seule' : 'portee=oui');
@@ -1005,6 +1006,9 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   // écoute : phrase lue à voix haute (anglais…) et notes de musique
   const img = emoji_(q.img || q.image) || (DESSIN_.test(String(q.img || '')) ? String(q.img) : '');
   if (img) base.img = img;
+  // figure de géométrie décrite en quelques mots (dessinée par le moteur, dessins.js) : caractères limités
+  const fig = String(q.fig || '').replace(/\s+/g, ' ').trim().slice(0, 600);
+  if (fig && /^[A-Za-z0-9 ()\[\],;.=°'\-éèêàç/]+$/.test(fig) && /[A-Z][0-9']?\s*\(\s*-?\d/.test(fig)) base.fig = fig;
   const dire = txt(q.dire || q.ecoute || q.audio, 300);
   if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
   if (Array.isArray(q.notes) && type !== 'clavier' && type !== 'placer') {
@@ -1298,7 +1302,7 @@ function lireFormatLignes_(texte) {
     // champs nommés : toujours avec = (une bonne réponse « dire » ou « notes » reste une réponse) ;
     // seul « portee » peut être écrit seul, et seulement après la question et sa réponse
     champs.forEach(c => {
-      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img)\s*=\s*(.+)$/i);
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img|fig)\s*=\s*(.+)$/i);
       if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2].trim();
       else if (/^port[eé]e$/i.test(c) && pos.length >= 3) extra.portee = true;
       else pos.push(c);
@@ -1348,6 +1352,7 @@ function lireFormatLignes_(texte) {
     }
     if (typeof extra.dire === 'string') q.dire = extra.dire;
     if (typeof extra.img === 'string') q.img = extra.img;
+    if (typeof extra.fig === 'string') q.fig = extra.fig;
     if (typeof extra.langue === 'string') q.langue = extra.langue;
     if (typeof extra.indice === 'string') q.hint = extra.indice;
     if (typeof extra.notes === 'string' && q.type !== 'clavier' && q.type !== 'placer') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
