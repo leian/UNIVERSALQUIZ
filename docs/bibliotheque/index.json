@@ -1,20 +1,4 @@
 {
   "version": 1,
-  "quiz": [
-    {
-      "id": "anglais-listen-and-repeat",
-      "titre": "Listen and repeat",
-      "matiere": "anglais",
-      "classes": [
-        "CE2",
-        "CM1",
-        "CM2",
-        "6e"
-      ],
-      "nb": 15,
-      "icone": "🎧",
-      "description": "Se présenter, poser une question, dire ce qu'on aime : écouter, puis répéter au micro.",
-      "ajoute": "2026-11-15"
-    }
-  ]
+  "quiz": []
 }
