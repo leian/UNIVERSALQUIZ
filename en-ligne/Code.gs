@@ -409,7 +409,7 @@ function pageHtml_() {
   '<button class="btn" id="installer" type="button">✨ Installer mon site</button></section>' +
   '</div>' +
 
-  '<div id="deja" class="cache"><div id="sites"></div>' +
+  '<div id="deja" class="cache"><div id="tout-maj"></div><div id="sites"></div>' +
   '<section class="etape" id="ajout"><h2>➕ Un autre site</h2>' +
   '<p class="petit" style="margin:0 0 6px">Un site par enfant, ou un site pour tes propres révisions : chacun a ses quiz, ses résultats et son adresse.</p>' +
   '<details id="ajout-form"><summary class="btn leger">Créer un autre site</summary>' +
@@ -490,7 +490,8 @@ function scriptPage_() {
       }
     }
     // fn : apiInstaller (premier site), apiAjouterSite, apiMettreAJour (n = numéro du site)
-    function lancer(fn, arg, bouton, n) {
+    // fini (facultatif) : appelé à la fin, avec true si tout s'est bien passé (« Tout mettre à jour »)
+    function lancer(fn, arg, bouton, n, fini) {
       var enPlace = fn === 'apiMettreAJour';          // une mise à jour s'affiche dans la carte du site, pas en dessous
       var zone = enPlace ? zoneMsg(n) : res;
       bouton.disabled = true; res.innerHTML = '';
@@ -498,7 +499,7 @@ function scriptPage_() {
       var appel = google.script.run
         .withSuccessHandler(function (r) {
           bouton.disabled = false;
-          if (!r || r.erreur) { zone.innerHTML = ''; if (fn === 'apiAjouterSite' && r && /Terminer/.test(r.erreur || '')) charger(); return erreur(r, enPlace ? n : null); }
+          if (!r || r.erreur) { zone.innerHTML = ''; if (fn === 'apiAjouterSite' && r && /Terminer/.test(r.erreur || '')) charger(); erreur(r, enPlace ? n : null); if (fini) fini(false); return; }
           zone.innerHTML = ''; res.innerHTML = '';
           var s = { n: r.n || 0, id: r.id, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version, nouvelle: false };
           var i = -1; ETAT.sites.forEach(function (x, k) { if (x.n === s.n) i = k; });
@@ -510,8 +511,9 @@ function scriptPage_() {
               (r.nouveauParent ? '<p style="margin:8px 0 0"><b>Nouveau : ton espace parent.</b> « Ajouter un quiz » et le suivi des résultats ne sont plus accessibles depuis le lien de ton enfant. Ils sont dans « 🔒 Espace parent », qui ne s\'ouvre qu\'avec ton compte Google : mets-le en favori.</p>' : '') + '</div>' : AUTORISER;
           var c = carte(s.n); if (c && fn !== 'apiInstaller') c.scrollIntoView({ behavior: 'smooth', block: 'start' });
           carte(s.n).querySelector('h2 .titre').textContent = r.maj ? '🎉 ' + titreSite(s) + ' : à jour' : '🎉 ' + titreSite(s) + ' : créé !';
+          if (fini) fini(true);
         })
-        .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(echec(e), n); });
+        .withFailureHandler(function (e) { bouton.disabled = false; zone.innerHTML = ''; erreur(echec(e), n); if (fini) fini(false); });
       if (fn === 'apiInstaller') appel.apiInstaller(arg.prenom, arg.classe); else appel[fn](arg);
     }
     // Ménage des versions : Google en garde 200 au plus par site et seul l'éditeur sait les supprimer
@@ -555,6 +557,34 @@ function scriptPage_() {
       $('intro').textContent = ETAT.sites.length > 1 ? 'Tes sites de quiz, dans ton propre compte Google.' : 'Ton site de quiz, dans ton propre compte Google.';
       $('sites').innerHTML = ETAT.sites.map(function (s) { return carteSite(s, ETAT.sites.length === 1); }).join('');
       $('effacer').style.display = 'block';
+      afficherToutMaj();
+    }
+    // plusieurs sites à mettre à jour : un seul bouton, les sites passent l'un après l'autre
+    var MAJ_EN_COURS = false;
+    function aMettreAJour() { return ETAT.sites.filter(function (s) { return s.nouvelle && !(s.versions >= s.maxVersions - 2); }); }
+    function afficherToutMaj() {
+      if (MAJ_EN_COURS) return;
+      var l = aMettreAJour();
+      $('tout-maj').innerHTML = l.length < 2 ? '' : '<div class="maj" style="margin-bottom:12px"><p style="margin:0 0 8px">🔄 <b>' + l.length + ' sites ont une nouvelle version</b> (' + h(l.map(titreSite).join(', ')) + ').</p>' +
+        '<button class="btn" id="tout-maj-btn" type="button">🔄 Tout mettre à jour</button></div>';
+      if (l.length >= 2) $('tout-maj-btn').onclick = toutMettreAJour;
+    }
+    function toutMettreAJour() {
+      var l = aMettreAJour(), i = 0, rates = [], b = $('tout-maj-btn');
+      MAJ_EN_COURS = true; b.disabled = true;
+      var info = function (t) { var p = $('tout-maj').querySelector('p'); if (p) p.innerHTML = t; };
+      (function suivant(ok) {
+        if (ok === false) rates.push(titreSite(l[i - 1]));
+        if (i >= l.length) {
+          MAJ_EN_COURS = false;
+          $('tout-maj').innerHTML = rates.length ? '<div class="ko" style="margin-bottom:12px">Mise à jour terminée, sauf pour : ' + h(rates.join(', ')) + '. Le message est dans la carte du site : touche à nouveau « Mettre à jour ce site ».</div>'
+            : '<div class="ok" style="margin-bottom:12px">✅ <b>Tous les sites sont à jour.</b> Leurs adresses ne changent pas.</div>';
+          return;
+        }
+        var s = l[i++], c = carte(s.n), bs = c && c.querySelector('[data-action="maj"]');
+        info('🔄 Mise à jour ' + i + ' sur ' + l.length + ' : <b>' + h(titreSite(s)) + '</b>… (environ 30 secondes par site, ne ferme pas la page)');
+        lancer('apiMettreAJour', { n: s.n, id: s.id }, bs || b, s.n, suivant);
+      })();
     }
     // apiKo : l'installation vient d'échouer parce que l'interrupteur n'est pas activé → l'étape 1 est mise en avant
     function afficherNouveau(apiKo) {
