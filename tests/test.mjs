@@ -689,9 +689,11 @@ try {
   ok(aller.r.egal && aller.r.refus, 'proposer un quiz : quiz du site relu en lignes sans rien perdre (11 types, écoute, notes, indice, mémo), refusé côté enfant' + (aller.r.egal ? '' : ' — ' + aller.r.a + ' ≠ ' + aller.r.b));
 
   // bibliothèque : liste lue sur GitHub Pages (simulé avec docs/bibliotheque), ajout au site en un toucher, puis « Proposer »
+  // (bibliothèque publiée vide, quiz tous retirés : on reprend les quiz retirés pour que l'essai garde du contenu)
+  const indexEssai = () => { const i = JSON.parse(readFileSync(join(RACINE, 'docs/bibliotheque/index.json'), 'utf8')); if (!i.quiz.length) i.quiz = (i.retires || []).map(x => x.entree).filter(Boolean); delete i.retires; return JSON.stringify(i); };
   await page.route(/leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\//, async r => {
     const f = new URL(r.request().url()).pathname.split('/').pop();
-    try { await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': f.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8' }, body: readFileSync(join(RACINE, 'docs/bibliotheque', f), 'utf8') }); }
+    try { await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': f.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8' }, body: f === 'index.json' ? indexEssai() : readFileSync(join(RACINE, 'docs/bibliotheque', f), 'utf8') }); }
     catch (e) { await r.fulfill({ status: 404, body: '' }); }
   });
   await ev(`PropertiesService.getScriptProperties().setProperties({ CLASSE: 'CM1', CLASSE_ANNEE: String(anneeScolaire_()) })`);
