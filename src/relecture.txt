@@ -5,7 +5,8 @@ Relis le quiz ligne par ligne, en t'appuyant sur les photos :
 2. Clarté : un élève de cet âge comprend ce qu'on attend et sous quelle forme répondre (verbe à l'infinitif, temps, personne, unité, langue de la réponse).
 3. Justesse : la bonne réponse est juste d'après la leçon et c'est la seule possible ; chaque mauvais choix est vraiment faux mais plausible (une autre notion de la leçon, une confusion fréquente), jamais absurde ; la question ne contient pas la réponse et se comprend sans la leçon (jamais « dans l'expérience », « sur le document »).
 4. Équilibre : pas deux questions qui vérifient la même chose ; en histoire, au plus un tiers de dates ; P seulement en langue étrangère ou en maternelle-CP ; un C ou un V a un sens tout seul.
-5. Format : Q avec la bonne réponse en premier ; G avec les [mots] entre crochets ; X avec SEULS les mots à trouver entre *étoiles* ; O dans le bon ordre et sans explication ; une seule question par fait, pas de doublon.
+5. Écoute (dire=) : la phrase lue et la bonne réponse disent exactement la même chose (même sens, même personne, question ↔ question) ; une phrase anglaise n'a jamais langue=fr-FR.
+6. Format : Q avec la bonne réponse en premier ; G avec les [mots] entre crochets ; X avec SEULS les mots à trouver entre *étoiles* ; O dans le bon ordre et sans explication ; une seule question par fait, pas de doublon.
 
 Corrige toute ligne qui ne passe pas : réécris-la, ou remplace-la par une question sur une notion de la leçon peu couverte. Garde telles quelles les lignes correctes, les lignes #, T, ## et M, et le même nombre de questions.
 

@@ -842,6 +842,12 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
     if (uniques.length < 2 || !uniques.includes(trouve)) { avert.push('Question ' + (i + 1) + ' ignorée (choix en double).'); return null; }
     // un mauvais choix qui contient « ou », « les deux », « aucune » rend la question ambiguë
     if (!souple && uniques.some(o => o !== trouve && (/^(les deux|aucune?)( |$)/i.test(o) || (/\s+ou\s+/i.test(o) && o.toLowerCase().includes(trouve.toLowerCase()))))) { avert.push('Question ' + (i + 1) + ' ignorée (choix ambigu du type « A ou B », « les deux »).'); return null; }
+    // « Que veut dire la phrase entendue ? » : la phrase lue et la bonne réponse doivent être de même forme
+    // (question ↔ question, affirmation ↔ affirmation) ; « He likes peas. » → « Qui aime les petits pois ? » est faux
+    const finQ = t => /\?\s*$/.test(String(t));
+    if (!souple && base.dire && /veut dire|signifie|tradui|traduction|que dit|sens de/i.test(base.q) && String(trouve).split(/\s+/).length >= 2 && finQ(base.dire) !== finQ(trouve)) {
+      avert.push('Question ' + (i + 1) + ' ignorée (la phrase entendue et la bonne réponse ne disent pas la même chose).'); return null;
+    }
     return Object.assign(base, { type: 'qcm', opts: uniques, a: trouve });
   } else if (type === 'vf' || type === 'vrai-faux' || type === 'vraifaux') {
     const v = q.a != null ? q.a : q.reponse;

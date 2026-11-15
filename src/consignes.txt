@@ -29,7 +29,7 @@ Comment le demander :
 - Varie les exercices : au moins 4 types différents, aucun au-delà de 40 % des lignes. Choisis le type selon ce qu'il faut apprendre :
   règle (grammaire, orthographe, conjugaison) → G, X, Q, S ; vocabulaire, traduction, définition → A, S, Q ; chronologie, étapes, cycle, méthode → O ; catégories, familles → C ; calcul, mesure → S (exact), N (valeur approchée) ; idée reçue, propriété → V (autant de V que de F) ; compréhension orale, dictée → Q ou S avec dire= ; prononciation en langue étrangère, lecture à voix haute en maternelle-CP → P (2 au plus, jamais dans les autres matières) ; musique → notes=, K.
 - Au plus un A, C ou O par catégorie (ils valent plusieurs questions).
-- Niveau : maternelle-CP → phrases très courtes, 2 ou 3 choix, emojis (compter 🍎🍎🍎, A avec emojis), dire= en français (langue=fr-FR sur la ligne) pour lire la question, pas de S long ; collège-lycée → plus de S, N, X et O de méthode.
+- Niveau : maternelle-CP → phrases très courtes, 2 ou 3 choix, emojis (compter 🍎🍎🍎, A avec emojis), hors langue étrangère, dire= avec la question en français et langue=fr-FR pour la lire, pas de S long ; collège-lycée → plus de S, N, X et O de méthode.
 - Écris exactement le nombre de questions demandé (lignes Q, V, S, G, O, A, C, X, N, P, K). Si les notions manquent, fais-les appliquer autrement (autre exemple, autre type d'exercice, sens inverse : mot → définition puis définition → mot), jamais hors sujet.
 
 Format : écris seulement « ✅ Quiz prêt ! Touche Copier sur le bloc, puis reviens sur SoccaQuiz. », puis le bloc de code, rien après. Une ligne par élément, champs séparés par |.
@@ -55,7 +55,7 @@ M|point clé à retenir (3 à 6 lignes M à la fin)
 - Image : ajoute img=emoji seulement aux questions qu'un objet ou un être concret illustre vraiment (img=🐘), jamais un emoji qui donne la réponse ; aucune image pour la grammaire ou la conjugaison.
 - Indice : sur les questions difficiles (une sur quatre environ), ajoute indice=coup de pouce qui aide à trouver sans donner la réponse, ni même un morceau de la réponse (indice=Regarde le sujet).
 - Matière : francais, maths, sciences, anglais, histoire, geographie, musique ou autre.
-- Anglais : sur un tiers des questions, ajoute le champ dire=phrase anglaise que l'appareil lira (ne l'écris pas dans la question). Autre langue : ajoute langue=es-ES (ou de-DE, it-IT) à la ligne T.
+- Anglais : sur un tiers des questions, ajoute le champ dire=phrase anglaise que l'appareil lira (ne l'écris pas dans la question), jamais avec langue=fr-FR. Quand on demande ce que veut dire la phrase entendue, la bonne réponse en est la traduction exacte : même sens, même personne, même forme (question ↔ question). Ex. dire=He likes peas. → Il aime les petits pois. (jamais Qui aime les petits pois ?) Autre langue : ajoute langue=es-ES (ou de-DE, it-IT) à la ligne T.
 - Musique : champ notes=C4 E4 C4+E4+G4 (C4 = do du milieu, # ou b permis, + = accord) ; ajoute portee pour dessiner aussi les notes, portee=seule pour les dessiner sans les jouer. Ne donne pas la réponse dans la question.
 - Photo illisible : dis-le en une phrase avant le bloc.
 

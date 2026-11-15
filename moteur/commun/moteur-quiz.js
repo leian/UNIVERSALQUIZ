@@ -542,16 +542,43 @@
       t += pas;
     });
   }
+  // langue réellement lue : dans un quiz d'anglais, une phrase anglaise marquée langue=fr-FR (erreur de l'IA,
+  // vue sur des quiz de maternelle) est lue en anglais, et une consigne française marquée en anglais est lue en français
+  const MOTS_EN = /(^|[^\p{L}'])(i|i'm|you|he|she|it|we|they|the|is|are|am|isn't|aren't|don't|doesn't|do|does|like|likes|have|has|my|your|his|her|what|where|who|how|can|this|that|and|not|yes|no|please|thank)(?=$|[^\p{L}'])/giu;
+  const MOTS_FR = /(^|[^\p{L}'])(le|la|les|un|une|des|est|et|tu|je|il|elle|nous|vous|comment|quel|quelle|dit-on|c'est|qu'est-ce|veut|dire|écoute|ecoute)(?=$|[^\p{L}'])/giu;
+  function langueLue(q) {
+    const langue = q.langue || C.langueAudio || 'en-GB', t = String(q.dire || '');
+    if (C.matiere !== 'anglais') return langue;
+    const en = (t.match(MOTS_EN) || []).length, fr = (t.match(MOTS_FR) || []).length + (/[àâçéèêëîïôûùœ]/i.test(t) ? 2 : 0);
+    if (/^fr/i.test(langue) && en > fr) return 'en-GB';
+    if (/^en/i.test(langue) && fr > en) return 'fr-FR';
+    return langue;
+  }
+  // voix de la langue (exacte, sinon même langue de base) ; sans voix choisie, Android et Brave lisent avec la voix
+  // par défaut du téléphone, souvent française (« I » dit « i ») : on attend que la liste des voix soit chargée
+  function voixPour(langue) {
+    const voix = speechSynthesis.getVoices(), base = langue.slice(0, 2).toLowerCase(), l = x => String(x.lang).replace('_', '-').toLowerCase();
+    return voix.find(x => l(x) === langue.toLowerCase() && x.localService) || voix.find(x => l(x) === langue.toLowerCase())
+      || voix.find(x => l(x).startsWith(base) && x.localService) || voix.find(x => l(x).startsWith(base)) || null;
+  }
+  try { if ('speechSynthesis' in window) speechSynthesis.getVoices(); } catch (e) {}       // lance le chargement des voix dès l'ouverture
+  let lectureEnCours = 0;
   function direPhrase(q, lent) {
     couperSon();
     if (!('speechSynthesis' in window)) return;
-    const langue = q.langue || C.langueAudio || 'en-GB';
-    const u = new SpeechSynthesisUtterance(String(q.dire));
-    u.lang = langue; u.rate = lent ? 0.6 : 0.9;
-    const voix = speechSynthesis.getVoices(), base = langue.slice(0, 2).toLowerCase();
-    const v = voix.find(x => x.lang.replace('_', '-').toLowerCase() === langue.toLowerCase()) || voix.find(x => x.lang.toLowerCase().startsWith(base));
-    if (v) u.voice = v;
-    speechSynthesis.speak(u);
+    const langue = langueLue(q), moi = ++lectureEnCours;      // une lecture demandée plus tard annule celle qui attend
+    const parler = () => {
+      if (moi !== lectureEnCours) return;
+      const u = new SpeechSynthesisUtterance(String(q.dire));
+      u.lang = langue; u.rate = lent ? 0.6 : 0.9;
+      const v = voixPour(langue); if (v) try { u.voice = v; } catch (e) {}
+      speechSynthesis.speak(u);
+    };
+    if (speechSynthesis.getVoices().length) return parler();
+    let fait = false;
+    const une = () => { if (!fait) { fait = true; parler(); } };
+    try { speechSynthesis.addEventListener('voiceschanged', une, { once: true }); } catch (e) {}
+    setTimeout(une, 1200);                                   // liste jamais annoncée (certains navigateurs) : on lit quand même
   }
   // aucune voix de la langue sur l'appareil (fréquent pour l'anglais sur Android) : on le dit au lieu de lire avec une voix française
   const NOMS_LANGUES = { en: 'anglaise', fr: 'française', es: 'espagnole', de: 'allemande', it: 'italienne', pt: 'portugaise', nl: 'néerlandaise', zh: 'chinoise', ar: 'arabe', ru: 'russe', ja: 'japonaise' };
@@ -954,7 +981,7 @@
       ${answered ? `<div class="clearfix"><button class="next-btn" onclick="MoteurQuiz.next()">${nextLabel}</button></div>` : ''}`;
     defiler('q' + cur, answered);
     if (T && T.monter) T.monter(q, ctxDe(q));
-    if (q.dire) verifierVoix(q.langue || C.langueAudio || 'en-GB');
+    if (q.dire) verifierVoix(langueLue(q));
     if (!answered) {
       if (q.type === 'input') { const inp = document.getElementById('ans-input'); if (inp) setTimeout(() => inp.focus(), 30); }
       if (C.avantQuestion) try { C.avantQuestion(q); } catch (e) { console.warn(e); }

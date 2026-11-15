@@ -395,6 +395,7 @@ try {
   await page.evaluate(() => {
     window.__dit = []; window.__notes = 0;
     SpeechSynthesis.prototype.speak = function (u) { window.__dit.push(u.text + '|' + u.lang + '|' + u.rate.toFixed(1)); };
+    SpeechSynthesis.prototype.getVoices = () => [{ lang: 'fr-FR', name: 'fr', localService: true }, { lang: 'en_GB', name: 'en', localService: true }];
     const AC = window.AudioContext, cree = AC.prototype.createOscillator;
     AC.prototype.createOscillator = function () { window.__notes++; return cree.call(this); };
   });
@@ -600,6 +601,13 @@ try {
   })()`);
   ok(rel.r.titre === "L'eau" && rel.r.desc === 'CM1, niveau: facile // CE2' && /Lutèce/.test(rel.r.ans) && rel.r.exp === 'Bravo' && rel.r.unit === 'km' && rel.r.ou,
     'relecture : catalogue.js avec apostrophes lu sans être exécuté ; questions ratées des quiz faits à la main gardées dans les révisions (t, alts, accept, e, unit)');
+  const ecoute = await ev(`(function () {
+    const d = lireFormatLignes_('T|Food|x|anglais|🥦|🍽️\\nQ|Que veut dire la phrase entendue ?|Qui aime les petits pois ?|Il aime les petits pois.|Tu aimes les petits pois ?|Who = qui.|dire=He likes peas.\\nQ|Que veut dire la phrase entendue ?|Il aime les petits pois.|Elle aime les petits pois.|Il n\\'aime pas les petits pois.|He = il.|dire=He likes peas.\\nQ|Que veut dire la phrase entendue ?|Aimes-tu les petits pois ?|Tu aimes les petits pois.|Il aime les petits pois.|Do you… ? = question.|dire=Do you like peas?\\nV|x|V|y');
+    const av = [], qs = d.questions.map((q, i) => normaliserQuestion_(q, i, av, d)).filter(Boolean);
+    return { n: qs.length, a: qs.map(q => q.a), avert: av.join(' ') };
+  })()`);
+  ok(ecoute.r.n === 3 && /ne disent pas la même chose/.test(ecoute.r.avert) && !ecoute.r.a.includes('Qui aime les petits pois ?') && ecoute.r.a.includes('Il aime les petits pois.'),
+    'écoute : « He likes peas. » avec la bonne réponse « Qui aime les petits pois ? » écartée (phrase entendue et réponse de forme différente)');
   const pol = await (await fetch(BASE + '/exec')).text();
   ok(!/fonts\.(googleapis|gstatic)/.test(pol) && /polices\/polices\.css/.test(pol), 'polices servies par GitHub Pages : aucune requête vers Google Fonts');
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
