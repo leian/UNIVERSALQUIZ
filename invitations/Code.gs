@@ -21,14 +21,15 @@ function doGet() {
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 
-/* « Lucie <lucie@gmail.com> », « Lucie, lucie@gmail.com », « lucie@gmail.com » … une personne par ligne */
+/* « Lucie <lucie@gmail.com> », « Lucie, lucie@gmail.com », « lucie@gmail.com » … une personne par ligne.
+   Seul le premier mot avant ou après l'adresse sert de prénom (« Lucie Martin » → « Bonjour Lucie, »). */
 function lireListe_(texte) {
   const vus = {};
   return String(texte || '').split(/[\r\n;]+/).map(l => l.trim()).filter(Boolean).map(l => {
     const m = l.match(/[\w.+'-]+@[\w-]+(\.[\w-]+)+/);
     if (!m) return { ligne: l, erreur: 'adresse introuvable' };
     const email = m[0].toLowerCase();
-    const prenom = l.replace(m[0], '').replace(/[<>,:;"()\[\]]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 40);
+    const prenom = l.replace(m[0], '').replace(/[<>,:;"()\[\]]/g, ' ').replace(/\s+/g, ' ').trim().split(' ')[0].slice(0, 40);
     if (vus[email]) return { ligne: l, erreur: 'en double' };
     vus[email] = true;
     return { ligne: l, email, prenom };
@@ -37,15 +38,16 @@ function lireListe_(texte) {
 
 const echapper_ = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
-/* le mail tel qu'il est publié : contenu de <div id="mail"> */
+/* le mail tel qu'il est publié : ce qui est entre les repères <!--MAIL--> et <!--/MAIL--> (dans <div id="mail">) */
 function modele_() {
   // ?v=… : toujours la version publiée la plus récente (GitHub Pages garde sinon ses pages en cache une dizaine de minutes)
   const r = UrlFetchApp.fetch(SOURCE_INVITATION + '?v=' + Date.now(), { muteHttpExceptions: true, followRedirects: true, headers: { 'Cache-Control': 'no-cache' } });
   if (r.getResponseCode() !== 200) throw new Error('Impossible de lire le mail sur GitHub Pages (erreur ' + r.getResponseCode() + ').');
   const html = r.getContentText('UTF-8');
-  const debut = html.indexOf('<div id="mail">'), fin = html.indexOf('<script', debut);
-  if (debut < 0 || fin < 0) throw new Error('Le mail publié sur GitHub Pages a changé de forme : préviens Claude.');
-  return html.slice(debut + '<div id="mail">'.length, html.lastIndexOf('</div></div>', fin));
+  const DEBUT = '<!--MAIL-->', FIN = '<!--/MAIL-->';
+  const debut = html.indexOf(DEBUT), fin = html.indexOf(FIN, debut);
+  if (debut < 0 || fin < 0) throw new Error('Repère ' + (debut < 0 ? DEBUT : FIN) + ' introuvable dans le mail publié sur GitHub Pages (docs/invitation.html) : rien n\'a été envoyé. Préviens Claude.');
+  return html.slice(debut + DEBUT.length, fin);
 }
 
 function personnaliser_(modele, prenom, signature) {
@@ -111,7 +113,7 @@ input,textarea{font:inherit;width:100%;padding:10px 12px;border:2px solid var(--
 <section class="etape">
   <label for="liste">Les amis, un par ligne</label>
   <textarea id="liste" rows="6" placeholder="Lucie lucie@gmail.com&#10;Marc, marc.dupont@orange.fr&#10;sophie@gmail.com"></textarea>
-  <p class="petit">Le prénom avant l'adresse sert au « Bonjour Lucie, ». Sans prénom : « Bonjour, ».</p>
+  <p class="petit">Le prénom avant l'adresse sert au « Bonjour Lucie, » : seul le premier mot est gardé (« Lucie Martin » → « Bonjour Lucie, »), écris donc le prénom en premier. Sans prénom : « Bonjour, ».</p>
   <label for="signature">Signature, en bas du mail</label>
   <input id="signature" placeholder="ex. Yan" maxlength="80">
   <label for="nom">Nom de l'expéditeur, dans la boîte de réception</label>

@@ -253,7 +253,7 @@ try {
 
   // ajout d'un quiz depuis le site : réponse d'IA collée (JSON dans un bloc de code, avec du texte autour)
   await page.goto(BASE + '/exec');
-  await page.locator('a', { hasText: 'Ajouter un quiz' }).click();
+  await page.locator('a', { hasText: 'Créer un quiz' }).click();
   await page.waitForURL(/page=ajouter/);
   const msgs = await page.evaluate(() => ({ court: window.__consignes.messageCourt(), complet: window.__consignes.messageComplet() }));
   ok(msgs.complet.includes('Q|question|BONNE réponse') && !/Q\|question/.test(await page.locator('main').innerText()), 'page « Ajouter » : consignes prêtes, jamais affichées');
@@ -534,7 +534,7 @@ try {
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
   const pied = await page.locator('#foot').innerText();
-  ok(/Espace parent/.test(pied) && !/Ajouter un quiz|Suivi/.test(pied) && await page.locator('a.card').count() > 0, 'site de l\'enfant : quiz visibles, seul lien parent « 🔒 Espace parent »');
+  ok(/Espace parent/.test(pied) && !/Ajouter un quiz|Créer un quiz|Suivi/.test(pied) && await page.locator('a.card').count() > 0, 'site de l\'enfant : quiz visibles, seul lien parent « 🔒 Espace parent »');
   await ev('CONFIG.espace = "parent"; CONFIG.urlParent = ""');
   await page.goto(BASE + '/exec');
   ok(await page.locator('.actions-tete a.principal').isVisible() && /Créer un quiz/.test(await page.locator('.actions-tete').innerText()) && await page.locator('#onglets').isVisible() && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (« Créer un quiz » en haut, onglets, pas la page de l\'enfant)');
@@ -560,6 +560,48 @@ try {
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
   await ev('CONFIG.espace = ""');
 
+  // audit du 15 novembre : données venues du lien de l'enfant (accès anonyme) vérifiées par le serveur
+  const sec = await ev(`(function () {
+    CacheService.getScriptCache().removeAll(['revisions', 'maitrise']);
+    const avant = feuille_().getLastRow();
+    const o1 = JSON.stringify({ type: 'qcm', q: 'Q piège', opts: ['a', 'b'], a: 'a', k: 'kx1', evil: '<img src=x onerror=alert(1)>' });
+    const o2 = JSON.stringify({ type: 'inconnu', q: '<img src=x onerror=alert(1)>', k: 'kx2' });
+    const r1 = apiEnregistrer(JSON.stringify({ _id: 'abc123', quiz: 'secu', score: 9, total: 2, mode: 'duel', cats: { A: { ok: '<img src=x onerror=1>', total: 1 }, constructor: { ok: 1, total: 1 } },
+      questions: [{ q: 'x', cat: 'constructor', k: 'kx1', ok: false, o: o1 }, { q: 'y', cat: 'toString', k: '__proto__', ok: false, o: o2 }, null] }));
+    const r2 = apiEnregistrer(JSON.stringify({ _id: 'abc123', quiz: 'secu', score: 1, total: 2 }));
+    const l = lireLignes_().filter(x => x.quiz === 'secu');
+    const qs = JSON.parse(l[0].questions);
+    let m = null; try { m = maitrise_(); } catch (e) { m = 'ERREUR ' + e.message; }
+    let rv = null; try { rv = revisions_(new Date()); } catch (e) { rv = 'ERREUR ' + e.message; }
+    CONFIG.espace = 'enfant';
+    const enfant = apiLister({ details: '1' });
+    CONFIG.espace = '';
+    const parent = apiLister({}).resultats.find(x => x.quiz === 'secu');
+    return { ajout: feuille_().getLastRow() - avant, deja: r2.deja, score: l[0].score, total: l[0].total, cats: l[0].cats, mode: parent && parent.mode,
+      o1: qs[0].o || '', o2: qs[1].o || '', proto: ({}).boite, m: typeof m, rv: typeof rv, enfantDetails: enfant.resultats.some(x => x.questions || x.joueur !== undefined) };
+  })()`);
+  ok(sec.r.ajout === 1 && sec.r.deja === true && sec.r.score === '2' && sec.r.total === '2' && sec.r.mode === 'duel', 'serveur : partie renvoyée avec le même identifiant comptée une seule fois, score borné au total, mode de la partie gardé');
+  ok(!/img/.test(sec.r.cats) && /"A":\{"ok":0,"total":1\}/.test(sec.r.cats) && !/constructor/.test(sec.r.cats), 'serveur : scores par catégorie réduits à des nombres (pas de code dans l\'espace parent)');
+  ok(/"q":"Q piège"/.test(sec.r.o1) && !/evil|onerror/.test(sec.r.o1) && sec.r.o2 === '', 'serveur : question ratée revérifiée (champs inconnus retirés, type inconnu refusé)');
+  ok(sec.r.proto === undefined && sec.r.m === 'object' && sec.r.rv === 'object', 'serveur : catégories « constructor », « toString » et clé « __proto__ » sans effet sur la maîtrise et les révisions');
+  ok(sec.r.enfantDetails === false, 'serveur : le site de l\'enfant ne reçoit jamais le détail des réponses');
+  const lf = await ev(`(function () {
+    const d = lireFormatLignes_('T|Verbes|x|francais|📖|🎪\\nQ|Infinitif de « il dit » ?|dire|faire|voir|Le verbe est dire.\\nQ|Contraire de grand ?|petit|haut|large\\nQ|2 + 2 ?|4|5|22|Deux plus deux font quatre, bien sûr.');
+    return d.questions.map(q => ({ a: q.a, n: q.opts.length, exp: q.exp }));
+  })()`);
+  ok(lf.r[0].a === 'dire' && lf.r[0].n === 3 && lf.r[1].n === 3 && lf.r[1].exp === '' && lf.r[2].n === 3 && /quatre/.test(lf.r[2].exp),
+    'format en lignes : une bonne réponse « dire » reste une réponse ; sans explication, aucun mauvais choix n\'est perdu');
+  const rel = await ev(`(function () {
+    const c = 'var QUIZ = [ { fichier: "a.html", titre: "L\\'eau", description: "CM1, niveau: facile // CE2" }, ];';
+    const cat = JSON.parse(litteralVersJson_(c, c.indexOf('[')));
+    const q = questionRatee_({ t: 'input', q: 'Capitale ?', a: 'Paris', alts: ['paris'], accept: ['Lutèce'], e: 'Bravo', unit: 'km', k: 'z1' });
+    const ou = questionRatee_({ type: 'qcm', q: 'Qui ?', opts: ['le chat', 'le chien ou la souris'], a: 'le chat', k: 'z2' });
+    return { titre: cat[0].titre, desc: cat[0].description, ans: q && q.ans.join('|'), exp: q && q.exp, unit: q && q.unit, ou: !!ou };
+  })()`);
+  ok(rel.r.titre === "L'eau" && rel.r.desc === 'CM1, niveau: facile // CE2' && /Lutèce/.test(rel.r.ans) && rel.r.exp === 'Bravo' && rel.r.unit === 'km' && rel.r.ou,
+    'relecture : catalogue.js avec apostrophes lu sans être exécuté ; questions ratées des quiz faits à la main gardées dans les révisions (t, alts, accept, e, unit)');
+  const pol = await (await fetch(BASE + '/exec')).text();
+  ok(!/fonts\.(googleapis|gstatic)/.test(pol) && /polices\/polices\.css/.test(pol), 'polices servies par GitHub Pages : aucune requête vers Google Fonts');
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {
     const d = DriveApp.createFolder('Universal Quiz');

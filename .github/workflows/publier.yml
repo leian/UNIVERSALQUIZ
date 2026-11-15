@@ -1,10 +1,13 @@
 # Publie une nouvelle version du moteur pour l'installateur en ligne.
 # Déclenchement : pousser un tag qui commence par v (ex. v2.1),
-# ou Actions → « Publier l'installateur » → Run workflow.
-# 1. teste le projet (faux Google + Chrome) ;
-# 2. fabrique universal-quiz.json (le moteur au format de l'API Apps Script) ;
-# 3. crée la Release qui le contient, marquée « dernière version » :
-#    l'installateur en ligne (en-ligne/Code.gs) la lit toute seule.
+# ou Actions → « Publier l'installateur » → Run workflow, avec un tag sans Release (s'il n'est pas encore poussé,
+# la branche choisie est testée et le tag est créé sur ce commit).
+# 1. job « tester » (lecture seule, sans jeton d'écriture) : teste le projet tel qu'il est au tag
+#    (faux Google + Chrome), vérifie que les consignes générées sont commitées, fabrique universal-quiz.json ;
+# 2. job « publier » (seul à pouvoir écrire) : crée la Release sur le commit testé.
+#    Elle n'est marquée « dernière version » (lue par l'installateur, en-ligne/Code.gs) que si son tag
+#    est le plus grand ; un tag avec « - » (v2.1-test) est publié en préversion, jamais proposé aux familles.
+#    Une Release existante n'est jamais republiée : un correctif = un nouveau tag.
 name: Publier l'installateur
 
 on:
@@ -13,33 +16,91 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Tag de la version à publier (ex. v2.1)'
+        description: 'Tag sans Release (ex. v2.1) : poussé ou créé sur le commit testé'
         required: true
 
 permissions:
-  contents: write
+  contents: read
+
+concurrency:
+  group: publier-installateur
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ inputs.tag || github.ref_name }}
 
 jobs:
-  publier:
+  tester:
     runs-on: ubuntu-latest
-    env:
-      TAG: ${{ inputs.tag || github.ref_name }}
-      GH_TOKEN: ${{ github.token }}
-      GH_REPO: ${{ github.repository }}
+    permissions:
+      contents: read
+    outputs:
+      sha: ${{ steps.sha.outputs.sha }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5   # v4.3.1
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      # lancement manuel : on teste le tag s'il existe déjà ; sinon la branche choisie, et la Release crée le tag
+      # exactement sur le commit testé (--target), jamais sur un autre
+      - name: Se placer sur le tag
+        if: github.event_name == 'workflow_dispatch'
+        run: |
+          if git rev-parse -q --verify "refs/tags/$TAG" >/dev/null; then git checkout -q "refs/tags/$TAG"; fi
+      - id: sha
+        run: echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
         with:
           node-version: 22
       - name: Tester le projet (faux Google + Chrome)
         run: |
-          npm install --no-save playwright
-          npx playwright install --with-deps chromium
+          npm install --no-save --ignore-scripts playwright@1.63.0
+          npx --no-install playwright install --with-deps chromium
           node tests/test.mjs
+      - name: Vérifier que les consignes générées sont commitées
+        run: |
+          if [ -n "$(git status --porcelain -- docs/consignes)" ]; then
+            git status --porcelain -- docs/consignes
+            echo "::error::Fichier de consignes non commité dans docs/consignes : lance node construire.mjs, committe le fichier, puis pousse un nouveau tag."
+            exit 1
+          fi
       - name: Fabriquer le moteur pour l'installateur en ligne (universal-quiz.json)
         run: node outils/fabriquer-charge.mjs
-      - name: Créer ou mettre à jour la Release
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: moteur
+          path: dist/universal-quiz.json
+          if-no-files-found: error
+          retention-days: 5
+
+  publier:
+    needs: tester
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: moteur
+          path: dist
+      - name: Créer la Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          SHA: ${{ needs.tester.outputs.sha }}
         run: |
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::La Release $TAG existe déjà : elle n'est pas republiée. Pour un correctif, pousse un nouveau tag (ex. v2.1.1)."
+            exit 1
+          fi
+          # « dernière version » seulement si ce tag est le plus grand des tags de version (sans « - »)
+          case "$TAG" in
+            *-*) MARQUE="--prerelease --latest=false" ;;
+            *)
+              PLUS_GRAND=$( { gh api "repos/$GH_REPO/tags" --paginate --jq '.[].name'; echo "$TAG"; } \
+                | grep -E '^[vV][0-9]' | grep -v -- - | sed 's/^[vV]//' | sort -V | tail -1)
+              if [ "${TAG#[vV]}" = "$PLUS_GRAND" ]; then MARQUE="--latest"; else MARQUE="--latest=false"; echo "::warning::$TAG n'est pas le plus grand tag (v$PLUS_GRAND) : publié sans être proposé aux familles."; fi ;;
+          esac
           cat > notes.md <<NOTES
           **Installation et mise à jour** : ouvrez le lien de l'installateur en ligne reçu par mail, depuis un téléphone ou un ordinateur. Il installe toujours la dernière version, et le bouton « Mettre à jour mon site » applique les nouvelles versions sans changer l'adresse du site.
 
@@ -47,10 +108,6 @@ jobs:
 
           Licence PolyForm Noncommercial 1.0.0 : usage commercial interdit.
           NOTES
-          if gh release view "$TAG" >/dev/null 2>&1; then
-            gh release upload "$TAG" dist/universal-quiz.json --clobber
-            gh release edit "$TAG" --latest --prerelease=false --draft=false
-          else
-            gh release create "$TAG" dist/universal-quiz.json \
-              --title "SoccaQuiz $TAG" --notes-file notes.md --latest
-          fi
+          # shellcheck disable=SC2086
+          gh release create "$TAG" dist/universal-quiz.json --target "$SHA" \
+            --title "SoccaQuiz $TAG" --notes-file notes.md $MARQUE

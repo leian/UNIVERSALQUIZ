@@ -59,20 +59,23 @@
   const liste = () => (window.QUIZ || []).filter(q => /\.html$/i.test(q.fichier));
   const fmt = d => { try { return new Date(d).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' }); } catch (e) { return ''; } };
 
-  function noter(quiz, score, total, date) {
-    if (!total || score < total) return;
+  // seule une partie normale à 100 % compte (pas « Refaire mes erreurs », pas le défi en famille,
+  // pas les pages « Mes révisions » / défi du mois) ; les anciennes parties sans mode sont des parties normales
+  function noter(quiz, score, total, date, mode) {
+    if (!total || score < total || (mode && mode !== 'normal')) return;
     const k = cle(quiz);
+    if (/^(revisions|defi)$/i.test(k)) return;
     if (!gagnes.has(k) || (date && date < gagnes.get(k))) gagnes.set(k, date || new Date().toISOString());
   }
   function chargerLocal() {
-    try { (JSON.parse(localStorage.getItem('uqSuivi.local')) || []).forEach(r => noter(r.quiz, r.score, r.total, r.date)); } catch (e) {}
+    try { (JSON.parse(localStorage.getItem('uqSuivi.local')) || []).forEach(r => noter(r.quiz, r.score, r.total, r.date, r.mode)); } catch (e) {}
   }
   async function chargerDistant() {
     if (!/^https?:/.test(location.protocol)) return;
     try {
       const r = await fetch('/api/resultats', { cache: 'no-store', credentials: 'same-origin' });
       if (!r.ok) return;
-      ((await r.json()).resultats || []).forEach(x => noter(x.quiz, x.score, x.total, x.date));
+      ((await r.json()).resultats || []).forEach(x => noter(x.quiz, x.score, x.total, x.date, x.mode));
     } catch (e) {}
   }
 
@@ -107,6 +110,7 @@
     },
     gagner(quiz) {
       const k = cle(quiz || location.pathname);
+      if (/^(revisions|defi)$/i.test(k)) return false;
       const nouveau = !gagnes.has(k);
       if (nouveau) { gagnes.set(k, new Date().toISOString()); dernierNouveau = k; rendre(); }
       return nouveau;

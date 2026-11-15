@@ -155,7 +155,9 @@ function installer() {
 if (document.body) installer(); else document.addEventListener('DOMContentLoaded', installer);
 
 /* ===== Module à intégrer : illustrations SVG, effets et trois fonctions publiques ===== */
-const PRAISE = ['Bien joué !', 'Bravo !', 'Super, {{PRENOM}} !', 'Génial !', 'Quel talent !', 'Impeccable !', 'Chapeau !', 'Tu gères !'];
+// prénom vide (le serveur met alors « mon enfant ») : encouragements neutres, sans « mon enfant »
+const PRENOM = (p => p && p !== 'mon enfant' ? p : '')('{{PRENOM}}'.trim());
+const PRAISE = ['Bien joué !', 'Bravo !', PRENOM ? 'Super, ' + PRENOM + ' !' : 'Super !', 'Génial !', 'Quel talent !', 'Impeccable !', 'Chapeau !', 'Tu gères !'];
 
 /* Les tracés sont dans un repère de 160 × 112. Chaque articulation a son propre pivot. */
 const quizArt = (() => {
@@ -1009,7 +1011,7 @@ function showCapybaraIndex(index) {
     document.body.appendChild(overlay);
   }
   overlay.innerHTML = `<div class="capy-box">
-    <h2 id="capy-title">Quiz réussi, bravo {{PRENOM}} !</h2>
+    <h2 id="capy-title">Quiz réussi, bravo${PRENOM ? ' ' + PRENOM : ''} !</h2>
     <p id="capy-description">${scene.t}</p>
     <div class="capy-scene">${scene.svg}</div>
     <button type="button" class="capy-close" autofocus>Merci !</button>

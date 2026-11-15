@@ -3,20 +3,23 @@
    ESSAI DES CONSIGNES AVEC GEMINI, comme le fait la page « Ajouter un quiz »
    (création, puis relecture), pour comparer les quiz obtenus sur de vraies leçons.
    Usage :
-     GEMINI_CLE=AQ.xxxx node outils/essai-gemini.mjs <dossier de photos> [nb de questions] [classe]
+     node outils/essai-gemini.mjs <dossier de photos> [nb de questions] [classe]
+   La clé est lue dans .outils/gemini-cle.txt (dossier ignoré par git ; une seule ligne, la clé),
+   ou à défaut dans la variable GEMINI_CLE (déconseillé : elle reste dans l'historique du shell).
    Exemple :
-     GEMINI_CLE=AQ.xxxx node outils/essai-gemini.mjs ~/Images/lecon-anglais 12 6e
+     node outils/essai-gemini.mjs ~/Images/lecon-anglais 12 6e
    Écrit dans le dossier des photos : essai-<heure>-1-creation.txt et essai-<heure>-2-relecture.txt.
    La clé ne quitte pas l'ordinateur (seulement vers Google) et n'est écrite nulle part.
    ===================================================================== */
-import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 const [dossier, nb = '12', classe = ''] = process.argv.slice(2);
-const cle = process.env.GEMINI_CLE || '';
-if (!dossier || !cle) { console.error('Usage : GEMINI_CLE=… node outils/essai-gemini.mjs <dossier de photos> [nb] [classe]'); process.exit(1); }
+const FICHIER_CLE = join(RACINE, '.outils', 'gemini-cle.txt');
+const cle = (process.env.GEMINI_CLE || (existsSync(FICHIER_CLE) ? readFileSync(FICHIER_CLE, 'utf8') : '')).trim();
+if (!dossier || !cle) { console.error('Usage : node outils/essai-gemini.mjs <dossier de photos> [nb] [classe]\n(clé Gemini dans .outils/gemini-cle.txt, ou variable GEMINI_CLE)'); process.exit(1); }
 
 const CONSIGNES = readFileSync(join(RACINE, 'src', 'consignes.txt'), 'utf8').replace(/\r\n/g, '\n');
 const RELECTURE = readFileSync(join(RACINE, 'src', 'relecture.txt'), 'utf8').replace(/\r\n/g, '\n');

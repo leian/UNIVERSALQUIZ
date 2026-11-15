@@ -64,7 +64,7 @@
     if (/\.html?$/i.test(nom) || nom === '') {
       var page = nom.replace(/\.html?$/i, '');
       // dans le site de l'enfant, les pages des parents s'ouvrent dans l'espace parent
-      if (CFG.espace === 'enfant' && CFG.urlParent && (page === 'tableau-de-bord' || page === 'ajouter')) return CFG.urlParent + '?page=' + page;
+      if (CFG.espace === 'enfant' && CFG.urlParent && (CFG.pagesParent || ['tableau-de-bord', 'ajouter']).indexOf(page) >= 0) return CFG.urlParent + '?page=' + page;
       return CFG.url + (page === '' || page === 'index' ? '' : '?page=' + encodeURIComponent(page));
     }
     return null;

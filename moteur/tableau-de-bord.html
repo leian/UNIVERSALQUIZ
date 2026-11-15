@@ -4,8 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Espace parent – SoccaQuiz</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
 <script src="commun/catalogue.js"></script>
 <script src="commun/suivi.js"></script>
 <style>
@@ -22,7 +20,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-
 header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:18px}
 h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(1.6rem,5vw,2.3rem);margin:0}
 h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.2rem;margin:0 0 10px}
-.btn{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .9rem "Fredoka",sans-serif;cursor:pointer;text-decoration:none}
+.btn{display:inline-flex;align-items:center;gap:6px;min-height:44px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .9rem "Fredoka",sans-serif;cursor:pointer;text-decoration:none}
 .btn:hover{border-color:var(--soft)}
 .btn.danger{border-color:#fecaca;color:var(--ko)}
 .box{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
@@ -34,8 +32,9 @@ h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.2rem;margin:0 0 
 .kpi{background:var(--card);border:2px solid var(--line);border-radius:14px;padding:12px}
 .kpi .v{font:700 1.6rem "Fredoka",sans-serif}
 .kpi .l{color:var(--soft);font-size:.85rem}
-.bars{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px}
-.bars .b{flex:1;min-width:4px;border-radius:4px 4px 0 0;background:var(--line);position:relative}
+.bars{display:flex;align-items:flex-end;gap:3px;height:120px;padding-top:6px;overflow:hidden}
+.bars.serre{gap:1px}
+.bars .b{flex:1;min-width:0;border-radius:4px 4px 0 0;background:var(--line);position:relative}
 .bars .b span{position:absolute;bottom:100%;left:50%;transform:translateX(-50%);font-size:.7rem;color:var(--soft)}
 .axis{display:flex;justify-content:space-between;font-size:.75rem;color:var(--soft);margin-top:4px}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:.8rem;color:var(--soft);margin-top:8px}
@@ -52,7 +51,8 @@ tr.click:hover td{background:rgba(0,0,0,.03)}
 .pill{display:inline-block;border-radius:999px;padding:1px 9px;font:700 .8rem "Fredoka",sans-serif;color:#fff}
 .tablewrap{overflow-x:auto}
 .sess{border-top:1px solid var(--line);padding:10px 0}
-.sess-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:pointer}
+.sess-h{display:flex;flex-wrap:wrap;align-items:center;gap:8px;cursor:pointer;width:100%;background:none;border:none;color:inherit;font:inherit;text-align:left;padding:4px 0;min-height:44px;border-radius:8px}
+.sess-h:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .sess-h .t{font-weight:700;flex:1;min-width:160px}
 .sess-h .m{color:var(--soft);font-size:.85rem}
 .det{margin-top:10px;padding:10px;background:var(--bg);border-radius:12px;font-size:.9rem}
@@ -65,8 +65,8 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
 .niv-barre{display:flex;gap:3px;height:14px;border-radius:99px;overflow:hidden}
 .niv-barre span{min-width:6px}
 .legend img.emb{width:22px;height:22px;vertical-align:middle;margin-right:4px}
-.voile{position:fixed;inset:0;background:rgba(20,16,40,.45);display:grid;place-items:center;padding:16px;z-index:50}
-.boite{background:var(--card);color:var(--ink);border-radius:18px;padding:20px;max-width:380px;width:100%;box-shadow:0 12px 40px rgba(0,0,0,.25)}
+dialog.boite{border:none;background:var(--card);color:var(--ink);border-radius:18px;padding:20px;max-width:380px;width:calc(100% - 32px);box-shadow:0 12px 40px rgba(0,0,0,.25)}
+dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .boite h3{margin:0 0 8px;font-family:"Fredoka",sans-serif}.boite p{margin:6px 0;color:var(--soft);font-size:.95rem}
 .boite .bts{display:flex;gap:10px;justify-content:flex-end;margin-top:16px}
 .boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
@@ -75,6 +75,7 @@ select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px
 .onglets{display:flex;gap:4px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--line)}
 .onglet{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;background:none;color:var(--soft);padding:12px 8px 10px;font:600 1rem "Fredoka",sans-serif;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
 .onglet:hover{color:var(--ink)}
+@media (max-width:380px){.onglet{min-width:0;gap:4px;padding:12px 4px 10px;font-size:.92rem}.onglet>.ic{display:none}}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
 .onglet:focus-visible,.btn:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .onglet .nb{font-size:.78rem;background:var(--line);color:var(--ink);border-radius:999px;padding:0 7px;font-weight:700}
@@ -97,6 +98,8 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 @keyframes pastille{50%{transform:scale(1.3)}}
 @media (prefers-reduced-motion:reduce){.pastille-maj::after{animation:none}}
 .msg.maj{background:var(--rouge-c);border:1px solid #f3c6c6;color:var(--ink)}
+.msg details{margin-top:8px;font-size:.85rem}
+.enreg{margin:6px 0 0;font-size:.85rem;color:var(--soft)}.enreg.ko{color:var(--ko)}
 </style>
 </head>
 <body>
@@ -112,37 +115,37 @@ h2 .ic{color:var(--rouge);margin-right:6px}
   <h1 class="titre-page">Suivi de {{PRENOM}}</h1>
   <div id="maj" class="msg maj" hidden></div>
   <nav class="onglets" id="onglets" role="tablist">
-    <button type="button" class="onglet on" data-o="resultats" role="tab"><i data-ic="chart"></i> Résultats</button>
-    <button type="button" class="onglet" data-o="quiz" role="tab"><i data-ic="folder"></i> Quiz <span class="nb" id="nb-quiz"></span></button>
-    <button type="button" class="onglet" data-o="reglages" role="tab"><i data-ic="settings"></i> Réglages</button>
+    <button type="button" class="onglet on" data-o="resultats" role="tab" id="o-resultats" aria-controls="p-resultats" aria-selected="true"><i data-ic="chart"></i> Résultats</button>
+    <button type="button" class="onglet" data-o="quiz" role="tab" id="o-quiz" aria-controls="p-quiz" aria-selected="false" tabindex="-1"><i data-ic="folder"></i> Quiz <span class="nb" id="nb-quiz"></span></button>
+    <button type="button" class="onglet" data-o="reglages" role="tab" id="o-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><i data-ic="settings"></i> Réglages</button>
   </nav>
-  <div class="panneau" id="p-resultats">
+  <div class="panneau" id="p-resultats" role="tabpanel" aria-labelledby="o-resultats">
   <div id="etat"></div>
   <div class="box">
     <div class="filtres">
-      <label class="small">Période :</label>
+      <label class="small" for="periode">Période :</label>
       <select id="periode" onchange="afficher()">
         <option value="7">7 derniers jours</option>
         <option value="30" selected>30 derniers jours</option>
         <option value="90">3 mois</option>
         <option value="0">Tout</option>
       </select>
-      <label class="small">Matière :</label>
+      <label class="small" for="fmat">Matière :</label>
       <select id="fmat" onchange="afficher()"></select>
-      <span id="fjoueur-wrap" style="display:none"><label class="small">Joueur :</label> <select id="fjoueur" onchange="afficher()"></select></span>
+      <span id="fjoueur-wrap" style="display:none"><label class="small" for="fjoueur">Joueur :</label> <select id="fjoueur" onchange="afficher()"></select></span>
       <button class="btn" onclick="charger()" style="margin-left:auto"><i data-ic="refresh"></i> Actualiser</button>
     </div>
   </div>
   <div id="contenu"></div>
   </div>
-  <div class="panneau" id="p-quiz" hidden>
+  <div class="panneau" id="p-quiz" role="tabpanel" aria-labelledby="o-quiz" hidden>
     <div class="box" id="gerer">
       <h2><i data-ic="folder"></i>Les quiz du site</h2>
       <p class="small" style="margin-top:0">« Tester » ouvre le quiz pour l'essayer, « Supprimer » le retire du site de l'enfant. Pour en ajouter un : <a href="ajouter.html">Créer un quiz</a>.</p>
       <div id="liste-quiz"></div>
     </div>
   </div>
-  <div class="panneau" id="p-reglages" hidden>
+  <div class="panneau" id="p-reglages" role="tabpanel" aria-labelledby="o-reglages" hidden>
     <div class="box" id="actions">
       <h2><i data-ic="send"></i>Partager et mettre à jour</h2>
       <div class="filtres">
@@ -204,6 +207,9 @@ const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&l
 const cle = f => String(f || "").split("/").pop().replace(/\.html$/i, "");
 const CAT = {}; (window.QUIZ || []).forEach(q => CAT[cle(q.fichier)] = q);
 const couleur = p => p >= 70 ? "var(--ok)" : p >= 40 ? "var(--moy)" : "var(--ko)";
+const fond = p => p >= 70 ? "#15803d" : p >= 40 ? "#b45309" : "#dc2626";      // pastilles : texte blanc lisible (contraste ≥ 4,5:1)
+const nb = v => { v = +v; return isFinite(v) ? v : 0; };                        // tout chiffre venu du Sheets est forcé en nombre
+const aRes = Object.prototype.hasOwnProperty;
 const jour = d => new Date(d).toLocaleDateString("fr-CA");               // AAAA-MM-JJ (heure locale)
 const fmtDate = d => new Date(d).toLocaleString("fr-FR", { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 const fmtDuree = s => s == null ? "—" : s < 60 ? s + " s" : Math.floor(s / 60) + " min" + (s % 60 ? " " + (s % 60) + " s" : "");
@@ -215,21 +221,30 @@ function infos(r) {
   const matiere = (c && c.matiere) || r.matiere || "autre";
   return { titre, matiere, pct: r.total ? Math.round(r.score / r.total * 100) : 0 };
 }
-const nomMat = m => (window.MATIERES && MATIERES[m]) ? MATIERES[m].emo + " " + MATIERES[m].nom : m;
+const nomMat = m => (window.MATIERES && aRes.call(MATIERES, m)) ? MATIERES[m].emo + " " + MATIERES[m].nom : m;
+// une partie lue dans le Sheets : chiffres forcés, textes gardés tels quels (échappés à l'affichage)
+function propre(r) {
+  r = r || {};
+  r.id = String(r.id || ""); r.score = nb(r.score); r.total = nb(r.total);
+  r.duree = r.duree == null || r.duree === "" ? null : Math.round(nb(r.duree));
+  r.matiere = String(r.matiere || ""); r.titre = String(r.titre || ""); r.quiz = String(r.quiz || "");
+  return Object.assign(r, infos(r));
+}
 
 async function charger() {
   const etat = document.getElementById("etat");
-  etat.innerHTML = `<div class="msg info">Chargement…</div>`;
+  etat.innerHTML = `<div class="msg info" role="status">Chargement…</div>`;
   try {
     const res = await fetch("/api/resultats?details=1", { cache: "no-store", credentials: "same-origin" });
     const data = await res.json().catch(() => ({}));
     if (!res.ok) throw new Error(data.erreur || ("Erreur " + res.status));
-    TOUT = (data.resultats || []).map(r => Object.assign(r, infos(r)));
+    TOUT = (Array.isArray(data.resultats) ? data.resultats : []).map(propre);
     etat.innerHTML = "";
   } catch (e) {
     TOUT = [];
-    etat.innerHTML = `<div class="msg warn"><b>Impossible de lire les résultats.</b><br>${esc(e.message)}<br>
-      <span class="small">Vérifie que le Google Sheets « SoccaQuiz – Résultats » existe toujours dans ton Drive. Dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</span></div>`;
+    etat.innerHTML = `<div class="msg warn" role="alert"><b>Les résultats n'ont pas pu être chargés.</b> Vérifie ta connexion Internet, puis réessaie.<br>
+      <button class="btn" type="button" onclick="charger()" style="margin-top:8px">${I('refresh')} Réessayer</button>
+      <details><summary>Détail technique</summary>${esc(e.message)}<br>Vérifie que le Google Sheets « SoccaQuiz – Résultats » existe toujours dans ton Drive. Si le problème continue : dans l'éditeur Apps Script, la fonction <code>diagnostic</code> fait le point.</details></div>`;
   }
   const n = window.Suivi ? Suivi.enAttente() : 0;
   if (n) etat.innerHTML += `<div class="msg info">${n} partie${n > 1 ? "s" : ""} jouée${n > 1 ? "s" : ""} sur cet appareil ${n > 1 ? "sont" : "est"} en attente d'envoi. <button class="btn" onclick="Suivi.envoyerFile().then(charger)">Envoyer maintenant</button></div>`;
@@ -262,7 +277,7 @@ function afficher() {
   if (!L.length) { C.innerHTML = `<div class="box small">Aucune partie sur cette période / ce filtre.</div>`; return; }
 
   // --- chiffres clés
-  const nq = L.reduce((s, r) => s + r.total, 0), nok = L.reduce((s, r) => s + r.score, 0);
+  const nq = L.reduce((s, r) => s + r.total, 0), nok = L.reduce((s, r) => s + r.score, 0), pcG = nq ? Math.round(nok / nq * 100) : 0;
   const temps = L.reduce((s, r) => s + (r.duree || 0), 0);
   const joursActifs = new Set(L.map(r => jour(r.date))).size;
   const tousJours = new Set(TOUT.map(r => jour(r.date)));
@@ -272,14 +287,14 @@ function afficher() {
   const kpis = `<div class="kpis" style="margin-top:16px">
     <div class="kpi"><div class="v">${L.length}</div><div class="l">parties terminées</div></div>
     <div class="kpi"><div class="v">${nq}</div><div class="l">questions répondues</div></div>
-    <div class="kpi"><div class="v" style="color:${couleur(Math.round(nok / nq * 100))}">${Math.round(nok / nq * 100)} %</div><div class="l">de bonnes réponses</div></div>
+    <div class="kpi"><div class="v" style="color:${couleur(pcG)}">${pcG} %</div><div class="l">de bonnes réponses</div></div>
     <div class="kpi"><div class="v">${fmtDuree(temps).replace(/ \d+ s$/, "")}</div><div class="l">de travail</div></div>
     <div class="kpi"><div class="v">${joursActifs}</div><div class="l">jours d'entraînement</div></div>
     <div class="kpi"><div class="v">🔥 ${serie}</div><div class="l">jours d'affilée</div></div>
   </div>`;
 
   // --- activité par jour
-  const nbJ = Math.min(+document.getElementById("periode").value || 60, 60);
+  const nbJ = Math.min(+document.getElementById("periode").value || 60, 60);     // au plus 60 barres (« 3 mois » et « Tout » : 60 derniers jours)
   const parJour = {};
   L.forEach(r => { const k = jour(r.date); (parJour[k] = parJour[k] || { n: 0, ok: 0, t: 0 }); parJour[k].n++; parJour[k].ok += r.score; parJour[k].t += r.total; });
   const jl = []; for (let i = nbJ - 1; i >= 0; i--) { const x = new Date(); x.setDate(x.getDate() - i); jl.push(jour(x)); }
@@ -287,24 +302,24 @@ function afficher() {
   const bars = jl.map(k => { const p = parJour[k]; if (!p) return `<div class="b" style="height:3px" title="${k} : aucune partie"></div>`;
     const pc = Math.round(p.ok / p.t * 100);
     return `<div class="b" style="height:${Math.max(8, p.n / maxN * 100)}%;background:${couleur(pc)}" title="${k} : ${p.n} partie(s), ${pc} %">${nbJ <= 31 ? `<span>${p.n}</span>` : ""}</div>`; }).join("");
-  const activite = `<div class="box"><h2>${I('calendar')}Activité</h2><div class="bars">${bars}</div>
+  const activite = `<div class="box"><h2>${I('calendar')}Activité${nbJ === 60 ? ` <span class="small">(60 derniers jours)</span>` : ""}</h2><div class="bars${nbJ > 31 ? " serre" : ""}">${bars}</div>
     <div class="axis"><span>${new Date(jl[0]).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
     <div class="legend"><span>Hauteur = nombre de parties ; couleur = réussite du jour :</span><span><i style="background:var(--ok)"></i>≥ 70 %</span><span><i style="background:var(--moy)"></i>40–69 %</span><span><i style="background:var(--ko)"></i>&lt; 40 %</span></div></div>`;
 
   // --- par matière
-  const pm = {};
+  const pm = Object.create(null);
   L.forEach(r => { const p = pm[r.matiere] = pm[r.matiere] || { n: 0, ok: 0, t: 0 }; p.n++; p.ok += r.score; p.t += r.total; });
   const matieres = `<div class="box"><h2>${I('book')}Par matière</h2>${Object.entries(pm).sort((a, b) => b[1].n - a[1].n).map(([m, p]) => { const pc = Math.round(p.ok / p.t * 100);
     return `<div class="row"><div>${esc(nomMat(m))} <span class="small">(${p.n})</span></div><div class="track"><div class="fill" style="width:${pc}%;background:${couleur(pc)}"></div></div><div style="text-align:right;font-weight:700">${pc} %</div></div>`; }).join("")}</div>`;
 
   // --- par quiz
-  const pq = {};
+  const pq = Object.create(null);
   [...L].reverse().forEach(r => { const k = cle(r.quiz); const p = pq[k] = pq[k] || { titre: r.titre, matiere: r.matiere, n: 0, best: 0, sum: 0, last: null, lastDate: null };
     p.n++; p.best = Math.max(p.best, r.pct); p.sum += r.pct; p.last = r.pct; p.lastDate = r.date; });
   const lignesQuiz = Object.entries(pq).sort((a, b) => String(b[1].lastDate).localeCompare(String(a[1].lastDate))).map(([k, p]) =>
     `<tr><td>${esc(p.titre)}<div class="small">${esc(nomMat(p.matiere))}</div></td><td>${p.n}</td>
-      <td><span class="pill" style="background:${couleur(p.best)}">${p.best} %</span></td>
-      <td><span class="pill" style="background:${couleur(p.last)}">${p.last} %</span></td>
+      <td><span class="pill" style="background:${fond(p.best)}">${p.best} %</span></td>
+      <td><span class="pill" style="background:${fond(p.last)}">${p.last} %</span></td>
       <td class="hide-m">${Math.round(p.sum / p.n)} %</td><td class="hide-m small">${fmtDate(p.lastDate)}</td></tr>`).join("");
   const quiz = `<div class="box"><h2>${I('list')}Par quiz</h2><div class="tablewrap"><table>
     <thead><tr><th>Quiz</th><th>Parties</th><th>Meilleur</th><th>Dernier</th><th class="hide-m">Moyenne</th><th class="hide-m">Dernière fois</th></tr></thead>
@@ -314,7 +329,7 @@ function afficher() {
   const MN = ((window.__UQ || {}).maitrise || {}), NIV = ["Découverte", "En progrès", "Acquis", "Maîtrisé"], COUL = ["var(--line)", "var(--moy)", "var(--ok)", "var(--dore)"];
   const toutes = [];
   Object.entries(MN.notions || {}).forEach(([quiz, cats]) => { const c = CAT[quiz], titre = c ? c.titre : ((MN.titres || {})[quiz] || quiz).replace(/^Quiz\s*[–-]\s*/, "");
-    Object.entries(cats).forEach(([cat, v]) => toutes.push({ quiz, titre, cat, niv: v[0], taux: v[1], n: v[2] })); });
+    Object.entries(cats || {}).forEach(([cat, v]) => { v = Array.isArray(v) ? v : []; toutes.push({ quiz, titre, cat, niv: Math.max(0, Math.min(3, Math.round(nb(v[0])))), taux: Math.max(0, Math.min(100, Math.round(nb(v[1])))), n: nb(v[2]) }); }); });
   const parNiv = [0, 1, 2, 3].map(k => toutes.filter(x => x.niv === k).length);
   const fragiles = toutes.filter(x => x.niv === 1).sort((a, b) => a.taux - b.taux).slice(0, 10);
   const themes = toutes.length ? `<div class="box"><h2>${I('target')}Maîtrise des notions</h2>
@@ -326,46 +341,92 @@ function afficher() {
     <details class="small" style="margin-top:10px"><summary>Comment sont calculés les niveaux ?</summary>Chaque catégorie d'un quiz est une notion. <b>Découverte</b> : moins de 3 réponses. <b>En progrès</b> : moins de 70 % de réussite sur ses 10 dernières réponses. <b>Acquis</b> : 70 % ou plus. <b>Maîtrisé</b> : 90 % ou plus, et réussie à 80 % ou plus sur au moins 2 jours différents. Une bonne réponse trouvée avec l'indice compte pour moitié. Le site pose plus souvent les questions des notions fragiles, et repose à l'écrit, sans les choix, les questions déjà réussies deux fois.</details></div>` : "";
 
   // --- questions les plus ratées
-  const pqq = {};
-  L.forEach(r => (r.questions || []).forEach(q => { if (!q.q) q.q = "(question avec image ou son)"; const k = r.titre + "§" + q.q; const p = pqq[k] = pqq[k] || { titre: r.titre, q: q.q, attendu: q.attendu, donnes: {}, ko: 0, t: 0 };
-    p.t++; if (!q.ok) { p.ko++; if (q.donne) p.donnes[q.donne] = (p.donnes[q.donne] || 0) + 1; } }));
+  const pqq = Object.create(null);
+  let partiesDetail = 0;
+  L.forEach(r => { if (Array.isArray(r.questions)) partiesDetail++; (Array.isArray(r.questions) ? r.questions : []).forEach(q => { if (!q || typeof q !== "object") return; if (!q.q) q.q = "(question avec image ou son)"; const k = r.titre + "§" + q.q; const p = pqq[k] = pqq[k] || { titre: r.titre, q: q.q, attendu: q.attendu, donnes: Object.create(null), ko: 0, t: 0 };
+    p.t++; if (!q.ok) { p.ko++; if (q.donne) p.donnes[q.donne] = (p.donnes[q.donne] || 0) + 1; } }); });
   const ratees = Object.values(pqq).filter(p => p.ko > 0).sort((a, b) => b.ko - a.ko || (b.ko / b.t) - (a.ko / a.t)).slice(0, 15);
   const questions = ratees.length ? `<div class="box"><h2>${I('x')}Questions les plus ratées</h2><div class="tablewrap"><table>
     <thead><tr><th>Question</th><th>Bonne réponse</th><th class="hide-m">Réponse fréquente de {{PRENOM}}</th><th>Ratée</th></tr></thead><tbody>${ratees.map(p => {
       const freq = Object.entries(p.donnes).sort((a, b) => b[1] - a[1])[0];
-      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td class="okc">${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td><b>${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div></div>` : "";
+      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td class="okc">${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td><b>${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div>${partiesDetail < L.length ? `<p class="small" style="margin:8px 0 0">Calculé sur les ${partiesDetail} parties les plus récentes de cette sélection (le détail n'est chargé que pour les 200 dernières parties).</p>` : ""}</div>` : "";
 
   // --- historique
   const hist = `<div class="box"><h2>${I('clock')}Historique des parties</h2>${L.slice(0, 150).map(r => {
     const open = ouverts.has(r.id);
-    return `<div class="sess"><div class="sess-h" onclick="basculer('${r.id}')">
-        <span class="pill" style="background:${couleur(r.pct)}">${r.score}/${r.total}</span>
+    return `<div class="sess"><button type="button" class="sess-h" data-id="${esc(r.id)}" aria-expanded="${open}">
+        <span class="pill" style="background:${fond(r.pct)}">${nb(r.score)}/${nb(r.total)}</span>
         <span class="t">${esc(r.titre)}</span>
-        <span class="m">${fmtDate(r.date)} · ${fmtDuree(r.duree)}${r.appareil ? " · " + esc(r.appareil) : ""}${r.joueur ? " · " + esc(r.joueur) : ""}</span>
-        <span class="m">${open ? "▲" : "▼"}</span></div>
+        <span class="m">${esc(fmtDate(r.date))} · ${fmtDuree(r.duree)}${r.appareil ? " · " + esc(r.appareil) : ""}${r.joueur ? " · " + esc(r.joueur) : ""}</span>
+        <span class="m" aria-hidden="true">${open ? "▲" : "▼"}</span></button>
       ${open ? detail(r) : ""}</div>`; }).join("")}${L.length > 150 ? `<div class="small">… ${L.length - 150} parties plus anciennes non affichées.</div>` : ""}</div>`;
 
   C.innerHTML = kpis + activite + matieres + themes + quiz + questions + hist;
 }
 
 function detail(r) {
-  const qs = r.questions || [];
-  const cats = Object.entries(r.cats || {}).map(([c, s]) => `${esc(c)} : <b>${s.ok}/${s.total}</b>`).join(" · ");
-  const erreurs = qs.filter(q => !q.ok);
+  const bouton = `<div style="margin-top:10px;text-align:right">
+      <button class="btn danger" type="button" data-suppr="${esc(r.id)}">${aSupprimer === r.id ? "Confirmer la suppression ?" : "🗑 Supprimer cette partie"}</button>
+    </div>`;
+  // détail pas encore chargé (parties plus anciennes que les 200 dernières) : demandé au serveur à l'ouverture
+  if (!Array.isArray(r.questions)) {
+    const m = r.chargement === "erreur" ? `<div class="ko">Le détail n'a pas pu être chargé. <button class="btn" type="button" data-recharger="${esc(r.id)}">Réessayer</button></div>`
+      : `<div class="small" role="status">Chargement du détail…</div>`;
+    return `<div class="det">${m}${bouton}</div>`;
+  }
+  const cats = Object.entries(r.cats && typeof r.cats === "object" ? r.cats : {}).map(([c, s]) => `${esc(c)} : <b>${nb(s && s.ok)}/${nb(s && s.total)}</b>`).join(" · ");
+  const erreurs = r.questions.filter(q => q && typeof q === "object" && !q.ok);
   return `<div class="det">
     ${cats ? `<div class="small" style="margin-bottom:8px">${cats}</div>` : ""}
-    ${erreurs.length ? erreurs.map(q => `<div class="q">${esc(q.q)}<br><span class="ko">✗ ${esc(q.donne || "—")}</span> · <span class="okc">✓ ${esc(q.attendu)}</span></div>`).join("") : `<div class="okc">🎉 Aucune erreur</div>`}
-    <div style="margin-top:10px;text-align:right">
-      <button class="btn danger" onclick="event.stopPropagation();supprimer('${r.id}')">${aSupprimer === r.id ? "Confirmer la suppression ?" : "🗑 Supprimer cette partie"}</button>
-    </div></div>`;
+    ${erreurs.length ? erreurs.map(q => `<div class="q">${esc(q.q)}<br><span class="ko">✗ ${esc(q.donne || "—")}</span> · <span class="okc">✓ ${esc(q.attendu)}</span></div>`).join("")
+      : r.questions.length ? `<div class="okc">🎉 Aucune erreur</div>` : `<div class="small">Pas de détail des questions pour cette partie.</div>`}
+    ${bouton}</div>`;
 }
-function basculer(id) { ouverts.has(id) ? ouverts.delete(id) : ouverts.add(id); aSupprimer = null; afficher(); }
+async function chargerDetail(r) {
+  r.chargement = "en cours";
+  try {
+    const res = await fetch("/api/resultats?id=" + encodeURIComponent(r.id), { cache: "no-store", credentials: "same-origin" });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(d.erreur || "Erreur " + res.status);
+    r.questions = Array.isArray(d.questions) ? d.questions : [];
+    r.cats = d.cats && typeof d.cats === "object" ? d.cats : {};
+    delete r.chargement;
+  } catch (e) { r.chargement = "erreur"; }
+  if (ouverts.has(r.id)) afficher();
+}
+function basculer(id) {
+  ouverts.has(id) ? ouverts.delete(id) : ouverts.add(id); aSupprimer = null;
+  const r = TOUT.find(x => x.id === id);
+  if (r && ouverts.has(id) && !Array.isArray(r.questions) && r.chargement !== "en cours") chargerDetail(r);
+  afficher();
+  const b = [...document.querySelectorAll(".sess-h")].find(x => x.dataset.id === id); if (b) b.focus();
+}
 async function supprimer(id) {
   if (aSupprimer !== id) { aSupprimer = id; afficher(); return; }
-  const r = await fetch("/api/resultats?id=" + encodeURIComponent(id), { method: "DELETE", credentials: "same-origin" });
-  if (r.ok) { TOUT = TOUT.filter(x => x.id !== id); aSupprimer = null; afficher(); }
+  let erreur = "";
+  try {
+    const r = await fetch("/api/resultats?id=" + encodeURIComponent(id), { method: "DELETE", credentials: "same-origin" });
+    if (r.ok) { TOUT = TOUT.filter(x => x.id !== id); aSupprimer = null; afficher(); return; }
+    const d = await r.json().catch(() => ({}));
+    erreur = d.erreur || "";
+  } catch (e) {}
+  aSupprimer = null; afficher();
+  await boite(`<h3>😕 Oups</h3><p>${esc(erreur || "La partie n'a pas pu être supprimée.")} Vérifie ta connexion, puis réessaie.</p><div class="bts"><button class="btn" type="button">OK</button></div>`);
+  const b = [...document.querySelectorAll("button[data-suppr]")].find(x => x.dataset.suppr === id); if (b) b.focus();
 }
+document.getElementById("contenu").addEventListener("click", e => {
+  const s = e.target.closest("button[data-suppr]"); if (s) { supprimer(s.dataset.suppr); return; }
+  const c = e.target.closest("button[data-recharger]"); if (c) { const r = TOUT.find(x => x.id === c.dataset.recharger); if (r) { chargerDetail(r); afficher(); } return; }
+  const h = e.target.closest("button.sess-h"); if (h) basculer(h.dataset.id);
+});
 
+// message à côté d'un réglage : « Enregistrement… », puis rechargement ou erreur (à la place d'alert)
+function enregistrement(id) {
+  const el = document.getElementById(id);
+  const dire = (t, ko) => { if (!el) return; el.hidden = false; el.className = "enreg" + (ko ? " ko" : ""); el.textContent = t; };
+  dire("Enregistrement…");
+  return { ko: t => dire("😕 " + t, true), recharge: () => dire("✅ Enregistré. Le site se recharge…") };
+}
 /* ---------- classe : choisit le thème du site, monte toute seule chaque 1er septembre ---------- */
 const NOMS_THEMES = { petits: "Petits", lecteurs: "Lecteurs", explorateurs: "Explorateurs", college: "Collège", lycee: "Lycée", parent: "Parent" };
 function afficherClasse() {
@@ -377,13 +438,15 @@ function afficherClasse() {
     `<option value="" ${U.classe ? "" : "selected"}>— Choisir —</option>` +
     groupes.map(([n, cs]) => `<optgroup label="${n}">${cs.map(opt).join("")}</optgroup>`).join("") +
     `<optgroup label="Adulte"><option value="adulte" ${U.classe === "adulte" ? "selected" : ""}>Révisions d'un adulte</option></optgroup></select></p>` +
+    `<p class="enreg" id="enreg-classe" role="status" hidden></p>` +
     `<p class="small">Le site s'habille selon la classe : thème <b>${esc(NOMS_THEMES[U.theme] || "Explorateurs")}</b>. La classe passe toute seule à la suivante chaque 1er septembre.</p>`;
   document.getElementById("choix-classe").onchange = e => {
     if (!(window.google && google.script && google.script.run)) return;
     e.target.disabled = true;
+    const m = enregistrement("enreg-classe");
     google.script.run
-      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; alert(r.erreur); return; } window.open(U.url || location.href, "_top"); })
-      .withFailureHandler(() => { e.target.disabled = false; alert("Enregistrement impossible, réessaie."); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiClasse({ classe: e.target.value });
   };
 }
@@ -395,19 +458,25 @@ function afficherSaison() {
   const U = window.__UQ || {}, el = document.getElementById("saison");
   if (!el || !U.saisonDuJour) return;
   el.innerHTML = `<p><label style="display:flex;gap:8px;align-items:center;cursor:pointer"><input type="checkbox" id="choix-saison" ${U.saisonActive ? "checked" : ""} style="width:20px;height:20px"> Décorer le site selon la saison</label></p>` +
+    `<p class="enreg" id="enreg-saison" role="status" hidden></p>` +
     `<p class="small">En ce moment : <b>${esc(NOMS_SAISONS[U.saisonDuJour] || U.saisonDuJour)}</b>. Frise, couleurs et petite animation changent toutes seules au fil de l'année (discrètes au collège, au lycée et pour les adultes).</p>`;
   document.getElementById("choix-saison").onchange = e => {
     if (!(window.google && google.script && google.script.run)) return;
     e.target.disabled = true;
+    const m = enregistrement("enreg-saison");
     google.script.run
-      .withSuccessHandler(() => window.open(U.url || location.href, "_top"))
-      .withFailureHandler(() => { e.target.disabled = false; alert("Enregistrement impossible, réessaie."); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiSaison({ active: e.target.checked });
   };
 }
 afficherSaison();
 
 function afficherAppareil() {
+  if ((window.__UQ || {}).espace === "parent") {      // l'espace parent n'enregistre jamais de partie (Code.gs, apiEnregistrer)
+    document.getElementById("appareil").innerHTML = `<p>Les quiz essayés ici, dans l'espace parent, <b>ne sont jamais comptés</b> dans les résultats de {{PRENOM}}.</p><p class="small">Seules les parties jouées sur le site de l'enfant sont enregistrées.</p>`;
+    return;
+  }
   const actif = !window.Suivi || Suivi.actif();
   document.getElementById("appareil").innerHTML = actif
     ? `<p>Les parties jouées sur cet appareil <b>sont enregistrées</b>.</p><p class="small">Sur ton propre téléphone ou ordinateur, tu peux couper l'enregistrement pour ne pas mélanger tes essais avec les résultats de {{PRENOM}}.</p><button class="btn" onclick="Suivi.desactiver();afficherAppareil()">🚫 Ne pas enregistrer sur cet appareil</button>`
@@ -419,6 +488,7 @@ const peutSupprimer = !!(window.google && google.script && google.script.run);
 function afficherQuiz() {
   const el = document.getElementById("liste-quiz");
   const Q = (window.QUIZ || []).filter(q => /\.html?$/i.test(q.fichier)).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
+  document.getElementById("nb-quiz").textContent = Q.length;
   if (!Q.length) { el.innerHTML = `<p class="small">Aucun quiz pour l'instant. <a href="ajouter.html">Créer un quiz</a></p>`; return; }
   const M = window.MATIERES || {};
   el.innerHTML = `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
@@ -428,17 +498,19 @@ function afficherQuiz() {
       <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
     `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.${window.__UQ && __UQ.espace === "parent" ? " Les parties jouées depuis l'espace parent (« ▶ Tester ») ne sont pas comptées dans les résultats de l'enfant." : ""}</p>`;
 }
+// fenêtre de confirmation : <dialog> modal (focus gardé dedans, Échap ferme), le focus revient ensuite où il était
 function boite(html) {
   return new Promise(ok => {
-    const v = document.createElement("div");
-    v.className = "voile";
-    v.innerHTML = `<div class="boite" role="dialog" aria-modal="true">${html}</div>`;
-    const fin = r => { v.remove(); document.removeEventListener("keydown", clavier); ok(r); };
-    const clavier = e => { if (e.key === "Escape") fin(false); };
-    v.addEventListener("click", e => { const b = e.target.closest("button"); if (b) fin(b.dataset.r === "oui"); else if (e.target === v) fin(false); });
-    document.addEventListener("keydown", clavier);
-    document.body.appendChild(v);
-    const f = v.querySelector("[data-r=non], button"); if (f) f.focus();
+    const avant = document.activeElement;
+    const d = document.createElement("dialog");
+    d.className = "boite";
+    d.innerHTML = html;
+    let rep = false;
+    d.addEventListener("click", e => { const b = e.target.closest("button"); if (b) { rep = b.dataset.r === "oui"; d.close(); } else if (e.target === d) d.close(); });
+    d.addEventListener("close", () => { d.remove(); if (avant && avant.isConnected && avant.focus) avant.focus(); ok(rep); });
+    document.body.appendChild(d);
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    const f = d.querySelector("[data-r=non], button"); if (f) f.focus();
   });
 }
 document.getElementById("liste-quiz").addEventListener("click", async e => {
@@ -465,14 +537,23 @@ afficherQuiz();
 charger();
 
 /* ---------- onglets : Résultats, Gérer les quiz, Réglages ---------- */
-function ouvrirOnglet(o) {
-  document.querySelectorAll(".onglet").forEach(b => b.classList.toggle("on", b.dataset.o === o));
+function ouvrirOnglet(o, focus) {
+  document.querySelectorAll(".onglet").forEach(b => { const on = b.dataset.o === o; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
   ["resultats", "quiz", "reglages"].forEach(x => { document.getElementById("p-" + x).hidden = x !== o; });
   try { history.replaceState(null, "", "#" + o); } catch (e) {}
 }
 document.getElementById("onglets").addEventListener("click", e => { const b = e.target.closest(".onglet"); if (b) ouvrirOnglet(b.dataset.o); });
-document.getElementById("nb-quiz").textContent = (window.QUIZ || []).filter(q => /\.html?$/i.test(q.fichier)).length;
+// flèches gauche/droite, Début, Fin : passer d'un onglet à l'autre au clavier
+document.getElementById("onglets").addEventListener("keydown", e => {
+  const L = ["resultats", "quiz", "reglages"], i = L.indexOf((document.activeElement.dataset || {}).o);
+  if (i < 0) return;
+  const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: L.length - 1 }[e.key];
+  if (j === undefined) return;
+  e.preventDefault(); ouvrirOnglet(L[(j + L.length) % L.length], true);
+});
 if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
+// lien venu d'une autre page (« Revenir à l'espace parent ») : l'onglet est dans l'adresse de la page principale
+else try { google.script.url.getLocation(l => { if (l && /^(quiz|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
 
 /* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
 (function () {
@@ -487,14 +568,16 @@ if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1
     || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.";
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
-    $("envoyer-lien").onclick = () => {
+    $("envoyer-lien").onclick = async () => {
       const objet = "Ton site de quiz pour réviser";
       const texte = "Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n" + U.urlEnfant + "\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !";
-      try { navigator.clipboard.writeText(U.urlEnfant); } catch (e) {}
+      let copie = false;
+      try { await navigator.clipboard.writeText(U.urlEnfant); copie = true; } catch (e) {}
       try { window.open("mailto:?subject=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte), "_blank"); } catch (e) {}
       const gmail = 'https:\/\/mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(objet) + '&body=' + encodeURIComponent(texte);
       $("info-lien").hidden = false;
-      $("info-lien").innerHTML = `✅ Lien copié. Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou colle le lien dans un message.`;
+      $("info-lien").innerHTML = (copie ? "✅ Lien copié. " : `Copie impossible sur cet appareil : voici le lien <span class="adr">${esc(U.urlEnfant)}</span>`) +
+        `Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou ${copie ? "colle le lien" : "copie ce lien"} dans un message.`;
     };
   }
   $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk

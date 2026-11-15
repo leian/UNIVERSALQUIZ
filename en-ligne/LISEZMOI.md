@@ -2,14 +2,20 @@
 
 **Adresse de l'installateur (déployé le 11 novembre 2026 par soccaquiz)** : https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec
 
+**Lien à donner aux amis** : https://leian.github.io/UNIVERSALQUIZ/installer.html (redirige vers l'adresse ci-dessus ; c'est celui du mail d'invitation).
+
+> ⚠️ Pour mettre à jour l'installateur : **Gérer les déploiements → ✏️ → Nouvelle version**, jamais « Nouveau déploiement » (voir tout en bas). Un nouveau déploiement donne une autre adresse : le bouton « Mettre à jour » de tous les sites déjà installés (adresse écrite dans chaque site) ne marcherait plus. Si cela arrive quand même : corrige l'adresse dans `docs/installer.html` (deux endroits) pour les mails déjà envoyés, et garde l'ancien déploiement actif.
+
 L'installateur en ligne permet à un ami de créer son site SoccaQuiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
 
-1. il crée chez lui un projet « SoccaQuiz » (« Universal Quiz » pour les sites installés avant le 11 novembre 2026) ;
+1. il crée chez lui un projet « SoccaQuiz » par site (« SoccaQuiz – Léa » pour un site de plus ; « Universal Quiz » pour les sites installés avant le 11 novembre 2026) ;
 2. il y copie la dernière version du moteur, prise dans le fichier `universal-quiz.json` de la dernière Release GitHub ;
 3. il le publie **deux fois** : le **site de l'enfant** (ouvert sans compte, sans les pages des parents) et l'**espace parent** (accès « Seulement moi » : il ne s'ouvre qu'avec le compte Google de l'ami, et contient « Ajouter un quiz », le suivi des résultats et la clé Gemini). Chaque publication connaît l'adresse de l'autre ;
 4. à chaque mise à jour, il republie les deux (deux versions par mise à jour). Un site installé avant l'espace parent le reçoit à sa prochaine mise à jour, sans changer l'adresse de l'enfant.
 
-L'installateur ne lit ni le Drive ni les fichiers de l'ami.
+L'installateur n'utilise pas l'API Drive et ne lit aucun fichier de l'ami. Il garde seulement la liste de ses sites (prénom, classe, adresses…), que l'ami peut effacer avec « Effacer toutes mes données de l'installateur », en bas de la page. Il n'écrit aucun journal d'erreur (`exceptionLogging: NONE`).
+
+Une installation interrompue (réseau, délai de Google) est enregistrée au fur et à mesure : la carte du site propose « Terminer l'installation », sans rien créer en double.
 
 Le moteur se met à jour tout seul : chaque nouvelle Release (Action « Publier l'installateur ») fournit un nouveau `universal-quiz.json`. Il ne faut republier l'installateur que si `en-ligne/Code.gs` change.
 
@@ -59,7 +65,7 @@ En cas d'erreur, le message affiché indique en général l'étape oubliée :
 
 L'installateur se souvient de chaque installation, pour proposer « Mettre à jour ». Pour rejouer le parcours d'un nouvel ami avec un compte qui a déjà installé :
 
-1. Ouvre l'installateur : il affiche « Ton site est installé ». Ouvre **Options avancées**, touche **Repartir de zéro (créer un nouveau site)**, puis confirme : les deux adresses de l'ancien site (enfant et parent) sont désactivées, les quiz et les résultats sont gardés. (L'adresse `…/exec?recommencer=1` oublie le site sans le désactiver.)
+1. Ouvre l'installateur : il affiche « Ton site est installé ». Ouvre **Options avancées**, touche **Repartir de zéro (créer un nouveau site)**, puis confirme : les deux adresses de l'ancien site (enfant et parent) sont désactivées, les quiz et les résultats sont gardés. Pour tout oublier d'un coup (tous les sites) : **Effacer toutes mes données de l'installateur**, en bas de la page, désactive chaque site puis efface tout. (L'ancienne adresse `…/exec?recommencer=1` n'existe plus.)
 2. Pour revoir aussi les deux écrans d'autorisation de Google : sur https://myaccount.google.com/permissions, supprime l'accès des applications « SoccaQuiz » (et « Universal Quiz ») avant de recommencer.
 3. Facultatif : sur https://script.google.com, mets à la corbeille le projet « SoccaQuiz » (ou « Universal Quiz ») du test précédent. Sinon, les sites de test s'accumulent.
 
@@ -67,7 +73,7 @@ Le nouveau site réutilise le dossier Drive « SoccaQuiz » (ou l'ancien « Univ
 
 ## 4. Le mail à envoyer aux amis
 
-Le mail mis en forme (logo, bouton, étapes) est sur cette page : **https://leian.github.io/UNIVERSALQUIZ/invitation.html**. Écris le prénom de l'ami et ta signature, touche « Copier le mail », puis colle-le dans un nouveau message Gmail.
+Le mail mis en forme (logo, bouton, étapes) est entre les repères `<!--MAIL-->` et `<!--/MAIL-->` de `docs/invitation.html` (la page d'envoi `invitations/` coupe dessus : ne les retire pas). Son bouton « Installer » pointe vers `docs/installer.html`. Il est sur cette page : **https://leian.github.io/UNIVERSALQUIZ/invitation.html**. Écris le prénom de l'ami et ta signature, touche « Copier le mail », puis colle-le dans un nouveau message Gmail.
 
 ## 5. Supprimer l'avertissement de Google (facultatif)
 

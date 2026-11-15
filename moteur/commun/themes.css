@@ -143,17 +143,19 @@ html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"],
 /* petite animation (neige, pétales, feuilles…) : petits, lecteurs, explorateurs, sans mouvement réduit */
 @media (prefers-reduced-motion: no-preference) {
   html[data-saison]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]):not([data-saison="ete"]):not([data-saison="rentree"])::after {
-    content: ""; position: fixed; inset: -20vh 0 0 0; pointer-events: none; z-index: -1;
+    content: ""; position: fixed; left: 0; right: 0; top: -480px; height: calc(100vh + 480px); pointer-events: none; z-index: -1;
     background-image:
       radial-gradient(circle, var(--flocon) 0 2.5px, transparent 3px),
       radial-gradient(circle, var(--flocon) 0 1.8px, transparent 2.3px),
       radial-gradient(circle, var(--flocon) 0 3px, transparent 3.5px);
-    background-size: 160px 160px, 110px 110px, 230px 230px;
+    background-size: 160px 160px, 120px 120px, 240px 240px;
     background-position: 0 0, 40px 60px, 90px 20px;
-    animation: saison-chute 22s linear infinite; opacity: .8;
+    /* on fait glisser le calque (transform, calculé par la carte graphique) au lieu de repeindre tout l'écran ;
+       480 px = multiple des trois motifs, donc la boucle ne se voit pas */
+    will-change: transform; animation: saison-chute 66s linear infinite; opacity: .8;
   }
 }
-@keyframes saison-chute { to { background-position: 30px 160px, 10px 170px, 120px 250px; } }
+@keyframes saison-chute { from { transform: translateY(0); } to { transform: translateY(480px); } }
 
 /* ---------- saut de joie de la mascotte (feuille de 6 images), petits et primaire ---------- */
 #saut-mascotte { position: fixed; right: 12px; bottom: 12px; z-index: 60; height: clamp(110px, 24vw, 170px); aspect-ratio: 170 / 260; pointer-events: none; opacity: 0;

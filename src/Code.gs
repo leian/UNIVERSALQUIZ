@@ -41,12 +41,14 @@ const CONFIG = {
   classeAnnee: 0                  // année scolaire de cette classe (2026 = année 2026-2027)
 };
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
+const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
 /* ------------------------------------------------------ */
 
 const NOM_SHEETS = 'SoccaQuiz – Résultats';
 // anciens noms (avant le passage à SoccaQuiz) : un site réinstallé retrouve ainsi ses quiz et ses résultats
 const ANCIEN_DOSSIER = 'Universal Quiz', ANCIEN_SHEETS = 'Universal Quiz – Résultats';
-const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions'];
+// mode (ajouté en v2.49) : normal, erreurs (« refaire mes erreurs »), duel (défi en famille), revision ; vide = normal
+const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions', 'mode'];
 const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles', 'ajouter': 'lib/page-ajouter' };
 // pages et actions réservées à l'espace parent
 const PAGES_PARENT = ['tableau-de-bord', 'ajouter'];
@@ -81,6 +83,7 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
+  INST_ = null; LIGNES_ = null;
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
@@ -94,7 +97,7 @@ function doGet(e) {
       html = pageRevision_(page);
       if (!html) return pageErreur_('Rien à revoir pour l\'instant', 'Bravo ! Aucune question n\'attend d\'être revue. Reviens après avoir joué quelques quiz.');
     } else {
-      const f = trouverFichier_(inst.dossier, page + '.html');
+      const f = trouverQuiz_(inst.dossier, page);
       if (!f) return pageErreur_('Quiz introuvable', 'Aucun fichier « ' + page + '.html » dans le dossier Drive « ' + inst.dossier.getName() + ' ».');
       html = f.getBlob().getDataAsString('UTF-8');
     }
@@ -113,13 +116,14 @@ function installer() {
   console.log('✅ Dossier des quiz : ' + inst.dossier.getUrl());
   console.log('✅ Résultats       : ' + inst.ss.getUrl());
   console.log(url ? '🌐 Adresse du site : ' + url : 'ℹ️ Il reste à déployer : bouton « Déployer » → « Nouveau déploiement » → « Application web ».');
-  return { dossier: inst.dossier.getUrl(), resultats: inst.ss.getUrl(), site: url };
+  // les adresses du Drive ne sont jamais renvoyées au site de l'enfant (le journal ci-dessus n'est visible que dans l'éditeur)
+  return estEnfant_() ? { ok: true } : { dossier: inst.dossier.getUrl(), resultats: inst.ss.getUrl(), site: url };
 }
 
 /* Petit bilan, à lancer depuis l'éditeur en cas de doute. */
 function diagnostic() {
   const inst = installer_();
-  CacheService.getScriptCache().remove('catalogue');
+  if (!estEnfant_()) CacheService.getScriptCache().remove('catalogue');   // depuis le site de l'enfant : pas de vidage du cache à répétition
   const cat = catalogue_(inst.dossier);
   console.log('Dossier : ' + inst.dossier.getName() + ' — ' + inst.dossier.getUrl());
   console.log(cat.QUIZ.length + ' quiz, ' + cat.CONTROLES.length + ' contrôle(s) PDF');
@@ -131,7 +135,15 @@ function diagnostic() {
 /* =====================================================================
    INSTALLATION (automatique et idempotente)
    ===================================================================== */
+let INST_ = null, LIGNES_ = null;      // gardés le temps d'une exécution (remis à zéro dans doGet)
 function installer_() {
+  const props = PropertiesService.getScriptProperties(), cle = props.getProperty('DOSSIER') + '|' + props.getProperty('RESULTATS');
+  if (INST_ && INST_.cle === cle) return INST_.r;
+  const r = installer0_();
+  INST_ = { r, cle: props.getProperty('DOSSIER') + '|' + props.getProperty('RESULTATS') };
+  return r;
+}
+function installer0_() {
   const props = PropertiesService.getScriptProperties();
   let dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
   let ss = ouvrirSheets_(props.getProperty('RESULTATS'));
@@ -142,10 +154,11 @@ function installer_() {
   try {
     dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
     if (!dossier) {
-      const it = DriveApp.getRootFolder().getFoldersByName(CONFIG.nomDossier);
+      const premier = it => { while (it.hasNext()) { const x = it.next(); if (!x.isTrashed()) return x; } return null; };   // jamais un dossier de la corbeille
       // l'ancien dossier « Universal Quiz » n'est repris que par le site principal (les autres sites ont leur propre dossier)
-      const ancien = it.hasNext() || CONFIG.nomDossier !== 'SoccaQuiz' ? { hasNext: () => false } : DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER);
-      dossier = it.hasNext() ? it.next() : ancien.hasNext() ? ancien.next() : DriveApp.createFolder(CONFIG.nomDossier);
+      dossier = premier(DriveApp.getRootFolder().getFoldersByName(CONFIG.nomDossier))
+        || (CONFIG.nomDossier === 'SoccaQuiz' && premier(DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER)))
+        || DriveApp.createFolder(CONFIG.nomDossier);
       props.setProperty('DOSSIER', dossier.getId());
       if (!contientHtml_(dossier)) {
         dossier.createFile('quiz_exemple_capitales.html', lib_('lib/exemple-quiz', false), MimeType.HTML);
@@ -153,9 +166,8 @@ function installer_() {
     }
     ss = ouvrirSheets_(props.getProperty('RESULTATS'));
     if (!ss) {
-      let it = dossier.getFilesByName(NOM_SHEETS);
-      if (!it.hasNext()) it = dossier.getFilesByName(ANCIEN_SHEETS);
-      ss = it.hasNext() ? SpreadsheetApp.open(it.next()) : creerSheets_(dossier);
+      const f = trouverFichier_(dossier, NOM_SHEETS) || trouverFichier_(dossier, ANCIEN_SHEETS);
+      ss = f ? SpreadsheetApp.open(f) : creerSheets_(dossier);
       props.setProperty('RESULTATS', ss.getId());
     }
   } finally {
@@ -174,7 +186,7 @@ function ouvrirSheets_(id) {
 }
 function contientHtml_(dossier) {
   const it = dossier.getFiles();
-  while (it.hasNext()) if (/\.html?$/i.test(it.next().getName())) return true;
+  while (it.hasNext()) { const f = it.next(); if (/\.html?$/i.test(f.getName()) && !f.isTrashed()) return true; }
   return false;
 }
 function creerSheets_(dossier) {
@@ -219,6 +231,7 @@ function assembler_(html, page, inst) {
     liens: cat.liens,
     version: CONFIG.version,
     installateur: CONFIG.installateur,
+    pagesParent: PAGES_PARENT,
     classe: classe_(),
     classes: CLASSES,
     revisions: (page === 'index' && CONFIG.espace !== 'parent') ? (() => { try { const r = revisions_(); return { n: r.aRevoir.length, defi: r.defi.length, mois: r.moisDefi, nouveau: r.nouveauDefi }; } catch (e) { return null; } })() : null,
@@ -238,7 +251,8 @@ function assembler_(html, page, inst) {
   const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
 
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
-  const styleTheme = (cfg.theme === 'lecteurs' ? '<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Andika:wght@400;700&display=swap">\n' : '') + lib_(COMMUN['themes.css'], false);
+  // polices (Fredoka, Nunito, Andika) servies par GitHub Pages : aucune requête vers Google Fonts depuis le site de l'enfant
+  const styleTheme = '<link rel="stylesheet" href="' + POLICES + '">\n' + lib_(COMMUN['themes.css'], false);
   html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
   html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
@@ -284,8 +298,10 @@ function lib_(nom, avecPrenom) {
   if (!(nom in LIB_CACHE_)) LIB_CACHE_[nom] = HtmlService.createHtmlOutputFromFile(nom).getContent();
   const s = LIB_CACHE_[nom];
   if (!avecPrenom) return s;
-  const prenom = String(CONFIG.prenom || '').trim().replace(/'/g, '’').replace(/[<>"`\\&$]/g, '') || 'mon enfant';
-  return s.split('{{PRENOM}}').join(prenom);
+  const prenom = String(CONFIG.prenom || '').trim().replace(/'/g, '’').replace(/[<>"`\\&$]/g, '');
+  if (prenom) return s.split('{{PRENOM}}').join(prenom);
+  // sans prénom : « mon enfant » dans l'espace parent, rien côté enfant (« Salut ! » plutôt que « Salut mon enfant ! »)
+  return nom === PAGES['tableau-de-bord'] ? s.split('{{PRENOM}}').join('mon enfant') : s.replace(/[ ,\u00a0]*\{\{PRENOM\}\}/g, '');
 }
 
 /* =====================================================================
@@ -311,6 +327,7 @@ function catalogue_(dossier) {
   while (it.hasNext()) {
     const f = it.next();
     const nom = f.getName();
+    if (f.isTrashed()) continue;
     if (nom === 'catalogue.js') { surcharges = lireSurcharges_(f) || surcharges; continue; }
     if (/\.html?$/i.test(nom)) {
       const cle = 'm_' + f.getId(), maj = f.getLastUpdated().getTime();
@@ -350,6 +367,15 @@ function catalogue_(dossier) {
   CONTROLES.forEach(c => { const s = surcharges.C[c.fichier]; if (s) Object.assign(c, s, { fichier: c.fichier }); });
 
   if (Object.keys(aEcrire).length) props.setProperties(aEcrire);
+  // fichiers supprimés ou renommés : leurs entrées m_… et p_… sont retirées des propriétés (limite de 500 Ko)
+  const vus = {}; QUIZ.concat(CONTROLES).forEach(x => { vus[x.fichier] = 1; });
+  try {
+    Object.keys(toutes).forEach(k => {
+      if (aEcrire[k]) return;
+      if (/^m_/.test(k)) { let m = null; try { m = JSON.parse(toutes[k]); } catch (e) {} if (!m || !vus[m.n]) props.deleteProperty(k); }
+      else if (/^p_/.test(k) && !pdfs.some(f => 'p_' + f.getId() === k)) props.deleteProperty(k);
+    });
+  } catch (e) {}
   const cat = { QUIZ, CONTROLES, liens };
   try { cache.put('catalogue', JSON.stringify(cat), CONFIG.dureeCacheCatalogue); } catch (e) {}
   return cat;
@@ -360,7 +386,7 @@ function lireMeta_(html, nom, cree) {
   const bloc = i >= 0 ? html.slice(i) : html;
   const champ = k => {
     const m = bloc.match(new RegExp('\\b' + k + '["\']?\\s*:\\s*(["\'`])((?:\\\\.|(?!\\1)[^\\\\])*)\\1'));
-    return m ? m[2].replace(/\\(["'`\\])/g, '$1') : '';
+    return m ? m[2].replace(/\\u([0-9a-fA-F]{4})/g, (x, h) => String.fromCharCode(parseInt(h, 16))).replace(/\\[nt]/g, ' ').replace(/\\(["'`\\/])/g, '$1') : '';
   };
   const titreBalise = texte_((html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1] || '').replace(/^Quiz\s*[–-]\s*/i, '');
   const titre = texte_(champ('titre')) || titreBalise || joli_(nom.replace(/\.html?$/i, ''));
@@ -377,9 +403,14 @@ function lireMeta_(html, nom, cree) {
 }
 
 function lireSurcharges_(f) {
+  // le fichier n'est jamais exécuté : on lit seulement les tableaux QUIZ et CONTROLES, écrits comme des données
   try {
     const code = f.getBlob().getDataAsString('UTF-8');
-    const r = new Function(code + '\n;return { Q: typeof QUIZ !== "undefined" ? QUIZ : [], C: typeof CONTROLES !== "undefined" ? CONTROLES : [] };')();
+    const tableau = nom => {
+      const i = code.search(new RegExp('\\b' + nom + '\\s*=\\s*\\['));
+      return i < 0 ? [] : JSON.parse(litteralVersJson_(code, code.indexOf('[', i)));
+    };
+    const r = { Q: tableau('QUIZ'), C: tableau('CONTROLES') };
     const parFichier = l => (Array.isArray(l) ? l : []).reduce((o, x) => { if (x && x.fichier) o[String(x.fichier).split('/').pop()] = x; return o; }, {});
     return { Q: parFichier(r.Q), C: parFichier(r.C) };
   } catch (e) {
@@ -388,6 +419,49 @@ function lireSurcharges_(f) {
   }
 }
 
+/* le fichier d'un quiz d'après le nom de page (nettoyé par nettoyerNom_) : « quiz (1).html », « l'eau.html », « x.htm » */
+/* littéral JavaScript (tableau d'objets) → JSON, lu caractère par caractère : chaînes '…' "…" `…` avec leurs
+   échappements (« L'eau », « niveau: facile », « CM1 // CE2 » restent du texte), commentaires retirés,
+   clés sans guillemets, virgules finales. Rien n'est exécuté. */
+function litteralVersJson_(code, deb) {
+  let out = '', prof = 0, j = deb;
+  const finVirgule = () => { out = out.replace(/,\s*$/, ''); };
+  for (; j < code.length; j++) {
+    const c = code[j];
+    if (c === '"' || c === "'" || c === '`') {
+      let v = '', k = j + 1;
+      for (; k < code.length && code[k] !== c; k++) {
+        if (code[k] === '\\') {
+          const e = code[++k];
+          if (e === 'u') { v += String.fromCharCode(parseInt(code.substr(k + 1, 4), 16)); k += 4; }
+          else v += ({ n: '\n', t: '\t', r: '' })[e] !== undefined ? ({ n: '\n', t: '\t', r: '' })[e] : e;
+        } else v += code[k];
+      }
+      out += JSON.stringify(v); j = k; continue;
+    }
+    if (c === '/' && code[j + 1] === '/') { while (j < code.length && code[j] !== '\n') j++; continue; }
+    if (c === '/' && code[j + 1] === '*') { j = code.indexOf('*/', j + 2); if (j < 0) break; j++; continue; }
+    if (/[A-Za-z_$]/.test(c)) {
+      let k = j; while (k < code.length && /[\w$]/.test(code[k])) k++;
+      const mot = code.slice(j, k), apres = code.slice(k).match(/^\s*:/);
+      out += apres ? JSON.stringify(mot) : mot; j = k - 1; continue;
+    }
+    if (c === '[' || c === '{') prof++;
+    if (c === ']' || c === '}') { finVirgule(); prof--; out += c; if (prof === 0) return out; continue; }
+    out += c;
+  }
+  throw new Error('tableau non fermé');
+}
+function trouverQuiz_(dossier, page) {
+  const f = trouverFichier_(dossier, page + '.html');
+  if (f) return f;
+  const it = dossier.getFiles();
+  while (it.hasNext()) {
+    const x = it.next(), nom = x.getName();
+    if (/\.html?$/i.test(nom) && !x.isTrashed() && nettoyerNom_(nom.replace(/\.html?$/i, '')) === page) return x;
+  }
+  return null;
+}
 function trouverFichier_(dossier, nom) {
   const it = dossier.getFilesByName(nom);
   while (it.hasNext()) { const f = it.next(); if (!f.isTrashed()) return f; }
@@ -408,17 +482,33 @@ function apiEnregistrer(brut) {
     return { __status: 400, erreur: 'Champs obligatoires : quiz, score, total' };
   }
   const str = (v, n) => String(v == null ? '' : v).slice(0, n);
+  const total = Math.min(500, Math.max(1, Math.round(+r.total))), score = Math.min(total, Math.max(0, +r.score));
   const date = new Date().toISOString();
-  const id = 'r:' + date + ':' + Math.random().toString(36).slice(2, 8);
+  // identifiant envoyé par l'appareil : une partie renvoyée (page fermée pendant l'envoi, deux onglets) n'est pas comptée deux fois
+  const idApp = String(r._id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24);
+  const id = 'r:' + date + ':' + (idApp || Math.random().toString(36).slice(2, 8));
+  const cache = CacheService.getScriptCache();
+  // pas plus de 40 parties par minute depuis le lien de l'enfant (le Sheets ne doit pas pouvoir être rempli sans fin)
+  const minute = 'n' + Math.floor(Date.now() / 60000), nb = +(cache.get(minute) || 0);
+  if (nb >= 40) return { __status: 429, erreur: 'Trop de parties en même temps : réessaie dans une minute.' };
+  try { cache.put(minute, String(nb + 1), 120); } catch (e) {}
   let joueur = '';
   try { joueur = Session.getActiveUser().getEmail() || ''; } catch (e) {}
-  let questions = Array.isArray(r.questions) ? r.questions.slice(0, 200).map(q => {
+  let questions = Array.isArray(r.questions) ? r.questions.slice(0, 200).filter(q => q && typeof q === 'object').map(q => {
     const x = { q: str(q.q, 400), cat: str(q.cat, 80), donne: str(q.donne, 200), attendu: str(q.attendu, 200), ok: !!q.ok };
     if (q.k) x.k = str(q.k, 40);
     if (q.i) x.i = 1;                                                          // réponse trouvée avec l'indice
-    if (!x.ok && typeof q.o === 'string' && q.o.length <= 6000) x.o = q.o;     // question entière, pour les révisions
+    if (!x.ok && typeof q.o === 'string' && q.o.length <= 6000) {               // question entière, pour les révisions : vérifiée comme une question créée
+      const o = questionRatee_(q.o); if (o) x.o = JSON.stringify(o);
+    }
     return x;
   }) : [];
+  // scores par catégorie : seulement des nombres (ils sont affichés dans l'espace parent)
+  const cats = {};
+  if (r.cats && typeof r.cats === 'object') Object.keys(r.cats).slice(0, 60).forEach(c => {
+    const v = r.cats[c]; if (!v || typeof v !== 'object' || /^(__proto__|constructor|prototype)$/.test(c)) return;
+    cats[str(c, 80)] = { ok: Math.max(0, Math.round(+v.ok) || 0), total: Math.max(0, Math.round(+v.total) || 0) };
+  });
   let jsonQ = JSON.stringify(questions);
   while (jsonQ.length > 49000 && questions.some(q => q.o)) { const q = questions.find(q => q.o); delete q.o; jsonQ = JSON.stringify(questions); }
   if (jsonQ.length > 49000) {         // une cellule Sheets contient au plus 50 000 caractères
@@ -429,15 +519,45 @@ function apiEnregistrer(brut) {
   const ligne = {
     id, date, joueur,
     quiz: str(r.quiz, 160), titre: str(r.titre, 120), matiere: str(r.matiere, 30),
-    score: String(+r.score), total: String(+r.total),
+    score: String(score), total: String(total),
     duree: r.duree != null && isFinite(+r.duree) ? String(Math.round(+r.duree)) : '',
     dateLocale: str(r.dateLocale, 40), appareil: str(r.appareil, 20),
-    cats: JSON.stringify(r.cats && typeof r.cats === 'object' ? r.cats : {}).slice(0, 20000),
-    questions: jsonQ
+    cats: JSON.stringify(cats),
+    questions: jsonQ,
+    mode: /^(normal|erreurs|duel|revision)$/.test(r.mode) ? r.mode : 'normal'
   };
-  feuille_().appendRow(COLONNES.map(c => ligne[c]));
-  CacheService.getScriptCache().removeAll(['revisions', 'maitrise']);
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(20000);
+  try {
+    const sh = feuille_();
+    if (idApp) {                                                   // déjà reçue ? (les 300 dernières parties suffisent)
+      const n = sh.getLastRow(), deb = Math.max(2, n - 299);
+      if (n >= 2 && sh.getRange(deb, 1, n - deb + 1, 1).getValues().some(v => String(v[0]).slice(-idApp.length - 1) === ':' + idApp)) return { ok: true, id, deja: true };
+    }
+    if (sh.getRange(1, COLONNES.length).getValue() !== 'mode') sh.getRange(1, COLONNES.length).setValue('mode');   // Sheets créé avant la colonne « mode »
+    sh.appendRow(COLONNES.map(c => cellule_(ligne[c])));
+  } finally { verrou.releaseLock(); }
+  try { cache.removeAll(['revisions', 'maitrise']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
+  LIGNES_ = null;
   return { ok: true, id };
+}
+
+/* question ratée envoyée par le moteur (champ o) : repassée par les mêmes contrôles qu'une question créée */
+function questionRatee_(o) {
+  if (typeof o === 'string') { try { o = JSON.parse(o); } catch (e) { return null; } }
+  if (!o || typeof o !== 'object') return null;
+  // champs des quiz faits à la main (t, alts, accept, e) ramenés au format interne avant le contrôle
+  const src = Object.assign({}, o, { type: o.type || o.t, exp: o.exp || o.e });
+  if (/^(input|saisie)$/.test(src.type || '')) src.ans = [].concat(o.ans || [], o.a != null ? [o.a] : [], o.alt || [], o.alts || [], o.accept || []);
+  const n = normaliserQuestion_(src, 0, [], {}, true);
+  if (!n) return null;
+  ['unit', 'disp', 'both', 'hint'].forEach(k => { if (typeof o[k] === 'string' && o[k]) n[k] = o[k].replace(/<\/?script[^>]*>/gi, '').slice(0, 200); });
+  const clean = (v, l) => String(v == null ? '' : v).replace(/[<>]/g, '').slice(0, l);
+  if (o.k) n.k = clean(o.k, 40);
+  if (o.src) n.src = clean(o.src, 120);
+  if (o.mat && MATIERES[o.mat]) n.mat = o.mat;
+  const ico = emoji_(o.ico); if (ico) n.ico = ico;
+  return n;
 }
 
 /* ---------------- « Mes révisions » et défi du mois ----------------
@@ -450,16 +570,17 @@ const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet
 function revisions_(maintenant) {
   const cache = CacheService.getScriptCache();
   if (!maintenant) { const c = cache.get('revisions'); if (c) return JSON.parse(c); }
+  const gen = cache.get('gen') || '';
   const now = maintenant || new Date(), JOUR = 864e5;
   const debutMois = new Date(now.getFullYear(), now.getMonth(), 1), debutMoisPrec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  const etat = {};
+  const etat = dict_();
   lireLignes_().map(complet_).filter(l => l.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(l => {
     const d = new Date(l.date).getTime();
     (l.questions || []).forEach(x => {
       if (!x.k) return;
       let s = etat[x.k];
       if (!x.ok) {
-        let o = null; try { o = x.o ? JSON.parse(x.o) : null; } catch (e) {}
+        const o = x.o ? questionRatee_(x.o) : null;
         s = etat[x.k] = Object.assign(s || {}, { boite: 0, der: d });
         if (o) s.o = o;
         if (d >= debutMoisPrec.getTime() && d < debutMois.getTime()) s.moisPrec = true;
@@ -472,7 +593,7 @@ function revisions_(maintenant) {
   const aRevoir = avecQuestion.filter(s => now.getTime() - s.der >= DELAIS_REVISION[s.boite] * JOUR * 0.9).map(s => s.o);
   const defi = avecQuestion.filter(s => s.moisPrec).map(s => s.o);
   const r = { aRevoir, defi, moisDefi: MOIS_FR[debutMoisPrec.getMonth()], nouveauDefi: now.getDate() <= 7 };
-  if (!maintenant) { const t = JSON.stringify(r); if (t.length < 90000) cache.put('revisions', t, 600); }
+  if (!maintenant) mettreEnCache_('revisions', r, gen);
   return r;
 }
 /* ---------------- Maîtrise par notion (catégorie d'un quiz) et par question ----------------
@@ -485,20 +606,21 @@ const NIVEAUX = ['Découverte', 'En progrès', 'Acquis', 'Maîtrisé'];
 function maitrise_() {
   const cache = CacheService.getScriptCache();
   const c = cache.get('maitrise'); if (c) return JSON.parse(c);
-  const origine = {}, notions = {}, questions = {}, titres = {};
+  const gen = cache.get('gen') || '';
+  const origine = dict_(), notions = dict_(), questions = dict_(), titres = dict_();
   lireLignes_().map(complet_).filter(l => l.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(l => {
-    const virtuel = l.quiz === 'revisions' || l.quiz === 'defi', jour = l.date.slice(0, 10);
+    const virtuel = l.quiz === 'revisions' || l.quiz === 'defi', jour = jour_(new Date(l.date)) || l.date.slice(0, 10);   // jour à l'heure de Paris
     if (!virtuel && l.titre) titres[l.quiz] = l.titre;
     (l.questions || []).forEach(x => {
       let quiz = l.quiz, cat = x.cat || '—';
       if (x.k) { if (virtuel) { const o = origine[x.k]; if (!o) return; quiz = o[0]; cat = o[1]; } else origine[x.k] = [quiz, cat]; }
       else if (virtuel) return;
       const v = x.ok ? (x.i ? 0.5 : 1) : 0;
-      const n = ((notions[quiz] = notions[quiz] || {})[cat] = notions[quiz][cat] || { r: [], j: {} });
+      const n = ((notions[quiz] = notions[quiz] || dict_())[cat] = notions[quiz][cat] || { r: [], j: dict_() });
       n.r.push(v); if (n.r.length > 10) n.r.shift();
       const j = n.j[jour] = n.j[jour] || [0, 0]; j[0] += v; j[1]++;
       if (x.k) {
-        const q = ((questions[quiz] = questions[quiz] || {})[x.k] = questions[quiz][x.k] || [0, 0]);
+        const q = ((questions[quiz] = questions[quiz] || dict_())[x.k] = questions[quiz][x.k] || [0, 0]);
         q[0]++; q[1] = !x.ok ? 0 : x.i ? q[1] : q[1] + 1;
       }
     });
@@ -514,7 +636,7 @@ function maitrise_() {
       res.notions[quiz][cat] = [niv, taux, nb];
     });
   });
-  const t = JSON.stringify(res); if (t.length < 90000) cache.put('maitrise', t, 600);
+  mettreEnCache_('maitrise', res, gen);
   return res;
 }
 /* la partie utile à une page : tout le site pour l'accueil et le tableau de bord, un seul quiz sinon */
@@ -530,7 +652,7 @@ function maitrisePour_(page, cles) {
 /* page de quiz fabriquée à partir des questions à revoir ('revisions') ou du défi du mois ('defi') */
 let CLES_PAGE_ = null;
 function pageRevision_(page) {
-  const r = revisions_();
+  let r; try { r = revisions_(); } catch (e) { return null; }
   const defi = page === 'defi', liste = defi ? r.defi : r.aRevoir;
   if (!liste.length) return null;
   CLES_PAGE_ = {}; liste.forEach(o => { if (o.k) CLES_PAGE_[o.k] = 1; });
@@ -546,6 +668,9 @@ function pageRevision_(page) {
 
 function apiLister(q) {
   q = q || {};
+  // site de l'enfant : seulement la liste résumée (scores des quiz), jamais le détail des réponses
+  if (estEnfant_()) q = {};
+  LIGNES_ = null;
   const lignes = lireLignes_();
   if (q.id) {
     const l = lignes.find(x => x.id === q.id);
@@ -554,27 +679,37 @@ function apiLister(q) {
   const liste = lignes.map(l => ({
     id: l.id, date: l.date, quiz: l.quiz, titre: l.titre, matiere: l.matiere,
     score: +l.score || 0, total: +l.total || 0, duree: l.duree === '' ? null : +l.duree,
-    joueur: l.joueur, appareil: l.appareil, _l: l
+    joueur: l.joueur, appareil: l.appareil, mode: l.mode || 'normal', _l: l
   }));
   liste.sort((a, b) => String(b.date || b.id).localeCompare(String(a.date || a.id)));
   if (String(q.details) === '1') {
-    liste.slice(0, 200).forEach(x => { const c = complet_(x._l); x.questions = c.questions; x.cats = c.cats; });
+    // seulement ce qu'affiche le tableau de bord (pas la question entière o) : chargement plus léger
+    liste.slice(0, 200).forEach(x => { const c = complet_(x._l); x.questions = c.questions.map(y => ({ q: y.q, ok: y.ok, donne: y.donne, attendu: y.attendu, cat: y.cat, i: y.i })); x.cats = c.cats; });
   }
-  liste.forEach(x => delete x._l);
+  liste.forEach(x => { delete x._l; if (estEnfant_()) delete x.joueur; });
   return { resultats: liste };
 }
 
 function apiSupprimer(id) {
   if (estEnfant_()) return refusEnfant_();
   if (typeof id !== 'string' || !/^r:[0-9T:.\-Z]+:[a-z0-9]+$/.test(id)) return { __status: 400, erreur: 'Identifiant invalide' };
-  const sh = feuille_();
-  const n = sh.getLastRow();
-  if (n < 2) return { __status: 404, erreur: 'Partie introuvable' };
-  const ids = sh.getRange(2, 1, n - 1, 1).getValues();
-  for (let i = ids.length - 1; i >= 0; i--) {
-    if (ids[i][0] === id) { sh.deleteRow(i + 2); return { ok: true }; }
-  }
-  return { __status: 404, erreur: 'Partie introuvable' };
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(20000);
+  try {
+    const sh = feuille_();
+    const n = sh.getLastRow();
+    if (n < 2) return { __status: 404, erreur: 'Partie introuvable' };
+    const ids = sh.getRange(2, 1, n - 1, 1).getValues();
+    for (let i = ids.length - 1; i >= 0; i--) {
+      if (ids[i][0] === id) {
+        sh.deleteRow(i + 2);
+        LIGNES_ = null;
+        try { CacheService.getScriptCache().removeAll(['revisions', 'maitrise']); } catch (e) {}
+        return { ok: true };
+      }
+    }
+    return { __status: 404, erreur: 'Partie introuvable' };
+  } finally { verrou.releaseLock(); }
 }
 
 /* suppression d'un quiz depuis la page d'accueil : le fichier part dans la corbeille du Drive (récupérable 30 jours) */
@@ -677,6 +812,101 @@ function apiGeminiCle(d) {
   return { ok: true };
 }
 
+/* une question du quiz (format JSON interne), vérifiée et nettoyée ; null si elle est inutilisable.
+   Sert à la création d'un quiz et aux questions ratées renvoyées par le moteur (révisions, défi). */
+function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ratée d'un quiz existant (pas les contrôles faits pour l'IA)
+  d = d || {};
+  const txt = (v, n) => String(v == null ? '' : v).replace(/<\/?script[^>]*>/gi, '').trim().slice(0, n);
+  if (!q || typeof q !== 'object') return null;
+  const type = String(q.type || 'qcm').toLowerCase();
+  const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
+  if (!base.q && type !== 'trous') return null;
+  // écoute : phrase lue à voix haute (anglais…) et notes de musique
+  const img = emoji_(q.img || q.image);
+  if (img) base.img = img;
+  const dire = txt(q.dire || q.ecoute || q.audio, 300);
+  if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
+  if (Array.isArray(q.notes) && type !== 'clavier') {
+    const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim()) || String(x).trim() === '-';
+    const notes = q.notes.slice(0, 16).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 5)).filter(note) : txt(x, 5))
+      .filter(x => Array.isArray(x) ? x.length : note(x));
+    if (notes.length) { base.notes = notes; if (q.portee) base.portee = q.portee === 'seule' ? 'seule' : true; }
+  }
+  if (type === 'qcm') {
+    const opts = (Array.isArray(q.opts || q.choix) ? (q.opts || q.choix) : []).map(o => txt(o, 160)).filter(Boolean);
+    let a = txt(q.a != null ? q.a : q.reponse, 160);
+    const trouve = opts.find(o => o === a) || opts.find(o => o.toLowerCase() === a.toLowerCase());
+    if (opts.length < 2 || !trouve) { avert.push('Question ' + (i + 1) + ' ignorée (bonne réponse absente des choix).'); return null; }
+    // choix en double (« are » et « Are ») : on n'en garde qu'un ; plus qu'un seul choix → question ignorée
+    const vus = new Set(), uniques = opts.filter(o => { const k = o.toLowerCase().replace(/[\s.!?]+/g, ' ').trim(); if (vus.has(k)) return false; vus.add(k); return true; });
+    if (uniques.length < 2 || !uniques.includes(trouve)) { avert.push('Question ' + (i + 1) + ' ignorée (choix en double).'); return null; }
+    // un mauvais choix qui contient « ou », « les deux », « aucune » rend la question ambiguë
+    if (!souple && uniques.some(o => o !== trouve && (/^(les deux|aucune?)( |$)/i.test(o) || (/\s+ou\s+/i.test(o) && o.toLowerCase().includes(trouve.toLowerCase()))))) { avert.push('Question ' + (i + 1) + ' ignorée (choix ambigu du type « A ou B », « les deux »).'); return null; }
+    return Object.assign(base, { type: 'qcm', opts: uniques, a: trouve });
+  } else if (type === 'vf' || type === 'vrai-faux' || type === 'vraifaux') {
+    const v = q.a != null ? q.a : q.reponse;
+    const a = v === true || /^(vrai|true|oui)$/i.test(String(v).trim()) ? true
+            : v === false || /^(faux|false|non)$/i.test(String(v).trim()) ? false : null;
+    if (a === null) { avert.push('Question ' + (i + 1) + ' ignorée (réponse ni Vrai ni Faux).'); return null; }
+    return Object.assign(base, { type: 'vf', a });
+  } else if (type === 'saisie' || type === 'input') {
+    const liste = [].concat(q.ans || [], q.a != null ? [q.a] : [], q.reponse != null ? [q.reponse] : [], q.alt || [])
+      .map(x => txt(x, 80)).filter(Boolean);
+    // « la photosynthèse » accepte aussi « photosynthèse » : l'IA n'a pas à écrire cette variante
+    liste.slice().forEach(x => { const s = x.replace(/^(le|la|les|un|une|des|du)\s+|^l['’]\s*/i, ''); if (s && s !== x) liste.push(s); });
+    if (!liste.length) { avert.push('Question ' + (i + 1) + ' ignorée (pas de réponse).'); return null; }
+    const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
+    // un indice qui contient la réponse (« Ce liquide porte le nom de chaux ») est retiré
+    const sans = x => x.toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    const h = txt(q.hint || q.indice, 200); if (h && !qq.ans.some(r => sans(r).length >= 3 && sans(h).includes(sans(r)) || sans(r).split(/\s+/).some(m => m.length >= 4 && sans(h).includes(m)))) qq.hint = h;
+    return qq;
+  } else if (type === 'trous') {
+    const texte = txt(q.texte, 600), nb = (texte.match(/\[[^\]]+\]/g) || []).length;
+    if (!nb || nb > 6) { avert.push('Question ' + (i + 1) + ' ignorée (texte à trous sans [mot] ou avec trop de trous).'); return null; }
+    return Object.assign(base, { type: 'trous', q: base.q || 'Complète.', texte });
+  } else if (type === 'ordre') {
+    const items = (Array.isArray(q.items) ? q.items : []).map(x => txt(x, 120)).filter(Boolean).slice(0, 8);
+    if (items.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 éléments à ranger).'); return null; }
+    return Object.assign(base, { type: 'ordre', items });
+  } else if (type === 'paires') {
+    const paires = (Array.isArray(q.paires) ? q.paires : []).filter(p => Array.isArray(p) && p.length === 2).map(p => [txt(p[0], 80), txt(p[1], 80)]).filter(p => p[0] && p[1]).slice(0, 6);
+    if (paires.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 paires).'); return null; }
+    return Object.assign(base, { type: 'paires', paires });
+  } else if (type === 'classer') {
+    const groupes = (Array.isArray(q.groupes) ? q.groupes : []).map(g => ({ nom: txt(g && g.nom, 40), items: (Array.isArray(g && g.items) ? g.items : []).map(x => txt(x, 60)).filter(Boolean).slice(0, 6) }))
+      .filter(g => g.nom && g.items.length).slice(0, 4);
+    if (groupes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (il faut au moins 2 catégories).'); return null; }
+    return Object.assign(base, { type: 'classer', groupes });
+  } else if (type === 'cliquer') {
+    const texte = txt(q.texte, 600);
+    if (!/\*[^*]+\*/.test(texte)) { avert.push('Question ' + (i + 1) + ' ignorée (aucun *mot* à toucher).'); return null; }
+    // tous les mots entre *étoiles* : c'est une phrase à reconstituer, jouée en « remettre dans l'ordre »
+    const mots = texte.match(/\*[^*]+\*|[^\s*]+/g) || [];
+    // un seul mot étoilé avec « écris / complète » : c'est un mot à trouver, joué en texte à trous (sinon la réponse serait affichée)
+    if ((texte.match(/\*[^*]+\*/g) || []).length === 1 && /[ée]cri|compl[eè]t|manqu|trouve/i.test(base.q)) { return Object.assign(base, { type: 'trous', texte: texte.replace(/\*([^*]+)\*/, '[$1]') }); }
+    if (mots.length >= 2 && mots.length <= 8 && mots.every(m => /^\*.+\*$/.test(m))) { return Object.assign(base, { type: 'ordre', items: mots.map(m => m.slice(1, -1).trim()) }); }
+    return Object.assign(base, { type: 'cliquer', texte });
+  } else if (type === 'nombre') {
+    const a = parseFloat(String(q.a).replace(/\s/g, '').replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
+    if (!isFinite(a)) { avert.push('Question ' + (i + 1) + ' ignorée (réponse non numérique).'); return null; }
+    const qq = Object.assign(base, { type: 'nombre', a, tol }); const u = txt(q.unit || q.unite, 12); if (u) qq.unit = u;
+    return qq;
+  } else if (type === 'parler') {
+    const phrase = txt(q.phrase, 200);
+    if (!phrase) { avert.push('Question ' + (i + 1) + ' ignorée (phrase à dire absente).'); return null; }
+    const qq = Object.assign(base, { type: 'parler', phrase });
+    if (phrase !== '*' && !qq.dire) qq.dire = phrase;           // bouton « Écouter » : le modèle à imiter
+    if (!qq.langue) { const lg = txt(d.langue || d.langueAudio, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) qq.langue = lg; }
+    return qq;
+  } else if (type === 'clavier') {
+    const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim());
+    const notes = (Array.isArray(q.notes) ? q.notes : []).map(x => txt(x, 5)).filter(note).slice(0, 8);
+    if (notes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (mélodie de moins de 2 notes).'); return null; }
+    return Object.assign(base, { type: 'clavier', notes });
+  }
+  return null;
+}
+
 function apiAjouterQuiz(texte) {
   if (estEnfant_()) return refusEnfant_();
   texte = String(texte || '').trim();
@@ -706,95 +936,7 @@ function apiAjouterQuiz(texte) {
   const avert = [];
   const txt = (v, n) => String(v == null ? '' : v).replace(/<\/?script[^>]*>/gi, '').trim().slice(0, n);
   const questions = [];
-  (Array.isArray(d.questions) ? d.questions : []).forEach((q, i) => {
-    if (!q || typeof q !== 'object') return;
-    const type = String(q.type || 'qcm').toLowerCase();
-    const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
-    if (!base.q && type !== 'trous') return;
-    // écoute : phrase lue à voix haute (anglais…) et notes de musique
-    const img = emoji_(q.img || q.image);
-    if (img) base.img = img;
-    const dire = txt(q.dire || q.ecoute || q.audio, 300);
-    if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
-    if (Array.isArray(q.notes) && type !== 'clavier') {
-      const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim()) || String(x).trim() === '-';
-      const notes = q.notes.slice(0, 16).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 5)).filter(note) : txt(x, 5))
-        .filter(x => Array.isArray(x) ? x.length : note(x));
-      if (notes.length) { base.notes = notes; if (q.portee) base.portee = q.portee === 'seule' ? 'seule' : true; }
-    }
-    if (type === 'qcm') {
-      const opts = (Array.isArray(q.opts || q.choix) ? (q.opts || q.choix) : []).map(o => txt(o, 160)).filter(Boolean);
-      let a = txt(q.a != null ? q.a : q.reponse, 160);
-      const trouve = opts.find(o => o === a) || opts.find(o => o.toLowerCase() === a.toLowerCase());
-      if (opts.length < 2 || !trouve) { avert.push('Question ' + (i + 1) + ' ignorée (bonne réponse absente des choix).'); return; }
-      // choix en double (« are » et « Are ») : on n'en garde qu'un ; plus qu'un seul choix → question ignorée
-      const vus = new Set(), uniques = opts.filter(o => { const k = o.toLowerCase().replace(/[\s.!?]+/g, ' ').trim(); if (vus.has(k)) return false; vus.add(k); return true; });
-      if (uniques.length < 2 || !uniques.includes(trouve)) { avert.push('Question ' + (i + 1) + ' ignorée (choix en double).'); return; }
-      // un mauvais choix qui contient « ou », « les deux », « aucune » rend la question ambiguë
-      if (uniques.some(o => o !== trouve && (/^(les deux|aucune?)( |$)/i.test(o) || (/\s+ou\s+/i.test(o) && o.toLowerCase().includes(trouve.toLowerCase()))))) { avert.push('Question ' + (i + 1) + ' ignorée (choix ambigu du type « A ou B », « les deux »).'); return; }
-      questions.push(Object.assign(base, { type: 'qcm', opts: uniques, a: trouve }));
-    } else if (type === 'vf' || type === 'vrai-faux' || type === 'vraifaux') {
-      const v = q.a != null ? q.a : q.reponse;
-      const a = v === true || /^(vrai|true|oui)$/i.test(String(v).trim()) ? true
-              : v === false || /^(faux|false|non)$/i.test(String(v).trim()) ? false : null;
-      if (a === null) { avert.push('Question ' + (i + 1) + ' ignorée (réponse ni Vrai ni Faux).'); return; }
-      questions.push(Object.assign(base, { type: 'vf', a }));
-    } else if (type === 'saisie' || type === 'input') {
-      const liste = [].concat(q.ans || [], q.a != null ? [q.a] : [], q.reponse != null ? [q.reponse] : [], q.alt || [])
-        .map(x => txt(x, 80)).filter(Boolean);
-      // « la photosynthèse » accepte aussi « photosynthèse » : l'IA n'a pas à écrire cette variante
-      liste.slice().forEach(x => { const s = x.replace(/^(le|la|les|un|une|des|du)\s+|^l['’]\s*/i, ''); if (s && s !== x) liste.push(s); });
-      if (!liste.length) { avert.push('Question ' + (i + 1) + ' ignorée (pas de réponse).'); return; }
-      const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
-      // un indice qui contient la réponse (« Ce liquide porte le nom de chaux ») est retiré
-      const sans = x => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-      const h = txt(q.hint || q.indice, 200); if (h && !qq.ans.some(r => sans(r).length >= 3 && sans(h).includes(sans(r)) || sans(r).split(/\s+/).some(m => m.length >= 4 && sans(h).includes(m)))) qq.hint = h;
-      questions.push(qq);
-    } else if (type === 'trous') {
-      const texte = txt(q.texte, 600), nb = (texte.match(/\[[^\]]+\]/g) || []).length;
-      if (!nb || nb > 6) { avert.push('Question ' + (i + 1) + ' ignorée (texte à trous sans [mot] ou avec trop de trous).'); return; }
-      questions.push(Object.assign(base, { type: 'trous', q: base.q || 'Complète.', texte }));
-    } else if (type === 'ordre') {
-      const items = (Array.isArray(q.items) ? q.items : []).map(x => txt(x, 120)).filter(Boolean).slice(0, 8);
-      if (items.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 éléments à ranger).'); return; }
-      questions.push(Object.assign(base, { type: 'ordre', items }));
-    } else if (type === 'paires') {
-      const paires = (Array.isArray(q.paires) ? q.paires : []).filter(p => Array.isArray(p) && p.length === 2).map(p => [txt(p[0], 80), txt(p[1], 80)]).filter(p => p[0] && p[1]).slice(0, 6);
-      if (paires.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (moins de 2 paires).'); return; }
-      questions.push(Object.assign(base, { type: 'paires', paires }));
-    } else if (type === 'classer') {
-      const groupes = (Array.isArray(q.groupes) ? q.groupes : []).map(g => ({ nom: txt(g && g.nom, 40), items: (Array.isArray(g && g.items) ? g.items : []).map(x => txt(x, 60)).filter(Boolean).slice(0, 6) }))
-        .filter(g => g.nom && g.items.length).slice(0, 4);
-      if (groupes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (il faut au moins 2 catégories).'); return; }
-      questions.push(Object.assign(base, { type: 'classer', groupes }));
-    } else if (type === 'cliquer') {
-      const texte = txt(q.texte, 600);
-      if (!/\*[^*]+\*/.test(texte)) { avert.push('Question ' + (i + 1) + ' ignorée (aucun *mot* à toucher).'); return; }
-      // tous les mots entre *étoiles* : c'est une phrase à reconstituer, jouée en « remettre dans l'ordre »
-      const mots = texte.match(/\*[^*]+\*|[^\s*]+/g) || [];
-      // un seul mot étoilé avec « écris / complète » : c'est un mot à trouver, joué en texte à trous (sinon la réponse serait affichée)
-      if ((texte.match(/\*[^*]+\*/g) || []).length === 1 && /[ée]cri|compl[eè]t|manqu|trouve/i.test(base.q)) { questions.push(Object.assign(base, { type: 'trous', texte: texte.replace(/\*([^*]+)\*/, '[$1]') })); return; }
-      if (mots.length >= 2 && mots.length <= 8 && mots.every(m => /^\*.+\*$/.test(m))) { questions.push(Object.assign(base, { type: 'ordre', items: mots.map(m => m.slice(1, -1).trim()) })); return; }
-      questions.push(Object.assign(base, { type: 'cliquer', texte }));
-    } else if (type === 'nombre') {
-      const a = parseFloat(String(q.a).replace(/\s/g, '').replace(',', '.')), tol = Math.abs(parseFloat(String(q.tol || 0).replace(',', '.'))) || 0;
-      if (!isFinite(a)) { avert.push('Question ' + (i + 1) + ' ignorée (réponse non numérique).'); return; }
-      const qq = Object.assign(base, { type: 'nombre', a, tol }); const u = txt(q.unit || q.unite, 12); if (u) qq.unit = u;
-      questions.push(qq);
-    } else if (type === 'parler') {
-      const phrase = txt(q.phrase, 200);
-      if (!phrase) { avert.push('Question ' + (i + 1) + ' ignorée (phrase à dire absente).'); return; }
-      const qq = Object.assign(base, { type: 'parler', phrase });
-      if (phrase !== '*' && !qq.dire) qq.dire = phrase;           // bouton « Écouter » : le modèle à imiter
-      if (!qq.langue) { const lg = txt(d.langue || d.langueAudio, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) qq.langue = lg; }
-      questions.push(qq);
-    } else if (type === 'clavier') {
-      const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim());
-      const notes = (Array.isArray(q.notes) ? q.notes : []).map(x => txt(x, 5)).filter(note).slice(0, 8);
-      if (notes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (mélodie de moins de 2 notes).'); return; }
-      questions.push(Object.assign(base, { type: 'clavier', notes }));
-    }
-  });
+  (Array.isArray(d.questions) ? d.questions : []).forEach((q, i) => { const x = normaliserQuestion_(q, i, avert, d); if (x) questions.push(x); });
   // même question posée deux fois (l'IA remplit parfois ainsi) : on garde la première
   const dejaVues = new Set();
   const gardees = questions.filter(q => {
@@ -822,7 +964,7 @@ function apiAjouterQuiz(texte) {
     sousTitre: txt(d.sousTitre || d.sous_titre || d.niveau, 150),
     icone, badge, icones,
     langueAudio: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(txt(d.langueAudio || d.langue, 10)) ? txt(d.langueAudio || d.langue, 10) : '',
-    couleur: COULEURS_[matiere], questions, memo
+    couleur: COULEURS_[matiere], questions, memo, texte: true
   });
   const nom = nomLibre_(inst.dossier, titre);
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
@@ -861,9 +1003,12 @@ function lireFormatLignes_(texte) {
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
     const extra = {}, pos = [];
+    // champs nommés : toujours avec = (une bonne réponse « dire » ou « notes » reste une réponse) ;
+    // seul « portee » peut être écrit seul, et seulement après la question et sa réponse
     champs.forEach(c => {
-      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img)\s*(?:[=:]\s*(.*))?$/i);
-      if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2] == null ? true : k[2].trim();
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img)\s*=\s*(.+)$/i);
+      if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2].trim();
+      else if (/^port[eé]e$/i.test(c) && pos.length >= 3) extra.portee = true;
       else pos.push(c);
     });
     while (pos.length && pos[pos.length - 1] === '') pos.pop();
@@ -897,7 +1042,10 @@ function lireFormatLignes_(texte) {
       Object.assign(q, { type: 'clavier', notes: String(pos[1] || '').split(/[\s,]+/).filter(Boolean), exp: pos[2] || '' });
     } else if (sorte === 'Q') {
       const reste = pos.slice(1);
-      q.exp = reste.length >= 3 ? reste.pop() : '';
+      // dernier champ = explication s'il y a au moins 3 choix derrière la question, ou s'il ressemble à une phrase
+      // (sinon « Q|q|bonne|faux|faux » sans explication perdrait un mauvais choix)
+      const mots = t => String(t).trim().split(/\s+/).length, der = reste[reste.length - 1] || '';
+      q.exp = reste.length >= 4 || (reste.length === 3 && mots(der) >= 4 && mots(der) > 1.5 * Math.max(mots(reste[0]), mots(reste[1]))) ? reste.pop() : '';
       Object.assign(q, { type: 'qcm', opts: reste, a: reste[0] });
     } else if (sorte === 'V') {
       Object.assign(q, { type: 'vf', a: /^v/i.test(pos[1] || '') ? true : /^f/i.test(pos[1] || '') ? false : pos[1], exp: pos[2] || '' });
@@ -925,6 +1073,7 @@ function fabriquerQuizHtml_(c) {
     titre: c.titre, sousTitre: h(c.sousTitre), icone: c.icone, matiere: c.matiere, couleur: c.couleur,
     nbQuestions: Math.min(20, c.questions.length), questions: c.questions, memo: memoHtml
   };
+  if (c.texte) cfg.texte = true;          // texte pur (quiz créé depuis le site) : le moteur n'y retire aucune balise
   if (c.badge) cfg.badge = c.badge;
   if (c.icones && Object.keys(c.icones).length) cfg.icones = c.icones;
   if (c.langueAudio) cfg.langueAudio = c.langueAudio;
@@ -948,21 +1097,39 @@ function nomLibre_(dossier, titre) {
   return nom;
 }
 
-function feuille_() { return installer_().ss.getSheets()[0]; }
+// l'onglet « Parties » même si le parent a ajouté d'autres onglets devant
+function feuille_() {
+  const ss = installer_().ss, sh = ss.getSheetByName('Parties') || ss.getSheets()[0];
+  try { const n = sh.getMaxColumns(); if (n < COLONNES.length) sh.insertColumnsAfter(n, COLONNES.length - n); } catch (e) {}
+  return sh;
+}
+// lu une seule fois par exécution (accueil : révisions + maîtrise + liste)
 function lireLignes_() {
   const sh = feuille_();
   const n = sh.getLastRow();
-  if (n < 2) return [];
-  return sh.getRange(2, 1, n - 1, COLONNES.length).getValues()
+  if (LIGNES_ && LIGNES_.n === n) return LIGNES_.l;
+  const l = n < 2 ? [] : sh.getRange(2, 1, n - 1, COLONNES.length).getValues()
     .filter(v => v[0])
-    .map(v => COLONNES.reduce((o, c, i) => { o[c] = String(v[i]); return o; }, {}));
+    .map(v => COLONNES.reduce((o, c, i) => { o[c] = String(v[i]).replace(/^'(?=[=+\-@])/, ''); return o; }, {}));
+  LIGNES_ = { n, l };
+  return l;
+}
+// une valeur qui commence par = + - @ serait prise pour une formule par Google Sheets
+function cellule_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) && !/^-?\d/.test(v) ? "'" + v : v; }
+function dict_() { return Object.create(null); }      // objet sans prototype : une clé « constructor » ou « __proto__ » ne casse rien
+function mettreEnCache_(cle, valeur, gen) {
+  try {
+    const t = JSON.stringify(valeur), c = CacheService.getScriptCache();
+    if (gen !== undefined && (c.get('gen') || '') !== gen) return;      // une partie a été enregistrée pendant le calcul
+    if (Utilities.newBlob(t).getBytes().length < 95000) c.put(cle, t, 600);
+  } catch (e) {}
 }
 function complet_(l) {
   const lire = s => { try { return JSON.parse(s); } catch (e) { return null; } };
   return {
     id: l.id, date: l.date, joueur: l.joueur, quiz: l.quiz, titre: l.titre, matiere: l.matiere,
     score: +l.score || 0, total: +l.total || 0, duree: l.duree === '' ? null : +l.duree,
-    dateLocale: l.dateLocale, appareil: l.appareil,
+    dateLocale: l.dateLocale, appareil: l.appareil, mode: l.mode || 'normal',
     cats: lire(l.cats) || {}, questions: lire(l.questions) || []
   };
 }

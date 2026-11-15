@@ -1,6 +1,6 @@
 # Envoyer les invitations depuis soccaquiz@gmail.com
 
-Une page qui n'est accessible qu'au compte soccaquiz : tu colles la liste des amis (un par ligne, `Lucie lucie@gmail.com`, `Marc, marc@orange.fr` ou simplement l'adresse), tu touches **Envoyer**, et chacun reçoit le mail d'invitation mis en forme, avec « Bonjour Lucie, ». Le mail est lu sur `docs/invitation.html` : toute modification poussée sur GitHub est prise en compte dès l'envoi suivant.
+Une page qui n'est accessible qu'au compte soccaquiz : tu colles la liste des amis (un par ligne, `Lucie lucie@gmail.com`, `Marc, marc@orange.fr` ou simplement l'adresse), tu touches **Envoyer**, et chacun reçoit le mail d'invitation mis en forme, avec « Bonjour Lucie, » (seul le premier mot sert de prénom : écris le prénom en premier). Le mail est lu sur `docs/invitation.html`, entre les repères `<!--MAIL-->` et `<!--/MAIL-->` (sans eux, rien n'est envoyé) : toute modification poussée sur GitHub est prise en compte dès l'envoi suivant.
 
 ## Mise en place (une seule fois, sur ordinateur, environ 5 minutes)
 1. Dans une fenêtre privée, connecte-toi à **script.google.com** avec **soccaquiz@gmail.com**, puis **Nouveau projet**. Renomme-le « Envoi des invitations ».

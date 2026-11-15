@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ajouter un quiz</title>
+<title>Créer un quiz</title>
 <style>
 :root{--bg:#fff8ef;--card:#fff;--ink:#2a1f1a;--soft:#7a6658;--line:#eadfce;--accent:#c8102e;--ok:#15803d;--ko:#b91c1c}
 @media (prefers-color-scheme:dark){:root{--bg:#1a1412;--card:#241c18;--ink:#f8efe6;--soft:#c4b3a3;--line:#3a2e27}}
@@ -32,7 +32,10 @@ details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9re
 .retour{display:block;text-align:center;margin-top:24px;color:var(--soft)}
 .cache{display:none}
 .vignettes{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0}.vignettes img{width:64px;height:64px;object-fit:cover;border-radius:8px;border:2px solid var(--line)}
-input[type=file]{display:none}
+/* le champ reste atteignable au clavier, seul son bouton d'origine est caché */
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden;clip:rect(0 0 0 0)}
+input[type=file]:focus-visible + .choix{outline:3px solid #e8a83a;outline-offset:2px}
+input[type=file]:disabled + .choix{opacity:.6;cursor:wait}
 .choix{display:inline-flex;align-items:center;gap:6px;font:600 1rem system-ui,sans-serif;border-radius:999px;padding:10px 18px;cursor:pointer;background:var(--card);color:var(--ink);border:2px solid var(--line)}
 ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 /* aperçu de la réponse de l'IA : on montre où toucher, pas le contenu */
@@ -50,7 +53,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 </head>
 <body>
 <main>
-  <h1>➕ Ajouter un quiz</h1>
+  <h1>➕ Créer un quiz</h1>
   <p class="intro">Une leçon en photo, une IA : le quiz est prêt en 2 minutes.</p>
 
   <section class="etape">
@@ -77,11 +80,12 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
         <li>Colle-la ici :<br><input type="text" id="g-cle" placeholder="AQ.…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
           <button class="btn" id="g-enregistrer" type="button">Enregistrer la clé</button></li>
       </ol>
-      <p class="petit">La clé est gratuite et sans carte bancaire. Avec la formule gratuite, Google peut se servir des photos envoyées pour améliorer Gemini.</p>
+      <p class="petit">La clé est gratuite et sans carte bancaire. En Europe, Google n'utilise pas les photos envoyées avec la clé gratuite pour améliorer ses produits ; ailleurs, il peut le faire. La clé Gemini est réservée à l'adulte qui la crée : l'enfant n'a jamais accès à Gemini.</p>
     </div>
     <div id="g-avec-cle" class="cache">
-      <label class="choix" for="g-photos">📷 Choisir les photos</label>
       <input type="file" id="g-photos" accept="image/*" multiple>
+      <label class="choix" for="g-photos">📷 Choisir les photos</label>
+      <p class="petit">Cadre la leçon sans le nom de ton enfant ni celui de l'école.</p>
       <div id="g-vignettes" class="vignettes"></div>
       <button class="btn" id="g-creer" type="button" disabled>✨ Créer le quiz avec Gemini</button>
       <p class="petit"><a href="#" id="g-changer">Changer de clé Gemini</a></p>
@@ -117,22 +121,33 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   </div>
 
   <div id="maj" class="maj" hidden></div>
-  <a class="retour" href="index.html">📚 Revenir à mes quiz</a>
+  <a class="retour" id="retour" href="index.html">📚 Revenir à mes quiz</a>
 </main>
 
 <script>
 (function () {
   const $ = id => document.getElementById(id);
   const U = window.__UQ || {};
-  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  const RESEAU = 'Pas de connexion Internet ? Vérifie le réseau, puis réessaie.';
+  // message d'échec de google.script.run (souvent en anglais) : une phrase simple, le détail entre parenthèses
+  const echecGoogle = e => { const m = String((e && e.message) || e || ''); return /network|HTTP 0|connection|failed to fetch|timed? ?out/i.test(m) ? RESEAU : 'Le site n\'a pas répondu. Recharge la page, puis réessaie.' + (m ? ' (' + m.slice(0, 120) + ')' : ''); };
+
+  // retour : l'espace parent ramène à la liste des quiz de l'espace parent
+  if (U.espace === 'parent') {
+    const r = $('retour');
+    r.textContent = '🔒 Revenir à l\'espace parent';
+    if (U.url) { r.href = U.url + '?page=tableau-de-bord#quiz'; r.target = '_top'; } else r.href = 'tableau-de-bord.html#quiz';
+  }
 
   // consignes : une seule source, src/consignes.txt, insérée ici à la construction et publiée sur GitHub Pages
   const CONSIGNES = '__CONSIGNES__';
   const RELECTURE = '__RELECTURE__';      // src/relecture.txt : 2e passage de Gemini, qui corrige les questions hors sujet ou ambiguës
   const URL_CONSIGNES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/consignes/__CONSIGNES_ID__.txt';
   const demande = () => {
-    const classe = $('classe').value.trim();
-    return `Crée un quiz de révision de ${$('nb').value} questions${classe ? ' pour un élève de ' + classe : ''} à partir des photos de leçon jointes`;
+    const classe = $('classe').value.trim() || (U.classe === 'adulte' ? 'adulte' : '');
+    const pour = /^adultes?$/i.test(classe) ? ' pour un adulte' : classe ? ' pour un élève de ' + classe : '';
+    return `Crée un quiz de révision de ${$('nb').value} questions${pour} à partir des photos de leçon jointes`;
   };
   // ce que voit le parent dans l'IA : une seule phrase, les consignes sont lues sur la page
   const messageCourt = () => demande() + ', en suivant exactement les consignes de cette page : ' + URL_CONSIGNES +
@@ -144,7 +159,9 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   function majLiens() { const m = messageCourt(); liensIA.forEach(a => { a.href = a.dataset.ia + encodeURIComponent(m); }); }
   $('classe').addEventListener('input', majLiens);
   $('nb').addEventListener('change', majLiens);
-  try { $('classe').value = localStorage.getItem('uq.classe') || ''; } catch (e) {}
+  // classe : celle tapée ici sur cet appareil, sinon celle des Réglages de l'espace parent
+  let classeLocale = ''; try { classeLocale = localStorage.getItem('uq.classe') || ''; } catch (e) {}
+  $('classe').value = classeLocale || (U.classe && U.classe !== 'adulte' ? U.classe : '');
   $('classe').addEventListener('change', () => { try { localStorage.setItem('uq.classe', $('classe').value.trim()); } catch (e) {} });
   majLiens();
 
@@ -168,6 +185,12 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   /* ---------- création du quiz à partir d'un texte (réponse d'une IA) ---------- */
   function creer(texte, res, bouton) {
     if (!String(texte || '').trim()) { res.innerHTML = '<div class="ko">Rien à coller : touche d\'abord « Copier » sous la réponse de l\'IA.</div>'; return Promise.resolve(); }
+    // le presse-papiers contient encore notre demande (mise là au clic sur Claude, ChatGPT ou Grok), pas la réponse de l'IA
+    const t = String(texte).trim();
+    if (t === messageCourt().trim() || t === messageComplet().trim() || /^Crée un quiz de révision/.test(t)) {
+      res.innerHTML = '<div class="ko">C\'est encore la demande, pas la réponse de l\'IA : touche « Copier » sous sa réponse, puis reviens ici.</div>';
+      return Promise.resolve();
+    }
     if (!(window.google && google.script && google.script.run)) { res.innerHTML = '<div class="ko">Connexion à Google indisponible : recharge la page.</div>'; return Promise.resolve(); }
     if (bouton) bouton.disabled = true;
     res.innerHTML = '<p class="petit">Création du quiz…</p>';
@@ -183,7 +206,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
         $('reponse').value = '';
         fini(r);
       })
-      .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h((e && e.message) || e) + '</div>'; fini(null); })
+      .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; fini(null); })
       .apiAjouterQuiz(texte));
   }
   // retour depuis l'IA : grand bouton en bas de l'écran, sans avoir à chercher l'étape 3
@@ -222,11 +245,11 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     if (!/^(AIza|AQ\.)[\w.\-]{25,200}$/.test(c)) { res.innerHTML = '<div class="ko">Ce n\'est pas une clé Gemini : elle commence par AQ. ou AIza et fait plusieurs dizaines de caractères. Copie-la en entier.</div>'; return; }
     $('g-enregistrer').disabled = true; res.innerHTML = '<p class="petit">Vérification de la clé…</p>';
     try {
-      const r = await fetch(API_GEMINI.slice(0, -1) + '?pageSize=1', { headers: { 'x-goog-api-key': c } });
-      if (!r.ok) throw new Error(await messageErreur(r));
+      const r = await appelJson(API_GEMINI.slice(0, -1) + '?pageSize=1', { headers: { 'x-goog-api-key': c } }, 30000);
+      if (!r.ok) throw new Error(messageErreur(r));
       google.script.run
         .withSuccessHandler(r => { $('g-enregistrer').disabled = false; if (r && r.erreur) { res.innerHTML = '<div class="ko">😕 ' + h(r.erreur) + '</div>'; return; } cle = c; $('g-cle').value = ''; etatGemini(); res.innerHTML = '<div class="ok">✅ Clé enregistrée. Choisis maintenant les photos de la leçon.</div>'; })
-        .withFailureHandler(e => { $('g-enregistrer').disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(e.message || e) + '</div>'; })
+        .withFailureHandler(e => { $('g-enregistrer').disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; })
         .apiGeminiCle({ cle: c });
     } catch (e) {
       $('g-enregistrer').disabled = false;
@@ -235,88 +258,143 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   });
   $('g-changer').addEventListener('click', ev => { ev.preventDefault(); cle = ''; etatGemini(); $('g-resultat').innerHTML = ''; });
 
-  // photos réduites dans le navigateur (1600 px, JPEG) : envoi plus rapide, rien n'est gardé
-  function reduire(fichier) {
+  // photos réduites dans le navigateur (1600 px, JPEG) : envoi plus rapide, rien n'est gardé.
+  // Une photo à la fois (8 photos de 12 Mpx décodées ensemble font planter Safari sur un vieil iPhone).
+  const MAX_PHOTOS = 8;
+  let creation = false;                       // une création avec Gemini est en cours : photos figées
+  function versJpeg(source, l, ht) {
+    const k = Math.min(1, 1600 / Math.max(l, ht));
+    const c = document.createElement('canvas');
+    c.width = Math.max(1, Math.round(l * k)); c.height = Math.max(1, Math.round(ht * k));
+    const ctx = c.getContext('2d'); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(source, 0, 0, c.width, c.height);
+    const url = c.toDataURL('image/jpeg', 0.85);
+    c.width = c.height = 0;                   // libère la mémoire du canvas tout de suite
+    return url;
+  }
+  function parImage(fichier) {
     return new Promise((ok, ko) => {
       const img = new Image(), url = URL.createObjectURL(fichier);
-      img.onload = () => {
-        const k = Math.min(1, 1600 / Math.max(img.width, img.height));
-        const c = document.createElement('canvas');
-        c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-        URL.revokeObjectURL(url);
-        ok(c.toDataURL('image/jpeg', 0.85));
-      };
-      img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('Image illisible : ' + fichier.name)); };
+      img.onload = () => { try { ok(versJpeg(img, img.naturalWidth, img.naturalHeight)); } catch (e) { ko(e); } URL.revokeObjectURL(url); img.src = ''; };
+      img.onerror = () => { URL.revokeObjectURL(url); ko(new Error('illisible')); };
       img.src = url;
     });
   }
+  async function reduire(fichier) {
+    if (window.createImageBitmap) {
+      let b = null;
+      try { b = await createImageBitmap(fichier); } catch (e) {}      // échec (HEIC dans Safari…) : on retente avec <img>
+      if (b) { try { return versJpeg(b, b.width, b.height); } finally { if (b.close) b.close(); } }
+    }
+    return parImage(fichier);
+  }
+  const estHeic = f => /\.hei[cf]$/i.test(f.name || '') || /image\/hei[cf]/i.test(f.type || '');
+  function choixPhotos(actif) { $('g-photos').disabled = !actif; }
   $('g-photos').addEventListener('change', async ev => {
-    const res = $('g-resultat');
-    try {
-      photos = await Promise.all(Array.from(ev.target.files || []).slice(0, 8).map(reduire));
-      res.innerHTML = photos.length ? '' : '<p class="petit">Aucune photo choisie.</p>';
-    } catch (e) { photos = []; res.innerHTML = '<div class="ko">😕 ' + h(e.message) + '</div>'; }
-    $('g-vignettes').innerHTML = photos.map(p => '<img alt="" src="' + p + '">').join('');
-    $('g-creer').disabled = !photos.length;
+    if (creation) return;
+    const res = $('g-resultat'), b = $('g-creer'), input = ev.target;
+    const tous = Array.from(input.files || []), fichiers = tous.slice(0, MAX_PHOTOS);
+    photos = []; $('g-vignettes').innerHTML = ''; b.disabled = true; choixPhotos(false);
+    // chaque photo est traitée à part : une photo illisible n'empêche pas de garder les autres
+    const ecartees = [];
+    for (let i = 0; i < fichiers.length; i++) {
+      res.innerHTML = '<p class="petit" role="status">Préparation des photos ' + (i + 1) + '/' + fichiers.length + '…</p>';
+      try {
+        const p = await reduire(fichiers[i]);
+        photos.push(p);
+        $('g-vignettes').insertAdjacentHTML('beforeend', '<img alt="Photo ' + photos.length + '" src="' + p + '">');
+      } catch (e) { ecartees.push(fichiers[i]); }
+    }
+    input.value = ''; choixPhotos(true);
+    const m = [];
+    if (tous.length > MAX_PHOTOS) m.push('Seules les ' + MAX_PHOTOS + ' premières photos sont gardées.');
+    if (ecartees.length) {
+      m.push((ecartees.length > 1 ? 'Photos écartées, illisibles par ce navigateur : ' : 'Photo écartée, illisible par ce navigateur : ') + ecartees.map(f => f.name).join(', ') + '.');
+      if (ecartees.some(estHeic)) m.push('Format HEIC non lu par ce navigateur : choisis la photo depuis l\'iPhone, ou règle Réglages › Appareil photo › Formats › « Le plus compatible ».');
+    }
+    res.innerHTML = !tous.length ? '<p class="petit">Aucune photo choisie.</p>'
+      : m.length ? '<div class="' + (photos.length ? 'petit' : 'ko') + '">' + m.map(h).join('<br>') + '</div>' : '';
+    b.disabled = !photos.length;
   });
 
-  async function messageErreur(r) {
-    let m = ''; try { const d = await r.json(); m = (d.error && (d.error.status + ' ' + d.error.message)) || ''; } catch (e) {}
+  // appel à Google avec une limite de temps (90 s pour Gemini) : sans réponse, on abandonne et on le dit
+  const TROP_LONG = 'Gemini met trop de temps à répondre. Réessaie, ou utilise une autre IA ci-dessous.';
+  async function appelJson(url, opts, delai) {
+    const ctrl = window.AbortController ? new AbortController() : null;
+    const minuteur = ctrl ? setTimeout(() => ctrl.abort(), delai) : 0;
+    try {
+      const r = await fetch(url, ctrl ? Object.assign({}, opts, { signal: ctrl.signal }) : opts);
+      let d = null; try { d = await r.json(); } catch (e) { if (e && e.name === 'AbortError') throw e; }
+      return { ok: r.ok, status: r.status, d: d };
+    } catch (e) {
+      throw new Error(e && e.name === 'AbortError' ? TROP_LONG : RESEAU);
+    } finally { clearTimeout(minuteur); }
+  }
+  function messageErreur(r) {
+    const d = r.d || {}, m = (d.error && ((d.error.status || '') + ' ' + (d.error.message || ''))) || '';
     if (r.status === 401 || /API_KEY_INVALID|API key not valid|API_KEY|UNAUTHENTICATED/i.test(m)) return 'Google refuse cette clé Gemini. Vérifie que tu l\'as copiée en entier, ou crée-en une nouvelle (« Changer de clé Gemini »).';
     if (r.status === 429) return 'Le quota gratuit de Gemini est atteint pour le moment. Réessaie dans une minute (ou demain), ou utilise une autre IA ci-dessous.';
     if (/location is not supported/i.test(m)) return 'Gemini n\'est pas disponible depuis ce pays.';
-    return 'Gemini a répondu une erreur (' + r.status + (m ? ' : ' + m.slice(0, 160) : '') + ').';
+    if (r.status === 403 || /PERMISSION_DENIED|SERVICE_DISABLED/i.test(m)) return 'Cette clé est limitée ou l\'API Gemini n\'est pas activée : crée une nouvelle clé dans Google AI Studio (« Changer de clé Gemini »).';
+    if (r.status >= 500) return 'Gemini est surchargé en ce moment. Réessaie dans un instant, ou utilise une autre IA ci-dessous.';
+    return 'Gemini a répondu une erreur (code ' + r.status + '). Réessaie dans un instant, ou utilise une autre IA ci-dessous.';
   }
-  // un appel à Gemini : consignes en instruction système, demande + photos dans le message
-  async function appelGemini(modeles, systeme, texte) {
+  // un appel à Gemini : consignes en instruction système, demande + photos (copie figée du lot) dans le message
+  async function appelGemini(lot, modeles, systeme, texte) {
     const corps = JSON.stringify({
       system_instruction: { parts: [{ text: systeme }] },
-      contents: [{ role: 'user', parts: [{ text: texte }].concat(photos.map(p => ({ inline_data: { mime_type: 'image/jpeg', data: p.split(',')[1] } }))) }]
+      contents: [{ role: 'user', parts: [{ text: texte }].concat(lot.map(p => ({ inline_data: { mime_type: 'image/jpeg', data: p.split(',')[1] } }))) }]
     });
     let derniere = '';
     for (const m of modeles) {
-      const r = await fetch(API_GEMINI + m + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle }, body: corps });
+      // délai dépassé ou réseau coupé : appelJson lève une erreur claire, on ne tente pas l'autre modèle
+      const r = await appelJson(API_GEMINI + m + ':generateContent', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-goog-api-key': cle }, body: corps }, 90000);
       if (r.ok) {
-        const d = await r.json();
+        const d = r.d || {};
         const c = d.candidates && d.candidates[0];
         const t = c && c.content && (c.content.parts || []).filter(p => !p.thought).map(p => p.text || '').join('');
         if (t) return t;
         derniere = 'Gemini n\'a rien répondu' + (d.promptFeedback && d.promptFeedback.blockReason ? ' (contenu bloqué)' : '') + '. Réessaie avec d\'autres photos.';
         continue;
       }
-      derniere = await messageErreur(r);
+      derniere = messageErreur(r);
       if (r.status !== 404 && r.status !== 429 && r.status < 500) break;   // 404 : modèle retiré, 429 : quota du modèle atteint, 5xx : surchargé → on essaie le suivant
     }
     throw new Error(derniere || 'Gemini ne répond pas. Réessaie dans un instant.');
   }
   const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPK]\s*\|/gim) || []).length;
   // 1. création ; 2. relecture par Flash-Lite (autre quota gratuit), qui corrige les questions hors sujet ou ambiguës.
-  // Si la relecture échoue ou perd des questions, on garde le premier quiz.
-  async function demanderGemini(texte, etape) {
-    const quiz = await appelGemini(MODELES, CONSIGNES, texte);
+  // Si la relecture échoue (ou dépasse le délai) ou perd des questions, on garde le premier quiz.
+  async function demanderGemini(lot, texte, etape) {
+    const quiz = await appelGemini(lot, MODELES, CONSIGNES, texte);
     const n = nbQuestions(quiz);
     if (n < 3) return quiz;
     etape && etape();
     try {
-      const relu = await appelGemini(MODELES.slice().reverse(), RELECTURE + '\n\n--- Consignes du quiz ---\n' + CONSIGNES,
+      const relu = await appelGemini(lot, MODELES.slice().reverse(), RELECTURE + '\n\n--- Consignes du quiz ---\n' + CONSIGNES,
         texte + '\n\nQuiz à relire :\n' + quiz);
       if (/^\s*T\s*\|/m.test(relu) && nbQuestions(relu) >= Math.ceil(n * 0.8)) return relu;
     } catch (e) {}
     return quiz;
   }
   $('g-creer').addEventListener('click', async () => {
-    const res = $('g-resultat'), b = $('g-creer');
-    b.disabled = true;
-    res.innerHTML = '<p class="petit">⏳ Gemini lit la leçon et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
+    if (creation || !photos.length) return;
+    const res = $('g-resultat'), b = $('g-creer'), lot = photos.slice();
+    creation = true; b.disabled = true; choixPhotos(false);
+    res.innerHTML = '<p class="petit" role="status">⏳ Gemini lit la leçon et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
     try {
-      const texte = await demanderGemini(demande() + '.', () => { res.innerHTML = '<p class="petit">🔎 Gemini relit chaque question pour vérifier qu\'elle porte bien sur la leçon… (encore quelques secondes)</p>'; });
+      const texte = await demanderGemini(lot, demande() + '.', () => { res.innerHTML = '<p class="petit" role="status">🔎 Gemini relit chaque question pour vérifier qu\'elle porte bien sur la leçon… (encore quelques secondes)</p>'; });
       const r = await creer(texte, res, null);
       if (r && r.erreur) res.innerHTML += '<p class="petit">Réponse de Gemini : « ' + h(texte.slice(0, 300)) + (texte.length > 300 ? '…' : '') + ' »</p>';
+      else if (r) {                            // quiz créé : on vide les photos, pour ne pas créer deux fois le même quiz
+        photos = []; $('g-vignettes').innerHTML = '';
+        res.insertAdjacentHTML('beforeend', '<p class="petit">Pour un autre quiz, choisis de nouvelles photos.</p>');
+      }
     } catch (e) {
       res.innerHTML = '<div class="ko">😕 ' + h(e.message) + '</div>';
     }
-    b.disabled = false;
+    creation = false; choixPhotos(true);
+    b.disabled = !photos.length;
   });
 
   // une nouvelle version du moteur est-elle publiée ? (dernière Release GitHub, une vérification par jour)

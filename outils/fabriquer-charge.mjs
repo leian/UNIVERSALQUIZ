@@ -29,8 +29,10 @@ const fichiers = lister(BUILD).filter(p => !p.endsWith('.clasp.json')).map(p => 
   return { name: rel.slice(0, -ext.length), type: TYPES[ext], source: readFileSync(p, 'utf8') };
 });
 if (!fichiers.some(f => f.name === 'appsscript') || !fichiers.some(f => f.name === 'Code')) { console.error('❌ Code.gs ou appsscript.json manquant'); process.exit(1); }
-if (!/prenom: '[^'\n]*',/.test(fichiers.find(f => f.name === 'Code').source)) { console.error('❌ réglage « prenom » introuvable dans Code.gs'); process.exit(1); }
-for (const r of [/version: '[^'\n]*',/, /installateur: '[^'\n]*'/]) if (!r.test(fichiers.find(f => f.name === 'Code').source)) { console.error('❌ réglage introuvable dans Code.gs : ' + r); process.exit(1); }
+// réglages que l'installateur réécrit (en-ligne/Code.gs, fichiers_) : un seul manquant et le site serait mal réglé (espace vide = tout ouvert)
+const REGLAGES = [/prenom: '[^'\n]*',/, /version: '[^'\n]*',/, /installateur: '[^'\n]*'/, /espace: '[^'\n]*'/, /urlEnfant: '[^'\n]*'/, /urlParent: '[^'\n]*'/,
+  /classe: '[^'\n]*'/, /classeAnnee: \d+/, /nomDossier: '[^'\n]*'/];
+for (const r of REGLAGES) if (!r.test(fichiers.find(f => f.name === 'Code').source)) { console.error('❌ réglage introuvable dans Code.gs : ' + r); process.exit(1); }
 
 const version = process.env.TAG || process.env.GITHUB_REF_NAME || 'dev';
 mkdirSync(dirname(SORTIE), { recursive: true });

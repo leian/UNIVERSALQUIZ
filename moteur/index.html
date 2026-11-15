@@ -4,8 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>SoccaQuiz</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
 <style>
 :root{
   --bg:#fff8ef; --card:#ffffff; --ink:#2a1f1a; --soft:#7a6658; --line:#eadfce;
@@ -26,7 +24,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-
 .tuile .ic{width:22px;height:22px}
 /* en-tête : marque à gauche, contrôles papier à droite ; salut avec la mascotte */
 header{margin-bottom:14px}
-.barre{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.barre{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(1.5rem,5vw,2.1rem);margin:0}
 .salut{display:flex;align-items:center;gap:10px;margin:14px 0 0;color:var(--soft);font-size:1.05rem}
 .salut .mascotte{width:72px;height:72px}
@@ -39,18 +37,19 @@ h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(1.5rem,5vw,2
 .search:focus{outline:3px solid #e8a83a;outline-offset:1px}
 .filters{display:flex;gap:8px;margin-top:10px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
 .filters::-webkit-scrollbar{display:none}
-.filters button{flex:none;display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .95rem "Fredoka",sans-serif;cursor:pointer}
+.filters button{flex:none;display:inline-flex;align-items:center;gap:6px;min-height:44px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .95rem "Fredoka",sans-serif;cursor:pointer}
 .filters button .ic{color:var(--c,currentColor)}
 .filters button.on{background:#c8102e;color:#fff;border-color:#c8102e}
 .filters button.on .ic{color:#fff}
 section{margin-top:26px}
 h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.3rem;margin:0 0 12px;display:flex;align-items:center;gap:10px}
-.btn-icone{display:inline-flex;align-items:center;gap:6px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:600 .9rem "Fredoka",sans-serif;text-decoration:none}
+.btn-icone{display:inline-flex;align-items:center;gap:6px;min-height:44px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:7px 14px;font:600 .9rem "Fredoka",sans-serif;text-decoration:none}
 .btn-icone:hover{border-color:var(--soft)}
 .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:14px}
 a.card{display:block;text-decoration:none;color:inherit;background:var(--card);border:2px solid var(--line);
   border-left:8px solid var(--c);border-radius:16px;padding:16px;transition:transform .15s,box-shadow .15s}
-a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08);outline:none}
+a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20px rgba(0,0,0,.08)}
+a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filters button:focus-visible,#socca .garde button:focus-visible{outline:3px solid #e8a83a;outline-offset:2px}
 .card .tete{display:flex;align-items:center;gap:10px}
 .card .t{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.1rem;line-height:1.25}
 .card .d{color:var(--soft);font-size:.9rem;margin-top:8px}
@@ -69,7 +68,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 #album .alb span.vide{filter:grayscale(1) brightness(1.15);opacity:.28}
 #album .alb span.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 @keyframes colle{0%{transform:scale(0) rotate(-30deg)}100%{transform:none}}
-@media (prefers-reduced-motion:reduce){#album .alb span.neuf{animation:none}}
+@media (prefers-reduced-motion:reduce){#album .alb span.neuf,#socca .garde button.neuf{animation:none}}
 /* petits : la socca à habiller (mascotte sans bonnet + accessoire posé par-dessus) */
 .poupee{position:relative;display:block}
 .poupee span{position:absolute;background-repeat:no-repeat}
@@ -86,7 +85,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 #socca .garde button:disabled{filter:grayscale(1);opacity:.3;cursor:default}
 #socca .garde button.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 .card .maitrise .emb{display:flex;gap:2px}.card .maitrise .emb img{width:20px;height:20px}
-.card .new{position:absolute;top:10px;right:10px;background:#16a34a;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
+.card .new{position:absolute;top:10px;right:10px;background:#15803d;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
 .marque{display:flex;align-items:center;gap:10px}
 .marque img{border-radius:14px}
 .marque em{font-style:normal;color:#b3001b}
@@ -107,6 +106,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 .sem-chiffre span{font-size:.75rem;color:var(--soft)}
 .sem-chiffre em{display:block;font-style:normal;font-size:.72rem;font-weight:700}
 .sem-chiffre em.plus{color:#16a34a}.sem-chiffre em.moins{color:#dc2626}.sem-chiffre em.egal{color:var(--soft)}
+@media (prefers-color-scheme: dark){.sem-chiffre em.moins{color:#f87171}}
 .sem-barres,.sem-noms{display:grid;grid-template-columns:repeat(6,1fr);gap:6px;justify-items:center}
 .sem-barres{align-items:end;height:44px;margin-top:12px}
 .sem-barres div{width:100%;max-width:30px;min-height:3px;border-radius:6px 6px 2px 2px;background:var(--line)}
@@ -118,7 +118,7 @@ a.card:hover,a.card:focus-visible{transform:translateY(-3px);box-shadow:0 8px 20
 
 .espace-parent{display:inline-flex;align-items:center;gap:6px;margin:10px 0 0;padding:4px 14px;border-radius:999px;background:#fdeceb;color:#9e0b24;font-size:.85rem;font-weight:600}
 .foot{text-align:center;margin-top:40px;font-size:.85rem}
-.foot a{color:var(--soft);display:inline-flex;align-items:center;gap:5px}
+.foot a{color:var(--soft);display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:0 6px}
 .pour-toi{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:6px}
 a.mis-en-avant{display:flex;align-items:center;gap:12px;text-decoration:none;color:inherit;background:linear-gradient(135deg,#fdeceb,#fff6e3);border:2px solid #f3c6c6;border-radius:16px;padding:14px}
 a.mis-en-avant .tuile{--c:#c8102e}
@@ -137,9 +137,9 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <header>
     <div class="barre">
       <h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="44" height="44" alt=""><span>Socca<em>Quiz</em></span></h1>
-      <a class="btn-icone" href="controles.html"><i data-ic="printer"></i> Contrôles</a>
+      <a class="btn-icone" id="btn-controles" href="controles.html" hidden><i data-ic="printer"></i> Contrôles</a>
     </div>
-    <div class="salut"><span class="mascotte m-accueil" aria-hidden="true"></span><div><b>Salut {{PRENOM}} !</b>Choisis un quiz et lance-toi.<div id="serie"></div></div></div>
+    <div class="salut"><span class="mascotte m-accueil" aria-hidden="true"></span><div><b id="salut">Salut {{PRENOM}} !</b>Choisis un quiz et lance-toi.<div id="serie"></div></div></div>
     <p class="espace-parent" id="espace-parent" hidden><i data-ic="lock"></i> Espace parent · ton enfant utilise son propre lien, sans les pages parents</p>
   </header>
   <div class="outils">
@@ -148,13 +148,14 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   </div>
   <div id="pour-toi"></div>
   <main id="list"></main>
-  <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Ajouter un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
+  <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
  </div>
  <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="socca"></div><div id="recompenses"></div></aside>
 </div>
 
 <script src="commun/catalogue.js"></script>
 <script src="commun/badges.js"></script>
+<script src="commun/suivi.js"></script>
 <script>
 /* La liste des quiz est dans commun/catalogue.js */
 /* jeu d'icônes cohérent (traits fins, style Lucide, licence ISC) : matières et boutons */
@@ -183,6 +184,14 @@ const ICONES = {
 const I = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[n] || ICONES.autre}</svg>`;
 document.querySelectorAll("i[data-ic]").forEach(e => { e.outerHTML = I(e.dataset.ic); });
 const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({ "&":"&amp;", "<":"&lt;", ">":"&gt;", '"':"&quot;" }[c]));
+const nb = v => { v = +v; return isFinite(v) ? v : 0; };                         // chiffres des résultats forcés en nombres
+const niv = v => Math.max(0, Math.min(3, Math.round(nb(Array.isArray(v) ? v[0] : 0))));
+// recherche sans accents ni majuscules : « equation » trouve « Les équations »
+const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+// prénom vide (le serveur met alors « mon enfant ») : salut neutre, sans « mon enfant »
+const PRENOM = (p => p && p !== "mon enfant" ? p : "")("{{PRENOM}}".trim());
+document.getElementById("salut").textContent = PRENOM ? "Salut " + PRENOM + " !" : "Salut !";
+if ((window.CONTROLES || []).length) document.getElementById("btn-controles").hidden = false;
 let filtre = "tout";
 
 function afficherFiltres(){
@@ -195,7 +204,7 @@ function afficherFiltres(){
 }
 
 function afficherListe(){
-  const texte = document.getElementById("q").value.trim().toLowerCase();
+  const texte = norm(document.getElementById("q").value.trim());
   const list = document.getElementById("list");
   if (!QUIZ.length) {
     list.innerHTML = `<div class="empty"><span class="mascotte m-reflexion" aria-hidden="true"></span>Aucun quiz pour l'instant… Les premiers arrivent bientôt !</div>`;
@@ -204,7 +213,7 @@ function afficherListe(){
   const visibles = QUIZ.filter(q => {
     const m = q.matiere in MATIERES ? q.matiere : "autre";
     return (filtre === "tout" || filtre === m) &&
-           (!texte || (q.titre + " " + (q.description || "")).toLowerCase().includes(texte));
+           (!texte || norm(q.titre + " " + (q.description || "")).includes(texte));
   });
   if (!visibles.length) { list.innerHTML = `<div class="empty"><span class="mascotte m-reflexion" aria-hidden="true"></span>Aucun quiz ne correspond à ta recherche.</div>`; return; }
   list.innerHTML = Object.keys(MATIERES).map(m => {
@@ -238,10 +247,10 @@ function maitrise(q) {
   const N = (((window.__UQ || {}).maitrise || {}).notions || {})[cle(q.fichier)];
   const cats = N ? Object.keys(N) : [];
   if (!cats.length) return "";
-  const nbM = cats.filter(c => N[c][0] === 3).length;
+  const nbM = cats.filter(c => niv(N[c]) === 3).length;
   if (document.documentElement.dataset.theme === "college")   // collège : emblèmes graine → arbre
-    return `<div class="maitrise"><span class="emb">${cats.sort((a, b) => N[b][0] - N[a][0]).slice(0, 8).map(c => `<img src="https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/niveau-${N[c][0]}.webp" alt="${NIVEAUX[N[c][0]]}" title="${esc(c)} : ${NIVEAUX[N[c][0]]}">`).join("")}</span>${nbM}/${cats.length} maîtrisée${nbM > 1 ? "s" : ""}</div>`;
-  const seg = cats.sort((a, b) => N[b][0] - N[a][0]).map(c => `<i class="n${N[c][0]}" title="${esc(c)} : ${NIVEAUX[N[c][0]]}"></i>`).join("");
+    return `<div class="maitrise"><span class="emb">${cats.sort((a, b) => niv(N[b]) - niv(N[a])).slice(0, 8).map(c => `<img src="https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/niveau-${niv(N[c])}.webp" alt="${NIVEAUX[niv(N[c])]}" title="${esc(c)} : ${NIVEAUX[niv(N[c])]}">`).join("")}</span>${nbM}/${cats.length} maîtrisée${nbM > 1 ? "s" : ""}</div>`;
+  const seg = cats.sort((a, b) => niv(N[b]) - niv(N[a])).map(c => `<i class="n${niv(N[c])}" title="${esc(c)} : ${NIVEAUX[niv(N[c])]}"></i>`).join("");
   return `<div class="maitrise"><span class="seg">${seg}</span>${nbM} notion${nbM > 1 ? "s" : ""} maîtrisée${nbM > 1 ? "s" : ""} sur ${cats.length}</div>`;
 }
 /* ---------- album d'autocollants (primaire) : chaque notion maîtrisée colle un autocollant de sa matière ----------
@@ -253,7 +262,7 @@ function album() {
   if (!el || !["lecteurs", "explorateurs"].includes(th)) return;
   const N = ((window.__UQ || {}).maitrise || {}).notions || {}, colles = new Array(24).fill(false), surplus = [];
   QUIZ.forEach(q => {
-    const cats = N[cle(q.fichier)] || {}, nb = Object.values(cats).filter(v => v[0] === 3).length;
+    const cats = N[cle(q.fichier)] || {}, nb = Object.values(cats).filter(v => niv(v) === 3).length;
     const m = ORDRE_ALBUM.indexOf(q.matiere);
     for (let i = 0; i < nb; i++) {
       const place = m < 0 ? -1 : [0, 1, 2, 3].map(k => m * 4 + k).find(k => !colles[k]);
@@ -286,7 +295,7 @@ function socca() {
   const el = document.getElementById("socca");
   if (!el || document.documentElement.dataset.theme !== "petits") return;
   const N = ((window.__UQ || {}).maitrise || {}).notions || {};
-  const nb = Math.min(12, Object.values(N).reduce((t, cats) => t + Object.values(cats).filter(v => v[0] >= 2).length, 0));
+  const nb = Math.min(12, Object.values(N).reduce((t, cats) => t + Object.values(cats || {}).filter(v => niv(v) >= 2).length, 0));
   let tenue = -1, vu = 0;
   try { tenue = +(localStorage.getItem("sq.tenue") ?? -1); vu = +localStorage.getItem("sq.accessoires") || 0; localStorage.setItem("sq.accessoires", nb); } catch (e) {}
   if (tenue >= nb) tenue = -1;
@@ -297,7 +306,7 @@ function socca() {
     el.innerHTML = `<div class="panneau"><h3>🎁 Ma socca <span class="alb-n">${nb}/12</span></h3>
       ${poupee(tenue, "grand")}
       <p>${nb > vu ? (nb - vu > 1 ? "Nouveaux accessoires" : "Nouvel accessoire") + " ! " : ""}${nb ? "Touche un accessoire pour habiller ta socca." : "Réussis bien un quiz pour gagner ton premier accessoire !"}</p>
-      <div class="garde">${ACCESSOIRES.map((a, k) => `<button type="button" title="${a[0]}" aria-label="${a[0]}" class="${k === tenue ? "on" : ""}${k < nb && k >= vu ? " neuf" : ""}" data-k="${k}" ${k < nb ? "" : "disabled"} style="background-position:${(k * 100 / 11).toFixed(3)}% 0"></button>`).join("")}</div></div>`;
+      <div class="garde">${ACCESSOIRES.map((a, k) => `<button type="button" title="${a[0]}" aria-label="${a[0]}" class="${k === tenue ? "on" : ""}${k < nb && k >= vu ? " neuf" : ""}" aria-pressed="${k === tenue}" data-k="${k}" ${k < nb ? "" : "disabled"} style="background-position:${(k * 100 / 11).toFixed(3)}% 0"></button>`).join("")}</div></div>`;
     el.querySelectorAll(".garde button").forEach(b => b.addEventListener("click", () => {
       tenue = +b.dataset.k === tenue ? -1 : +b.dataset.k; vu = nb;
       try { localStorage.setItem("sq.tenue", tenue); } catch (e) {}
@@ -309,6 +318,7 @@ function socca() {
 function calculerStats(liste) {
   STATS = {};
   const jours = new Set();
+  liste = (Array.isArray(liste) ? liste : []).filter(r => r && typeof r === "object").map(r => Object.assign({}, r, { score: nb(r.score), total: nb(r.total) }));
   liste.forEach(r => {
     if (!r.total) return;
     const k = cle(r.quiz), p = Math.round(r.score / r.total * 100);
@@ -379,7 +389,9 @@ async function chargerScores() {
 /* ---------- « Pour toi » : révisions du jour et défi du mois (fabriqués à partir des questions ratées) ---------- */
 (function () {
   const R = (window.__UQ || {}).revisions, el = document.getElementById("pour-toi");
-  if (!R || (!R.n && !R.defi)) return;
+  if (!R) return;
+  R.n = nb(R.n); R.defi = nb(R.defi);
+  if (!R.n && !R.defi) return;
   const pl = (n, m) => n + " " + m + (n > 1 ? "s" : "");
   el.innerHTML = `<section><h2 style="--c:#c8102e"><span class="tuile">${I("cible")}</span>Pour toi</h2><div class="pour-toi">` +
     (R.n ? `<a class="mis-en-avant" href="revisions.html"><span class="tuile">${I("cible")}</span><div><b>Mes révisions</b><span class="s">${pl(R.n, "question")} à revoir aujourd'hui</span></div></a>` : "") +

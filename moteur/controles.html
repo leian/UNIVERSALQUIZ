@@ -4,8 +4,6 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Mes contrôles papier</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Nunito:wght@400;700&display=swap">
 <script src="commun/catalogue.js"></script>
 <style>
 :root{
@@ -90,7 +88,12 @@ function afficherFiltres() {
 }
 function afficherListe() {
   const list = document.getElementById("list");
-  if (!CONTROLES.length) { list.innerHTML = `<div class="empty">Aucun contrôle pour l'instant.</div>`; return; }
+  if (!CONTROLES.length) {
+    // côté parent : comment en ajouter un (un PDF déposé dans le dossier Drive du site devient un contrôle)
+    const parent = (window.__UQ || {}).espace !== "enfant";
+    list.innerHTML = `<div class="empty">Aucun contrôle pour l'instant.${parent ? `<br><span style="font-size:.9rem">Pour en ajouter un, dépose un fichier PDF dans le dossier Google Drive du site (« SoccaQuiz – … ») : il apparaît ici au prochain chargement.</span>` : ""}</div>`;
+    return;
+  }
   const visibles = CONTROLES.filter(q => filtre === "tout" || filtre === (q.matiere in MATIERES ? q.matiere : "autre"));
   list.innerHTML = Object.keys(MATIERES).map(m => {
     const qs = visibles.filter(q => (q.matiere in MATIERES ? q.matiere : "autre") === m).sort((a, b) => (b.date || "").localeCompare(a.date || ""));

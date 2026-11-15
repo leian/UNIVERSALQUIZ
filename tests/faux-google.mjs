@@ -34,7 +34,7 @@ const dossier = (chemin) => ({
   getId: () => 'd:' + chemin, getName: () => chemin.split('/').pop(), getUrl: () => 'drive://' + chemin,
   isTrashed: () => false,
   getFiles: () => iter(readdirSync(chemin).filter(n => statSync(join(chemin, n)).isFile()).map(n => fichier(join(chemin, n)))),
-  getFilesByName: (n) => iter(existsSync(join(chemin, n)) ? [fichier(join(chemin, n))] : Object.entries(sheets).filter(([, s]) => s.name === n && s.dossier === chemin).map(([id]) => ({ id }))),
+  getFilesByName: (n) => iter(existsSync(join(chemin, n)) ? [fichier(join(chemin, n))] : Object.entries(sheets).filter(([, s]) => s.name === n && s.dossier === chemin).map(([id]) => ({ id, isTrashed: () => false }))),
   getFoldersByName: (n) => iter(existsSync(join(chemin, n)) ? [dossier(join(chemin, n))] : []),
   createFile: (n, contenu) => { writeFileSync(join(chemin, n), contenu); return fichier(join(chemin, n)); }
 });
@@ -50,12 +50,13 @@ const feuille = (s) => ({
     const g = {
       setValues: (v) => { v.forEach((l, i) => { s.rows[r - 1 + i] = l.map(String); }); return g; },
       setFontWeight: () => g, setNumberFormat: () => g,
+      getValue: () => (s.rows[r - 1] || [])[c - 1] ?? '', setValue: (v) => { (s.rows[r - 1] = s.rows[r - 1] || [])[c - 1] = String(v); return g; },
       getValues: () => s.rows.slice(r - 1, r - 1 + nr).map(l => Array.from({ length: nc }, (_, j) => l[c - 1 + j] ?? ''))
     };
     return g;
   }
 });
-const classeur = (id) => ({ getId: () => id, getUrl: () => 'sheets://' + id, getSheets: () => [feuille(sheets[id])] });
+const classeur = (id) => ({ getId: () => id, getUrl: () => 'sheets://' + id, getSheets: () => [feuille(sheets[id])], getSheetByName: n => n === 'Parties' ? feuille(sheets[id]) : null });
 
 const ctx = {
   console,
@@ -66,7 +67,7 @@ const ctx = {
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
-  Utilities: { formatDate: d => d.toISOString().slice(0, 10) },
+  Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }) },
   MimeType: { HTML: 'text/html' },
   ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }) },
   DriveApp: {

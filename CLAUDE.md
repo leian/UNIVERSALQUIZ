@@ -14,9 +14,9 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 - `build/` : produit par `node construire.mjs`, jamais versionné.
 
 ## Diffuser une modification
-- Moteur, pages, images du site (`moteur/`, `src/`) : publier une Release (Action « Publier l'installateur », nouveau tag). Chaque famille voit alors « nouvelle version disponible » sur sa page « Ajouter un quiz » et touche « Mettre à jour mon site ».
+- Moteur, pages, images du site (`moteur/`, `src/`) : publier une Release (Action « Publier l'installateur », nouveau tag ; une Release existante n'est jamais republiée, un correctif = un nouveau numéro). Depuis une session Claude : `gh api -X POST repos/leian/UNIVERSALQUIZ/actions/workflows/publier.yml/dispatches -f ref=main -f inputs[tag]=vX.Y` (le tag est créé sur le commit testé). Chaque famille voit alors « nouvelle version disponible » sur sa page « Ajouter un quiz » et touche « Mettre à jour mon site ».
 - Installateur (`en-ligne/`) : il faut recoller `en-ligne/Code.gs` dans le projet Apps Script du compte soccaquiz, puis Déployer → Gérer les déploiements → Nouvelle version. Préviens toujours l'utilisateur quand c'est nécessaire.
-- Pages publiques et mail d'invitation (`docs/`) : en ligne dès le push (GitHub Pages). Le mail (`docs/invitation.html`, contenu de `<div id="mail">`) est aussi lu par la page d'envoi `invitations/` : garde les `<span id="bonjour">` et `<span id="signature">`.
+- Pages publiques et mail d'invitation (`docs/`) : en ligne dès le push (GitHub Pages). Le mail (`docs/invitation.html`, entre les repères `<!--MAIL-->` et `<!--/MAIL-->`) est aussi lu par la page d'envoi `invitations/` : garde les `<span id="bonjour">` et `<span id="signature">`.
 - Page d'envoi des invitations (`invitations/`, projet Apps Script à part dans le compte soccaquiz, accès « Seulement moi ») : comme l'installateur, il faut recoller `invitations/Code.gs` puis créer une nouvelle version du déploiement. Elle ne touche pas à la validation Google de l'installateur.
 
 ## Consignes pour l'IA et Gemini
@@ -25,7 +25,15 @@ Ce dépôt (leian/UNIVERSALQUIZ, nom gardé pour ne pas changer l'adresse GitHub
 - Gemini est appelé depuis le navigateur (pas de nouvelle autorisation Apps Script à faire accepter aux familles). La clé est dans les propriétés du script (`GEMINI_CLE`) et n'est donnée qu'à la page `ajouter`.
 - Gemini : les consignes partent en instruction système ; l'IA écrit d'abord 3 lignes d'analyse (`# Sujet`, `# Notions`, `# Supports`, ignorées par `lireFormatLignes_`). Puis un **2e appel de relecture** (`src/relecture.txt`, inséré par `construire.mjs`, Flash-Lite d'abord pour ménager le quota du modèle principal, avec les photos) corrige les questions hors sujet ou ambiguës ; il est écarté s'il perd plus de 20 % des questions ou n'a pas de ligne T.
 - Contrôles automatiques à la création (`apiAjouterQuiz`) : choix de QCM en double fusionnés, choix « A ou B » contenant la bonne réponse et « les deux » / « aucune » écartés, questions en double écartées, X à un seul mot avec « écris / complète » joué en texte à trous, indice qui contient la réponse retiré.
-- Essayer les consignes sur de vraies photos : `GEMINI_CLE=… node outils/essai-gemini.mjs <dossier de photos> [nb] [classe]` (création + relecture, lignes réécrites affichées). Le workspace de Claude ne peut pas joindre l'API Gemini : c'est l'utilisateur qui le lance.
+- Essayer les consignes sur de vraies photos : clé dans `.outils/gemini-cle.txt` (ignoré par git), puis `node outils/essai-gemini.mjs <dossier de photos> [nb] [classe]` (création + relecture, lignes réécrites affichées). Le workspace de Claude ne peut pas joindre l'API Gemini : c'est l'utilisateur qui le lance.
+
+## Sécurité et données (audit du 15 novembre 2026)
+- Tout ce qui arrive par le lien de l'enfant (accès anonyme) est une donnée non fiable : `apiEnregistrer` borne les scores, réduit `cats` à des nombres, repasse chaque question ratée `o` par `normaliserQuestion_` (le même contrôle que la création, via `questionRatee_`), dédoublonne par l'`_id` de l'appareil (suffixe de l'`id`), limite à 40 parties par minute ; `apiLister` ne renvoie au site de l'enfant que la liste résumée. Les tables de calcul (`maitrise_`, `revisions_`) sont des `dict_()` sans prototype.
+- Le moteur échappe tout texte de quiz (sauf quelques balises de mise en forme sans attribut ; HTML libre seulement avec `html: true` dans la config d'un quiz fait à la main). Ne jamais réintroduire d'`innerHTML` sur une donnée de quiz ou du Sheets sans `esc()`.
+- Correction des réponses (`MoteurQuiz.comparer`) : accents et apostrophes exigés pour les textes à trous et les quiz de français (« Attention aux accents »), tolérés ailleurs ; signes gardés (-3 ≠ 3, cm² ≠ cm) ; nombres comparés numériquement ; articles tolérés (the/a/an seulement en anglais).
+- Colonne `mode` du Sheets (normal, erreurs, duel, revision) : badge et 100 % seulement pour une partie normale.
+- Polices : servies par GitHub Pages (`docs/polices/`, licence OFL), jamais par Google Fonts.
+- `catalogue.js` déposé dans le Drive n'est jamais exécuté (lu comme données).
 
 ## Avant chaque commit
 - Lance `node tests/test.mjs` : il construit le projet, simule Google et joue un quiz dans Chrome. Tout doit être vert.
