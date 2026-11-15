@@ -2,18 +2,6 @@
   "version": 1,
   "quiz": [
     {
-      "id": "anglais-moody-moods",
-      "titre": "Moody moods",
-      "matiere": "anglais",
-      "classes": [
-        "CM2"
-      ],
-      "nb": 21,
-      "icone": "😊",
-      "description": "Comment te sens-tu aujourd'hui ?",
-      "ajoute": "2026-11-16"
-    },
-    {
       "id": "anglais-listen-and-repeat",
       "titre": "Listen and repeat",
       "matiere": "anglais",
