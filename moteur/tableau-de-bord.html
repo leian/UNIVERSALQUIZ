@@ -72,10 +72,11 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .boite .btn.rouge{background:var(--ko);border-color:var(--ko);color:#fff}
 @media (max-width:560px){ .row{grid-template-columns:100px 1fr 54px} .hide-m{display:none} }
 [hidden]{display:none!important}
-.onglets{display:flex;gap:4px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--bg);border-bottom:2px solid var(--line)}
-.onglet{flex:1 1 0;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;background:none;color:var(--soft);padding:12px 8px 10px;font:600 1rem "Fredoka",sans-serif;cursor:pointer;border-bottom:3px solid transparent;margin-bottom:-2px}
+.onglets{display:flex;gap:4px;margin:14px 0 4px;position:sticky;top:0;z-index:5;background:var(--bg);box-shadow:inset 0 -2px 0 var(--line);overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.onglets::-webkit-scrollbar{display:none}
+.onglet{flex:1 0 auto;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:7px;border:none;background:none;color:var(--soft);padding:12px 8px 10px;font:600 1rem "Fredoka",sans-serif;cursor:pointer;border-bottom:3px solid transparent}
 .onglet:hover{color:var(--ink)}
-@media (max-width:380px){.onglet{min-width:0;gap:4px;padding:12px 4px 10px;font-size:.92rem}.onglet>.ic{display:none}}
+@media (max-width:420px){.onglet{gap:5px;padding:12px 10px 10px;font-size:.95rem}}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
 .onglet:focus-visible,.btn:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .onglet .nb{font-size:.78rem;background:var(--line);color:var(--ink);border-radius:999px;padding:0 7px;font-weight:700}
@@ -721,9 +722,16 @@ function ouvrirOnglet(o, focus) {
   document.querySelectorAll(".onglet").forEach(b => { const on = b.dataset.o === o; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
   ["resultats", "quiz", "bibliotheque", "reglages"].forEach(x => { document.getElementById("p-" + x).hidden = x !== o; });
   if (o === "bibliotheque") Bib.ouvrir();
+  const actif = document.getElementById("o-" + o);       // onglet choisi ramené dans la barre (elle défile sur petit écran)
+  if (actif) try { actif.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" }); } catch (e) {}
   try { history.replaceState(null, "", "#" + o); } catch (e) {}
 }
 document.getElementById("onglets").addEventListener("click", e => { const b = e.target.closest(".onglet"); if (b) ouvrirOnglet(b.dataset.o); });
+// à la souris : la molette fait défiler la barre d'onglets de gauche à droite quand elle dépasse de l'écran
+document.getElementById("onglets").addEventListener("wheel", e => {
+  const n = e.currentTarget;
+  if (n.scrollWidth > n.clientWidth && Math.abs(e.deltaY) > Math.abs(e.deltaX)) { n.scrollLeft += e.deltaY; e.preventDefault(); }
+}, { passive: false });
 // flèches gauche/droite, Début, Fin : passer d'un onglet à l'autre au clavier
 document.getElementById("onglets").addEventListener("keydown", e => {
   const L = ["resultats", "quiz", "bibliotheque", "reglages"], i = L.indexOf((document.activeElement.dataset || {}).o);

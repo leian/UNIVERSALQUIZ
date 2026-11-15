@@ -65,6 +65,11 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
 #album p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
 #album .alb{display:grid;grid-template-columns:repeat(6,1fr);gap:5px}
 #album .alb span{aspect-ratio:1;border-radius:50%;background:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/autocollants.webp") no-repeat;background-size:600% 400%}
+#album .alb span{cursor:pointer}
+#album .alb span.choisi{outline:3px solid var(--dore,#e8a83a);outline-offset:1px}
+#album .alb span:focus-visible{outline:3px solid var(--dore,#e8a83a);outline-offset:1px}
+#album .alb-info{margin-top:8px;font-size:.85rem;min-height:1.2em}
+#album .alb-info span{color:var(--soft)}
 #album .alb span.vide{filter:grayscale(1) brightness(1.15);opacity:.28}
 #album .alb span.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 @keyframes colle{0%{transform:scale(0) rotate(-30deg)}100%{transform:none}}
@@ -260,28 +265,45 @@ const ORDRE_ALBUM = ["francais", "maths", "sciences", "anglais", "histoire", "ge
 function album() {
   const el = document.getElementById("album"), th = document.documentElement.dataset.theme || "explorateurs";
   if (!el || !["lecteurs", "explorateurs"].includes(th)) return;
-  const N = ((window.__UQ || {}).maitrise || {}).notions || {}, colles = new Array(24).fill(false), surplus = [];
+  // chaque case garde la notion maîtrisée et son quiz : on les voit au survol ou au toucher
+  const N = ((window.__UQ || {}).maitrise || {}).notions || {}, colles = new Array(24).fill(null), surplus = [];
   QUIZ.forEach(q => {
-    const cats = N[cle(q.fichier)] || {}, nb = Object.values(cats).filter(v => niv(v) === 3).length;
+    const cats = N[cle(q.fichier)] || {}, notions = Object.keys(cats).filter(c => niv(cats[c]) === 3);
     const m = ORDRE_ALBUM.indexOf(q.matiere);
-    for (let i = 0; i < nb; i++) {
-      const place = m < 0 ? -1 : [0, 1, 2, 3].map(k => m * 4 + k).find(k => !colles[k]);
-      if (place >= 0) colles[place] = true; else surplus.push(1);
-    }
+    notions.forEach(c => {
+      const info = { n: c, t: q.titre }, place = m < 0 ? -1 : [0, 1, 2, 3].map(k => m * 4 + k).find(k => !colles[k]);
+      if (place >= 0) colles[place] = info; else surplus.push(info);
+    });
   });
-  surplus.forEach(() => { const k = colles.indexOf(false); if (k >= 0) colles[k] = true; });
+  surplus.forEach(info => { const k = colles.indexOf(null); if (k >= 0) colles[k] = info; });
+  ALBUM = colles;
   const total = colles.filter(Boolean).length;
   let vu = 0; try { vu = +localStorage.getItem("sq.album") || 0; } catch (e) {}
   let neufs = Math.max(0, total - vu);
   try { localStorage.setItem("sq.album", total); } catch (e) {}
   const cases = colles.map((c, k) => {
     const neuf = c && neufs > 0 && colles.slice(k + 1).filter(Boolean).length < neufs;
-    return `<span class="${c ? (neuf ? "neuf" : "") : "vide"}" style="background-position:${(k % 6) * 20}% ${Math.floor(k / 6) * 100 / 3}%"></span>`;
+    const nom = c ? `${c.n} (${c.t})` : "Autocollant à gagner";
+    return `<span role="button" tabindex="0" data-k="${k}" class="${c ? (neuf ? "neuf" : "") : "vide"}" title="${esc(nom)}" aria-label="${esc(nom)}" style="background-position:${(k % 6) * 20}% ${Math.floor(k / 6) * 100 / 3}%"></span>`;
   }).join("");
   el.innerHTML = `<div class="panneau"><h3>📒 Mon album <span class="alb-n">${total}/24</span></h3>
     <p>${total ? (neufs ? `${neufs > 1 ? neufs + " nouveaux autocollants" : "Un nouvel autocollant"} ! ` : "") + "Chaque notion maîtrisée colle un autocollant." : "Maîtrise une notion pour coller ton premier autocollant !"}</p>
-    <div class="alb">${cases}</div></div>`;
+    <div class="alb">${cases}</div><div class="alb-info" id="alb-info" aria-live="polite"></div></div>`;
 }
+let ALBUM = [];
+const NOMS_ALBUM = ["français", "maths", "sciences", "anglais", "histoire", "géographie"];
+function infoAlbum(e) {
+  const s = e.target.closest("#album .alb span[data-k]"); if (!s) return;
+  if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+  if (e.type === "keydown") e.preventDefault();
+  const k = +s.dataset.k, c = ALBUM[k], el = document.getElementById("alb-info");
+  document.querySelectorAll("#album .alb span.choisi").forEach(x => x.classList.remove("choisi"));
+  if (!el) return;
+  if (c) { s.classList.add("choisi"); el.innerHTML = `<b>${esc(c.n)}</b> : maîtrisé !<br><span>Quiz « ${esc(c.t)} »</span>`; }
+  else el.textContent = `À gagner : maîtrise une notion${NOMS_ALBUM[Math.floor(k / 4)] ? " de " + NOMS_ALBUM[Math.floor(k / 4)] : ""} pour coller cet autocollant.`;
+}
+document.addEventListener("click", infoAlbum);
+document.addEventListener("keydown", infoAlbum);
 /* ---------- petits : habiller la socca. Chaque notion acquise (ou maîtrisée) débloque un accessoire ----------
    [centre x, centre y, taille] dans l'image de la mascotte (384 px), 1 = derrière (cape) */
 const ACCESSOIRES = [["chapeau de chef",212,44,130],["couronne",212,32,100],["casquette",212,48,118],["oreilles de lapin",212,50,170],["lunettes de soleil",212,166,140],["nœud papillon",205,286,84],
