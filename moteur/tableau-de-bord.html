@@ -567,6 +567,9 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
 
 /* ---------- proposer un quiz à la bibliothèque : texte en lignes, envoyé par mail à SoccaQuiz (relu avant publication) ---------- */
 const MAIL_SOCCAQUIZ = "soccaquiz@gmail.com";
+// adresse de réception directe des propositions (console de l'éditeur), publiée sur GitHub Pages : sans elle, on passe par le mail
+let configSQ = null;
+const lireConfigSQ = () => configSQ || (configSQ = fetch("https:\/\/leian.github.io/UNIVERSALQUIZ/soccaquiz.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : {}).catch(() => { configSQ = null; return {}; }));
 document.getElementById("liste-quiz").addEventListener("click", e => {
   const b = e.target.closest("button[data-p]");
   if (!b) return;
@@ -574,7 +577,9 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
   if (!q) return;
   b.disabled = true;
   google.script.run
-    .withSuccessHandler(r => {
+    .withSuccessHandler(async r => {
+      const cfg = await lireConfigSQ();
+      const direct = typeof cfg.propositions === "string" && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(cfg.propositions) ? cfg.propositions : "";
       b.disabled = false;
       if (!r || r.erreur) { boite(`<h3>😕 Oups</h3><p>${esc((r && r.erreur) || "Lecture du quiz impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); return; }
       const classe = (window.__UQ || {}).classe || "";
@@ -585,11 +590,11 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
       const court = encodeURIComponent(corps).length < 12000;
       const mail = "mailto:" + MAIL_SOCCAQUIZ + "?subject=" + encodeURIComponent(sujet) + "&body=" + encodeURIComponent(court ? corps : "Bonjour,\n\nJe propose ce quiz pour la bibliothèque SoccaQuiz.\nClasse : " + (classe || "?") + "\n\n(colle ici le quiz copié)\n");
       boite(`<h3>Proposer « ${esc(r.titre || q.titre)} »</h3>
-        <p>Le quiz est envoyé par mail à SoccaQuiz, relu, puis ajouté à la bibliothèque pour les autres familles. Seules les questions partent : ni photo, ni résultat, ni prénom.</p>
+        <p>Le quiz est envoyé à SoccaQuiz, relu, puis ajouté à la bibliothèque pour les autres familles. Seules les questions partent : ni photo, ni résultat, ni prénom, ni adresse.</p>
         <p class="small">Vérifie qu'aucune question ne contient le prénom de ton enfant ou un détail personnel.</p>
         <textarea readonly aria-label="Texte du quiz">${esc(r.texte)}</textarea>
-        <p class="small">${court ? "Le quiz est déjà écrit dans le mail : il n'y a plus qu'à l'envoyer." : "Le quiz est très long : il est copié quand tu touches « Envoyer par mail », colle-le dans le mail."}</p>
-        <div class="bts"><button class="btn" type="button" data-r="non">Fermer</button><button class="btn" type="button" data-copier>${I('copy')} Copier</button><a class="btn principal" href="${esc(mail)}" target="_blank" rel="noopener">${I('mail')} Envoyer par mail</a></div>`);
+        ${direct ? `<p class="small" id="prop-etat" aria-live="polite">Un toucher sur « Envoyer à SoccaQuiz » suffit.</p>` : `<p class="small">${court ? "Le quiz est déjà écrit dans le mail : il n'y a plus qu'à l'envoyer." : "Le quiz est très long : il est copié quand tu touches « Envoyer par mail », colle-le dans le mail."}</p>`}
+        <div class="bts"><button class="btn" type="button" data-r="non">Fermer</button><button class="btn" type="button" data-copier>${I('copy')} Copier</button><a class="btn ${direct ? "" : "principal"}" href="${esc(mail)}" target="_blank" rel="noopener">${I('mail')} ${direct ? "Par mail" : "Envoyer par mail"}</a>${direct ? `<button class="btn principal" type="button" data-envoyer>${I('send')} Envoyer à SoccaQuiz</button>` : ""}</div>`);
       const d = document.querySelector("dialog.boite:last-of-type");
       if (d) d.querySelector("[data-copier]").addEventListener("click", ev => {
         ev.stopPropagation();
@@ -599,6 +604,15 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
         else { ta.select(); try { document.execCommand("copy"); fini(); } catch (x) {} }
       });
       // au toucher de « Envoyer par mail », le texte est aussi copié : si la messagerie coupe le mail, il suffit de coller
+      // envoi direct à la console de l'éditeur (pas de réponse lisible : no-cors ; seule une panne réseau est signalée)
+      const env = d && d.querySelector("[data-envoyer]");
+      if (env) env.addEventListener("click", ev => {
+        ev.stopPropagation();
+        env.disabled = true; env.innerHTML = "Envoi…";
+        fetch(direct, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({ type: "proposition", titre: r.titre || q.titre, classe, texte: r.texte, version: (window.__UQ || {}).version || "" }) })
+          .then(() => { env.innerHTML = I('check') + " Envoyé, merci !"; env.classList.remove("principal"); const e = d.querySelector("#prop-etat"); if (e) e.textContent = "C'est parti : le quiz sera relu avant d'apparaître dans la bibliothèque."; })
+          .catch(() => { env.disabled = false; env.innerHTML = I('send') + " Réessayer"; const e = d.querySelector("#prop-etat"); if (e) e.textContent = "L'envoi n'a pas marché (connexion ?) : réessaie, ou envoie-le par mail."; });
+      });
       if (d) d.querySelector("a.btn").addEventListener("click", ev => {
         ev.stopPropagation();
         try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.texte).catch(() => {}); } catch (x) {}

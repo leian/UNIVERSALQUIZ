@@ -24,7 +24,7 @@ try { playwright = require('playwright'); } catch (e) {
 
 // 0. installateur en ligne (simulation de l'API Apps Script)
 const enLigne = spawnSync(process.execPath, [join(ICI, 'test-en-ligne.mjs')], { stdio: 'inherit' }).status;
-const invitations = spawnSync(process.execPath, [join(ICI, 'test-invitations.mjs')], { stdio: 'inherit' }).status;
+const invitations = spawnSync(process.execPath, [join(ICI, 'test-console.mjs')], { stdio: 'inherit' }).status;
 
 // 1. construction + faux Google
 if (spawnSync(process.execPath, [join(RACINE, 'construire.mjs')], { stdio: 'inherit' }).status !== 0) process.exit(1);
@@ -650,6 +650,19 @@ try {
   ok(/^T\|Listen and repeat\|/.test(prop.t) && /\nP\|Écoute, puis répète\.\|Hello, my name is Lana\./.test(prop.t) && /^mailto:soccaquiz@gmail\.com\?subject=Proposition/.test(prop.mail),
     'proposer un quiz : texte en lignes prêt à envoyer par mail à SoccaQuiz');
   await page.keyboard.press('Escape');
+  // réception directe activée (docs/soccaquiz.json) : « Envoyer à SoccaQuiz » poste le quiz à la console de l'éditeur
+  let recu = null;
+  await page.route(/leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json/, r => r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ propositions: 'https://script.google.com/macros/s/AKfycbTESTtestTESTtest123/exec' }) }));
+  await page.route(/script\.google\.com\/macros\/s\/AKfycbTESTtestTESTtest123\/exec/, r => { recu = r.request().postData(); r.fulfill({ status: 200, body: '{"ok":true}' }); });
+  await page.reload();
+  await page.locator('#o-quiz').click();
+  await page.locator('#liste-quiz tr', { hasText: 'Listen and repeat' }).locator('button[data-p]').click();
+  await page.locator('dialog.boite [data-envoyer]').click();
+  await page.locator('dialog.boite [data-envoyer]', { hasText: 'Envoyé' }).waitFor({ timeout: 5000 });
+  const env = JSON.parse(recu || '{}');
+  ok(env.type === 'proposition' && /^T\|Listen and repeat/.test(env.texte) && env.classe === 'CM1' && !/@/.test(recu), 'proposer un quiz : envoi direct à la console SoccaQuiz (texte et classe seulement)');
+  await page.keyboard.press('Escape');
+  await page.unroute(/leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json/);
   await ev(`PropertiesService.getScriptProperties().deleteProperty('CLASSE')`);
 
   const pol = await (await fetch(BASE + '/exec')).text();

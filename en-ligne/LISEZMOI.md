@@ -73,7 +73,7 @@ Le nouveau site réutilise le dossier Drive « SoccaQuiz » (ou l'ancien « Univ
 
 ## 4. Le mail à envoyer aux amis
 
-Le mail mis en forme (logo, bouton, étapes) est entre les repères `<!--MAIL-->` et `<!--/MAIL-->` de `docs/invitation.html` (la page d'envoi `invitations/` coupe dessus : ne les retire pas). Son bouton « Installer » pointe vers `docs/installer.html`. Il est sur cette page : **https://leian.github.io/UNIVERSALQUIZ/invitation.html**. Écris le prénom de l'ami et ta signature, touche « Copier le mail », puis colle-le dans un nouveau message Gmail.
+Le mail mis en forme (logo, bouton, étapes) est entre les repères `<!--MAIL-->` et `<!--/MAIL-->` de `docs/invitation.html` (l'onglet Invitations de la console coupe dessus : ne les retire pas). Son bouton « Installer » pointe vers `docs/installer.html`. Il est sur cette page : **https://leian.github.io/UNIVERSALQUIZ/invitation.html**. Écris le prénom de l'ami et ta signature, touche « Copier le mail », puis colle-le dans un nouveau message Gmail.
 
 ## 5. Supprimer l'avertissement de Google (facultatif)
 
