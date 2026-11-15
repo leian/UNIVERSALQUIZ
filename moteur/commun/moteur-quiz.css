@@ -331,3 +331,8 @@ button, .ex-case, .opt-btn { touch-action: manipulation; -webkit-tap-highlight-c
 #mq-quitter .mq-q-btns > * { flex: 1; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; border-radius: 10px; font: 700 15px system-ui, sans-serif; text-decoration: none; cursor: pointer; }
 #mq-quitter .mq-q-non { background: #fff; color: #3b2a20; border: 0; }
 #mq-quitter .mq-q-oui { background: #C8102E; color: #fff; }
+/* exercice P : pourquoi le micro ne marche pas / comment l'activer, selon le navigateur */
+.aide-micro { margin-top: 14px; border: 1px solid #eadfce; border-radius: 12px; background: #fffaf3; padding: 0 12px; font-size: 14px; line-height: 1.45; color: #4a3a2e; text-align: left; }
+.aide-micro summary { cursor: pointer; padding: 10px 0; font-weight: 700; color: #8f0b20; }
+.aide-micro ol { margin: 0 0 10px; padding-left: 20px; } .aide-micro li { margin: 4px 0; } .aide-micro p { margin: 0 0 10px; }
+@media (prefers-color-scheme: dark) { .aide-micro { background: #2a1e17; border-color: #4a3527; color: #f3e6da; } .aide-micro summary { color: #ff9a9a; } }

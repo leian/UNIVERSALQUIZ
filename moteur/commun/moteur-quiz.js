@@ -754,7 +754,64 @@
     return ok / a.length;
   }
   // Brave (comme Firefox) n'a pas le service de reconnaissance vocale de Google : on y propose seulement l'auto-évaluation
-  const Reco = () => navigator.brave ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
+  // Sur iPhone et iPad, seul Safari reconnaît la voix : Chrome, Firefox, Edge et les navigateurs des applis (Gmail…)
+  // montrent l'interface mais elle ne marche jamais (bug WebKit 239816) ; même chose pour la vue web des applis Android.
+  const Reco = () => navigator.brave || ['ios-autre', 'appli', 'firefox', 'opera', 'edge-mobile'].indexOf(navigateurMicro()) >= 0 ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
+  // navigateur et appareil, pour expliquer comment activer le micro (ou pourquoi c'est impossible)
+  function navigateurMicro() {
+    const ua = navigator.userAgent || '';
+    if (navigator.brave) return 'brave';
+    if (IOS) return /CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|DuckDuckGo|GSA\/|FBAN|FBAV|Instagram/.test(ua) || !/Version\/[\d.]+.*Safari/.test(ua) ? 'ios-autre' : 'safari-ios';
+    if (/Firefox\//.test(ua)) return 'firefox';
+    if (/OPR\/|Opera|OPT\//.test(ua)) return 'opera';
+    if (/EdgA\//.test(ua)) return 'edge-mobile';
+    if (/SamsungBrowser/.test(ua)) return 'samsung';
+    if (/Android/.test(ua) && /; wv\)/.test(ua)) return 'appli';
+    if (/Android/.test(ua) && /Chrome\//.test(ua)) return 'chrome-android';
+    if (/Edg\//.test(ua)) return 'edge';
+    if (/Chrome\//.test(ua)) return 'chrome';
+    if (/Safari\//.test(ua)) return 'safari-mac';
+    return 'autre';
+  }
+  const AILLEURS = 'Pour parler au micro, ouvre ce quiz dans <b>Chrome</b> (téléphone Android ou ordinateur), <b>Samsung Internet</b> ou <b>Safari</b> (iPhone, iPad). Sinon, dis la phrase à voix haute et touche « Je l\'ai bien dit » ou « À retravailler ».';
+  const AIDES_MICRO = {
+    brave: ['Pourquoi le micro ne marche pas ?', '<p><b>Brave ne laisse pas les sites reconnaître la voix</b> : il coupe le service de Google qui transforme la voix en texte, pour protéger la vie privée. Ce n\'est pas réglable dans Brave.</p><p>' + AILLEURS + '</p>'],
+    'ios-autre': ['Pourquoi le micro ne marche pas ?', '<p><b>Sur iPhone et iPad, seul Safari sait reconnaître la voix sur un site.</b> Chrome, Firefox, Edge et les navigateurs intégrés aux applis (Gmail, Messenger…) ne le peuvent pas : c\'est une limite d\'Apple.</p><p>Copie le lien du quiz et ouvre-le dans <b>Safari</b>. Sinon, dis la phrase à voix haute et touche « Je l\'ai bien dit » ou « À retravailler ».</p>'],
+    appli: ['Pourquoi le micro ne marche pas ?', '<p>Le quiz est ouvert <b>dans le navigateur d\'une appli</b> (Gmail, Messenger…), qui ne sait pas reconnaître la voix.</p><p>Touche <b>⋮</b> en haut à droite, puis <b>« Ouvrir dans Chrome »</b> (ou « Ouvrir dans le navigateur »).</p>'],
+    firefox: ['Pourquoi le micro ne marche pas ?', '<p><b>Firefox ne sait pas reconnaître la voix sur un site.</b></p><p>' + AILLEURS + '</p>'],
+    opera: ['Pourquoi le micro ne marche pas ?', '<p><b>Opera ne sait pas reconnaître la voix sur un site.</b></p><p>' + AILLEURS + '</p>'],
+    'edge-mobile': ['Pourquoi le micro ne marche pas ?', '<p><b>Edge sur téléphone ne sait pas reconnaître la voix sur un site.</b></p><p>' + AILLEURS + '</p>'],
+    autre: ['Pourquoi le micro ne marche pas ?', '<p><b>Ce navigateur ne sait pas reconnaître la voix sur un site.</b></p><p>' + AILLEURS + '</p>'],
+    'chrome-android': ['Comment activer le micro ?', '<ol>' +
+      '<li>Il faut <b>internet</b> : c\'est Google qui reconnaît la voix.</li>' +
+      '<li>Touche « Parler ». Une page « SoccaQuiz — Parler » peut s\'ouvrir : touche « Parler » dessus, puis <b>« Autoriser »</b> quand Chrome demande le micro.</li>' +
+      '<li>Chrome ne demande rien, ou tu as refusé ? Sur cette page, touche l\'<b>icône à gauche de l\'adresse</b> → <b>Autorisations</b> → <b>Micro</b> → Autoriser. Autre chemin : <b>⋮</b> → <b>Paramètres</b> → <b>Paramètres des sites</b> → <b>Micro</b>, puis débloque <i>leian.github.io</i> et <i>script.google.com</i>.</li>' +
+      '<li>Toujours rien ? Dans les <b>Paramètres du téléphone</b> → <b>Applications</b> → <b>Chrome</b> → <b>Autorisations</b> → <b>Micro</b> → « Autoriser seulement si l\'appli est en cours d\'utilisation ».</li></ol>'],
+    samsung: ['Comment activer le micro ?', '<ol>' +
+      '<li>Il faut <b>internet</b>.</li>' +
+      '<li>Touche « Parler », puis <b>« Autoriser »</b> quand Samsung Internet demande le micro (sur la page « SoccaQuiz — Parler » si elle s\'ouvre).</li>' +
+      '<li>Tu as refusé ? Dans les réglages de Samsung Internet, cherche les <b>autorisations des sites</b> → <b>Micro</b>, et débloque <i>leian.github.io</i>.</li>' +
+      '<li>Toujours rien ? <b>Paramètres du téléphone</b> → <b>Applications</b> → <b>Samsung Internet</b> → <b>Autorisations</b> → <b>Micro</b> → Autoriser.</li></ol>'],
+    'safari-ios': ['Comment activer le micro ?', '<ol>' +
+      '<li>Safari utilise la reconnaissance vocale d\'Apple : <b>Siri ou la dictée</b> doivent être activés (<b>Réglages</b> → <b>Général</b> → <b>Clavier</b> → <b>Activer la dictée</b>). Il faut aussi internet.</li>' +
+      '<li>Touche « Parler », puis <b>« Autoriser »</b> quand Safari demande le micro et la reconnaissance vocale.</li>' +
+      '<li>Tu as refusé ? Sur la page, touche le <b>bouton à gauche de l\'adresse</b> (aA ou ☰) → <b>Réglages du site web</b> → <b>Micro</b> → Autoriser, puis recharge la page. Autre chemin : <b>Réglages</b> → <b>Apps</b> → <b>Safari</b> → <b>Micro</b> → Autoriser.</li>' +
+      '<li>Le micro ne marche pas depuis une icône ajoutée à l\'écran d\'accueil : ouvre le lien dans Safari.</li></ol>'],
+    chrome: ['Comment activer le micro ?', '<ol>' +
+      '<li>Il faut <b>internet</b> : c\'est Google qui reconnaît la voix.</li>' +
+      '<li>Clique sur « Parler », puis <b>« Autoriser »</b> quand Chrome demande le micro (sur la page « SoccaQuiz — Parler » si elle s\'ouvre).</li>' +
+      '<li>Tu as refusé ? Clique sur l\'<b>icône à gauche de l\'adresse</b> → <b>Micro</b> → Autoriser, puis recharge la page.</li>' +
+      '<li>Toujours rien ? Vérifie que l\'ordinateur laisse Chrome utiliser le micro (Windows : <b>Paramètres</b> → <b>Confidentialité et sécurité</b> → <b>Microphone</b>).</li></ol>'],
+    edge: ['Comment activer le micro ?', '<p>Clique sur « Parler », puis « Autoriser ». Si rien ne se passe, Edge ne reconnaît pas la voix sur cet ordinateur : ouvre ce quiz dans <b>Chrome</b>.</p>'],
+    'safari-mac': ['Comment activer le micro ?', '<ol>' +
+      '<li>Active la <b>dictée</b> : <b>Réglages Système</b> → <b>Clavier</b> → <b>Dictée</b>.</li>' +
+      '<li>Clique sur « Parler », puis « Autoriser ».</li>' +
+      '<li>Tu as refusé ? <b>Safari</b> → <b>Réglages</b> → <b>Sites web</b> → <b>Micro</b> → Autoriser pour ce site.</li></ol>']
+  };
+  function aideMicro() {
+    const n = navigateurMicro(), a = AIDES_MICRO[n] || AIDES_MICRO.autre, impossible = !Reco();
+    return `<details class="aide-micro"${impossible ? ' open' : ''}><summary>🎤 ${impossible ? AIDES_MICRO[n] && /Pourquoi/.test(a[0]) ? a[0] : 'Pourquoi le micro ne marche pas ?' : a[0]}</summary>${impossible && !/Pourquoi/.test(a[0]) ? '<p>' + AILLEURS + '</p>' : a[1]}</details>`;
+  }
   // Sur Google Apps Script, la page est dans un cadre où Google ne délègue pas le micro : Chrome refuse sans rien demander.
   // On écoute alors dans une page à part (GitHub Pages, hors du cadre), qui renvoie ce qu'elle a entendu par postMessage.
   const PAGE_PARLER = 'https:\/\/leian.github.io/UNIVERSALQUIZ/parler.html', ORIGINE_PARLER = 'https:\/\/leian.github.io';
@@ -902,7 +959,8 @@
           (s.entendu ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(s.entendu)} »</div>` : '') +
           (s.erreur ? `<div class="input-note">${esc(s.erreur)}</div>` : '') +
           `<div class="ex-legende">${Reco() ? 'Le micro ne marche pas ? ' : ''}Dis-le à voix haute, puis indique si tu as réussi :</div>` +
-          `<div class="ecoute-row"><button class="ex-puce ok" onclick="${ex('parler-auto', 1)}">✅ Je l'ai bien dit</button><button class="ex-puce" onclick="${ex('parler-auto', 0)}">🔁 À retravailler</button></div>`;
+          `<div class="ecoute-row"><button class="ex-puce ok" onclick="${ex('parler-auto', 1)}">✅ Je l'ai bien dit</button><button class="ex-puce" onclick="${ex('parler-auto', 0)}">🔁 À retravailler</button></div>` +
+          aideMicro();
       },
       attendu: q => q.phrase === '*' ? 'une réponse à voix haute' : esc(q.phrase)
     },

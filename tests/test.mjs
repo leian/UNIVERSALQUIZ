@@ -191,6 +191,22 @@ try {
     await ev('CacheService.getScriptCache().remove("catalogue")');
   }
 
+  // exercice P : aide sur le micro adaptée au navigateur
+  {
+    const aide = async (ua, brave) => {
+      const c = await browser.newContext({ userAgent: ua, viewport: { width: 390, height: 800 } });
+      if (brave) await c.addInitScript(() => { navigator.brave = {}; });
+      const p = await c.newPage(); await p.route(/fonts\.(googleapis|gstatic)\.com|drive\.google\.com/, r => r.fulfill({ status: 200, body: '' }));
+      await p.goto(BASE + '/exec?page=quiz_exemple_capitales'); await p.waitForFunction(() => window.MoteurQuiz && MoteurQuiz._etat().pool > 0);
+      const r = await p.evaluate(() => { MoteurQuiz.start(); MoteurQuiz._etat().shuffled[0] = { type: 'parler', q: 'Répète.', phrase: 'I am happy.', cat: 'Oral' }; MoteurQuiz.rafraichir(); const d = document.querySelector('.aide-micro'); return { micro: !!document.querySelector('.ex-micro'), ouvert: !!(d && d.open), texte: d ? d.textContent : '' }; });
+      await c.close(); return r;
+    };
+    const android = 'Mozilla/5.0 (Linux; Android 16; Pixel 9) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/150.0 Mobile Safari/537.36';
+    const br = await aide(android, true), ch = await aide(android), ios = await aide('Mozilla/5.0 (iPhone; CPU iPhone OS 26_1 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/150.0 Mobile/15E148 Safari/604.1');
+    ok(!br.micro && br.ouvert && /Brave ne laisse pas/.test(br.texte) && ch.micro && !ch.ouvert && /Autorisations/.test(ch.texte) && !ios.micro && /seul Safari/.test(ios.texte),
+      'exercice P : explication selon le navigateur (Brave et Chrome sur iPhone : pourquoi c\'est impossible ; Chrome Android : comment autoriser le micro)');
+  }
+
   // moteur : tirage intelligent, passage à l'écrit, notions, indices
   await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
   const mo = await page.evaluate(() => {
