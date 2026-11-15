@@ -659,6 +659,21 @@ try {
   const vide = await page.locator('#bib-liste').innerText();
   ok(bib1.n >= 1 && bib1.classe === 'CM1' && nbApercu >= 10 && /Listen and repeat/.test(listeQuiz) && /Pas encore de quiz/.test(vide),
     'bibliothèque : quiz filtrés selon la classe du site, aperçu des questions, « Ajouter à mon site » crée le quiz — ' + JSON.stringify({ ...bib1, nbApercu }));
+  // quiz retiré de la bibliothèque après son ajout : mention dans l'onglet Quiz (avec la raison) ; lien vers le dossier Drive
+  const marque = (await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const f = it.next(); const t = f.getBlob().getDataAsString(); if (/listen-and-repeat|Listen and repeat/i.test(t) && /"biblio":\s*"anglais-listen-and-repeat"/.test(t)) return true; } return false; })()`)).r;
+  ok(marque === true, 'bibliothèque : le quiz ajouté garde l\'identifiant de la bibliothèque');
+  const routeBib = /leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\/index\.json/;
+  await page.route(routeBib, r => r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ version: 2, quiz: [], retires: [{ id: 'anglais-listen-and-repeat', titre: 'Listen and repeat', raison: 'erreur dans une réponse' }] }) }));
+  await ev('CacheService.getScriptCache().remove("catalogue")');
+  await page.goto(BASE + '/exec?page=tableau-de-bord');
+  await page.locator('#o-quiz').click();
+  await page.locator('#liste-quiz .msg.maj').waitFor({ timeout: 5000 }).catch(() => {});
+  const retireTxt = await page.locator('#liste-quiz').innerText();
+  ok(/Retiré de la bibliothèque : erreur dans une réponse/.test(retireTxt) && /ajouté depuis la bibliothèque en a été retiré/.test(retireTxt), 'bibliothèque : quiz retiré signalé dans l\'onglet Quiz, avec la raison');
+  await page.unroute(routeBib);
+  await page.locator('#o-reglages').click();
+  ok(await page.locator('#adresses a', { hasText: 'Ouvrir le dossier Drive' }).count() === 1, 'Réglages : lien « Ouvrir le dossier Drive »');
+  await page.locator('#o-quiz').click();
   await page.locator('#o-quiz').click();
   const ligneBib = page.locator('#liste-quiz tr', { hasText: 'Listen and repeat' });
   await ligneBib.locator('button[data-p]').click();

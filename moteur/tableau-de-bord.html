@@ -233,6 +233,7 @@ const ICONES = {
   eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
   plus: '<path d="M12 5v14M5 12h14"/>',
   chart: '<path d="M3 3v18h18"/><path d="M8 17v-4M13 17V8M18 17v-7"/>',
+  info: '<circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/>',
   folder: '<path d="M3 6a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/>',
   settings: '<path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/>',
   refresh: '<path d="M21 12a9 9 0 1 1-2.6-6.4L21 8"/><path d="M21 3v5h-5"/>',
@@ -544,8 +545,12 @@ function afficherQuiz() {
   document.getElementById("nb-quiz").textContent = Q.length;
   if (!Q.length) { el.innerHTML = `<p class="small">Aucun quiz pour l'instant. <a href="ajouter.html">Créer un quiz</a></p>`; return; }
   const M = window.MATIERES || {};
-  el.innerHTML = `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
-    Q.map(q => `<tr><td>${esc(q.titre)}</td>
+  // quiz ajoutés depuis la bibliothèque puis retirés par SoccaQuiz (BIB_RETIRES, rempli plus bas)
+  const retire = q => q.biblio && window.BIB_RETIRES && BIB_RETIRES[q.biblio];
+  const nbRetires = Q.filter(retire).length;
+  el.innerHTML = (nbRetires ? `<div class="msg maj" style="margin-bottom:10px">${I("info")} <b>${nbRetires > 1 ? nbRetires + " quiz ajoutés depuis la bibliothèque en ont été retirés" : "Un quiz ajouté depuis la bibliothèque en a été retiré"}</b> par SoccaQuiz, souvent à cause d'une erreur. Il reste sur le site de {{PRENOM}} tant que tu ne le supprimes pas.</div>` : "") +
+    `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
+    Q.map(q => `<tr><td>${esc(q.titre)}${retire(q) ? `<br><span class="small" style="color:var(--rouge)">⚠️ Retiré de la bibliothèque${typeof BIB_RETIRES[q.biblio] === "string" ? " : " + esc(BIB_RETIRES[q.biblio]) : ""}</span>` : ""}</td>
       <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
       <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
       <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn" type="button" data-p="${esc(q.fichier)}">${I('send')} Proposer</button> ` : ""}${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
@@ -704,7 +709,7 @@ const Bib = (function () {
     const ex = carte.querySelector(".bib-apercu");
     if (ex) { ex.remove(); return; }
     texte(q.id).then(t => {
-      const qs = t.split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^([QVSGOACXNPK])\|([^|]*)(?:\|([^|]*))?/)).filter(Boolean)
+      const qs = t.split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^([QVSGOACXNPKL])\|([^|]*)(?:\|([^|]*))?/)).filter(Boolean)
         .map(m => m[1] === "G" ? m[2].replace(/\[([^\]]*)\]/g, "…") : m[1] === "P" ? m[2] + " « " + (m[3] || "") + " »" : m[2]);
       const ul = document.createElement("ol"); ul.className = "bib-apercu";
       ul.innerHTML = qs.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join("");
@@ -724,7 +729,7 @@ const Bib = (function () {
           bt.className = "btn fait"; bt.innerHTML = I('check') + " Ajouté sur le site de {{PRENOM}}";
         })
         .withFailureHandler(err => echec((err && err.message) || "Ajout impossible."))
-        .apiAjouterQuiz(t);
+        .apiAjouterQuiz(t, [], q.id);         // l'identifiant de la bibliothèque est gardé dans le quiz
     }).catch(() => echec("Le quiz n'a pas pu être téléchargé. Vérifie la connexion, puis réessaie."));
   }
   $("bib-liste").addEventListener("click", e => {
@@ -794,8 +799,8 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + " Accueil";
   else $("lien-enfant").hidden = true;
   const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
-  $("adresses").innerHTML = (ligne("Site de l'enfant (à lui envoyer)", U.urlEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur))
-    || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.";
+  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de l'enfant (à lui envoyer)", U.urlEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
+    || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.");
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
     $("envoyer-lien").onclick = async () => {
@@ -929,6 +934,19 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(r.fait.join(", "))}. <a href="${esc(U.url || "")}" target="_top">Recharger la page</a></p>`;
     }).withFailureHandler(e => { b.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; }).apiRemettreAZero(d);
   });
+})();
+
+/* quiz de la bibliothèque retirés depuis leur ajout : absents de la liste publiée (raison dans « retires » si donnée) */
+(() => {
+  if (!(window.QUIZ || []).some(q => q.biblio)) return;
+  fetch("https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/index.json", { cache: "no-cache" }).then(r => r.ok ? r.json() : null).then(j => {
+    if (!j || !Array.isArray(j.quiz)) return;
+    const presents = new Set(j.quiz.map(q => q && q.id)), raisons = {};
+    (Array.isArray(j.retires) ? j.retires : []).forEach(x => { if (x && x.id) raisons[x.id] = String(x.raison || "").slice(0, 200); });
+    const R = {};
+    (window.QUIZ || []).forEach(q => { if (q.biblio && !presents.has(q.biblio)) R[q.biblio] = raisons[q.biblio] || true; });
+    if (Object.keys(R).length) { window.BIB_RETIRES = R; afficherQuiz(); }
+  }).catch(() => {});
 })();
 </script>
 </body>

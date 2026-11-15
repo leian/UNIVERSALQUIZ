@@ -275,7 +275,10 @@ function assembler_(html, page, inst) {
     cfg.proprio = estProprietaire_();
     if (cfg.proprio) try { cfg.parents = parentsDe_(lireFamille_()); cfg.liensParent = liensParent_(); } catch (e) { cfg.parents = []; }
   }
-  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0) cfg.razMot = CONFIG.prenom || 'zéro';   // mot à taper pour confirmer une remise à zéro
+  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0) {
+    cfg.razMot = CONFIG.prenom || 'zéro';         // mot à taper pour confirmer une remise à zéro
+    try { cfg.dossierUrl = inst.dossier.getUrl(); } catch (e) {}   // Réglages → « Ouvrir le dossier Drive »
+  }
   if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
@@ -370,7 +373,7 @@ function catalogue_(dossier) {
         meta = Object.assign({ u: maj, n: nom }, lireMeta_(f.getBlob().getDataAsString('UTF-8'), nom, f.getDateCreated()));
         aEcrire[cle] = JSON.stringify(meta);
       }
-      QUIZ.push({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge });
+      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.biblio ? { biblio: meta.biblio } : {}));
     } else if (/\.pdf$/i.test(nom)) {
       pdfs.push(f);
     }
@@ -431,7 +434,8 @@ function lireMeta_(html, nom, cree) {
     matiere: MATIERES[matiere] ? matiere : 'autre',
     badge: (/^(⭐|🌟|✨)?$/u.test(champ('badge')) && champ('icone')) || champ('badge') || '',
     description: [sous, nb ? nb + ' questions' : ''].filter(Boolean).join(' · ').slice(0, 200),
-    date: dateDepuisNom_(nom) || jour_(cree)
+    date: dateDepuisNom_(nom) || jour_(cree),
+    biblio: /^[a-z0-9-]{1,80}$/.test(champ('biblio')) ? champ('biblio') : ''    // quiz ajouté depuis la bibliothèque : son identifiant
   };
 }
 
@@ -1102,7 +1106,7 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   return null;
 }
 
-function apiAjouterQuiz(texte, aussi) {
+function apiAjouterQuiz(texte, aussi, source) {
   if (interdit_()) return refusEnfant_();
   texte = String(texte || '').trim();
   if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
@@ -1159,7 +1163,8 @@ function apiAjouterQuiz(texte, aussi) {
     sousTitre: txt(d.sousTitre || d.sous_titre || d.niveau, 150),
     icone, badge, icones,
     langueAudio: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(txt(d.langueAudio || d.langue, 10)) ? txt(d.langueAudio || d.langue, 10) : '',
-    couleur: COULEURS_[matiere], questions, memo, texte: true
+    couleur: COULEURS_[matiere], questions, memo, texte: true,
+    biblio: /^[a-z0-9-]{1,80}$/.test(String(source || '')) ? String(source) : ''    // ajouté depuis la bibliothèque : on saura s'il en est retiré
   });
   const nom = nomLibre_(inst.dossier, titre);
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
@@ -1374,6 +1379,7 @@ function fabriquerQuizHtml_(c) {
   };
   if (c.texte) cfg.texte = true;          // texte pur (quiz créé depuis le site) : le moteur n'y retire aucune balise
   if (c.badge) cfg.badge = c.badge;
+  if (c.biblio) cfg.biblio = c.biblio;
   if (c.icones && Object.keys(c.icones).length) cfg.icones = c.icones;
   if (c.langueAudio) cfg.langueAudio = c.langueAudio;
   const pills = [];

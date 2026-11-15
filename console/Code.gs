@@ -199,13 +199,16 @@ function apiPublier(d) {
   return { ok: true, id, nb };
 }
 
-function apiRetirer(id) {
+function apiRetirer(id, raison) {
   exiger_();
   const { index, sha } = lireIndex_();
   const i = index.quiz.findIndex(q => q.id === id);
   if (i < 0) return { erreur: 'Ce quiz n\'est plus dans la bibliothèque.' };
   const titre = index.quiz[i].titre;
   index.quiz.splice(i, 1);
+  // les familles qui l'ont ajouté voient « Retiré de la bibliothèque » (et la raison) dans leur onglet Quiz
+  index.retires = (Array.isArray(index.retires) ? index.retires : []).filter(x => x && x.id !== id)
+    .concat({ id, titre, date: Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'), raison: String(raison || '').replace(/[<>]/g, '').trim().slice(0, 200) }).slice(-200);
   // le fichier .txt reste : les familles qui l'ont déjà ajouté gardent leur copie, et il peut être republié
   ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : retrait de ' + titre);
   return { ok: true };
@@ -505,7 +508,7 @@ function client_() {
     }
     if (onglet === 'bibliotheque' && id) {
       var q = (BIB || []).filter(function (x) { return x.id === id; })[0]; if (!q) return;
-      if (a === 'retirer') { if (confirm('Retirer « ' + q.titre + ' » de la bibliothèque ? Les familles qui l\'ont déjà ajouté le gardent.')) { b.disabled = true; appel('apiRetirer', [id], function () { BIB = null; info('Retiré. Les sites le verront disparaître d\'ici une minute.'); vueBibliotheque($('contenu'), true); }); } }
+      if (a === 'retirer') { var raison = prompt('Retirer « ' + q.titre + ' » de la bibliothèque ?\nLes familles qui l\'ont déjà ajouté le gardent, avec la mention « Retiré de la bibliothèque ».\n\nRaison affichée chez elles (facultatif, ex. « erreur dans une réponse ») :', ''); if (raison !== null) { b.disabled = true; appel('apiRetirer', [id, raison], function () { BIB = null; info('Retiré. Les sites le verront disparaître d\'ici une minute.'); vueBibliotheque($('contenu'), true); }); } }
       else if (a === 'modifier') { b.disabled = true; appel('apiTexteBibliotheque', [id], function (r) { edition = depuisTexte(r.texte, null); edition.id = q.id; edition.titre = q.titre; edition.matiere = q.matiere; edition.classes = q.classes || []; edition.icone = q.icone || ''; edition.description = q.description || ''; edition.remplacer = true; edition.verrou = true; afficher(); }); }
     }
   });
