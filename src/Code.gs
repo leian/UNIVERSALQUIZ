@@ -260,7 +260,8 @@ function assembler_(html, page, inst) {
     maitrise: page === 'ajouter' || page === 'controles' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
     saison: saison_(),
     saisonDuJour: saisonDe_(),
-    saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1'
+    saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1',
+    raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
@@ -271,6 +272,7 @@ function assembler_(html, page, inst) {
     cfg.proprio = estProprietaire_();
     if (cfg.proprio) try { cfg.parents = parentsDe_(lireFamille_()); cfg.liensParent = liensParent_(); } catch (e) { cfg.parents = []; }
   }
+  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0) cfg.razMot = CONFIG.prenom || 'zéro';   // mot à taper pour confirmer une remise à zéro
   if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
@@ -1186,6 +1188,41 @@ function apiRetirerParent(d) {
   ecrireFamille_(f => { f.parents = parentsDe_(f).filter(x => x !== email); });
   return { ok: true, parents: parentsDe_(lireFamille_()) };
 }
+/* ---------------- remise à zéro (Réglages, parent qui a installé) ----------------
+   Rien n'est détruit : l'ancien tableau des résultats est renommé « … (archive du JJ/MM/AAAA) » et remplacé
+   par un tableau vide, les quiz et PDF partent dans la corbeille du Drive. La mémoire des appareils de l'enfant
+   (historique local, file d'envoi, badges vus, tenue de la socca…) est effacée à leur prochaine visite (pont.html). */
+function apiRemettreAZero(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut tout remettre à zéro.' };
+  d = d || {};
+  const attendu = String(CONFIG.prenom || 'zéro').trim().toLowerCase(), donne = String(d.confirmation || '').trim().toLowerCase();
+  if (!donne || donne !== attendu) return { erreur: 'Pour confirmer, tape « ' + (CONFIG.prenom || 'zéro') + ' ».' };
+  if (!d.resultats && !d.quiz && !d.controles && !d.reglages && !d.gemini && !d.appareils) return { erreur: 'Coche au moins une case.' };
+  const inst = installer_(), props = PropertiesService.getScriptProperties(), cache = CacheService.getScriptCache(), fait = [];
+  if (d.resultats) {
+    const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Paris', 'dd/MM/yyyy');
+    DriveApp.getFileById(inst.ss.getId()).setName(NOM_SHEETS + ' (archive du ' + date + ')');
+    const ss = creerSheets_(inst.dossier);
+    props.setProperty('RESULTATS', ss.getId());
+    INST_ = null; LIGNES_ = null;
+    fait.push('résultats archivés');
+  }
+  const corbeille = re => {
+    let n = 0; const it = inst.dossier.getFiles();
+    while (it.hasNext()) { const f = it.next(); if (f.isTrashed() || !re.test(f.getName())) continue; try { f.setTrashed(true); } catch (e) { inst.dossier.removeFile(f); } n++; }
+    return n;
+  };
+  if (d.quiz) fait.push(corbeille(/\.html?$/i) + ' quiz à la corbeille');
+  if (d.controles) fait.push(corbeille(/\.pdf$/i) + ' contrôle(s) à la corbeille');
+  if (d.reglages) { ['CLASSE', 'CLASSE_ANNEE', 'SAISON_OFF'].forEach(k => props.deleteProperty(k)); fait.push('classe et décorations remises comme à l\'installation'); }
+  if (d.gemini) { props.deleteProperty('GEMINI_CLE'); try { ecrireFamille_(f => { delete f.gemini; }); } catch (e) {} fait.push('clé Gemini effacée'); }
+  if (d.appareils || d.resultats) { props.setProperty('RAZ', String(Date.now())); fait.push('mémoire des appareils effacée à leur prochaine visite'); }
+  try { cache.removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
+  if (d.reglages) try { inscrireFamille_(installer_()); } catch (e) {}
+  return { ok: true, fait };
+}
+
 // adresses à envoyer à l'autre parent : l'espace parent de chaque enfant
 function liensParent_() {
   const l = familleListe_();

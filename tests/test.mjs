@@ -754,6 +754,29 @@ try {
     const retire = await ev(`[installer_().dossier.getId(), PropertiesService.getScriptProperties().getProperty("FAMILLE")].map(id => [...(editeurs[id] || [])].length).concat(lireFamille_().parents.length)`);
     ok(/Accès retiré/.test(await page.locator('#parents').innerText()) && retire.r.every(x => x === 0), 'autre parent : « Retirer » arrête les partages Drive');
 
+    // remise à zéro avec cases à cocher
+    await page.goto(BASE + '/exec');
+    await page.evaluate(() => { localStorage.setItem('sq.tenue', '3'); localStorage.setItem('uqSuivi.local', '[1]'); localStorage.setItem('uq-sons', '0'); });
+    await page.locator('#o-reglages').click();
+    const avantRaz = await ev('({ ss: PropertiesService.getScriptProperties().getProperty("RESULTATS"), html: installer_().dossier.getFiles ? (() => { let n = 0; const it = installer_().dossier.getFiles(); while (it.hasNext()) if (/\.html$/.test(it.next().getName())) n++; return n; })() : 0, classe: classe_() })');
+    await page.locator('[data-raz="resultats"]').check();
+    await page.locator('[data-raz="quiz"]').check();
+    ok(await page.locator('#raz-go').isDisabled(), 'remise à zéro : bouton grisé tant que le prénom n\'est pas tapé');
+    await page.fill('#raz-confirmation', 'lana');
+    await page.locator('#raz-go').click();
+    await page.locator('#raz-msg .ok, #raz-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const apresRaz = await ev(`(() => { const p = PropertiesService.getScriptProperties(); let n = 0; const it = installer_().dossier.getFiles(); while (it.hasNext()) if (/\\.html$/.test(it.next().getName())) n++;
+      return { ss: p.getProperty("RESULTATS"), html: n, raz: !!p.getProperty("RAZ"), classe: classe_() }; })()`);
+    apresRaz.r.archive = /archive du/.test((apresRaz.sheets[avantRaz.r.ss] || {}).name || '');
+    apresRaz.r.lignes = ((apresRaz.sheets[apresRaz.r.ss] || {}).rows || []).length;
+    ok(/C'est fait/.test(await page.locator('#raz-msg').innerText()) && apresRaz.r.ss !== avantRaz.r.ss && apresRaz.r.archive && apresRaz.r.lignes === 1 && apresRaz.r.html === 0 && avantRaz.r.html > 0 && apresRaz.r.raz && apresRaz.r.classe === avantRaz.r.classe,
+      'remise à zéro : résultats archivés et nouveau tableau vide, quiz à la corbeille, classe non cochée gardée — ' + JSON.stringify(apresRaz.r));
+    await page.goto(BASE + '/exec');
+    const local = await page.evaluate(() => [localStorage.getItem('sq.tenue'), localStorage.getItem('uqSuivi.local'), localStorage.getItem('uq-sons')]);
+    ok(local[0] === null && local[1] === null && local[2] === '0', 'remise à zéro : mémoire de l\'appareil effacée (préférence « Sons » gardée)');
+    const razRefus = await ev('(() => { FAUX.proprio = false; PROPRIO_ = null; ACCES_ = null; const r = apiRemettreAZero({ resultats: true, confirmation: "Lana" }).erreur; FAUX.proprio = true; PROPRIO_ = null; ACCES_ = null; return [r, apiRemettreAZero({ resultats: true, confirmation: "Paul" }).erreur]; })()');
+    ok(razRefus.r && razRefus.r.every(Boolean), 'remise à zéro : refusée à l\'autre parent et sans le bon prénom — ' + JSON.stringify(razRefus));
+
     await ev(`apiFamilleRetirer({ parent: "${P2}" }); CacheService.getScriptCache().remove("famille")`);
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();

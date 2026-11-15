@@ -11,6 +11,14 @@
   var CFG = window.__UQ || { url: '', page: '', chemin: location.pathname, liens: {} };
   if (!CFG.liens) CFG.liens = {};
   window.__UQ = CFG;
+  // remise à zéro demandée par le parent (Réglages) : mémoire de l'appareil effacée une fois ; les préférences
+  // de l'appareil (sons, micro, enregistrement coupé) sont gardées
+  try {
+    if (CFG.raz && localStorage.getItem('uq-raz') !== CFG.raz) {
+      Object.keys(localStorage).forEach(function (k) { if ((/^uqSuivi\./.test(k) && k !== 'uqSuivi.off') || /^sq\./.test(k) || k === 'uq-bib-vu') localStorage.removeItem(k); });
+      localStorage.setItem('uq-raz', CFG.raz);
+    }
+  } catch (e) {}
   try { console.info('[SoccaQuiz] pont actif — page « ' + CFG.page + ' », site ' + (CFG.url || '(adresse inconnue)')); } catch (e) {}
 
   /* ---------- 1. API des résultats ---------- */

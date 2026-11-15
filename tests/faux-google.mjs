@@ -86,7 +86,7 @@ const ctx = {
     getRootFolder: () => dossier(DRIVE),
     createFolder: (n) => { mkdirSync(join(DRIVE, n)); return dossier(join(DRIVE, n)); },
     getFolderById: (id) => { if (FAUX.etranger) throw new Error('Accès refusé'); const p = id.slice(2); if (!existsSync(p)) throw new Error('introuvable'); return dossier(p); },
-    getFileById: (id) => id === 'projet-script' ? (FAUX.proprio ? { getId: () => id } : (() => { throw new Error('Accès refusé'); })()) : FAUX.etranger ? (() => { throw new Error('Accès refusé'); })() : sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); } } : fichier(id.slice(2))
+    getFileById: (id) => id === 'projet-script' ? (FAUX.proprio ? { getId: () => id } : (() => { throw new Error('Accès refusé'); })()) : FAUX.etranger ? (() => { throw new Error('Accès refusé'); })() : sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); }, setName: (n) => { sheets[id].name = n; }, getId: () => id } : fichier(id.slice(2))
   },
   SpreadsheetApp: {
     create: (n) => { const id = 'ss' + (++compteur); sheets[id] = { name: n, rows: [] }; return classeur(id); },
