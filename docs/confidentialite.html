@@ -3,43 +3,57 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>SoccaQuiz — Règles de confidentialité</title>
+<title>SoccaQuiz — Règles de confidentialité / Privacy Policy</title>
+<meta name="description" content="Règles de confidentialité de SoccaQuiz et de l'installateur en ligne SoccaQuiz : données utilisateur Google utilisées, finalités, conservation, partage, suppression, contact. Privacy Policy of SoccaQuiz (English version included).">
 <link rel="icon" href="icone.png">
 <link rel="stylesheet" href="style.css">
 </head>
 <body><main>
 <h1><img src="icone-96.png" width="44" height="44" alt="" style="vertical-align:middle;border-radius:10px"> SoccaQuiz — Règles de confidentialité</h1>
-<p class="petit">Dernière mise à jour : 15 novembre 2026</p>
+<p class="petit">Dernière mise à jour : 15 novembre 2026 · <a href="#en">English version below</a></p>
 
-<p>SoccaQuiz est un site de quiz de révision gratuit et non commercial, installé et mis à jour par l'installateur en ligne SoccaQuiz. <b>L'éditeur ne reçoit ni ne stocke aucune donnée personnelle sur ses propres serveurs ou comptes</b> : tout se passe dans le compte Google de chaque famille. Aucune publicité, aucun cookie déposé par SoccaQuiz, aucune mesure d'audience, aucune revente de données.</p>
+<p>Ces règles s'appliquent à l'application <b>SoccaQuiz</b> (l'installateur en ligne SoccaQuiz, qui demande l'autorisation d'accéder à votre compte Google) et aux sites SoccaQuiz qu'il installe. SoccaQuiz est un site de quiz de révision gratuit et non commercial. <b>L'éditeur ne reçoit ni ne stocke aucune donnée personnelle sur ses propres serveurs ou comptes</b> : tout se passe dans le compte Google de chaque famille. Aucune publicité, aucun cookie déposé par SoccaQuiz, aucune mesure d'audience, aucune revente ni aucun partage de données.</p>
 
 <h2>1. Responsable du traitement et contact</h2>
-<p>L'installateur en ligne SoccaQuiz est publié par <b>leian</b>, éditeur bénévole de SoccaQuiz (code source : <a href="https://github.com/leian/UNIVERSALQUIZ">github.com/leian/UNIVERSALQUIZ</a>). Pour toute question ou demande sur vos données : <b>soccaquiz@gmail.com</b>.</p>
-<p>Le site SoccaQuiz installé par une famille lui appartient : pour les quiz et les résultats rangés dans son compte Google (§ 3), c'est la famille elle-même qui décide de ce qu'elle garde ou supprime. L'éditeur n'y a pas accès.</p>
+<p>L'installateur en ligne SoccaQuiz est publié par <b>leian</b>, éditeur bénévole de SoccaQuiz, en France (code source : <a href="https://github.com/leian/UNIVERSALQUIZ">github.com/leian/UNIVERSALQUIZ</a>). Pour toute question ou demande sur vos données : <b>soccaquiz@gmail.com</b>.</p>
+<p>Le site SoccaQuiz installé par une famille lui appartient : pour les quiz et les résultats rangés dans son compte Google (§ 4), c'est la famille elle-même qui décide de ce qu'elle garde ou supprime. L'éditeur n'y a pas accès.</p>
 
-<h2>2. L'installateur en ligne</h2>
-<p>L'installateur est une application Google Apps Script qui s'exécute <b>au nom de la personne qui l'ouvre</b>, avec son autorisation. Il utilise uniquement l'API Google Apps Script pour :</p>
+<h2>2. Données utilisateur Google auxquelles l'installateur accède</h2>
+<p>L'installateur est une application Google Apps Script qui s'exécute <b>au nom de la personne qui l'ouvre</b>, après son autorisation sur l'écran de consentement Google. Il demande uniquement les autorisations suivantes :</p>
+<table>
+<tr><th>Autorisation</th><th>Pourquoi</th></tr>
+<tr><td><code>script.projects</code><br>Créer et modifier vos projets Google Apps Script</td><td>Créer un projet Apps Script par site demandé (« SoccaQuiz » ou « SoccaQuiz – prénom ») et y copier, puis mettre à jour, le code du moteur de quiz. L'installateur ne lit ni ne modifie aucun autre projet que ceux qu'il a créés.</td></tr>
+<tr><td><code>script.deployments</code><br>Créer et gérer les déploiements de vos projets</td><td>Publier chaque site à deux adresses (site de l'enfant, espace parent), mettre ces publications à jour quand vous le demandez, et les désactiver quand vous supprimez un site ou effacez vos données.</td></tr>
+<tr><td><code>script.external_request</code><br>Se connecter à un service externe</td><td>Télécharger depuis GitHub le code public du moteur de quiz et le numéro de la dernière version. Aucune donnée vous concernant n'est envoyée à GitHub ni à aucun autre service.</td></tr>
+</table>
+<p>L'installateur <b>n'utilise pas l'API Google Drive, Gmail, Contacts ou Agenda</b> : il ne lit ni fichiers, ni e-mails, ni contacts, ni événements. Il n'a pas accès à votre mot de passe. Seuls les projets qu'il crée apparaissent dans votre Drive, comme tout projet Apps Script.</p>
+
+<h3>Utilisation limitée (Limited Use)</h3>
+<p>L'utilisation et le transfert par SoccaQuiz des informations reçues des API Google respectent le <a href="https://developers.google.com/terms/api-services-user-data-policy">Règlement sur les données utilisateur des services d'API Google</a>, y compris les exigences d'utilisation limitée. En particulier, les données utilisateur Google :</p>
 <ul>
-<li>créer dans le compte de cette personne <b>un projet Apps Script par site</b> qu'elle choisit de créer (nommé « SoccaQuiz », ou « SoccaQuiz – prénom » pour un site supplémentaire : autre enfant, révisions d'un adulte) ;</li>
-<li>y copier le code du moteur de quiz (publié publiquement sur GitHub) ;</li>
-<li>publier chaque projet en site web à deux adresses : le site de l'enfant (ouvert à toute personne qui a le lien, sans les pages des parents) et l'espace parent (accessible seulement avec le compte Google de la famille) ;</li>
-<li>mettre à jour ces deux publications à sa demande, ou les désactiver si elle choisit « Repartir de zéro », « Supprimer ce site » ou « Effacer toutes mes données de l'installateur ».</li>
+<li>ne servent qu'à fournir les fonctions de l'installateur décrites ci-dessus, visibles dans son interface ;</li>
+<li>ne sont jamais transférées à des tiers, vendues, utilisées pour de la publicité, pour établir un profil, pour évaluer une solvabilité ou pour entraîner des modèles d'IA ;</li>
+<li>ne sont lues par aucun être humain, l'éditeur compris.</li>
 </ul>
-<p>Il n'utilise pas l'API Google Drive et ne lit ni fichiers, ni e-mails, ni contacts. Seul le projet qu'il crée apparaît dans le Drive de la personne, comme tout projet Apps Script.</p>
-<p><b>Données gardées par l'installateur</b>, pour chaque site créé : le prénom saisi (facultatif), la classe et son année scolaire, le nom du dossier Drive du site, la version installée, l'identifiant du projet, les identifiants des deux publications et leurs adresses (enfant et parent). Elles sont rangées dans l'espace de stockage propre à chaque utilisateur que fournit Google Apps Script : elles ne servent qu'aux exécutions de cette même personne (afficher ses sites, proposer les mises à jour) et l'éditeur ne peut pas les consulter. L'installateur n'enregistre aucun journal d'erreur.</p>
+
+<h3>Données gardées par l'installateur</h3>
+<p>Pour chaque site créé : le prénom saisi (facultatif), la classe et son année scolaire, le nom du dossier Drive du site, la version installée, l'identifiant du projet, les identifiants des deux publications et leurs adresses (enfant et parent). Elles sont rangées dans l'espace de stockage propre à chaque utilisateur que fournit Google Apps Script (« propriétés de l'utilisateur ») : elles ne servent qu'aux exécutions de cette même personne (afficher ses sites, proposer les mises à jour) et l'éditeur ne peut pas les consulter. L'installateur n'enregistre aucun journal d'erreur.</p>
 <ul>
 <li><b>Base légale</b> : l'exécution du service que vous demandez en utilisant l'installateur (article 6.1.b du RGPD). Le prénom de l'enfant est facultatif et saisi par le parent.</li>
-<li><b>Durée de conservation</b> : jusqu'à ce que vous les effaciez. Retirer l'autorisation donnée à l'installateur (§ 6) ne les efface pas.</li>
+<li><b>Durée de conservation</b> : jusqu'à ce que vous les effaciez. Retirer l'autorisation donnée à l'installateur (§ 8) ne les efface pas.</li>
 <li><b>Effacement</b> : dans l'installateur, « Effacer toutes mes données de l'installateur » désactive d'abord chacun de vos sites (leurs adresses ne fonctionnent plus), puis efface toutes ces informations. « Supprimer ce site » ou « Repartir de zéro » désactive et oublie un seul site. Vos quiz et vos résultats, eux, restent dans votre Drive.</li>
 </ul>
 
-<h2>3. Le site SoccaQuiz de chaque famille</h2>
+<h2>3. Partage des données</h2>
+<p>SoccaQuiz ne vend, ne loue et ne partage aucune donnée personnelle ni aucune donnée utilisateur Google. Aucune donnée ne quitte votre compte Google vers l'éditeur. Les seuls services tiers impliqués sont décrits aux § 5 et 6 (IA choisie par le parent, hébergement des fichiers publics).</p>
+
+<h2>4. Le site SoccaQuiz de chaque famille</h2>
 <p>Le site installé appartient entièrement à la famille, dans son compte Google. Il crée et utilise uniquement son dossier Drive « SoccaQuiz » (ou « SoccaQuiz – prénom ») pour les quiz, et le Google Sheets « SoccaQuiz – Résultats » de ce dossier ; un site installé avant le 11 novembre 2026 utilise les mêmes éléments sous le nom « Universal Quiz ».</p>
-<p><b>Accès au Drive</b> : à la première ouverture du site, Google affiche un accès à tout le Drive, parce que le site doit lire les quiz que le parent dépose lui-même dans son dossier. Le site ne lit et n'écrit que ce dossier.</p>
+<p><b>Accès au Drive</b> : à la première ouverture de l'espace parent, Google demande au parent une autorisation pour ce site (qui est son propre projet, distinct de l'installateur) ; elle mentionne tout le Drive, parce que le site doit lire les quiz que le parent dépose lui-même dans son dossier. Le site ne lit et n'écrit que ce dossier.</p>
 <p><b>Tableau des résultats</b> : pour chaque partie, il contient le prénom du joueur, la date et l'heure, le quiz, le score, la durée, le type d'appareil (téléphone, tablette ou ordinateur), le résultat par notion et le texte des questions ratées avec la réponse donnée (pour les révisions). Il reste dans le Drive de la famille tant qu'elle ne le supprime pas : pour l'effacer, supprimez des lignes ou le fichier « SoccaQuiz – Résultats » (une nouvelle feuille vide sera créée à la partie suivante). L'éditeur n'y a pas accès.</p>
 <p><b>Site de l'enfant</b> : il s'ouvre sans compte, pour toute personne qui a son lien. On y voit les quiz, le prénom et les notions à revoir : ne partagez ce lien qu'avec l'enfant. L'ajout de quiz, la clé Gemini et le suivi des résultats sont réservés à l'espace parent, que Google n'ouvre qu'au compte de la famille.</p>
 
-<h2>4. Les IA utilisées pour créer les quiz</h2>
+<h2>5. Les IA utilisées pour créer les quiz</h2>
 <p>Les photos de leçons sont envoyées par le parent directement au service d'IA de son choix (Claude, ChatGPT, Grok…), selon les conditions de ce service. L'éditeur ne reçoit aucune photo.</p>
 <p><b>Gemini</b> est réservé à l'adulte qui a créé la clé Gemini : la clé est créée par le parent, avec son propre compte Google, et gardée dans son propre site ; elle n'est utilisée que depuis l'espace parent, pour préparer les quiz. <b>L'enfant n'a jamais accès à Gemini</b> : le site de l'enfant refuse de donner la clé. Les photos partent alors du navigateur du parent vers l'API Gemini de Google, selon les conditions de Google pour cette API :</p>
 <ul>
@@ -48,7 +62,7 @@
 </ul>
 <p>Dans tous les cas, <b>cadrez la leçon sans le nom de votre enfant ni celui de l'école ou de l'enseignant</b> (en-tête du cahier, étiquette) avant de la photographier.</p>
 
-<h2>5. Services techniques</h2>
+<h2>6. Services techniques</h2>
 <p>Les pages SoccaQuiz sont servies par Google (Apps Script), selon les règles de Google. Pour s'afficher, elles chargent aussi des fichiers publics depuis :</p>
 <ul>
 <li><b>GitHub Pages</b> (leian.github.io) : images des thèmes et des récompenses, polices de caractères, consignes pour les IA ;</li>
@@ -57,10 +71,70 @@
 </ul>
 <p>Comme pour toute page web, ces services reçoivent l'adresse IP et les informations techniques du navigateur pour envoyer les fichiers. Aucun cookie n'est déposé par SoccaQuiz, et aucune donnée de quiz ou de résultat ne leur est envoyée.</p>
 
-<h2>6. Vos droits</h2>
+<h2>7. Sécurité et enfants</h2>
+<p>Les données restent dans l'infrastructure de Google, protégée par le compte Google de la famille ; les échanges se font en HTTPS. L'installateur et l'espace parent sont destinés aux adultes. Les enfants utilisent seulement le site de l'enfant, sans compte et sans fournir eux-mêmes de données ; le prénom éventuel est saisi par le parent.</p>
+
+<h2>8. Vos droits</h2>
 <p>Vous disposez d'un droit d'accès, de rectification, d'effacement et d'opposition sur les données qui vous concernent. Les données de l'installateur sont visibles dans l'installateur lui-même et s'effacent avec le bouton « Effacer toutes mes données de l'installateur » ; celles de votre site sont dans votre propre Drive. Pour toute autre demande : soccaquiz@gmail.com. Vous pouvez aussi adresser une réclamation à la CNIL (<a href="https://www.cnil.fr/fr/plaintes">cnil.fr</a>).</p>
 <p>À tout moment, depuis <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>, vous pouvez retirer l'accès accordé à « SoccaQuiz » (l'installateur) et à votre site (« SoccaQuiz »). Vous pouvez aussi mettre à la corbeille le projet sur <a href="https://script.google.com">script.google.com</a> et supprimer le dossier « SoccaQuiz » (ou « Universal Quiz ») de votre Drive.</p>
 
-<p><a href="index.html">← Accueil SoccaQuiz</a></p>
+<h2>9. Modifications</h2>
+<p>Toute modification de ces règles est publiée sur cette page, avec sa date de mise à jour. L'historique complet est consultable dans le code source public.</p>
+
+<hr id="en">
+
+<h1 lang="en">SoccaQuiz — Privacy Policy</h1>
+<div lang="en">
+<p class="petit">Last updated: November 15, 2026</p>
+
+<p>This policy applies to the <b>SoccaQuiz</b> application (the SoccaQuiz online installer, which requests access to your Google Account) and to the SoccaQuiz sites it installs. SoccaQuiz is a free, non-commercial study-quiz website for families: a parent photographs a school lesson, an AI turns it into a quiz, and the child reviews it on a phone, tablet or computer. <b>The developer does not receive or store any personal data on its own servers or accounts</b>: everything stays in each family's own Google Account. No advertising, no cookies set by SoccaQuiz, no analytics, no sale or sharing of data.</p>
+
+<h2>1. Data controller and contact</h2>
+<p>The SoccaQuiz online installer is published by <b>leian</b>, volunteer developer of SoccaQuiz, in France (source code: <a href="https://github.com/leian/UNIVERSALQUIZ">github.com/leian/UNIVERSALQUIZ</a>). For any question or request about your data: <b>soccaquiz@gmail.com</b>.</p>
+
+<h2>2. Google user data accessed by the installer</h2>
+<p>The installer is a Google Apps Script web app that runs <b>as the user who opens it</b>, after that user grants permission on the Google consent screen. It requests only the following scopes:</p>
+<table>
+<tr><th>Scope</th><th>Why it is needed</th></tr>
+<tr><td><code>https://www.googleapis.com/auth/script.projects</code></td><td>Create one Apps Script project per site the user asks for (“SoccaQuiz” or “SoccaQuiz – first name”), and copy, then update, the quiz engine code in it. The installer never reads or modifies any project other than the ones it created.</td></tr>
+<tr><td><code>https://www.googleapis.com/auth/script.deployments</code></td><td>Publish each site as two web app deployments (child site and parent area), update them when the user asks, and disable them when the user deletes a site or erases their data.</td></tr>
+<tr><td><code>https://www.googleapis.com/auth/script.external_request</code></td><td>Download the public quiz engine code and the latest version number from GitHub. No data about the user is sent to GitHub or any other service.</td></tr>
+</table>
+<p>The installer <b>does not use the Google Drive, Gmail, Contacts or Calendar APIs</b>: it does not read files, emails, contacts or events, and never sees the user's password.</p>
+
+<h3>Limited Use disclosure</h3>
+<p>SoccaQuiz's use and transfer of information received from Google APIs to any other app will adhere to the <a href="https://developers.google.com/terms/api-services-user-data-policy">Google API Services User Data Policy</a>, including the Limited Use requirements. Google user data is used only to provide the user-facing installer features described above; it is never transferred to third parties, sold, used for advertising, profiling, credit-worthiness, or to train AI models, and it is not read by any human, including the developer.</p>
+
+<h3>Data stored by the installer</h3>
+<p>For each site created: the optional first name entered by the parent, the school grade and school year, the name of the site's Drive folder, the installed version, the project ID, the IDs and URLs of the two deployments. This data is stored in the per-user storage provided by Google Apps Script (User Properties), is used only for that same user's sessions (listing their sites, offering updates), and cannot be accessed by the developer. No error logs are kept.</p>
+<ul>
+<li><b>Legal basis</b>: performance of the service you request (GDPR Art. 6(1)(b)).</li>
+<li><b>Retention</b>: until you delete it.</li>
+<li><b>Deletion</b>: the installer's “Effacer toutes mes données de l'installateur” (erase all my installer data) button disables every site and then deletes all of this data; “Supprimer ce site” deletes a single site. You can also revoke access at any time at <a href="https://myaccount.google.com/permissions">myaccount.google.com/permissions</a>.</li>
+</ul>
+
+<h2>3. Data sharing</h2>
+<p>SoccaQuiz does not sell, rent or share any personal data or Google user data. No data leaves your Google Account to the developer.</p>
+
+<h2>4. Each family's SoccaQuiz site</h2>
+<p>The installed site belongs entirely to the family and runs in its own Google Account (a separate Apps Script project, with its own consent screen). It only uses its own Drive folder “SoccaQuiz” for quizzes and the Google Sheet “SoccaQuiz – Résultats” in that folder for results (player first name, date, quiz, score, duration, device type, results per topic, missed questions with the answer given). The family can delete this data at any time from its Drive. The developer has no access to it. The child site opens without an account for anyone with its link; adding quizzes, the Gemini key and results tracking are restricted to the parent area, which Google only opens for the family's account.</p>
+
+<h2>5. AI services</h2>
+<p>Lesson photos are sent by the parent directly to the AI service of their choice (Claude, ChatGPT, Grok, or Gemini with the parent's own free API key), under that service's terms. The developer never receives any photo. Children never have access to the Gemini key.</p>
+
+<h2>6. Technical services</h2>
+<p>SoccaQuiz pages are served by Google (Apps Script) and load public files (images, fonts, AI instructions, emoji drawings) from GitHub Pages and jsDelivr. Like any web request, these services receive the browser's IP address and technical information; no quiz or result data is sent to them.</p>
+
+<h2>7. Security and children</h2>
+<p>Data stays within Google's infrastructure, protected by the family's Google Account, and all traffic uses HTTPS. The installer and the parent area are intended for adults. Children only use the child site, without an account and without providing data themselves.</p>
+
+<h2>8. Your rights</h2>
+<p>You have the right to access, rectify, erase and object to the processing of your data. Contact soccaquiz@gmail.com, or lodge a complaint with the French data protection authority (<a href="https://www.cnil.fr/en">CNIL</a>).</p>
+
+<h2>9. Changes</h2>
+<p>Any change to this policy is published on this page with its update date.</p>
+</div>
+
+<p><a href="index.html">← Accueil SoccaQuiz / SoccaQuiz home</a></p>
 </main></body>
 </html>
