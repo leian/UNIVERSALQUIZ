@@ -669,6 +669,40 @@
   }
   // Brave (comme Firefox) n'a pas le service de reconnaissance vocale de Google : on y propose seulement l'auto-évaluation
   const Reco = () => navigator.brave ? null : (window.SpeechRecognition || window.webkitSpeechRecognition);
+  // Sur Google Apps Script, la page est dans un cadre où Google ne délègue pas le micro : Chrome refuse sans rien demander.
+  // On écoute alors dans une page à part (GitHub Pages, hors du cadre), qui renvoie ce qu'elle a entendu par postMessage.
+  const PAGE_PARLER = 'https:\/\/leian.github.io/UNIVERSALQUIZ/parler.html', ORIGINE_PARLER = 'https:\/\/leian.github.io';
+  let relaisMicro = false;
+  try { relaisMicro = window.top !== window && localStorage.getItem('uq-relais-micro') === '1'; } catch (e) {}
+  const MESSAGE_MICRO = /Android/i.test(navigator.userAgent)
+    ? 'Le micro est bloqué. Dans Chrome : ⋮ → Commandes du site → Autorisations → Micro → Autoriser, puis recharge la page. Sinon, utilise les boutons ci-dessous.'
+    : 'Le micro est bloqué. Dans Chrome : touche l\'icône à gauche de l\'adresse → Micro → Autoriser, puis recharge la page. Sinon, utilise les boutons ci-dessous.';
+  function resultatParler(q, s, alts) {                  // commun au micro direct et à la page d'écoute
+    alts = (Array.isArray(alts) ? alts : []).map(a => String(a).slice(0, 300)).slice(0, 5);
+    const meilleur = alts.reduce((b, t) => ressemblance(q.phrase, t) > ressemblance(q.phrase, b) ? t : b, alts[0] || '');
+    s.entendu = meilleur; s.ecoute = false; s.attente = false;
+    const ok = q.phrase === '*' ? !!meilleur.trim() : ressemblance(q.phrase, meilleur) >= 0.75;
+    if (ok) return enregistrer(meilleur, true, esc(meilleur));
+    s.erreur = meilleur ? 'Presque ! Réécoute le modèle, puis réessaie.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.'; renderQuestion();
+  }
+  function ouvrirPageParler(q, s) {
+    const id = Math.random().toString(36).slice(2, 10);
+    const w = window.open(PAGE_PARLER + '#' + encodeURIComponent(JSON.stringify({ p: q.phrase, l: q.langue || C.langueAudio || 'en-GB', id })), '_blank');
+    if (!w) { s.erreur = 'La page d\'écoute n\'a pas pu s\'ouvrir. Utilise les boutons ci-dessous.'; return; }
+    s.relaisId = id; s.attente = true; s.erreur = '';
+    const ecoute = e => {
+      if (e.origin !== ORIGINE_PARLER || !e.data || e.data.uq !== 'parler' || e.data.id !== s.relaisId) return;
+      window.removeEventListener('message', ecoute); clearInterval(s.veille); s.relaisId = null;
+      if (E !== s) return;                                  // l'enfant est passé à une autre question entre-temps
+      resultatParler(q, s, e.data.alts);
+    };
+    window.addEventListener('message', ecoute);
+    clearInterval(s.veille);
+    s.veille = setInterval(() => {                        // page fermée sans résultat : on revient à l'état normal
+      let ferme = true; try { ferme = w.closed; } catch (e) {}
+      if (ferme) { clearInterval(s.veille); setTimeout(() => { if (s.attente) { s.attente = false; window.removeEventListener('message', ecoute); if (E === s) renderQuestion(); } }, 800); }
+    }, 700);
+  }
 
   const INTEGRES = {
     // G : texte à trous — G|Il [a] faim et [est;était] fatigué.|explication
@@ -776,7 +810,7 @@
         const s = etat(q, () => ({ ecoute: false, entendu: '', erreur: '' }));
         const libre = q.phrase === '*';
         if (c.repondu) return `<div class="ex-zone">${c.donne ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(c.donne)} »</div>` : ''}</div>`;
-        const micro = Reco() ? `<button class="ecoute-btn ex-micro ${s.ecoute ? 'actif' : ''}" onclick="${ex('parler')}">${s.ecoute ? '🎙️ Je t\'écoute…' : '🎤 Parler'}</button>` : '';
+        const micro = Reco() ? `<button class="ecoute-btn ex-micro ${s.ecoute || s.attente ? 'actif' : ''}" onclick="${ex('parler')}">${s.ecoute ? '🎙️ Je t\'écoute…' : s.attente ? '🎤 Parle dans l\'autre page…' : '🎤 Parler'}</button>` : '';
         return (libre ? '' : `<div class="ex-phrase">${esc(q.phrase)}</div>`) +
           `<div class="ecoute-row">${micro}</div>` +
           (s.entendu ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(s.entendu)} »</div>` : '') +
@@ -858,18 +892,20 @@
       }
       case 'parler': {
         const R = Reco(); if (!R || !s) return;
+        if (relaisMicro) { couperSon(); ouvrirPageParler(q, s); break; }
         if (s.ecoute) { try { s.reco && s.reco.stop(); } catch (e) {} return; }
         couperSon();
         const r = new R(); s.reco = r; r.lang = q.langue || C.langueAudio || 'en-GB'; r.interimResults = false; r.maxAlternatives = 3;
-        r.onresult = e => {
-          const alts = [...e.results[0]].map(a => a.transcript);
-          const meilleur = alts.reduce((b, t) => ressemblance(q.phrase, t) > ressemblance(q.phrase, b) ? t : b, alts[0] || '');
-          s.entendu = meilleur; s.ecoute = false;
-          const ok = q.phrase === '*' ? !!meilleur.trim() : ressemblance(q.phrase, meilleur) >= 0.75;
-          if (ok) return enregistrer(meilleur, true, esc(meilleur));
-          s.erreur = 'Presque ! Réécoute le modèle, puis réessaie.'; renderQuestion();
+        r.onresult = e => resultatParler(q, s, [...e.results[0]].map(a => a.transcript));
+        r.onerror = e => {
+          s.ecoute = false;
+          if ((e.error === 'not-allowed' || e.error === 'service-not-allowed') && window.top !== window) {
+            // dans le cadre de Google : on passe à la page d'écoute (un nouveau toucher est nécessaire pour ouvrir un onglet)
+            relaisMicro = true; try { localStorage.setItem('uq-relais-micro', '1'); } catch (x) {}
+            s.erreur = 'Touche encore « Parler » : une page va s\'ouvrir pour t\'écouter.';
+          } else s.erreur = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? MESSAGE_MICRO : e.error === 'network' ? 'La reconnaissance vocale a besoin d\'internet et de Chrome. Utilise les boutons ci-dessous.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.';
+          renderQuestion();
         };
-        r.onerror = e => { s.ecoute = false; s.erreur = e.error === 'not-allowed' || e.error === 'service-not-allowed' ? 'Le micro est bloqué. Dans Chrome : touche le cadenas (ou ⓘ) à gauche de l\'adresse → Micro → Autoriser, puis recharge la page. Sinon, utilise les boutons ci-dessous.' : e.error === 'network' ? 'La reconnaissance vocale a besoin d\'internet et de Chrome. Utilise les boutons ci-dessous.' : 'Je n\'ai rien entendu. Réessaie, ou utilise les boutons ci-dessous.'; renderQuestion(); };
         r.onend = () => { if (s.ecoute) { s.ecoute = false; renderQuestion(); } };
         s.ecoute = true; s.erreur = ''; try { r.start(); } catch (e) { s.ecoute = false; }
         break;
