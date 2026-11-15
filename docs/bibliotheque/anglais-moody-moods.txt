@@ -1,0 +1,30 @@
+T|Moody moods|Comment te sens-tu aujourd'hui ?|anglais|😊|🥳
+## Les sentiments|😊
+Q|Comment dit-on « Je suis content » ?|I'm happy|I'm sad|I'm angry|On dit I'm happy.
+Q|Que veut dire « I'm sad » ?|Je suis triste|Je suis content|J'ai faim|I'm sad = Je suis triste.|dire=I'm sad.
+Q|Comment dit-on « Je suis en colère » ?|I'm angry|I'm worried|I'm scared|I'm angry = Je suis en colère.
+Q|Que veut dire « I'm scared » ?|J'ai peur|Je suis enthousiaste|J'ai soif|I'm scared = J'ai peur.|dire=I'm scared.
+Q|Comment dit-on « J'ai faim » ?|I'm hungry|I'm thirsty|I'm hot|I'm hungry = J'ai faim.
+Q|Que veut dire « I'm excited » ?|Je suis enthousiaste|Je suis triste|J'ai froid|I'm excited = Je suis enthousiaste.|dire=I'm excited.
+Q|Comment dit-on « J'ai soif » ?|I'm thirsty|I'm hungry|I'm cold|I'm thirsty = J'ai soif.
+Q|Que veut dire « I'm surprised » ?|Je suis surpris|Je suis inquiet|Je suis content|I'm surprised = Je suis surpris.|dire=I'm surprised.
+S|Complète : I'm ___ (je suis inquiet).|worried|I'm worried = Je suis inquiet.|indice=Ça commence par w
+S|Complète : I'm ___ (j'ai chaud).|hot|I'm hot = J'ai chaud.
+S|Complète : I'm ___ (je vais bien).|fine|I'm fine = Ça va bien.
+S|Complète : I'm ___ (j'ai froid).|cold|I'm cold = J'ai froid.
+V|« I'm happy » veut dire « Je suis triste ».|F|Non, I'm happy signifie Je suis content.
+V|On dit « I'm » devant un sentiment.|V|Oui, on dit I'm happy, I'm sad, I'm angry...
+## Structure et poème|📝
+G|I [am] happy today. (forme contractée de be)|I'm
+O|Remets la phrase dans l'ordre.|If you're happy|and you know it|clap your hands
+X|Touche les mots qui sont des sentiments.|I feel *happy* but my sister is *sad* today.
+A|Relie.|I'm fine=Ça va bien|I'm worried=Je suis inquiet|I'm hot=J'ai chaud|I'm cold=J'ai froid
+S|Complète : If you're happy and you know it, ___ your hands.|clap|Dans le poème on dit clap your hands.
+S|Complète : If you're sad and you know it, make a ___.|frown|Dans le poème : make a frown.
+P|Répète.|I'm happy.
+M|On dit I'm + un adjectif pour exprimer un sentiment.
+M|I'm happy = Je suis content.
+M|I'm sad = Je suis triste.
+M|I'm hungry = J'ai faim ; I'm thirsty = J'ai soif.
+M|I'm hot = J'ai chaud ; I'm cold = J'ai froid.
+M|Dans le poème : If you're ... and you know it, ...
