@@ -513,11 +513,11 @@ try {
   await page.locator('.onglet[data-o=quiz]').click();
   ok(await page.locator('#p-quiz').isVisible() && !(await page.locator('#p-resultats').isVisible()), 'page parents : l\'onglet « Gérer les quiz » s\'ouvre');
   const ligne = page.locator('#liste-quiz tr', { hasText: 'Les volcans' });
-  await ligne.locator('button').click();
+  await ligne.locator('button.danger').click();
   ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()), 'page parents : « Supprimer » demande une confirmation');
   await page.locator('.boite button', { hasText: 'Annuler' }).click();
   ok(await ligne.count() === 1 && readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : « Annuler » ne supprime rien');
-  await ligne.locator('button').click();
+  await ligne.locator('button.danger').click();
   await page.locator('.boite button[data-r=oui]').click();
   await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
   await page.locator('.onglet[data-o=reglages]').click();
@@ -608,6 +608,50 @@ try {
   })()`);
   ok(ecoute.r.n === 3 && /ne disent pas la même chose/.test(ecoute.r.avert) && !ecoute.r.a.includes('Qui aime les petits pois ?') && ecoute.r.a.includes('Il aime les petits pois.'),
     'écoute : « He likes peas. » avec la bonne réponse « Qui aime les petits pois ? » écartée (phrase entendue et réponse de forme différente)');
+  // quiz → texte en lignes → quiz : rien ne se perd (pour proposer un quiz à la bibliothèque)
+  const aller = await ev(`(function () {
+    const src = 'T|Tout|Accroche|anglais|🎧|🦜|langue=en-US\\n## Mots|📚\\nQ|Chat ?|cat|dog|cow|bird|Cat = chat.|indice=Miaou\\nQ|Deux choix ?|yes|no\\nV|Dog = chien.|V|Oui.|dire=Dog\\nS|Chien ?|dog;a dog|Dog.\\n## Phrases|🧩\\nG|I [am;\\'m] happy.|Be.\\nO|Ordre.|I|am|ten\\nA|Relie.|cat=chat|dog=chien\\nC|Classe.|Animaux: cat;dog|Couleurs: red;blue\\nX|Touche les verbes.|I *run* and *jump* fast.|Verbes.\\nN|Racine de 2 ?|1,414|0,01|Environ.\\nP|Répète.|I am happy.\\nK|Rejoue.|C4 D4 E4\\nQ|Note ?|do|ré|mi|C4 = do.|notes=C4 E4+G4|portee\\nM|Point 1\\nM|Point <2>';
+    const r = apiAjouterQuiz(src);
+    const t = apiTexteQuiz(r.page + '.html');
+    const norm = s => { const d = lireFormatLignes_(s), av = []; return { titre: d.titre, langue: d.langue, icones: d.icones, memo: d.memo, q: d.questions.map((q, i) => normaliserQuestion_(q, i, av, d)) }; };
+    const a = norm(src), b = norm(t.texte);
+    const enfant = (CONFIG.espace = 'enfant', apiTexteQuiz(r.page + '.html')); CONFIG.espace = '';
+    apiSupprimerQuiz(r.page + '.html');
+    return { egal: JSON.stringify(a) === JSON.stringify(b), a: JSON.stringify(a), b: JSON.stringify(b), refus: !!(enfant && enfant.erreur) };
+  })()`);
+  ok(aller.r.egal && aller.r.refus, 'proposer un quiz : quiz du site relu en lignes sans rien perdre (11 types, écoute, notes, indice, mémo), refusé côté enfant' + (aller.r.egal ? '' : ' — ' + aller.r.a + ' ≠ ' + aller.r.b));
+
+  // bibliothèque : liste lue sur GitHub Pages (simulé avec docs/bibliotheque), ajout au site en un toucher, puis « Proposer »
+  await page.route(/leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\//, async r => {
+    const f = new URL(r.request().url()).pathname.split('/').pop();
+    try { await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': f.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8' }, body: readFileSync(join(RACINE, 'docs/bibliotheque', f), 'utf8') }); }
+    catch (e) { await r.fulfill({ status: 404, body: '' }); }
+  });
+  await ev(`PropertiesService.getScriptProperties().setProperties({ CLASSE: 'CM1', CLASSE_ANNEE: String(anneeScolaire_()) })`);
+  await page.goto(BASE + '/exec?page=tableau-de-bord');
+  await page.locator('#o-bibliotheque').click();
+  await page.locator('.bib-carte').first().waitFor({ timeout: 5000 });
+  const bib1 = await page.evaluate(() => ({ n: document.querySelectorAll('.bib-carte').length, classe: document.getElementById('bib-classe').value }));
+  await page.locator('.bib-carte [data-a="apercu"]').first().click();
+  await page.locator('.bib-apercu li').first().waitFor({ timeout: 5000 });
+  const nbApercu = await page.locator('.bib-apercu li').count();
+  await page.locator('.bib-carte [data-a="ajouter"]').first().click();
+  await page.locator('.bib-carte .btn.fait').first().waitFor({ timeout: 8000 });
+  const listeQuiz = await page.locator('#liste-quiz').innerText();
+  await page.selectOption('#bib-classe', 'PS');
+  const vide = await page.locator('#bib-liste').innerText();
+  ok(bib1.n >= 1 && bib1.classe === 'CM1' && nbApercu >= 10 && /Listen and repeat/.test(listeQuiz) && /Pas encore de quiz/.test(vide),
+    'bibliothèque : quiz filtrés selon la classe du site, aperçu des questions, « Ajouter à mon site » crée le quiz — ' + JSON.stringify({ ...bib1, nbApercu }));
+  await page.locator('#o-quiz').click();
+  const ligneBib = page.locator('#liste-quiz tr', { hasText: 'Listen and repeat' });
+  await ligneBib.locator('button[data-p]').click();
+  await page.locator('dialog.boite textarea').waitFor({ timeout: 5000 });
+  const prop = await page.evaluate(() => ({ t: document.querySelector('dialog.boite textarea').value, mail: (document.querySelector('dialog.boite a.btn') || {}).href || '' }));
+  ok(/^T\|Listen and repeat\|/.test(prop.t) && /\nP\|Écoute, puis répète\.\|Hello, my name is Lana\./.test(prop.t) && /^mailto:soccaquiz@gmail\.com\?subject=Proposition/.test(prop.mail),
+    'proposer un quiz : texte en lignes prêt à envoyer par mail à SoccaQuiz');
+  await page.keyboard.press('Escape');
+  await ev(`PropertiesService.getScriptProperties().deleteProperty('CLASSE')`);
+
   const pol = await (await fetch(BASE + '/exec')).text();
   ok(!/fonts\.(googleapis|gstatic)/.test(pol) && /polices\/polices\.css/.test(pol), 'polices servies par GitHub Pages : aucune requête vers Google Fonts');
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets

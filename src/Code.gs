@@ -725,6 +725,65 @@ function apiSupprimerQuiz(nom) {
   return { ok: true };
 }
 
+/* Texte d'un quiz du site, au format en lignes : pour le proposer à la bibliothèque de la communauté.
+   Seuls les quiz créés depuis le site (configuration en JSON) peuvent être relus ainsi. */
+function apiTexteQuiz(nom) {
+  if (estEnfant_()) return refusEnfant_();
+  nom = String(nom || '').split('/').pop();
+  if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
+  const f = trouverFichier_(installer_().dossier, nom);
+  if (!f) return { erreur: 'Ce quiz n\'existe plus.' };
+  const html = f.getBlob().getDataAsString('UTF-8');
+  const i = html.lastIndexOf('MoteurQuiz.lancer(');
+  const fin = html.lastIndexOf(');');
+  let cfg = null;
+  try { cfg = JSON.parse(html.slice(i + 'MoteurQuiz.lancer('.length, fin)); } catch (e) {}
+  if (i < 0 || !cfg || !Array.isArray(cfg.questions)) return { erreur: 'Ce quiz a été fait à la main : il ne peut pas être proposé depuis le site.' };
+  return { ok: true, titre: String(cfg.titre || ''), texte: lignesDeQuiz_(cfg) };
+}
+
+/* configuration interne d'un quiz → format en lignes (l'inverse de lireFormatLignes_ + normaliserQuestion_) */
+function lignesDeQuiz_(c) {
+  const ent = s => String(s == null ? '' : s).replace(/<[^>]*>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
+  const f = s => ent(s).replace(/[|\r\n]+/g, ' / ').replace(/\s+/g, ' ').trim();
+  const L = [];
+  L.push(['T', f(c.titre), f(c.sousTitre), f(c.matiere || 'autre'), f(c.icone), f(c.badge || '')].join('|') + (c.langueAudio ? '|langue=' + f(c.langueAudio) : ''));
+  let cat = null;
+  c.questions.forEach(q => {
+    if (q.cat !== cat) { cat = q.cat; L.push('## ' + f(cat) + ((c.icones || {})[cat] ? '|' + f(c.icones[cat]) : '')); }
+    let l;
+    const exp = f(q.exp);
+    switch (q.type) {
+      case 'qcm': {
+        const opts = [q.a].concat((q.opts || []).filter(o => o !== q.a)).map(f);
+        l = ['Q', f(q.q)].concat(opts, [exp || (opts.length >= 3 ? 'La bonne réponse est : ' + opts[0] + '.' : '')]); break;
+      }
+      case 'vf': l = ['V', f(q.q), q.a ? 'V' : 'F', exp]; break;
+      case 'input': l = ['S', f(q.q), (q.ans || []).map(f).join(';'), exp]; break;
+      case 'trous': l = ['G', f(q.texte), exp]; break;
+      case 'ordre': l = ['O', f(q.q)].concat((q.items || []).map(f)); break;
+      case 'paires': l = ['A', f(q.q)].concat((q.paires || []).map(p => f(p[0]).replace(/=/g, '-') + '=' + f(p[1]).replace(/=/g, '-'))); break;
+      case 'classer': l = ['C', f(q.q)].concat((q.groupes || []).map(g => f(g.nom).replace(/:/g, ' ') + ': ' + (g.items || []).map(x => f(x).replace(/;/g, ',')).join(';'))); break;
+      case 'cliquer': l = ['X', f(q.q), f(q.texte), exp]; break;
+      case 'nombre': l = ['N', f(q.q), String(q.a).replace('.', ','), String(q.tol || 0).replace('.', ','), exp]; break;
+      case 'parler': l = ['P', f(q.q), f(q.phrase), exp]; break;
+      case 'clavier': l = ['K', f(q.q), (q.notes || []).map(f).join(' '), exp]; break;
+      default: return;
+    }
+    while (l.length > 2 && l[l.length - 1] === '') l.pop();
+    if (q.dire && !(q.type === 'parler' && q.dire === q.phrase)) l.push('dire=' + f(q.dire));
+    if (q.langue && q.langue !== c.langueAudio) l.push('langue=' + f(q.langue));
+    if (q.img) l.push('img=' + f(q.img));
+    if (q.hint) l.push('indice=' + f(q.hint));
+    if (q.notes && q.type !== 'clavier') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
+    if (q.portee) l.push(q.portee === 'seule' ? 'portee=seule' : 'portee=oui');
+    L.push(l.join('|'));
+  });
+  const memo = String(c.memo || '').match(/<li>[\s\S]*?<\/li>/g) || [];
+  memo.forEach(m => L.push('M|' + f(m)));
+  return L.join('\n');
+}
+
 /* =====================================================================
    AJOUT D'UN QUIZ DEPUIS LE SITE (page « ajouter »)
    Le parent colle la réponse de l'IA (Claude, ChatGPT, Grok…) : un objet

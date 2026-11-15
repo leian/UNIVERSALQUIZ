@@ -99,6 +99,19 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 @media (prefers-reduced-motion:reduce){.pastille-maj::after{animation:none}}
 .msg.maj{background:var(--rouge-c);border:1px solid #f3c6c6;color:var(--ink)}
 .msg details{margin-top:8px;font-size:.85rem}
+.bib-filtres{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:4px 0 6px}
+.bib-filtres select{min-height:40px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink);padding:4px 8px;font:inherit}
+.bib-liste{display:grid;gap:10px;margin-top:10px}
+.bib-carte{border:2px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;grid-template-columns:44px 1fr;gap:4px 12px;align-items:start}
+.bib-ico{font-size:1.9rem;line-height:44px;text-align:center}
+.bib-carte h3{margin:0;font:600 1.05rem "Fredoka",sans-serif}
+.bib-meta{font-size:.82rem;color:var(--soft)}
+.bib-nouveau{display:inline-block;margin-left:6px;font:700 .72rem "Nunito",sans-serif;background:var(--rouge-c);color:var(--rouge);border-radius:999px;padding:1px 8px;vertical-align:middle}
+.bib-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
+.bib-apercu{grid-column:1/-1;margin:6px 0 0;padding-left:20px;font-size:.88rem;color:var(--ink)}
+.bib-apercu li{margin:2px 0}
+.btn.fait{border-color:#bbf7d0;color:var(--ok)}
+.boite textarea{width:100%;min-height:120px;font:.8rem/1.4 ui-monospace,monospace;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px}
 .enreg{margin:6px 0 0;font-size:.85rem;color:var(--soft)}.enreg.ko{color:var(--ko)}
 </style>
 </head>
@@ -117,6 +130,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
   <nav class="onglets" id="onglets" role="tablist">
     <button type="button" class="onglet on" data-o="resultats" role="tab" id="o-resultats" aria-controls="p-resultats" aria-selected="true"><i data-ic="chart"></i> Résultats</button>
     <button type="button" class="onglet" data-o="quiz" role="tab" id="o-quiz" aria-controls="p-quiz" aria-selected="false" tabindex="-1"><i data-ic="folder"></i> Quiz <span class="nb" id="nb-quiz"></span></button>
+    <button type="button" class="onglet" data-o="bibliotheque" role="tab" id="o-bibliotheque" aria-controls="p-bibliotheque" aria-selected="false" tabindex="-1"><i data-ic="book"></i> Bibliothèque <span class="nb" id="nb-bib" hidden></span></button>
     <button type="button" class="onglet" data-o="reglages" role="tab" id="o-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><i data-ic="settings"></i> Réglages</button>
   </nav>
   <div class="panneau" id="p-resultats" role="tabpanel" aria-labelledby="o-resultats">
@@ -143,6 +157,21 @@ h2 .ic{color:var(--rouge);margin-right:6px}
       <h2><i data-ic="folder"></i>Les quiz du site</h2>
       <p class="small" style="margin-top:0">« Tester » ouvre le quiz pour l'essayer, « Supprimer » le retire du site de l'enfant. Pour en ajouter un : <a href="ajouter.html">Créer un quiz</a>.</p>
       <div id="liste-quiz"></div>
+    </div>
+  </div>
+  <div class="panneau" id="p-bibliotheque" role="tabpanel" aria-labelledby="o-bibliotheque" hidden>
+    <div class="box">
+      <h2><i data-ic="book"></i>Bibliothèque SoccaQuiz</h2>
+      <p class="small" style="margin-top:0">Des quiz prêts à l'emploi, relus avant d'être publiés. « Ajouter à mon site » le met sur le site de {{PRENOM}} en un toucher.</p>
+      <div class="bib-filtres">
+        <label class="small" for="bib-classe">Classe :</label><select id="bib-classe"></select>
+        <label class="small" for="bib-mat">Matière :</label><select id="bib-mat"></select>
+      </div>
+      <div id="bib-liste" class="bib-liste" aria-live="polite"><p class="small">Chargement…</p></div>
+    </div>
+    <div class="box">
+      <h2><i data-ic="send"></i>Partager un de tes quiz</h2>
+      <p class="small" style="margin:0">Un quiz réussi sur ton site peut aider d'autres familles : dans l'onglet <b>Quiz</b>, touche <b>Proposer</b> à côté du quiz. Il est relu avant d'être ajouté ici.</p>
     </div>
   </div>
   <div class="panneau" id="p-reglages" role="tabpanel" aria-labelledby="o-reglages" hidden>
@@ -199,6 +228,8 @@ const ICONES = {
   x: '<circle cx="12" cy="12" r="10"/><path d="m15 9-6 6M9 9l6 6"/>',
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   play: '<path d="m6 4 14 8-14 8Z"/>',
+  check: '<path d="M20 6 9 17l-5-5"/>',
+  copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'
 };
 const I = n => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">${ICONES[n] || ''}</svg>`;
@@ -495,7 +526,7 @@ function afficherQuiz() {
     Q.map(q => `<tr><td>${esc(q.titre)}</td>
       <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
       <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
-      <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
+      <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn" type="button" data-p="${esc(q.fichier)}">${I('send')} Proposer</button> ` : ""}${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
     `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.${window.__UQ && __UQ.espace === "parent" ? " Les parties jouées depuis l'espace parent (« ▶ Tester ») ne sont pas comptées dans les résultats de l'enfant." : ""}</p>`;
 }
 // fenêtre de confirmation : <dialog> modal (focus gardé dedans, Échap ferme), le focus revient ensuite où il était
@@ -533,27 +564,177 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
     .apiSupprimerQuiz(q.fichier);
 });
 
+/* ---------- proposer un quiz à la bibliothèque : texte en lignes, envoyé par mail à SoccaQuiz (relu avant publication) ---------- */
+const MAIL_SOCCAQUIZ = "soccaquiz@gmail.com";
+document.getElementById("liste-quiz").addEventListener("click", e => {
+  const b = e.target.closest("button[data-p]");
+  if (!b) return;
+  const q = (window.QUIZ || []).find(x => x.fichier === b.dataset.p);
+  if (!q) return;
+  b.disabled = true;
+  google.script.run
+    .withSuccessHandler(r => {
+      b.disabled = false;
+      if (!r || r.erreur) { boite(`<h3>😕 Oups</h3><p>${esc((r && r.erreur) || "Lecture du quiz impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); return; }
+      const classe = (window.__UQ || {}).classe || "";
+      const corps = `Bonjour,\n\nJe propose ce quiz pour la bibliothèque SoccaQuiz.\nClasse : ${classe || "?"}\n\n${r.texte}\n`;
+      const sujet = "Proposition de quiz : " + (r.titre || q.titre);
+      const court = encodeURIComponent(corps).length < 1800;
+      const mail = "mailto:" + MAIL_SOCCAQUIZ + "?subject=" + encodeURIComponent(sujet) + "&body=" + encodeURIComponent(court ? corps : "Bonjour,\n\nJe propose ce quiz pour la bibliothèque SoccaQuiz.\nClasse : " + (classe || "?") + "\n\n(colle ici le quiz copié)\n");
+      boite(`<h3>Proposer « ${esc(r.titre || q.titre)} »</h3>
+        <p>Le quiz est envoyé par mail à SoccaQuiz, relu, puis ajouté à la bibliothèque pour les autres familles. Seules les questions partent : ni photo, ni résultat, ni prénom.</p>
+        <p class="small">Vérifie qu'aucune question ne contient le prénom de ton enfant ou un détail personnel.</p>
+        <textarea readonly aria-label="Texte du quiz">${esc(r.texte)}</textarea>
+        ${court ? "" : `<p class="small">Le quiz est long : touche « Copier », puis colle-le dans le mail.</p>`}
+        <div class="bts"><button class="btn" type="button" data-r="non">Fermer</button><button class="btn" type="button" data-copier>${I('copy')} Copier</button><a class="btn principal" href="${esc(mail)}" target="_blank" rel="noopener">${I('mail')} Envoyer par mail</a></div>`);
+      const d = document.querySelector("dialog.boite:last-of-type");
+      if (d) d.querySelector("[data-copier]").addEventListener("click", ev => {
+        ev.stopPropagation();
+        const ta = d.querySelector("textarea"), bt = ev.currentTarget;
+        const fini = () => { bt.innerHTML = I('check') + " Copié"; };
+        if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.texte).then(fini, () => { ta.select(); try { document.execCommand("copy"); fini(); } catch (x) {} });
+        else { ta.select(); try { document.execCommand("copy"); fini(); } catch (x) {} }
+      });
+      if (d) d.querySelector("a.btn").addEventListener("click", ev => ev.stopPropagation());
+    })
+    .withFailureHandler(err => { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Lecture du quiz impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); })
+    .apiTexteQuiz(q.fichier);
+});
+
+/* ---------- bibliothèque de la communauté : quiz publiés sur GitHub Pages (docs/bibliotheque/), ajoutés comme « Coller et créer » ---------- */
+const Bib = (function () {
+  const BASE = "https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/";
+  const CLASSES = ["PS", "MS", "GS", "CP", "CE1", "CE2", "CM1", "CM2", "6e", "5e", "4e", "3e", "2de", "1re", "Tle", "adulte"];
+  const NOM_CLASSE = c => c === "adulte" ? "Adulte" : c;
+  const $ = id => document.getElementById(id);
+  let liste = null, charge = null, ajoutes = new Set();
+  const textes = {};
+  const propreId = s => /^[a-z0-9-]{1,80}$/.test(String(s)) ? String(s) : "";
+  function lire() {
+    if (!charge) charge = fetch(BASE + "index.json", { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+      .then(j => (liste = (Array.isArray(j && j.quiz) ? j.quiz : []).filter(q => q && propreId(q.id) && q.titre)))
+      .catch(e => { charge = null; throw e; });
+    return charge;
+  }
+  function texte(id) {
+    if (!textes[id]) textes[id] = fetch(BASE + id + ".txt", { cache: "no-cache" }).then(r => { if (!r.ok) throw new Error(r.status); return r.text(); }).catch(e => { delete textes[id]; throw e; });
+    return textes[id];
+  }
+  const deja = q => ajoutes.has(q.id) || (window.QUIZ || []).some(x => String(x.titre).trim().toLowerCase() === String(q.titre).trim().toLowerCase());
+  const nouveau = q => q.ajoute && (Date.now() - new Date(q.ajoute).getTime()) < 30 * 864e5;
+  function filtres() {
+    const cl = (window.__UQ || {}).classe || "";
+    const sc = $("bib-classe"), sm = $("bib-mat");
+    if (!sc.options.length) {
+      sc.innerHTML = `<option value="">Toutes les classes</option>` + CLASSES.map(c => `<option value="${c}">${NOM_CLASSE(c)}</option>`).join("");
+      sc.value = cl; sc.onchange = afficher;
+      const M = window.MATIERES || {};
+      sm.innerHTML = `<option value="">Toutes</option>` + Object.keys(M).map(k => `<option value="${esc(k)}">${esc(M[k].emo + " " + M[k].nom)}</option>`).join("");
+      sm.onchange = afficher;
+    }
+  }
+  function afficher() {
+    const el = $("bib-liste");
+    if (!liste) return;
+    const cl = $("bib-classe").value, mat = $("bib-mat").value, M = window.MATIERES || {};
+    const L = liste.filter(q => (!cl || (Array.isArray(q.classes) && q.classes.includes(cl))) && (!mat || q.matiere === mat))
+      .sort((a, b) => String(b.ajoute || "").localeCompare(String(a.ajoute || "")));
+    if (!L.length) {
+      el.innerHTML = `<p class="small">Pas encore de quiz ${cl ? "pour la classe " + esc(NOM_CLASSE(cl)) : ""}${mat ? " dans cette matière" : ""}. ${cl ? `<button class="btn" type="button" data-toutes>Voir toutes les classes</button>` : ""}</p>`;
+      return;
+    }
+    el.innerHTML = L.map(q => {
+      const m = M[q.matiere] || M.autre || { emo: "", nom: "" };
+      const cls = Array.isArray(q.classes) && q.classes.length ? q.classes.map(NOM_CLASSE).join(", ") : "";
+      const d = deja(q);
+      return `<div class="bib-carte" data-id="${esc(q.id)}">
+        <div class="bib-ico" aria-hidden="true">${esc(q.icone || m.emo)}</div>
+        <div><h3>${esc(q.titre)}${nouveau(q) ? `<span class="bib-nouveau">Nouveau</span>` : ""}</h3>
+          <div class="bib-meta">${esc(m.emo + " " + m.nom)}${cls ? " · " + esc(cls) : ""}${q.nb ? " · " + esc(String(+q.nb || "")) + " questions" : ""}</div>
+          ${q.description ? `<div class="small">${esc(q.description)}</div>` : ""}</div>
+        <div class="bib-actions">
+          <button class="btn" type="button" data-a="apercu">${I('eye')} Aperçu</button>
+          ${d ? `<button class="btn fait" type="button" disabled>${I('check')} Sur ton site</button>` : `<button class="btn principal" type="button" data-a="ajouter">${I('plus')} Ajouter à mon site</button>`}
+        </div></div>`;
+    }).join("");
+  }
+  function apercu(carte, q) {
+    const ex = carte.querySelector(".bib-apercu");
+    if (ex) { ex.remove(); return; }
+    texte(q.id).then(t => {
+      const qs = t.split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^([QVSGOACXNPK])\|([^|]*)(?:\|([^|]*))?/)).filter(Boolean)
+        .map(m => m[1] === "G" ? m[2].replace(/\[([^\]]*)\]/g, "…") : m[1] === "P" ? m[2] + " « " + (m[3] || "") + " »" : m[2]);
+      const ul = document.createElement("ol"); ul.className = "bib-apercu";
+      ul.innerHTML = qs.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join("");
+      carte.appendChild(ul);
+    }).catch(() => boite(`<h3>😕 Oups</h3><p>Aperçu impossible pour l'instant. Vérifie la connexion, puis réessaie.</p><div class="bts"><button class="btn" type="button">OK</button></div>`));
+  }
+  function ajouter(bt, q) {
+    if (!(window.google && google.script && google.script.run)) return;
+    bt.disabled = true; bt.innerHTML = "Ajout…";
+    const echec = msg => { bt.disabled = false; bt.innerHTML = I('plus') + " Ajouter à mon site"; boite(`<h3>😕 Oups</h3><p>${esc(msg)}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); };
+    texte(q.id).then(t => {
+      google.script.run
+        .withSuccessHandler(r => {
+          if (!r || r.erreur) return echec((r && r.erreur) || "Ajout impossible.");
+          ajoutes.add(q.id);
+          if (r.page) { (window.QUIZ = window.QUIZ || []).push({ titre: r.titre || q.titre, matiere: q.matiere, fichier: r.page + ".html", date: new Date().toISOString().slice(0, 10) }); afficherQuiz(); }
+          bt.className = "btn fait"; bt.innerHTML = I('check') + " Ajouté sur le site de {{PRENOM}}";
+        })
+        .withFailureHandler(err => echec((err && err.message) || "Ajout impossible."))
+        .apiAjouterQuiz(t);
+    }).catch(() => echec("Le quiz n'a pas pu être téléchargé. Vérifie la connexion, puis réessaie."));
+  }
+  $("bib-liste").addEventListener("click", e => {
+    if (e.target.closest("[data-toutes]")) { $("bib-classe").value = ""; return afficher(); }
+    const b = e.target.closest("button[data-a]"), carte = e.target.closest(".bib-carte");
+    if (!b || !carte || !liste) return;
+    const q = liste.find(x => x.id === carte.dataset.id); if (!q) return;
+    if (b.dataset.a === "apercu") apercu(carte, q); else ajouter(b, q);
+  });
+  // pastille sur l'onglet : nouveaux quiz de la classe depuis la dernière visite de la bibliothèque
+  function pastille() {
+    let vu = ""; try { vu = localStorage.getItem("uq-bib-vu") || ""; } catch (e) {}
+    const cl = (window.__UQ || {}).classe || "";
+    lire().then(L => {
+      const n = L.filter(q => q.ajoute && String(q.ajoute) > vu && (!cl || (q.classes || []).includes(cl))).length;
+      const el = $("nb-bib"); el.textContent = n; el.hidden = !n || !vu;
+    }).catch(() => {});
+  }
+  function ouvrir() {
+    filtres();
+    lire().then(() => {
+      afficher();
+      try { localStorage.setItem("uq-bib-vu", new Date().toISOString().slice(0, 10)); } catch (e) {}
+      $("nb-bib").hidden = true;
+    }).catch(() => { $("bib-liste").innerHTML = `<p class="small">La bibliothèque n'a pas pu être chargée. Vérifie la connexion, puis rouvre cet onglet.</p>`; });
+  }
+  setTimeout(pastille, 1500);
+  return { ouvrir, afficher };
+})();
+
 afficherQuiz();
 charger();
 
 /* ---------- onglets : Résultats, Gérer les quiz, Réglages ---------- */
 function ouvrirOnglet(o, focus) {
   document.querySelectorAll(".onglet").forEach(b => { const on = b.dataset.o === o; b.classList.toggle("on", on); b.setAttribute("aria-selected", on); b.tabIndex = on ? 0 : -1; if (on && focus) b.focus(); });
-  ["resultats", "quiz", "reglages"].forEach(x => { document.getElementById("p-" + x).hidden = x !== o; });
+  ["resultats", "quiz", "bibliotheque", "reglages"].forEach(x => { document.getElementById("p-" + x).hidden = x !== o; });
+  if (o === "bibliotheque") Bib.ouvrir();
   try { history.replaceState(null, "", "#" + o); } catch (e) {}
 }
 document.getElementById("onglets").addEventListener("click", e => { const b = e.target.closest(".onglet"); if (b) ouvrirOnglet(b.dataset.o); });
 // flèches gauche/droite, Début, Fin : passer d'un onglet à l'autre au clavier
 document.getElementById("onglets").addEventListener("keydown", e => {
-  const L = ["resultats", "quiz", "reglages"], i = L.indexOf((document.activeElement.dataset || {}).o);
+  const L = ["resultats", "quiz", "bibliotheque", "reglages"], i = L.indexOf((document.activeElement.dataset || {}).o);
   if (i < 0) return;
   const j = { ArrowRight: i + 1, ArrowLeft: i - 1, Home: 0, End: L.length - 1 }[e.key];
   if (j === undefined) return;
   e.preventDefault(); ouvrirOnglet(L[(j + L.length) % L.length], true);
 });
-if (/^#(quiz|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
+if (/^#(quiz|bibliotheque|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
 // lien venu d'une autre page (« Revenir à l'espace parent ») : l'onglet est dans l'adresse de la page principale
-else try { google.script.url.getLocation(l => { if (l && /^(quiz|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
+else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
 
 /* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
 (function () {
