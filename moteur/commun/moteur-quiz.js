@@ -615,8 +615,13 @@
   }
   function ecouter(quoi) {
     const q = shuffled && shuffled[cur]; if (!q) return;
-    if (quoi === 'notes') jouerNotes(q); else direPhrase(q, quoi === 'lent');
+    // clavier ouvert (champ de réponse) : on le ferme d'abord et on lit une fois l'écran stabilisé
+    const a = document.activeElement, clavier = a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && TACTILE;
+    if (clavier) a.blur();
+    const go = () => { if (quoi === 'notes') jouerNotes(q); else direPhrase(q, quoi === 'lent'); };
+    if (clavier && !IOS) setTimeout(go, 350); else go();       // iOS : la lecture doit partir dans le toucher
   }
+  const TACTILE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
   function porteeSVG(q) {
     const seq = sequence(q); if (!seq.length) return '';
     const bas = 92, demi = 7, x0 = 96, dx = Math.min(64, 300 / seq.length);        // bas = ligne du mi (E4), demi = demi-interligne
@@ -734,7 +739,7 @@
         }).join('');
         return `<div class="ex-texte">${html}</div>${c.repondu ? '' : `<button class="validate-btn ex-valider" onclick="${ex('trous')}">Valider ✓</button>`}`;
       },
-      monter(q, c) { if (!c.repondu) { const i = document.querySelector('.ex-trou'); if (i) setTimeout(() => i.focus(), 30); } },
+      monter(q, c) { if (!c.repondu && !q.dire) { const i = document.querySelector('.ex-trou'); if (i) setTimeout(() => i.focus(), 30); } },
       entree: () => {   // Entrée : passe au trou vide suivant, valide quand tout est rempli
         const t = [...document.querySelectorAll('.ex-trou')], i = t.indexOf(document.activeElement);
         const suivant = t.slice(i + 1).concat(t.slice(0, i + 1)).find(x => !x.value.trim());
@@ -813,7 +818,7 @@
         return `<div class="input-row"><input id="ans-input" class="ans-input ${c.repondu ? (c.ok ? 'ok' : 'ko') : ''}" inputmode="${parseFloat(String(q.a).replace(',', '.')) < 0 ? 'text' : 'decimal'}" enterkeyhint="done" autocomplete="off" value="${c.repondu ? esc(c.donne) : ''}" ${c.repondu ? 'disabled' : ''} placeholder="Ta réponse…">` +
           `${q.unit ? `<span class="unit">${esc(q.unit)}</span>` : ''}${c.repondu ? '' : `<button class="validate-btn" onclick="${ex('nombre')}">Valider ✓</button>`}</div>`;
       },
-      monter(q, c) { if (!c.repondu) { const i = document.getElementById('ans-input'); if (i) setTimeout(() => i.focus(), 30); } },
+      monter(q, c) { if (!c.repondu && !q.dire) { const i = document.getElementById('ans-input'); if (i) setTimeout(() => i.focus(), 30); } },
       entree: () => actionExercice('nombre'),
       attendu: q => esc(String(q.a).replace('.', ',')) + (q.tol ? ' (à ' + esc(String(q.tol).replace('.', ',')) + ' près)' : '') + (q.unit ? ' ' + esc(q.unit) : '')
     },
@@ -1032,7 +1037,8 @@
     if (T && T.monter) T.monter(q, ctxDe(q));
     if (q.dire) verifierVoix(langueLue(q));
     if (!answered) {
-      if (q.type === 'input') { const inp = document.getElementById('ans-input'); if (inp) setTimeout(() => inp.focus(), 30); }
+      // phrase à écouter : pas de clavier ouvert d'office (sur Android, le clavier qui se ferme pendant la lecture fige la page)
+      if (q.type === 'input' && !q.dire) { const inp = document.getElementById('ans-input'); if (inp) setTimeout(() => inp.focus(), 30); }
       if (C.avantQuestion) try { C.avantQuestion(q); } catch (e) { console.warn(e); }
       // petits : question lue une seule fois (pas à chaque toucher dans un exercice) ; tout de suite si l'affichage
       // vient d'un toucher (iOS refuse une lecture lancée plus tard), sinon après un court délai
