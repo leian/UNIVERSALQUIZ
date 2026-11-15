@@ -722,6 +722,12 @@ try {
     await ev(`apiClasse({ classe: ${JSON.stringify(classeAvant)} })`);
     const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
     ok(intrus.r === 0, 'famille : un enfant absent du fichier de la famille est refusé');
+    await ev(`apiFamilleRetirer({ parent: "${P2}" }); CacheService.getScriptCache().remove("famille")`);
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    ok(!(await page.locator('#famille').isVisible()) && /seul ce site est inscrit/.test(await page.locator('#famille-reglages').innerText()), 'famille : un seul site inscrit → pas de sélecteur, Réglages explique comment l\'autre site apparaît');
+    const urls = await ev('[URL_SITE_.test("https://script.google.com/macros/s/AKfy-1_x/exec"), URL_SITE_.test("https://script.google.com/a/macros/ecole.fr/s/AKfy-1/exec"), URL_SITE_.test("https://script.google.com/macros/s/AKfy/exec?x=1")]');
+    ok(urls.r.join() === 'true,true,false', 'famille : adresses des comptes Gmail et Google Workspace reconnues');
     await ev('CONFIG.espace = "enfant"');
     await page.goto(BASE + '/exec');
     ok(await page.evaluate(() => !('famille' in (window.__UQ || {}))), 'famille : rien n\'est envoyé au site de l\'enfant');

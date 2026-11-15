@@ -893,7 +893,8 @@ function cleGemini_() {
    aussi gardée, pour n'être saisie qu'une fois. Ce fichier n'est lu que par les sites du parent
    (ils s'exécutent avec son compte) et n'est jamais envoyé au site de l'enfant. */
 const NOM_FAMILLE = 'SoccaQuiz – Famille.json';
-const URL_SITE_ = /^https:\/\/script\.google\.com\/(a\/[\w.\-]+\/)?macros\/s\/[\w\-]+\/exec$/;
+// comptes Gmail : …/macros/s/ID/exec ; comptes Google Workspace : …/a/macros/domaine/s/ID/exec
+const URL_SITE_ = /^https:\/\/script\.google\.com\/(a\/macros\/[\w.\-]+|macros)\/s\/[\w\-]+\/exec$/;
 function fichierFamille_(creer) {
   const p = PropertiesService.getScriptProperties(), id = p.getProperty('FAMILLE');
   let f = null;
@@ -945,7 +946,6 @@ function familleListe_() {
     })())).map(x => ({ prenom: String(x.prenom || '').slice(0, 40), classe: String(x.classe || '').slice(0, 10), parent: x.parent, dossier: String(x.dossier || '') }));
     try { cache.put('famille', JSON.stringify(l), 60); } catch (e) {}      // court : une classe changée chez un autre enfant apparaît vite
   }
-  if (l.length < 2) return [];
   return l.map(x => Object.assign(x, { ici: x.parent === CONFIG.urlParent }));
 }
 

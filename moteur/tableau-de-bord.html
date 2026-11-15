@@ -834,23 +834,26 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
 
 /* famille : passer à l'espace parent d'un autre enfant (même compte Google) */
 (() => {
-  const l = (window.__UQ && window.__UQ.famille) || [], el = document.getElementById("famille");
-  if (!el || l.length < 2) return;
+  const l = (window.__UQ && window.__UQ.famille) || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
+  if (!el || !r || !l.length) return;
   const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
-  el.innerHTML = "<b>Enfant :</b>" + l.map(x => x.ici ? `<span class="on" aria-current="page">${nom(x)}</span>`
-    : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
-  el.hidden = false;
-  // Réglages : retirer un site supprimé depuis l'installateur (son lien ne marche plus)
-  const r = document.getElementById("famille-reglages");
-  r.innerHTML = "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe d'un espace parent à l'autre. Un site supprimé depuis l'installateur peut rester dans la liste : retire-le ici.</p>" +
-    l.filter(x => !x.ici).map(x => `<p style="margin:4px 0">${nom(x)} <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button></p>`).join("");
+  if (l.length > 1) {
+    el.innerHTML = "<b>Enfant :</b>" + l.map(x => x.ici ? `<span class="on" aria-current="page">${nom(x)}</span>`
+      : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
+    el.hidden = false;
+  }
+  // Réglages : qui est inscrit dans la famille ; retirer un site supprimé depuis l'installateur (son lien ne marche plus)
+  r.innerHTML = (l.length > 1
+      ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe d'un espace parent à l'autre. Un site supprimé depuis l'installateur peut rester dans la liste : retire-le ici.</p>"
+      : "<p style=\"margin:0 0 8px\">Pour l'instant, seul ce site est inscrit. Un autre site de ton compte apparaît ici, et dans le sélecteur « Enfant : » en haut de page, dès qu'il a été <b>mis à jour</b> (version 2.60 ou plus) puis <b>ouvert une fois</b> (son espace parent ou le lien de l'enfant).</p>") +
+    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(ce site)</small>" : ` <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button>`}</p>`).join("");
   document.getElementById("box-famille").hidden = false;
   r.addEventListener("click", ev => {
     const b = ev.target.closest("[data-retirer]"); if (!b) return;
     b.disabled = true;
     google.script.run.withSuccessHandler(res => {
       if (!res || res.erreur) { b.disabled = false; b.insertAdjacentText("afterend", " " + ((res && res.erreur) || "Erreur")); return; }
-      const p = b.parentNode; p.textContent = "Retiré. Il disparaîtra du sélecteur au prochain chargement de la page.";
+      b.parentNode.textContent = "Retiré. Il disparaîtra du sélecteur au prochain chargement de la page.";
     }).withFailureHandler(() => { b.disabled = false; }).apiFamilleRetirer({ parent: b.getAttribute("data-retirer") });
   });
 })();
