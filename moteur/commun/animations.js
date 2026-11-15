@@ -17,6 +17,10 @@
   @keyframes fx-pop { 0% { transform:scale(1); } 40% { transform:scale(1.06); } 100% { transform:scale(1); } }
   @keyframes fx-secousse { 0%,100% { transform:translateX(0); } 20% { transform:translateX(-7px); } 40% { transform:translateX(6px); } 60% { transform:translateX(-4px); } 80% { transform:translateX(2px); } }
   @keyframes fx-entree { 0% { opacity:0; transform:translateY(4px) scale(.85); } 60% { opacity:1; transform:translateY(0) scale(1.08); } 100% { transform:scale(1); } }
+  @keyframes fx-bond { 0%,100% { transform:none; } 25% { transform:scale(1.1,.85); } 55% { transform:translateY(-12px) scale(.95,1.06); } 80% { transform:scale(1.05,.93); } }
+  @keyframes fx-penche { 0%,100% { transform:none; } 30% { transform:rotate(-8deg); } 65% { transform:rotate(5deg); } }
+  .fx-bond { animation:fx-bond .5s ease-out !important; }
+  .fx-penche { animation:fx-penche .55s ease-in-out !important; }
   .fx-pop { animation:fx-pop .32s ease-out; }
   .fx-secousse { animation:fx-secousse .38s ease-in-out; }
   .fx-serie { display:inline-flex; align-items:center; gap:4px; margin-left:6px; padding:1px 9px; border-radius:99px; font-size:12px; font-weight:800; line-height:18px;
@@ -26,7 +30,7 @@
     color:#475569; font:inherit; font-size:13px; cursor:pointer; transition:transform .12s; }
   .fx-son:active { transform:scale(.94); }
   .fx-son svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie { animation:none; } }`;
+  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie, .fx-bond, .fx-penche { animation:none !important; } }`;
 
   // lycée et parent : sobre (pas de pastille de série, sons coupés par défaut)
   const SOBRE = { lycee: 1, parent: 1 };
@@ -80,6 +84,7 @@
     reponse(ok, serie, theme) {
       installer();
       const q = s => document.querySelector(s);
+      animer(q('.compagnon'), ok ? 'fx-bond' : 'fx-penche');
       if (ok) {
         animer(q('.opt-btn.correct') || q('.explanation'), 'fx-pop');
         animer(q('.score-badge'), 'fx-pop');

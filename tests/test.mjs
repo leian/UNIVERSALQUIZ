@@ -87,6 +87,11 @@ try {
   await page.locator('.fx-son').click();
   ok(await page.locator('.fx-son[aria-pressed="false"]').count() === 1 && await page.evaluate(() => localStorage.getItem('uq-sons')) === '0', 'bouton « Sons » : sons coupés et choix mémorisé');
   await page.locator('.fx-son').click();
+  await page.locator('.start-btn').click();
+  ok(await page.locator('.q-compagnon .compagnon.m-reflexion').count() === 1, 'mascotte compagne à côté de la question (primaire)');
+  await page.evaluate(() => MoteurQuiz.repondre('x', true));
+  ok(await page.locator('.compagnon.m-bravo').count() === 1 && await page.locator('.q-compagnon .bulle').count() === 1 && await page.locator('.explanation.avec-mascotte').count() === 0, 'bonne réponse : mascotte « bravo » et bulle, une seule mascotte à l\'écran');
+  await page.evaluate(() => MoteurQuiz.home());
   ok(!!(await jouer()), 'partie jouée jusqu\'au résultat');
   for (let i = 0; i < 30; i++) { s = await ev('1'); if (Object.values(s.sheets)[0].rows.length >= 2) break; await page.waitForTimeout(100); }   // l'envoi du résultat est asynchrone
   const lignes = Object.values(s.sheets)[0].rows;

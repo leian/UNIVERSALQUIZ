@@ -58,6 +58,18 @@
   .emo { width: 1em; height: 1em; vertical-align: -0.12em; }
   .explanation.avec-mascotte { display: flex; gap: 10px; align-items: flex-start; }
   .explanation.avec-mascotte .mascotte { width: 56px; height: 56px; margin-top: -4px; }
+  /* mascotte compagne à côté de la question (maternelle à 5e) */
+  .q-compagnon { display: flex; gap: 10px; align-items: flex-start; }
+  .q-compagnon .compagnon { width: 60px; height: 60px; margin-top: -2px; transform-origin: 50% 100%; }
+  .q-compagnon .m-reflexion { animation: compagnon-souffle 3.2s ease-in-out infinite; }
+  .q-compagnon-texte { flex: 1; min-width: 0; }
+  .bulle { position: relative; display: inline-block; margin: 0 0 6px; padding: 3px 11px; border-radius: 12px; background: var(--main-light, #e0e7ff); color: var(--main-dark, #1e3a8a);
+    font-size: 14px; font-weight: 700; animation: bulle-entree .3s cubic-bezier(.2,.8,.3,1); }
+  .bulle::before { content: ""; position: absolute; left: -6px; top: 9px; border: 6px solid transparent; border-left: 0; border-right-color: var(--main-light, #e0e7ff); }
+  @keyframes compagnon-souffle { 50% { transform: scale(1.025, 1.05); } }
+  @keyframes bulle-entree { from { opacity: 0; transform: translateX(-6px) scale(.9); } }
+  @media (max-width: 360px) { .q-compagnon .compagnon { width: 48px; height: 48px; } }
+  @media (prefers-reduced-motion: reduce) { .q-compagnon .m-reflexion, .bulle { animation: none; } }
   .fin-mascotte { display: flex; justify-content: center; align-items: flex-end; gap: 4px; margin-bottom: 0.5rem; }
   .fin-mascotte .mascotte { width: 120px; height: 120px; }
   .fin-emoji { font-size: 2rem; }

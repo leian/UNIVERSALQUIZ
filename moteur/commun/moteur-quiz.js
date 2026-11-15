@@ -225,6 +225,19 @@
   TONS.parent = TONS.lycee;
   const themeActuel = () => document.documentElement.getAttribute('data-theme') || 'explorateurs';
   const profil = () => PROFILS[themeActuel()] || {};
+  // mascotte compagne à côté de la question : maternelle, primaire, 6e et 5e
+  const compagnon = () => { const t = themeActuel(); return t === 'petits' || t === 'lecteurs' || t === 'explorateurs' || (t === 'college' && /^(6e|5e)$/.test(String((window.__UQ && window.__UQ.classe) || ''))); };
+  const BULLES = {
+    ok: ['Exact !', 'Bien joué !', 'Oui, c\'est ça !', 'Super !', 'Bravo !', 'Tu gères !'],
+    serie: ['Quelle série !', 'Rien ne t\'arrête !', 'En pleine forme !'],
+    ko: ['Pas grave, on retient !', 'Presque !', 'On apprend en se trompant.', 'La prochaine sera la bonne !', 'Courage, continue !'],
+    accents: ['Attention aux accents !']
+  };
+  // phrase stable pour une question donnée (la question peut être redessinée)
+  function bulle(ok, note, serie) {
+    const l = ok ? (serie >= 3 ? BULLES.serie : BULLES.ok) : note === 'accents' ? BULLES.accents : BULLES.ko;
+    return l[(cur * 7 + serie) % l.length];
+  }
   const ton = () => TONS[themeActuel()] || TONS.defaut;
   const nbParDefaut = () => Math.min(C.nbQuestions, profil().nb || Infinity);
   // lecture à voix haute de la question (petits : automatique ; lecteurs : bouton), avec les choix
@@ -1011,6 +1024,7 @@
       const intro = ok ? ton().ok : accents ? `⚠️ Attention à l'orthographe (accents, apostrophes, traits d'union) : la bonne réponse s'écrit <strong>${att}</strong>${fin}` : `${ton().ko} <strong>${att}</strong>${fin}`;
       const exp = H(q.exp || q.e || '');
       expBlock = ok ? `<div class="explanation" role="status" aria-live="polite">${intro}${exp ? '<br>' + exp : ''}</div>`
+        : compagnon() ? `<div class="explanation" role="status" aria-live="polite">${intro}${exp ? '<br>' + exp : ''}</div>`
         : `<div class="explanation avec-mascotte" role="status" aria-live="polite"><span class="mascotte m-encouragement" aria-hidden="true"></span><div>${intro}${exp ? '<br>' + exp : ''}</div></div>`;
     }
     const nextLabel = cur + 1 >= shuffled.length ? 'Voir le résultat ›' : duel ? `Au tour de ${esc(duel.noms[joueur(cur + 1)])} ›` : 'Question suivante ›';
@@ -1029,7 +1043,8 @@
         ${duel ? `<div class="duel-tour j${joueur(cur)}">${ic('duo')} À toi, ${esc(duel.noms[joueur(cur)])} !</div>` : ''}
         <span class="cat-tag">${C.icones && C.icones[q.cat] ? emojiImg(C.icones[q.cat]) + ' ' : ''}${H(q.cat || '')}</span>
         ${visuel(q)}
-        <div class="question-text">${texteQuestion(q)}</div>
+        ${compagnon() ? `<div class="q-compagnon"><span class="mascotte compagnon ${answered ? (ok ? 'm-bravo' : 'm-encouragement') : 'm-reflexion'}" aria-hidden="true"></span><div class="q-compagnon-texte">${answered && !duel ? `<div class="bulle" aria-hidden="true">${esc(bulle(ok, answers[cur] && answers[cur].note, serieEnCours()))}</div>` : ''}<div class="question-text">${texteQuestion(q)}</div></div></div>`
+          : `<div class="question-text">${texteQuestion(q)}</div>`}
         ${C.blocQuestion ? (C.blocQuestion(q, answered) || '') : ''}
         ${blocEcoute(q, answered)}
         ${body}
