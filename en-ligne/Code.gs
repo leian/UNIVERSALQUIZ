@@ -390,6 +390,10 @@ function pageHtml_(suppr) {
   '.ko{border-left:5px solid var(--ko);padding:10px 14px;background:#fef2f2;border-radius:10px}.cache{display:none}' +
   '.actions{display:flex;flex-direction:column;align-items:flex-start;gap:4px;margin:8px 0}.maj{background:#eff6ff;border:2px solid #bfdbfe;border-radius:12px;padding:10px 14px;margin:10px 0}' +
   '.retour{margin:12px 0 0;padding:10px 14px;background:#ecfdf3;border-left:5px solid var(--ok);border-radius:10px;font-size:.95rem}.marque{display:flex;align-items:center;justify-content:center;gap:12px}.marque img{border-radius:13px}.marque em{font-style:normal;color:#b3001b}details.avance{margin-top:14px}details.avance summary{cursor:pointer;color:var(--soft);font-size:.9rem}details.avance a{color:var(--soft)}' +
+  /* effet de bascule : on voit tout de suite qu'on a bien touché un bouton (comme sur le site) */
+  '.btn,button{transition:scale .12s ease,filter .12s ease;-webkit-tap-highlight-color:transparent}' +
+  '.btn:active:not(:disabled),button:active:not(:disabled),.appuye{scale:.95;filter:brightness(.92);transition-duration:.04s}' +
+  '@media (prefers-reduced-motion:reduce){.btn:active:not(:disabled),button:active:not(:disabled),.appuye{scale:none;filter:brightness(.85)}}' +
   '</style></head><body><main>' +
   '<h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="56" height="56" alt=""><span>Socca<em>Quiz</em></span></h1><p class="intro" id="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
@@ -419,7 +423,7 @@ function pageHtml_(suppr) {
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
   '<a href="https://leian.github.io/UNIVERSALQUIZ/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
-  '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\n' + scriptPage_() + '</script></body></html>';
+  '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }
 
 /* liste des classes (le choix « adulte » = site pour les révisions d'un parent) */
@@ -429,6 +433,14 @@ function choixClasse_(id) {
     groupes.map(g => '<optgroup label="' + g[0] + '">' + CLASSES.slice(g[1], g[2]).map(c => '<option>' + c + '</option>').join('') + '</optgroup>').join('') +
     '<optgroup label="Adulte"><option value="adulte">Pour moi (révisions d\'un adulte)</option></optgroup></select>';
 }
+
+/* sur téléphone, :active n'apparaît pas toujours pendant un toucher bref : classe « appuye » posée le temps du toucher */
+const BASCULE_ = '(function(){var el=null,t=0;' +
+  'function lacher(){var e=el;el=null;if(e){clearTimeout(t);t=setTimeout(function(){e.classList.remove("appuye");},110);}}' +
+  'document.addEventListener("pointerdown",function(ev){var b=ev.target.closest&&ev.target.closest(".btn,button");' +
+  'if(!b||b.disabled)return;if(el&&el!==b)el.classList.remove("appuye");el=b;b.classList.add("appuye");},{passive:true});' +
+  '["pointerup","pointercancel","dragstart"].forEach(function(x){document.addEventListener(x,lacher,{passive:true});});' +
+  'document.addEventListener("scroll",function(){if(el){el.classList.remove("appuye");el=null;}},{passive:true,capture:true});})();';
 
 function scriptPage_() {
   return '(' + String(function () {
