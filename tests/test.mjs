@@ -707,6 +707,42 @@ try {
     await ev(`CONFIG.espace = ${JSON.stringify(avantD)}`);
   }
 
+  // musique : placer une note sur la portée (L), sons à comparer (/), durée et intensité (*2, ^, _)
+  {
+    const avantM = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = ""');
+    const qm = await ev(`apiAjouterQuiz(${JSON.stringify("T|Lire et écouter|La portée et le son|musique|🎼|🎵\n## Portée|🎼\nL|Place la note sol sur la portée.|G4|Le sol est sur la 2e ligne.\nL|Place la note do aigu.|C5|Le do aigu est dans le 3e interligne.\n## Écoute|👂\nV|Le 2e son est plus aigu que le 1er.|V|notes=C4 / G4|Le sol est plus aigu que le do.\nQ|Quel son dure le plus longtemps ?|Le son 2|Le son 1|Ils durent pareil|Le 2e est tenu deux fois plus longtemps.|notes=E4 / E4*2\nQ|Quel son est le plus fort ?|Le son 1|Le son 2|Ils sont aussi forts|Le 1er est joué fort.|notes=A4^ / A4_")})`);
+    ok(qm.r && qm.r.ok && qm.r.nb === 5, 'musique : quiz avec L, sons à comparer, durées et nuances accepté — ' + JSON.stringify(qm.r && (qm.r.erreur || qm.r.avertissements)));
+    const lignes = (await ev(`apiTexteQuiz(${JSON.stringify(qm.r.page + '.html')})`)).r;
+    ok(lignes && /\nL\|Place la note sol sur la portée\.\|G4/.test(lignes.texte || '') && /notes=E4 \/ E4\*2/.test(lignes.texte || '') && /notes=A4\^ \/ A4_/.test(lignes.texte || ''), 'musique : relu en lignes sans rien perdre (L, /, *2, ^, _)');
+    await page.goto(BASE + '/exec?page=' + qm.r.page);
+    await page.locator('.start-btn').click();
+    const vu = { placerOk: 0, placerKo: 0, sons: 0, monter: 0 };
+    for (let i = 0; i < 12; i++) {
+      if (await page.locator('.result-card').count()) break;
+      if (await page.locator('.next-btn').count()) { await page.locator('.next-btn').click(); continue; }
+      const txt = await page.locator('.question-text').innerText();
+      if (/Place la note sol/.test(txt)) {
+        vu.monter = await page.locator('[data-f="placer-haut:"]').count();
+        await page.locator('rect[data-f="placer:32"]').click();         // sol4 = pas 32
+        await page.locator('.ex-valider').click();
+        vu.placerOk = await page.locator('.explanation').innerText().then(t => /Bonne réponse|Bravo|bien joué|Exact/i.test(t) ? 1 : 0);
+        continue;
+      }
+      if (/do aigu/.test(txt)) {
+        await page.locator('[data-f="placer-bas:"]').click();           // part du mi4 → ré4 : faux
+        await page.locator('.ex-valider').click();
+        vu.placerKo = await page.locator('.portee.placer ellipse').count();   // la note placée (rouge) et la bonne (verte)
+        continue;
+      }
+      if (/2e son est plus aigu/.test(txt)) vu.sons = await page.locator('.ecoute-btn', { hasText: /Son \d/ }).count();
+      const opt = page.locator('.opt-btn').first();
+      if (await opt.count()) await opt.click(); else await page.keyboard.press('Enter');
+    }
+    ok(vu.placerOk === 1 && vu.placerKo === 2 && vu.sons === 2 && vu.monter === 1, 'musique : note placée sur la portée (juste et fausse, correction dessinée), boutons « Son 1 » / « Son 2 » — ' + JSON.stringify(vu));
+    await ev(`CONFIG.espace = ${JSON.stringify(avantM)}`);
+  }
+
   // famille : un seul espace parent pour plusieurs enfants (sites du même compte Google)
   {
     const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;

@@ -801,6 +801,7 @@ function lignesDeQuiz_(c) {
       case 'nombre': l = ['N', f(q.q), String(q.a).replace('.', ','), String(q.tol || 0).replace('.', ','), exp]; break;
       case 'parler': l = ['P', f(q.q), f(q.phrase), exp]; break;
       case 'clavier': l = ['K', f(q.q), (q.notes || []).map(f).join(' '), exp]; break;
+      case 'placer': l = ['L', f(q.q), f((q.notes || [])[0]), exp]; break;
       default: return;
     }
     while (l.length > 2 && l[l.length - 1] === '') l.pop();
@@ -808,7 +809,7 @@ function lignesDeQuiz_(c) {
     if (q.langue && q.langue !== c.langueAudio) l.push('langue=' + f(q.langue));
     if (q.img) l.push('img=' + f(q.img));
     if (q.hint) l.push('indice=' + f(q.hint));
-    if (q.notes && q.type !== 'clavier') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
+    if (q.notes && q.type !== 'clavier' && q.type !== 'placer') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
     if (q.portee) l.push(q.portee === 'seule' ? 'portee=seule' : 'portee=oui');
     L.push(l.join('|'));
   });
@@ -907,6 +908,8 @@ function apiGeminiCle(d) {
 }
 // nom d'un dessin du catalogue du moteur (moteur/commun/dessins.js) : img=labo:becher, propositions « danger:corrosif »…
 const DESSIN_ = /^(?:(?:labo|danger|protection|etat):[a-z]{2,20}|heure:\d{1,2}h\d{2}(?:,\d{1,2}h\d{2}){0,3}|nombre:\d{1,12})$/;
+// note de musique : C4, F#4, do3… suivie de *2 / *0.5 (durée) et ^ (fort) ou _ (doux)
+const NOTE_ = /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?(\*\d*\.?\d+)?[\^_]?$/i;
 const CLE_GEMINI_ = /^(AIza|AQ\.)[\w.\-]{25,200}$/;
 // clé du site, sinon celle de la famille (saisie dans l'espace parent d'un autre enfant)
 function cleGemini_() {
@@ -1004,9 +1007,9 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   if (img) base.img = img;
   const dire = txt(q.dire || q.ecoute || q.audio, 300);
   if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
-  if (Array.isArray(q.notes) && type !== 'clavier') {
-    const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim()) || String(x).trim() === '-';
-    const notes = q.notes.slice(0, 16).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 5)).filter(note) : txt(x, 5))
+  if (Array.isArray(q.notes) && type !== 'clavier' && type !== 'placer') {
+    const note = x => NOTE_.test(String(x).trim()) || /^(\/|-(\*\d*\.?\d+)?)$/.test(String(x).trim());   // / sépare deux sons à comparer, - est un silence
+    const notes = q.notes.slice(0, 24).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 10)).filter(note) : txt(x, 10))
       .filter(x => Array.isArray(x) ? x.length : note(x));
     if (notes.length) { base.notes = notes; if (q.portee) base.portee = q.portee === 'seule' ? 'seule' : true; }
   }
@@ -1082,6 +1085,10 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
     if (phrase !== '*' && !qq.dire) qq.dire = phrase;           // bouton « Écouter » : le modèle à imiter
     if (!qq.langue) { const lg = txt(d.langue || d.langueAudio, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) qq.langue = lg; }
     return qq;
+  } else if (type === 'placer') {
+    const n = txt((Array.isArray(q.notes) ? q.notes[0] : q.note) || '', 6);
+    if (!/^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)\d?$/i.test(n)) { avert.push('Question ' + (i + 1) + ' ignorée (note à placer invalide).'); return null; }
+    return Object.assign(base, { type: 'placer', notes: [n] });
   } else if (type === 'clavier') {
     const note = x => /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?$/i.test(String(x).trim());
     const notes = (Array.isArray(q.notes) ? q.notes : []).map(x => txt(x, 5)).filter(note).slice(0, 8);
@@ -1283,7 +1290,7 @@ function lireFormatLignes_(texte) {
       cat = nom; if (ico) d.icones[cat] = ico;
       return;
     }
-    const m = l.match(/^([TQVSMGOACXNPK])\s*[|:]\s*(.*)$/i);
+    const m = l.match(/^([TQVSMGOACXNPKL])\s*[|:]\s*(.*)$/i);
     if (!m) return;
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
@@ -1323,6 +1330,8 @@ function lireFormatLignes_(texte) {
       Object.assign(q, { type: 'nombre', a: pos[1], tol: pos[2] || '0', exp: pos[3] || '' });
     } else if (sorte === 'P') {                // P|consigne|phrase à dire (* = réponse libre)|explication
       Object.assign(q, { type: 'parler', phrase: pos[1] || '', exp: pos[2] || '' });
+    } else if (sorte === 'L') {                // L|consigne|G4|explication : placer la note sur la portée
+      Object.assign(q, { type: 'placer', notes: [String(pos[1] || '').trim()], exp: pos[2] || '' });
     } else if (sorte === 'K') {                // K|consigne|C4 D4 E4|explication
       Object.assign(q, { type: 'clavier', notes: String(pos[1] || '').split(/[\s,]+/).filter(Boolean), exp: pos[2] || '' });
     } else if (sorte === 'Q') {
@@ -1341,7 +1350,7 @@ function lireFormatLignes_(texte) {
     if (typeof extra.img === 'string') q.img = extra.img;
     if (typeof extra.langue === 'string') q.langue = extra.langue;
     if (typeof extra.indice === 'string') q.hint = extra.indice;
-    if (typeof extra.notes === 'string' && q.type !== 'clavier') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
+    if (typeof extra.notes === 'string' && q.type !== 'clavier' && q.type !== 'placer') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
     if (extra.portee) q.portee = extra.portee === 'seule' ? 'seule' : true;
     vu = true;
     d.questions.push(q);

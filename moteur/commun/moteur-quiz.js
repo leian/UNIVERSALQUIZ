@@ -277,7 +277,7 @@
     // formule d'origine (les clés des quiz existants ne changent pas) ; contenu ajouté seulement pour les questions
     // dont le libellé seul ne suffit pas (« Relie. », « Répète. », « Que veut dire la phrase entendue ? »)
     let t = [C.titre, src.type || '', src.q || '', src.texte || '', Array.isArray(src.items) ? src.items.join('|') : ''].join('§');
-    if (['paires', 'classer', 'parler', 'clavier'].includes(typeDe(src)) || src.dire) t += '§' + [j(src.phrase), j(src.paires), j(src.groupes), j(src.notes), j(src.dire)].join('§');
+    if (['paires', 'classer', 'parler', 'clavier', 'placer'].includes(typeDe(src)) || src.dire) t += '§' + [j(src.phrase), j(src.paires), j(src.groupes), j(src.notes), j(src.dire)].join('§');
     let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
     return 'q' + (h >>> 0).toString(36);
   }
@@ -533,14 +533,30 @@
   const LETTRES = { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
   const FR = { DO: 'C', UT: 'C', RE: 'D', MI: 'E', FA: 'F', SOL: 'G', LA: 'A', SI: 'B' };
   // 'C4', 'F#4', 'Bb3' (notation internationale) ou 'do3', 'fa#3' (notation française : do3 = C4)
+  // suffixes : *2 (deux fois plus long), *0.5 (deux fois plus court), ^ (fort), _ (doux) — ex. C4*2^
   function lireNote(n) {
-    const t = String(n ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/♯/g, '#').replace(/♭/g, 'b').trim();
+    let t = String(n ?? '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/♯/g, '#').replace(/♭/g, 'b').trim(), dur = 1, vol = 1;
+    const mod = t.match(/^(.*?)(?:\*(\d*\.?\d+))?([\^_])?$/);
+    if (mod) { t = mod[1]; if (mod[2]) dur = Math.min(4, Math.max(0.25, +mod[2])); vol = mod[3] === '^' ? 2.2 : mod[3] === '_' ? 0.3 : 1; }
     let m = t.match(/^([A-Ga-g])([#b]?)(\d)?$/), dec = 0;
     if (!m) { m = t.match(/^(do|ut|re|mi|fa|sol|la|si)([#b]?)(\d)?$/i); if (!m) return null; m = [m[0], FR[m[1].toUpperCase()], m[2], m[3]]; dec = 1; }
     const L = m[1].toUpperCase(), oct = (m[3] == null ? 4 : +m[3] + dec), alt = m[2] === '#' ? 1 : m[2] === 'b' ? -1 : 0;
-    return { midi: 12 * (oct + 1) + LETTRES[L] + alt, pas: oct * 7 + 'CDEFGAB'.indexOf(L), alt };
+    return { midi: 12 * (oct + 1) + LETTRES[L] + alt, pas: oct * 7 + 'CDEFGAB'.indexOf(L), alt, dur, vol };
   }
-  const sequence = q => (Array.isArray(q.notes) ? q.notes : []).map(x => (Array.isArray(x) ? x : [x]).map(lireNote).filter(Boolean));
+  const sequence = q => (Array.isArray(q.notes) ? q.notes : []).map(x => (Array.isArray(x) ? x : [x]).map(lireNote).filter(Boolean)).filter(a => a.length);
+  // sons à comparer : notes=C4 / G4 → boutons « Son 1 », « Son 2 » ; - = silence (-*2 : deux temps)
+  function groupesSons(q) {
+    const g = [[]];
+    (Array.isArray(q.notes) ? q.notes : []).forEach(x => {
+      const arr = Array.isArray(x) ? x : [x], t0 = String(arr[0]).trim();
+      if (t0 === '/') { g.push([]); return; }
+      const r = /^-(?:\*(\d*\.?\d+))?$/.exec(t0);
+      if (r) { g[g.length - 1].push({ silence: true, dur: r[1] ? Math.min(4, Math.max(0.25, +r[1])) : 1 }); return; }
+      const ns = arr.map(lireNote).filter(Boolean);
+      if (ns.length) g[g.length - 1].push({ notes: ns, dur: Math.max(...ns.map(n => n.dur)), vol: Math.max(...ns.map(n => n.vol)) });
+    });
+    return g.filter(x => x.some(e => e.notes));
+  }
 
   let actx = null, sons = [];
   let dernierCancel = 0, voixCache = [];
@@ -560,24 +576,29 @@
     try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) { speechSynthesis.cancel(); dernierCancel = Date.now(); } } catch (e) {}
     sons.forEach(o => { try { o.stop(); } catch (e) {} }); sons = [];
   }
-  function jouerNotes(q) {
+  function jouerNotes(q, groupe) {
     couperSon();
     const AC = window.AudioContext || window.webkitAudioContext; if (!AC) return;
     actx = actx || new AC(); if (actx.state === 'suspended') actx.resume();
-    const pas = 0.55; let t = actx.currentTime + 0.06;
-    sequence(q).forEach(accord => {
-      accord.forEach(n => {
-        const f = 440 * Math.pow(2, (n.midi - 69) / 12);
-        [[1, 1], [2, 0.28], [3, 0.1]].forEach(([k, a]) => {       // fondamentale + deux harmoniques : son doux, proche d'un piano
-          const o = actx.createOscillator(), g = actx.createGain();
-          o.type = 'sine'; o.frequency.value = f * k;
-          g.gain.setValueAtTime(0.0001, t);
-          g.gain.exponentialRampToValueAtTime(0.22 * a / Math.sqrt(accord.length), t + 0.012);
-          g.gain.exponentialRampToValueAtTime(0.0001, t + pas * 1.7);
-          o.connect(g); g.connect(actx.destination); o.start(t); o.stop(t + pas * 1.8); sons.push(o);
+    const pas = 0.55, tous = groupesSons(q), liste = groupe != null ? [tous[groupe] || []] : tous;
+    let t = actx.currentTime + 0.06;
+    liste.forEach((g, gi) => {
+      if (gi) t += pas * 1.2;                                   // petit silence entre deux sons à comparer
+      g.forEach(ev => {
+        if (ev.notes) ev.notes.forEach(n => {
+          const f = 440 * Math.pow(2, (n.midi - 69) / 12), fin = pas * ev.dur;
+          [[1, 1], [2, 0.28], [3, 0.1]].forEach(([k, a]) => {       // fondamentale + deux harmoniques : son doux, proche d'un piano
+            const o = actx.createOscillator(), gn = actx.createGain();
+            o.type = 'sine'; o.frequency.value = f * k;
+            gn.gain.setValueAtTime(0.0001, t);
+            gn.gain.exponentialRampToValueAtTime(Math.min(0.6, 0.22 * a * ev.vol / Math.sqrt(ev.notes.length)), t + 0.012);
+            gn.gain.setValueAtTime(Math.min(0.6, 0.22 * a * ev.vol / Math.sqrt(ev.notes.length)) * 0.7, t + Math.max(0.05, fin * 0.8));
+            gn.gain.exponentialRampToValueAtTime(0.0001, t + fin + pas * 0.9);
+            o.connect(gn); gn.connect(actx.destination); o.start(t); o.stop(t + fin + pas); sons.push(o);
+          });
         });
+        t += pas * ev.dur;
       });
-      t += pas;
     });
   }
   // langue réellement lue : dans un quiz d'anglais, une phrase anglaise marquée langue=fr-FR (erreur de l'IA,
@@ -643,7 +664,7 @@
     // clavier ouvert (champ de réponse) : on le ferme d'abord et on lit une fois l'écran stabilisé
     const a = document.activeElement, clavier = a && /^(INPUT|TEXTAREA)$/.test(a.tagName) && TACTILE;
     if (clavier) a.blur();
-    const go = () => { if (quoi === 'notes') jouerNotes(q); else direPhrase(q, quoi === 'lent'); };
+    const go = () => { if (/^notes/.test(quoi || '')) jouerNotes(q, /^notes:\d+$/.test(quoi) ? +quoi.slice(6) : null); else direPhrase(q, quoi === 'lent'); };
     if (clavier && !IOS) setTimeout(go, 350); else go();       // iOS : la lecture doit partir dans le toucher
   }
   const TACTILE = (() => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } })();
@@ -666,11 +687,13 @@
   }
   function blocEcoute(q, repondu) {
     let h = '';
-    if (q.portee && q.notes) h += porteeSVG(q);
+    if (q.portee && q.notes && typeDe(q) !== 'placer') h += porteeSVG(q);
     const b = [], voix = 'speechSynthesis' in window && 'SpeechSynthesisUtterance' in window;   // sans synthèse vocale (certaines WebView) : pas de bouton muet
     if (voix && profil().lecture && !repondu) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.lire()">🔊 Lire la question</button>`);
     if (voix && q.dire) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter()">🔊 ${repondu ? 'Réécouter' : 'Écouter'}</button><button class="ecoute-btn lent" onclick="MoteurQuiz.ecouter('lent')">🐢 Lentement</button>`);
-    if (q.notes && q.portee !== 'seule' && sequence(q).length) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter('notes')">🎵 ${repondu ? 'Réécouter' : 'Écouter'}</button>`);
+    const gs = q.notes && q.portee !== 'seule' && typeDe(q) !== 'placer' ? groupesSons(q) : [];
+    if (gs.length > 1) gs.forEach((_, i) => b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter('notes:${i}')">🎵 Son ${i + 1}</button>`));
+    else if (gs.length) b.push(`<button class="ecoute-btn" onclick="MoteurQuiz.ecouter('notes')">🎵 ${repondu ? 'Réécouter' : 'Écouter'}</button>`);
     return h + (b.length ? `<div class="ecoute-row">${b.join('')}</div>` : '') + (voix && q.dire ? '<div class="input-note" id="voix-note" role="status" hidden></div>' : '');
   }
 
@@ -878,8 +901,38 @@
             (s.joue.length ? `<button class="ex-puce" data-f="effacer:" onclick="${ex('effacer')}">↺ Effacer</button>` : ''));
       },
       attendu: q => sequence(q).map(a => nomNote(a[0].midi)).join(' ')
+    },
+    // L : placer une note sur la portée — L|Place le sol|G4 ; on touche une ligne ou un interligne, puis Valider
+    placer: {
+      corps(q, c) {
+        const cible = (sequence(q)[0] || [])[0]; if (!cible) return '';
+        const s = etat(q, () => ({ pos: null }));
+        const pos = c.repondu ? (typeof c.donne === 'number' ? c.donne : null) : s.pos;
+        const bas = 120, demi = 9, X0 = 120, X1 = 400, xn = 300, PMIN = 26, PMAX = 42;    // pas 26 = la3 … 42 = do6 ; 30 = mi4 (1re ligne)
+        let sv = '';
+        for (let i = 0; i < 5; i++) sv += `<line x1="20" x2="${X1}" y1="${bas - i * 2 * demi}" y2="${bas - i * 2 * demi}" stroke="#334155" stroke-width="1.6"/>`;
+        sv += `<text x="24" y="${bas + 11}" font-size="100" fill="#1e293b" font-family="'Noto Music','Segoe UI Symbol','Apple Symbols','Bravura',serif">𝄞</text>`;
+        const tete = (p, coul) => {
+          const y = bas - (p - 30) * demi; let t = '';
+          for (let l = 28; l >= p; l -= 2) t += `<line x1="${xn - 20}" x2="${xn + 20}" y1="${bas - (l - 30) * demi}" y2="${bas - (l - 30) * demi}" stroke="#334155" stroke-width="1.6"/>`;
+          for (let l = 40; l <= p; l += 2) t += `<line x1="${xn - 20}" x2="${xn + 20}" y1="${bas - (l - 30) * demi}" y2="${bas - (l - 30) * demi}" stroke="#334155" stroke-width="1.6"/>`;
+          return t + `<ellipse cx="${xn}" cy="${y}" rx="12" ry="8.5" fill="${coul}" transform="rotate(-18 ${xn} ${y})"/>`;
+        };
+        if (c.repondu) { if (pos != null && pos !== cible.pas) sv += tete(pos, '#dc2626'); sv += tete(cible.pas, '#16a34a'); }
+        else if (pos != null) sv += tete(pos, '#1e293b');
+        if (!c.repondu) for (let p = PMIN; p <= PMAX; p++) {
+          const y = bas - (p - 30) * demi;
+          sv += `<rect x="${X0}" y="${y - demi / 2}" width="${X1 - X0}" height="${demi}" fill="transparent" style="cursor:pointer" data-f="placer:${p}" onclick="${ex('placer', p)}"><title>${NOMS_PAS[p % 7]}</title></rect>`;
+        }
+        const nomPos = pos == null ? '' : NOMS_PAS[pos % 7];
+        return `<div class="ex-zone portee placer"><svg viewBox="0 0 420 ${bas + 60}" xmlns="http:\/\/www.w3.org/2000/svg" role="img" aria-label="Portée en clé de sol${nomPos ? ' : note placée sur ' + nomPos : ''}">${sv}</svg></div>` +
+          (c.repondu ? '' : `<div class="ecoute-row"><button class="ex-puce" data-f="placer-haut:" onclick="${ex('placer-haut')}" aria-label="Monter la note">▲ Monter</button><button class="ex-puce" data-f="placer-bas:" onclick="${ex('placer-bas')}" aria-label="Descendre la note">▼ Descendre</button></div>` +
+            valider(pos != null, 'placer-ok', 'Touche la portée pour placer la note'));
+      },
+      attendu: q => { const n = (sequence(q)[0] || [])[0]; return n ? NOMS_PAS[n.pas % 7] : ''; }
     }
   };
+  const NOMS_PAS = ['do', 'ré', 'mi', 'fa', 'sol', 'la', 'si'];
 
   // un toucher trop rapide juste après le changement de question (double toucher sur « Question suivante ») est ignoré
   let toucher = false, tQuestion = 0;
@@ -961,6 +1014,9 @@
         break;
       }
       case 'effacer': s.joue = []; break;
+      case 'placer': s.pos = n; jouerMidi(lireNote('CDEFGAB'[n % 7] + Math.floor(n / 7)).midi); break;
+      case 'placer-haut': case 'placer-bas': s.pos = Math.max(26, Math.min(42, (s.pos == null ? 30 : s.pos) + (action === 'placer-haut' ? 1 : -1))); jouerMidi(lireNote('CDEFGAB'[s.pos % 7] + Math.floor(s.pos / 7)).midi); break;
+      case 'placer-ok': { const c0 = (sequence(q)[0] || [])[0]; if (s.pos == null || !c0) return; return enregistrer(s.pos, s.pos === c0.pas, NOMS_PAS[s.pos % 7]); }
       default: return;
     }
     // au clavier : le focus reste sur l'élément touché (ou sur un voisin s'il a changé de place) au lieu de repartir du haut
