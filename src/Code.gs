@@ -58,7 +58,7 @@ function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espac
    tout compte Google). Ce qui donne accès, c'est le partage Drive du dossier de l'enfant. Les propriétés du script
    (clé Gemini, classe…) et le cache ne passent pas par Drive : chaque action vérifie donc d'abord que le visiteur
    est le parent qui a installé le site (il peut ouvrir le programme dans son Drive) ou qu'il a accès au dossier. */
-let PROPRIO_ = null, ACCES_ = null;
+let PROPRIO_ = null, ACCES_ = null, DEMANDE_SUPPR_ = false;
 function estProprietaire_() {
   if (PROPRIO_ === null) try { DriveApp.getFileById(ScriptApp.getScriptId()); PROPRIO_ = true; } catch (e) { PROPRIO_ = false; }
   return PROPRIO_;
@@ -100,11 +100,14 @@ function doGet(e) {
   const p = (e && e.parameter) || {};
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
-  INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null;
+  INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
     if (!accesParent_()) return pageErreur_('Espace non partagé', PAS_PARTAGE);
+    // …?oublier=<espace parent d'un site supprimé> : lien donné par l'installateur après une suppression faite sans passer par ce site
+    if (p.oublier && !estEnfant_() && estProprietaire_() && URL_SITE_.test(String(p.oublier)) && p.oublier !== CONFIG.urlParent) try { ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== p.oublier); }); } catch (e) {}
+    DEMANDE_SUPPR_ = !!p.supprimer;
     const inst = installer_();
     try { inscrireFamille_(inst); } catch (err) { console.error(err); }   // jamais bloquant
     let html;
@@ -273,6 +276,7 @@ function assembler_(html, page, inst) {
   // espace parent : les autres enfants de la famille (sélecteur en haut, « ajouter aussi pour… »)
   if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0 && URL_SITE_.test(CONFIG.urlParent || '')) {
     cfg.proprio = estProprietaire_();
+    if (DEMANDE_SUPPR_) cfg.demandeSuppression = true;    // ouvert par l'installateur (« Supprimer … ») : Réglages → Supprimer
     if (cfg.proprio) try { cfg.parents = parentsDe_(lireFamille_()); cfg.liensParent = liensParent_(); } catch (e) { cfg.parents = []; }
   }
   if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0) {
@@ -1242,6 +1246,34 @@ function apiRemettreAZero(d) {
   try { cache.removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
   if (d.reglages) try { inscrireFamille_(installer_()); } catch (e) {}
   return { ok: true, fait };
+}
+
+/* ---------------- supprimer ce site (un enfant) ----------------
+   1re étape, faite ici parce que seul le site a accès au Drive : l'enfant est retiré du fichier de la famille,
+   le partage avec l'autre parent est arrêté, ses quiz et résultats vont à la corbeille (sauf « garder »),
+   les réglages du site sont effacés. 2e étape : l'installateur (adresse renvoyée) désactive le site et
+   efface ce qu'il en gardait. Les autres enfants ne sont jamais touchés. */
+function apiSupprimerSite(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut supprimer ce site.' };
+  d = d || {};
+  const attendu = String(CONFIG.prenom || 'supprimer').trim().toLowerCase();
+  if (String(d.confirmation || '').trim().toLowerCase() !== attendu) return { erreur: 'Pour confirmer, tape « ' + (CONFIG.prenom || 'supprimer') + ' ».' };
+  const inst = installer_(), props = PropertiesService.getScriptProperties();
+  let parents = [], reste = 0;
+  try {
+    const fam = fichierFamille_(false);
+    if (fam) {
+      ecrireFamille_(f => { parents = parentsDe_(f); f.sites = f.sites.filter(x => x.parent !== CONFIG.urlParent && x.dossier !== inst.dossier.getId()); reste = f.sites.length; });
+      if (!reste) try { fam.setTrashed(true); } catch (e) {}      // plus aucun enfant : le fichier de la famille (et la clé Gemini) part aussi
+    }
+  } catch (e) { console.error(e); }
+  if (parents.length) partager_(inst.dossier, parents, false);
+  if (!d.garder) inst.dossier.setTrashed(true);                    // quiz, contrôles et tableau des résultats : corbeille du Drive (30 jours)
+  props.deleteAllProperties();
+  try { CacheService.getScriptCache().removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); } catch (e) {}
+  const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';
+  return { ok: true, garde: !!d.garder, retour };
 }
 
 // adresses à envoyer à l'autre parent : l'espace parent de chaque enfant

@@ -252,6 +252,20 @@ ok(r.ok && !r.restes.length && !Object.keys(userProps).length && !(deps[0] in pr
 ctx.doGet({ parameter: { recommencer: '1' } });
 ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n\'existe plus (aucun effet)');
 
+// 9 bis. supprimer le site principal quand il y en a d'autres : le suivant prend sa place, rien d'autre ne change
+{
+  const r1 = ctx.apiInstaller('Toom', 'CM2'); const r2 = ctx.apiAjouterSite({ prenom: 'Caroline', classe: '2de' });
+  const etat0 = ctx.apiEtat();
+  const caro = etat0.sites.find(x => x.prenom === 'Caroline');
+  const html = ctx.doGet({ parameter: { supprime: r1.id } }).html;
+  ok(/window\.__SUPPR = \{"id":/.test(html) && /"prenom":"Toom"/.test(html) && /window\.__SUPPR = null/.test(ctx.doGet({ parameter: { supprime: 'inconnu-1234567890' } }).html), 'suppression : retour de l\'espace parent → dernière étape proposée (seulement pour un site connu)');
+  const r = ctx.apiRecommencer({ id: r1.id });
+  const etat = ctx.apiEtat();
+  ok(r.ok && r.urlParent === r1.urlParent && etat.installe && etat.sites.length === 1 && etat.sites[0].prenom === 'Caroline' && etat.sites[0].url === caro.url && userProps.dossier && /Caroline/.test(userProps.dossier) && r.restants.length === 1,
+    'suppression du site principal : le site de Caroline prend sa place (même adresse, même dossier), adresses restantes renvoyées pour la famille — ' + JSON.stringify({ n: etat.sites.length, dossier: userProps.dossier }));
+  ctx.apiEffacerTout();
+}
+
 // 10. la page : HTML complet et script valide ; pas de journal d'erreur chez l'éditeur
 const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';

@@ -905,6 +905,26 @@ try {
     return { dossier: i.dossier.getName(), ss: i.ss.getId() === ss.getId() };
   })()`);
   ok(ancien.r && ancien.r.dossier === 'Universal Quiz' && ancien.r.ss, 'site réinstallé : reprend l\'ancien dossier « Universal Quiz » et ses résultats');
+  // supprimer un enfant (Réglages) : ménage du Drive ici, puis retour à l'installateur ; les autres enfants ne sont pas touchés
+  {
+    const P1 = 'https://script.google.com/macros/s/LANA/exec', P2 = 'https://script.google.com/macros/s/HUGO/exec';
+    await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana"; CONFIG.installateur = "https://script.google.com/macros/s/INSTALL/exec"; FAUX.proprio = true; FAUX.etranger = false; PROPRIO_ = null; ACCES_ = null;
+      ["famille", "famille-inscrit", "catalogue"].forEach(k => CacheService.getScriptCache().remove(k));
+      ecrireFamille_(d => { d.sites = [{ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DriveApp.createFolder("SoccaQuiz – Hugo2").getId() }]; d.parents = ["julie@gmail.com"]; });`);
+    await page.goto(BASE + '/exec?supprimer=1');
+    await page.locator('#box-suppr').waitFor({ timeout: 5000 });
+    ok(await page.locator('#box-suppr').isVisible() && await page.locator('#p-reglages').isVisible(), 'supprimer : ouvert depuis l\'installateur, Réglages et encadré « Supprimer » affichés directement');
+    const avantS = (await ev('({ dossier: installer_().dossier.getId(), famille: lireFamille_().sites.map(x => x.prenom).join() })')).r;
+    ok(await page.locator('#suppr-go').isDisabled(), 'supprimer : bouton grisé tant que le prénom n\'est pas tapé');
+    await page.fill('#suppr-confirmation', 'Lana');
+    await page.locator('#suppr-go').click();
+    await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const lien = await page.locator('#suppr-msg a').getAttribute('href').catch(() => '');
+    const apresS = (await ev(`({ dossierVivant: !!ouvrirDossier_(${JSON.stringify(avantS.dossier)}), famille: lireFamille_().sites.map(x => x.prenom).join(), props: PropertiesService.getScriptProperties().getKeys ? PropertiesService.getScriptProperties().getKeys().length : -1, hugo: !!ouvrirDossier_(lireFamille_().sites[0] && lireFamille_().sites[0].dossier) })`)).r;
+    ok(/Lana/.test(avantS.famille) && !apresS.dossierVivant && apresS.famille === 'Hugo' && apresS.hugo && /supprime=projet-script/.test(lien || ''),
+      'supprimer : dossier de Lana à la corbeille, Lana retirée de la famille, Hugo intact, lien « Terminer dans l\'installateur » — ' + JSON.stringify({ avantS, apresS, lien }));
+  }
+
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));
 } finally {
   await browser.close();

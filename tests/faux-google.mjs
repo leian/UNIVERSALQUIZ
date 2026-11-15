@@ -46,7 +46,8 @@ const dossier = (chemin) => avecEditeurs('d:' + chemin, {
   getFilesByName: (n) => iter(existsSync(join(chemin, n)) ? [fichier(join(chemin, n))] : Object.entries(sheets).filter(([, s]) => s.name === n && s.dossier === chemin).map(([id]) => ({ id, isTrashed: () => false }))),
   getFoldersByName: (n) => iter(existsSync(join(chemin, n)) ? [dossier(join(chemin, n))] : []),
   createFile: (n, contenu) => { writeFileSync(join(chemin, n), contenu); return fichier(join(chemin, n)); },
-  removeFile: (f) => { rmSync(f.getId().slice(2), { force: true }); }
+  removeFile: (f) => { rmSync(f.getId().slice(2), { force: true }); },
+  setTrashed: (t) => { if (t) { mkdirSync(join(DRIVE, '..', 'corbeille'), { recursive: true }); renameSync(chemin, join(DRIVE, '..', 'corbeille', chemin.split('/').pop() + '-' + Date.now())); } }
 });
 
 const feuille = (s) => ({
@@ -72,7 +73,8 @@ const ctx = {
   console,
   PropertiesService: { getScriptProperties: () => ({
     getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = String(v); },
-    getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o), deleteProperty: k => { delete props[k]; }
+    getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o), deleteProperty: k => { delete props[k]; },
+    deleteAllProperties: () => { Object.keys(props).forEach(k => { delete props[k]; }); }, getKeys: () => Object.keys(props)
   }) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },

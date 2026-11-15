@@ -223,6 +223,10 @@ h2 .ic{color:var(--rouge);margin-right:6px}
       <h2><i data-ic="link"></i>Adresses du site</h2>
       <div id="adresses" class="small"></div>
     </div>
+    <div class="box" id="box-suppr" hidden>
+      <h2><i data-ic="trash"></i>Supprimer le site de {{PRENOM}}</h2>
+      <div id="suppr" class="small"></div>
+    </div>
   </div>
 </div>
 
@@ -947,6 +951,32 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     (window.QUIZ || []).forEach(q => { if (q.biblio && !presents.has(q.biblio)) R[q.biblio] = raisons[q.biblio] || true; });
     if (Object.keys(R).length) { window.BIB_RETIRES = R; afficherQuiz(); }
   }).catch(() => {});
+})();
+
+/* supprimer ce site (un enfant) : ménage dans le Drive ici, puis l'installateur désactive le site */
+(() => {
+  const U = window.__UQ || {}, z = document.getElementById("suppr");
+  if (!z || !U.proprio || !(window.google && google.script && google.script.run)) return;
+  const box = document.getElementById("box-suppr"); box.hidden = false;
+  const mot = U.razMot && U.razMot !== "zéro" ? U.razMot : "supprimer";
+  z.innerHTML = `<p style="margin:0 0 8px">Le site et l'espace parent de {{PRENOM}} seront <b>désactivés</b> (leurs liens ne marcheront plus), {{PRENOM}} sera retiré de la famille et de l'accès de l'autre parent. Les autres enfants ne sont pas touchés.</p>
+    <label style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;cursor:pointer"><input type="checkbox" id="suppr-garder" style="width:18px;height:18px;margin-top:2px;accent-color:var(--rouge)"><span><b>Garder ses quiz et ses résultats</b> dans le Drive<br><span class="small">sinon, son dossier va dans la corbeille du Drive : récupérable pendant 30 jours</span></span></label>
+    <p style="margin:12px 0 6px">Pour confirmer, tape <b>${esc(mot)}</b> :</p>
+    <p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="suppr-confirmation" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="suppr-go" disabled>${I("trash")} Supprimer</button></p><div id="suppr-msg"></div>`;
+  const champ = document.getElementById("suppr-confirmation"), bt = document.getElementById("suppr-go"), msg = document.getElementById("suppr-msg");
+  champ.addEventListener("input", () => { bt.disabled = champ.value.trim().toLowerCase() !== mot.toLowerCase(); });
+  bt.addEventListener("click", () => {
+    bt.disabled = true; msg.innerHTML = "<p class=\"small\">Suppression en cours…</p>";
+    google.script.run.withSuccessHandler(r => {
+      if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
+      champ.disabled = true; document.getElementById("suppr-garder").disabled = true;
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ ${r.garde ? "Quiz et résultats gardés dans le Drive" : "Quiz et résultats mis à la corbeille du Drive"}, {{PRENOM}} retiré de la famille.<br><b>Dernière étape</b> : l'installateur désactive le site.</p>` +
+        (r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`);
+    }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
+      .apiSupprimerSite({ confirmation: champ.value, garder: document.getElementById("suppr-garder").checked });
+  });
+  // ouvert depuis l'installateur (« Supprimer … ») : on montre directement cet encadré
+  if (U.demandeSuppression) { try { ouvrirOnglet("reglages"); } catch (e) {} box.style.outline = "3px solid var(--rouge)"; setTimeout(() => box.scrollIntoView({ block: "center" }), 200); }
 })();
 </script>
 </body>
