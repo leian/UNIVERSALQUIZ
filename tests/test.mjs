@@ -179,9 +179,14 @@ try {
     await page.locator('.barre-quiz a.btn-myquiz').click();
     await page.waitForTimeout(300);
     const resteQ = /page=quiz_Test_verifier/.test(page.url()) && await page.locator('#mq-quitter.visible').count() === 1;
+    await page.locator('#mq-quitter .mq-q-non').click();
+    const continuer = await page.locator('#mq-quitter.visible').count() === 0 && /page=quiz_Test_verifier/.test(page.url());
     await page.locator('.barre-quiz a.btn-myquiz').click();
+    const bulle = await page.locator('#mq-quitter').boundingBox(), logo = await page.locator('.barre-quiz a.btn-myquiz').boundingBox();
+    ok(continuer && bulle && bulle.y >= logo.y + logo.height, 'partie en cours : bulle sous le logo (sans le cacher), « Continuer » la ferme et reste dans le quiz');
+    await page.locator('#mq-quitter .mq-q-oui').click();
     await page.waitForURL(BASE + '/exec', { timeout: 5000 }).catch(() => {});
-    ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo prévient (« Touche encore… »), le second quitte');
+    ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo ouvre la bulle, « Quitter » ramène à l\'accueil');
     rmSync(join(DRIVE, 'SoccaQuiz', 'quiz_Test_verifier_15-11-2026.html'));
     await ev('CacheService.getScriptCache().remove("catalogue")');
   }

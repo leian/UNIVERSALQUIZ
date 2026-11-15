@@ -1051,21 +1051,29 @@
     }
   }
 
-  // partie en cours : le premier toucher sur le logo prévient, le second (dans les 4 s) quitte
+  // partie en cours : le premier toucher sur le logo ouvre une petite bulle sous le logo, avec « Quitter » et « Continuer »
+  // (un second toucher sur le logo dans les 6 s quitte aussi)
   let quitterArme = 0;
   function quitterQuiz(e) {
-    if (state !== 'q' || !answers || !answers.some(Boolean) || Date.now() - quitterArme < 4000) return true;
+    if (state !== 'q' || !answers || !answers.some(Boolean) || Date.now() - quitterArme < 6000) return true;
     quitterArme = Date.now();
     if (e) { e.preventDefault(); e.stopPropagation(); }
     let b = document.getElementById('mq-quitter');
-    if (!b) { b = document.createElement('div'); b.id = 'mq-quitter'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
-    b.textContent = 'Touche encore le logo pour quitter le quiz : ta partie en cours ne sera pas enregistrée.';
-    b.className = 'visible'; clearTimeout(b._t); b._t = setTimeout(() => { b.className = ''; }, 4000);
+    if (!b) { b = document.createElement('div'); b.id = 'mq-quitter'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Quitter le quiz ?'); document.body.appendChild(b); }
+    b.innerHTML = '<div>Quitter le quiz ? Ta partie en cours ne sera pas enregistrée.</div>' +
+      '<div class="mq-q-btns"><button type="button" class="mq-q-non" onclick="MoteurQuiz.fermerQuitter()">Continuer</button>' +
+      '<a class="mq-q-oui" href="index.html" target="_top">Quitter</a></div>';
+    const logo = e && e.currentTarget && e.currentTarget.getBoundingClientRect ? e.currentTarget : appli().querySelector('.barre-quiz .btn-myquiz');
+    const r = logo ? logo.getBoundingClientRect() : { left: 12, bottom: 64 };
+    b.style.left = Math.max(8, r.left) + 'px'; b.style.top = (r.bottom + 8) + 'px';
+    b.className = 'visible'; clearTimeout(b._t); b._t = setTimeout(fermerQuitter, 6000);
     return false;
   }
+  try { window.addEventListener('scroll', () => { const b = document.getElementById('mq-quitter'); if (b && b.className) fermerQuitter(); }, { passive: true }); } catch (e) {}
+  function fermerQuitter() { const b = document.getElementById('mq-quitter'); if (b) { clearTimeout(b._t); b.className = ''; } quitterArme = 0; }
   function enQuestion(oui) {
     document.body.classList.toggle('en-question', !!oui);
-    if (!oui) { const b = document.getElementById('mq-quitter'); if (b) b.className = ''; }
+    if (!oui) fermerQuitter();
   }
   function quitter() { couperSon(); if (E && E.reco) try { E.reco.abort(); } catch (e) {} if (C && C.quitterQuestion) try { C.quitterQuestion(); } catch (e) {} }
 
@@ -1373,7 +1381,7 @@
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     famille: renderFamille, duel: () => { debloquerVoix(); lancerDuel(); }, revanche: () => lancerDuel(true), propositions: voirPropositions, sauter,
-    rafraichir: () => renderQuestion(), quitterQuiz,
+    rafraichir: () => renderQuestion(), quitterQuiz, fermerQuitter,
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc, forme, comparer: (attendus, v, q) => comparer([].concat(attendus), v, regles(q || {})),
