@@ -51,7 +51,8 @@ function fausseApi(url, o) {
   }
   if (quoi === 'versions' && methode === 'POST') { ++p.versions; (p.instantanes = p.instantanes || {})[p.versions] = p.contenu; return reponse(200, { versionNumber: p.versions }); }
   const web = did => ({ deploymentId: did, entryPoints: [{ entryPointType: 'WEB_APP', webApp: { url: 'https://script.google.com/macros/s/' + did + '/exec' } }] });
-  if (quoi === 'deployments' && methode === 'POST') { const did = 'AKfy' + (++n); p.deploiements[did] = corps.versionNumber; return reponse(200, web(did)); }
+  if (quoi === 'deployments' && methode === 'POST') { const did = 'AKfy' + (++n); p.deploiements[did] = corps.versionNumber; (p.desc = p.desc || {})[did] = corps.description; return reponse(200, web(did)); }
+  if (quoi === 'deployments' && methode === 'GET' && !sous) return reponse(200, { deployments: Object.keys(p.deploiements).map(did => Object.assign(web(did), { deploymentConfig: { versionNumber: p.deploiements[did], description: (p.desc || {})[did] || '' } })) });
   if (quoi === 'deployments' && methode === 'GET' && sous) return sous in p.deploiements ? reponse(200, web(sous)) : reponse(404, { error: { code: 404, message: 'not found' } });
   if (quoi === 'deployments' && methode === 'DELETE') {
     if (!(sous in p.deploiements)) return reponse(404, { error: { code: 404, message: 'not found' } });
@@ -59,7 +60,7 @@ function fausseApi(url, o) {
   }
   if (quoi === 'deployments' && methode === 'PUT') {
     if (!(sous in p.deploiements)) return reponse(404, { error: { code: 404, message: 'not found' } });
-    p.deploiements[sous] = corps.deploymentConfig.versionNumber; return reponse(200, web(sous));
+    p.deploiements[sous] = corps.deploymentConfig.versionNumber; (p.desc = p.desc || {})[sous] = corps.deploymentConfig.description; return reponse(200, web(sous));
   }
   return reponse(400, { error: { message: 'requête inattendue ' + methode + ' ' + url } });
 }
@@ -130,11 +131,18 @@ ok(r.erreur === 'versions' && r.versions === 199 && p1.versions === 199 && JSON.
 p1.versions = 6;
 ok(ctx.plusRecente_('v2.10', 'v2.9') && !ctx.plusRecente_('v2.0.1', 'v2.1') && !ctx.plusRecente_('v2.1', 'v2.1') && ctx.plusRecente_('v2.1', '') && !ctx.plusRecente_('', 'v2.1'),
   'comparaison des versions : v2.10 > v2.9, jamais de rétrogradation proposée');
-userProps.version = 'v0.9'; cache.derniere = 'v1.0';
+const descAvant = JSON.stringify(p1.desc);
+Object.keys(p1.desc).forEach(k => { p1.desc[k] = 'SoccaQuiz v0.9 – essai'; }); cache.derniere = 'v1.0';
 ok(ctx.apiEtat().sites[0].nouvelle, 'nouvelle version proposée seulement si elle est plus grande');
 cache.derniere = 'v0.8';
 ok(!ctx.apiEtat().sites[0].nouvelle, 'version plus ancienne marquée « dernière » sur GitHub : pas proposée');
-delete cache.derniere; userProps.version = 'v-test';
+// cohérence avec l'espace parent : la version publiée fait foi, pas celle retenue par l'installateur
+cache.derniere = 'v1.0'; userProps.version = 'v1.0';
+{ const e2 = ctx.apiEtat(); ok(e2.sites[0].version === 'v0.9' && e2.sites[0].nouvelle && userProps.version === 'v0.9', 'version réellement publiée lue sur le site (ancienne mémoire de l\'installateur corrigée) : la mise à jour est bien proposée'); }
+// l'espace parent a vu une version plus récente que la mémoire de 10 min : GitHub est relu
+cache.derniere = 'v0.8';
+{ const e3 = ctx.apiEtat({ d: 'v9.9' }); ok(e3.sites[0].derniere === 'v-test' && cache.derniere === 'v-test', 'lien de l\'espace parent (?d=…) plus récent que la mémoire : dernière version relue sur GitHub'); }
+p1.desc = JSON.parse(descAvant); delete cache.derniere; userProps.version = 'v-test';
 
 // 4 bis. site installé avant l'espace parent : la mise à jour le crée, l'adresse de l'enfant ne change pas
 delete userProps.deploymentIdParent; delete userProps.urlParent;

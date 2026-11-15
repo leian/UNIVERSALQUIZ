@@ -843,10 +843,12 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     if (!plusRecente(derniere, U.version)) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
     if (!U.installateur) return;
     // pastille ronde en haut à droite : on la voit même quand le bandeau est loin (onglets Quiz, Réglages)
-    const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : touche pour mettre à jour";
-    p.innerHTML = I("refresh"); p.href = U.installateur; p.target = "_top";
+    const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : touche pour mettre à jour ton site depuis l'installateur";
+    // l'installateur reçoit la version vue ici (?d=…) : il relit GitHub s'il ne la connaît pas encore, pour dire la même chose
+    const lienMaj = U.installateur + (String(U.installateur).indexOf("?") < 0 ? "?" : "&") + "d=" + encodeURIComponent(derniere);
+    p.innerHTML = I("refresh"); p.href = lienMaj; p.target = "_top";
     $("maj").hidden = false;
-    $("maj").innerHTML = `${I("refresh")} <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(U.installateur)}" target="_top">${I("refresh")} Mettre à jour mon site</a>`;
+    $("maj").innerHTML = `${I("refresh")} <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(lienMaj)}" target="_top">${I("refresh")} Mettre à jour mon site depuis l'installateur</a>`;
   })();
 })();
 

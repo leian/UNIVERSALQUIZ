@@ -25,7 +25,9 @@ function doGet(e) {
   const id = String((e && e.parameter && e.parameter.supprime) || '');
   let suppr = null;
   if (/^[\w-]{6,120}$/.test(id)) { const s = [lireSite_(0)].concat(autres_()).find(x => x && x.scriptId === id); if (s) suppr = { id, prenom: s.prenom || '', classe: s.classe || '' }; }
-  return HtmlService.createHtmlOutput(pageHtml_(suppr))
+  // …?d=v2.75 : dernière version vue par l'espace parent (voir apiEtat)
+  const d = String((e && e.parameter && e.parameter.d) || '');
+  return HtmlService.createHtmlOutput(pageHtml_(suppr, /^v?\d+(\.\d+){0,3}$/.test(d) ? d : ''))
     .setTitle('Installer SoccaQuiz')
     .setFaviconUrl('https://leian.github.io/UNIVERSALQUIZ/icone.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -84,11 +86,18 @@ function plusRecente_(a, b) {
 
 /* Ce que la page doit afficher : sites déjà installés, nouvelle version ?
    Les sites sont toujours renvoyés, même si GitHub ne répond pas (derniere = ''). */
-function apiEtat() {
+function apiEtat(indice) {
   let derniere = '', erreurGithub = '';
-  try { derniere = derniereVersion_(); } catch (e) { erreurGithub = String(e.message || e); }
+  // indice.d : dernière version vue par l'espace parent qui envoie ici (« Mettre à jour mon site depuis l'installateur ») ;
+  // plus récente que notre mémoire de 10 min → on relit GitHub, pour ne jamais dire « c'est la dernière » à tort
+  const vue = indice && /^v?\d+(\.\d+){0,3}$/.test(String(indice.d || '')) ? String(indice.d) : '';
+  try { derniere = derniereVersion_(); if (vue && plusRecente_(vue, derniere)) derniere = moteur_().version; } catch (e) { erreurGithub = String(e.message || e); }
   const sites = [lireSite_(0)].concat(autres_()).map((s, n) => {
     if (!s || !s.scriptId) return null;
+    // version réellement publiée (description des deux publications), plutôt que celle retenue ici :
+    // l'espace parent affiche la version de son propre code, les deux pages disent donc la même chose
+    const reelle = s.version ? versionPubliee_(s) : '';      // installation inachevée : reste « à terminer »
+    if (reelle && reelle !== s.version) { s.version = reelle; try { ecrireSite_(n, s); } catch (e) {} }
     // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
     let versions = 0; try { versions = nbVersions_(s.scriptId); } catch (e) {}
     return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: s.urlParent || '', version: s.version || '', derniere,
@@ -105,6 +114,16 @@ function apiEtat() {
    « Historique du projet » → suppression en masse). Chaque mise à jour en crée 2 (enfant + parent) :
    l'installateur prévient dès 170 et bloque proprement avant d'atteindre la limite. */
 const MAX_VERSIONS = 200, ALERTE_VERSIONS = 170;
+/* la plus ancienne des versions publiées sur les deux adresses du site (« SoccaQuiz v2.75 – … » dans leur description) ;
+   '' si l'API ne répond pas ou si la description est inconnue (on garde alors la version retenue) */
+function versionPubliee_(s) {
+  try {
+    const r = appel_('get', '/' + s.scriptId + '/deployments?pageSize=50');
+    const vs = (r.deployments || []).filter(d => d && (d.deploymentId === s.deploymentId || d.deploymentId === s.deploymentIdParent))
+      .map(d => String((d.deploymentConfig && d.deploymentConfig.description) || '').match(/SoccaQuiz (v[\w.\-]+)/)).filter(Boolean).map(m => m[1]);
+    return vs.length ? vs.reduce((a, b) => plusRecente_(a, b) ? b : a) : '';
+  } catch (e) { return ''; }
+}
 function nbVersions_(id) {
   let n = 0, page = '';
   do {
@@ -373,7 +392,7 @@ function nettoyerPrenom_(s) {
 }
 
 /* ---------------- la page (mobile d'abord) ---------------- */
-function pageHtml_(suppr) {
+function pageHtml_(suppr, vue) {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top">' +
   '<style>' +
   ':root{--bg:#fff8ef;--card:#fff;--ink:#2a1f1a;--soft:#7a6658;--line:#eadfce;--accent:#c8102e;--ok:#15803d;--ko:#b91c1c}' +
@@ -423,7 +442,7 @@ function pageHtml_(suppr) {
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
   '<a href="https://leian.github.io/UNIVERSALQUIZ/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
-  '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
+  '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\nwindow.__VUE = ' + JSON.stringify(vue || '') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }
 
 /* liste des classes (le choix « adulte » = site pour les révisions d'un parent) */
@@ -649,7 +668,7 @@ function scriptPage_() {
           if (e.erreurGithub) res.innerHTML = '<div class="ko">GitHub ne répond pas : impossible de vérifier ou d\'installer une nouvelle version pour l\'instant. Tes sites fonctionnent normalement ; réessaie dans quelques minutes.<br><span class="petit">' + h(e.erreurGithub) + '</span></div>';
         })
         .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(echec(e)); })
-        .apiEtat();
+        .apiEtat({ d: window.__VUE || '' });
     }
     charger();
   }) + ')();';
