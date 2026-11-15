@@ -63,6 +63,7 @@ const COMMUN = {
   'suivi.js': 'lib/suivi-js',
   'recompenses.js': 'lib/recompenses-js',
   'moteur-quiz.js': 'lib/moteur-quiz-js',
+  'animations.js': 'lib/animations-js',
   'badges.js': 'lib/badges-js'
 };
 const MATIERES = {
@@ -209,6 +210,7 @@ function creerSheets_(dossier) {
 function assembler_(html, page, inst) {
   const cat = catalogue_(inst.dossier);
   const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
+  const aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
 
   html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, (m, f) =>
     COMMUN[f] ? lib_(COMMUN[f], true) : '<!-- ' + f + ' introuvable -->');      // déjà entouré de <style>
@@ -218,6 +220,7 @@ function assembler_(html, page, inst) {
     if (!COMMUN[f]) return '<!-- ' + f + ' introuvable -->';
     let s = lib_(COMMUN[f], true);                     // déjà entouré de <script>
     if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib_(COMMUN['badges.js'], true);
+    if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib_(COMMUN['animations.js'], true);   // quiz déjà déposés : ajouté sans les modifier
     return s;
   });
 

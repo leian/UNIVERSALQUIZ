@@ -82,6 +82,11 @@ try {
   // une partie
   await page.locator('a.card').first().click();
   await page.waitForURL(/page=quiz_exemple_capitales/);
+  // animations : ajoutées par le serveur même si le quiz déposé ne les déclare pas ; bouton « Sons » mémorisé
+  ok(await page.evaluate(() => typeof Animations === 'object') && await page.locator('.fx-son[aria-pressed="true"]').count() === 1, 'animations ajoutées au quiz, sons activés par défaut (primaire)');
+  await page.locator('.fx-son').click();
+  ok(await page.locator('.fx-son[aria-pressed="false"]').count() === 1 && await page.evaluate(() => localStorage.getItem('uq-sons')) === '0', 'bouton « Sons » : sons coupés et choix mémorisé');
+  await page.locator('.fx-son').click();
   ok(!!(await jouer()), 'partie jouée jusqu\'au résultat');
   for (let i = 0; i < 30; i++) { s = await ev('1'); if (Object.values(s.sheets)[0].rows.length >= 2) break; await page.waitForTimeout(100); }   // l'envoi du résultat est asynchrone
   const lignes = Object.values(s.sheets)[0].rows;

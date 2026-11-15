@@ -43,6 +43,7 @@ const COMMUN = {
   'suivi.js':        ['suivi-js', t => remplacer(t, /location\.pathname/g, CHEMIN, 'suivi.js')],
   'recompenses.js':  ['recompenses-js', t => t],
   'moteur-quiz.js':  ['moteur-quiz-js', t => t],
+  'animations.js':   ['animations-js', t => t],
   'badges.js':       ['badges-js', t => remplacer(t, /location\.pathname/g, CHEMIN, 'badges.js')]
 };
 

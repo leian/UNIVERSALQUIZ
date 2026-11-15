@@ -410,6 +410,7 @@
         <button class="start-btn" onclick="MoteurQuiz.start()">▶ Commencer le quiz</button>
         ${C.questions.length >= 4 && C.famille !== false ? `<div><button class="btn-famille" onclick="MoteurQuiz.famille()">${ic('duo')} Défi en famille</button></div>` : ''}
         ${blocNotions()}
+        ${window.Animations ? Animations.boutonSon(themeActuel()) : ''}
         <div class="start-hint">Astuce : la touche Entrée valide et passe à la suite.</div>
         ${typeof C.accueilHTML === 'function' ? C.accueilHTML() : (C.accueilHTML || '')}
       </div>`;
@@ -468,7 +469,10 @@
     annoncer(texteDe((appli().querySelector('.explanation') || {}).innerHTML));
     if (suite) try { suite.focus({ preventScroll: true }); } catch (e) {}
     if (ok) recompenseReponse();
+    if (window.Animations) Animations.reponse(!!ok, duel ? 0 : serieEnCours(), themeActuel());
   }
+  // bonnes réponses d'affilée jusqu'à la question en cours
+  function serieEnCours() { let n = 0; for (let i = cur; i >= 0 && answers[i] && answers[i].ok; i--) n++; return n; }
   function annoncer(t) {
     let z = document.getElementById('mq-annonce');
     if (!z) { z = document.createElement('div'); z.id = 'mq-annonce'; z.className = 'sr-only'; z.setAttribute('aria-live', 'polite'); z.setAttribute('role', 'status'); document.body.appendChild(z); }
@@ -1174,6 +1178,7 @@
     // primaire : la scène du capybara devient une surprise rare (une partie parfaite sur trois)
     const capy = P.animal != null ? pct === 100 && Math.random() < 1 / 3 : (n - sc) / n < 0.25;
     if (capy && window.showCapybara && P.animaux !== false) setTimeout(showCapybara, P.saut ? 1600 : 500);
+    if (window.Animations) Animations.fin(pct, themeActuel());
   }
   // pages « Mes révisions » et défi du mois, fabriquées par le serveur
   const pageRevision = () => { let p = (window.__UQ && window.__UQ.page) || ''; if (!p) try { p = decodeURIComponent(location.pathname.split('/').pop() || ''); } catch (e) {} return /^(revisions|defi)$/i.test(String(p).replace(/\.html?$/i, '')); };
