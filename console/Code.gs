@@ -209,12 +209,27 @@ function apiRetirer(id, raison) {
   const i = index.quiz.findIndex(q => q.id === id);
   if (i < 0) return { erreur: 'Ce quiz n\'est plus dans la bibliothèque.' };
   const titre = index.quiz[i].titre;
-  index.quiz.splice(i, 1);
   // les familles qui l'ont ajouté voient « Retiré de la bibliothèque » (et la raison) dans leur onglet Quiz
+  // l'entrée complète est gardée : « Réintégrer » remet le quiz tel quel
   index.retires = (Array.isArray(index.retires) ? index.retires : []).filter(x => x && x.id !== id)
-    .concat({ id, titre, date: Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'), raison: String(raison || '').replace(/[<>]/g, '').trim().slice(0, 200) }).slice(-200);
+    .concat({ id, titre, date: Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd'), raison: String(raison || '').replace(/[<>]/g, '').trim().slice(0, 200), entree: index.quiz[i] }).slice(-200);
+  index.quiz.splice(i, 1);
   // le fichier .txt reste : les familles qui l'ont déjà ajouté gardent leur copie, et il peut être republié
   ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : retrait de ' + titre);
+  return { ok: true };
+}
+
+function apiReintegrer(id) {
+  exiger_();
+  const { index, sha } = lireIndex_();
+  const r = (Array.isArray(index.retires) ? index.retires : []).filter(x => x && x.id === id)[0];
+  if (!r) return { erreur: 'Ce quiz n\'est plus dans la liste des retirés.' };
+  if (!r.entree || !r.entree.id) return { erreur: 'Retiré avant cette version de la console : utilise « Corriger et republier ».' };
+  if (!lireFichier_('docs/bibliotheque/' + id + '.txt')) return { erreur: 'Le fichier du quiz n\'existe plus sur GitHub.' };
+  index.quiz = index.quiz.filter(q => q.id !== id);
+  index.quiz.unshift(r.entree);
+  index.retires = index.retires.filter(x => x && x.id !== id);
+  ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : réintégration de ' + (r.entree.titre || id));
   return { ok: true };
 }
 
@@ -406,6 +421,7 @@ h3{font:600 1.02rem Fredoka,system-ui,sans-serif;margin:0}
 .ic{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;flex:none}
 .btn{display:inline-flex;align-items:center;gap:6px;min-height:42px;border:2px solid var(--line);background:var(--card);color:var(--ink);border-radius:999px;padding:6px 14px;font:600 .92rem Fredoka,system-ui,sans-serif;cursor:pointer;text-decoration:none;transition:scale .12s,filter .12s}
 .btn:active{scale:.95;filter:brightness(.92)}.btn:disabled{opacity:.55;cursor:default}
+.retrait{margin-top:10px;padding:10px 12px;border:1px solid #fecaca;border-radius:12px;background:#fff7f7}.retrait input{width:100%;margin:6px 0}
 .btn.principal{background:var(--rouge);border-color:var(--rouge);color:#fff}.btn.danger{color:var(--ko);border-color:#fecaca}
 .btn:focus-visible,.onglet:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .carte{border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
@@ -454,6 +470,12 @@ function client_() {
     var r = google.script.run.withSuccessHandler(function (x) { if (x && x.erreur) { (ko || erreur)(x.erreur, x); } else ok(x); })
       .withFailureHandler(function (e) { (ko || erreur)((e && e.message) || String(e)); });
     r[fn].apply(r, args || []);
+  }
+  /* confirmation sur place : les fenêtres confirm() / prompt() sont bloquées dans le cadre de Google Apps Script */
+  function confirmer(b, question, faire) {
+    if (b.dataset.arme === '1') { b.dataset.arme = ''; faire(); return; }
+    var avant = b.innerHTML; b.dataset.arme = '1'; b.innerHTML = esc(question); b.classList.add('danger');
+    setTimeout(function () { if (b.dataset.arme === '1') { b.dataset.arme = ''; b.innerHTML = avant; } }, 5000);
   }
   function erreur(m) { var c = $('message'); if (c) { c.className = 'message'; c.textContent = m; c.hidden = false; c.scrollIntoView({ block: 'nearest' }); } else alert(m); }
   function info(m) { var c = $('message'); if (c) { c.className = 'message ok'; c.textContent = m; c.hidden = false; } }
@@ -510,9 +532,13 @@ function client_() {
       var p = ETAT.propositions.filter(function (x) { return x.id === id; })[0]; if (!p) return;
       if (a === 'relire') { edition = depuisTexte(p.texte, p); afficher(); }
       else if (a === 'refuser' || a === 'remettre') { b.disabled = true; appel('apiStatut', [id, a === 'refuser' ? 'refuse' : 'nouveau'], function () { charger(); }); }
-      else if (a === 'supprimer') { if (confirm('Supprimer définitivement cette proposition ?')) appel('apiSupprimerProposition', [id], function () { charger(); }); }
+      else if (a === 'supprimer') confirmer(b, 'Toucher encore pour supprimer définitivement', function () { appel('apiSupprimerProposition', [id], function () { charger(); }); });
     }
     var rid = carte && carte.dataset.retire;
+    if (onglet === 'bibliotheque' && rid && a === 'reintegrer') {
+      b.disabled = true;
+      appel('apiReintegrer', [rid], function () { BIB = null; info('Réintégré : le quiz est de nouveau dans la bibliothèque, et la mention « Retiré » disparaît chez les familles d\'ici une minute.'); vueBibliotheque($('contenu'), true); }, function (m) { b.disabled = false; erreur(m); });
+    }
     if (onglet === 'bibliotheque' && rid && a === 'republier') {
       var r0 = (ETAT.retires || []).filter(function (x) { return x.id === rid; })[0] || { id: rid, titre: '' };
       b.disabled = true;
@@ -520,7 +546,17 @@ function client_() {
     }
     if (onglet === 'bibliotheque' && id) {
       var q = (BIB || []).filter(function (x) { return x.id === id; })[0]; if (!q) return;
-      if (a === 'retirer') { var raison = prompt('Retirer « ' + q.titre + ' » de la bibliothèque ?\nLes familles qui l\'ont déjà ajouté le gardent, avec la mention « Retiré de la bibliothèque ».\n\nRaison affichée chez elles (facultatif, ex. « erreur dans une réponse ») :', ''); if (raison !== null) { b.disabled = true; appel('apiRetirer', [id, raison], function () { BIB = null; info('Retiré. Les familles qui l\'avaient ajouté verront « Retiré de la bibliothèque » dans leur onglet Quiz d\'ici une minute (voir la liste « Retirés » plus bas).'); vueBibliotheque($('contenu'), true); }); } }
+      if (a === 'retirer') {
+        if (carte.querySelector('.retrait')) return;
+        var f = document.createElement('div'); f.className = 'retrait';
+        f.innerHTML = '<label for="raison-' + esc(id) + '">Raison montrée aux familles qui l\'ont ajouté (facultatif)</label>' +
+          '<input id="raison-' + esc(id) + '" maxlength="200" placeholder="ex. erreur dans une réponse">' +
+          '<p class="petit">Le quiz quitte la bibliothèque, mais les familles qui l\'ont déjà ajouté le gardent, avec la mention « Retiré de la bibliothèque ». Tu pourras le réintégrer depuis la liste « Retirés ».</p>' +
+          '<div class="actions"><button class="btn danger" data-a="retirer-ok">' + I('trash') + ' Retirer</button><button class="btn" data-a="retirer-non">Annuler</button></div>';
+        carte.appendChild(f); f.querySelector('input').focus();
+      }
+      else if (a === 'retirer-non') { var f0 = carte.querySelector('.retrait'); if (f0) f0.remove(); }
+      else if (a === 'retirer-ok') { var champ = carte.querySelector('.retrait input'); b.disabled = true; appel('apiRetirer', [id, champ ? champ.value : ''], function () { BIB = null; info('Retiré. Les familles qui l\'avaient ajouté verront « Retiré de la bibliothèque » dans leur onglet Quiz d\'ici une minute. Tu peux le réintégrer depuis la liste « Retirés » plus bas.'); vueBibliotheque($('contenu'), true); }, function (m) { b.disabled = false; erreur(m); }); }
       else if (a === 'modifier') { b.disabled = true; appel('apiTexteBibliotheque', [id], function (r) { edition = depuisTexte(r.texte, null); edition.id = q.id; edition.titre = q.titre; edition.matiere = q.matiere; edition.classes = q.classes || []; edition.icone = q.icone || ''; edition.description = q.description || ''; edition.remplacer = true; edition.verrou = true; afficher(); }); }
     }
   });
@@ -592,7 +628,8 @@ function client_() {
         ETAT.retires.slice().reverse().map(function (r) {
           return '<div class="carte" data-retire="' + esc(r.id) + '"><h3>' + esc(r.titre || r.id) + ' <span class="etiq refuse">Retiré</span></h3>' + blocRetire(r) +
             '<div class="actions"><a class="btn" href="https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/' + esc(r.id) + '.txt" target="_blank" rel="noopener">' + I('ext') + ' Texte</a>' +
-            '<button class="btn" data-a="republier"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('undo') + ' Corriger et republier</button></div></div>';
+            (r.entree ? '<button class="btn principal" data-a="reintegrer"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('undo') + ' Réintégrer</button>' : '') +
+            '<button class="btn" data-a="republier"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('eye') + ' Corriger et republier</button></div></div>';
         }).join('') + '</div>' : '');
     $('b-ajout').onclick = function () { edition = { texte: '', classes: [], nouveau: true }; afficher(); };
     $('b-maj').onclick = function () { BIB = null; vueBibliotheque(c); };
@@ -660,9 +697,9 @@ function client_() {
       '<div class="actions" style="margin-top:10px"><button class="btn principal" id="r-url-ok"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('check') + ' Activer</button>' + (ETAT.urlPropositions ? '<button class="btn danger" id="r-url-off">' + I('x') + ' Couper la réception</button>' : '') + '</div>' +
       (ETAT.jeton ? '' : '<p class="petit">Le jeton GitHub est nécessaire : l\'adresse est publiée dans docs/soccaquiz.json, que lisent les sites.</p>') + '</div>';
     $('r-ok').onclick = function () { var v = $('r-jeton').value.trim(); if (!v) return erreur('Colle le jeton.'); this.disabled = true; appel('apiJeton', [v], function () { charger(function () { vueReglages(c); info('Jeton enregistré et vérifié.'); }); }, function (m) { $('r-ok').disabled = false; erreur(m); }); };
-    if ($('r-suppr')) $('r-suppr').onclick = function () { if (confirm('Effacer le jeton ? La console ne pourra plus publier.')) appel('apiJeton', [''], function () { charger(function () { vueReglages(c); }); }); };
+    if ($('r-suppr')) $('r-suppr').onclick = function () { confirmer(this, 'Toucher encore pour effacer le jeton', function () { appel('apiJeton', [''], function () { charger(function () { vueReglages(c); }); }); }); };
     $('r-url-ok').onclick = function () { this.disabled = true; appel('apiUrlPropositions', [$('r-url').value], function () { charger(function () { vueReglages(c); info('Réception activée : les sites la proposeront d\'ici une minute.'); }); }, function (m) { $('r-url-ok').disabled = false; erreur(m); }); };
-    if ($('r-url-off')) $('r-url-off').onclick = function () { if (confirm('Couper la réception directe ? Les familles repasseront par le mail.')) appel('apiUrlPropositions', [''], function () { charger(function () { vueReglages(c); }); }); };
+    if ($('r-url-off')) $('r-url-off').onclick = function () { confirmer(this, 'Toucher encore pour couper (retour au mail)', function () { appel('apiUrlPropositions', [''], function () { charger(function () { vueReglages(c); }); }); }); };
   }
 
   charger();
