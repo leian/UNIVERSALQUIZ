@@ -580,13 +580,15 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
       const classe = (window.__UQ || {}).classe || "";
       const corps = `Bonjour,\n\nJe propose ce quiz pour la bibliothèque SoccaQuiz.\nClasse : ${classe || "?"}\n\n${r.texte}\n`;
       const sujet = "Proposition de quiz : " + (r.titre || q.titre);
-      const court = encodeURIComponent(corps).length < 1800;
+      // les messageries de téléphone et Gmail acceptent un mail prérempli bien plus long que les 2 000 caractères
+      // d'autrefois ; au-delà de 12 000, on garde le collage (le texte est copié automatiquement au toucher du bouton)
+      const court = encodeURIComponent(corps).length < 12000;
       const mail = "mailto:" + MAIL_SOCCAQUIZ + "?subject=" + encodeURIComponent(sujet) + "&body=" + encodeURIComponent(court ? corps : "Bonjour,\n\nJe propose ce quiz pour la bibliothèque SoccaQuiz.\nClasse : " + (classe || "?") + "\n\n(colle ici le quiz copié)\n");
       boite(`<h3>Proposer « ${esc(r.titre || q.titre)} »</h3>
         <p>Le quiz est envoyé par mail à SoccaQuiz, relu, puis ajouté à la bibliothèque pour les autres familles. Seules les questions partent : ni photo, ni résultat, ni prénom.</p>
         <p class="small">Vérifie qu'aucune question ne contient le prénom de ton enfant ou un détail personnel.</p>
         <textarea readonly aria-label="Texte du quiz">${esc(r.texte)}</textarea>
-        ${court ? "" : `<p class="small">Le quiz est long : touche « Copier », puis colle-le dans le mail.</p>`}
+        <p class="small">${court ? "Le quiz est déjà écrit dans le mail : il n'y a plus qu'à l'envoyer." : "Le quiz est très long : il est copié quand tu touches « Envoyer par mail », colle-le dans le mail."}</p>
         <div class="bts"><button class="btn" type="button" data-r="non">Fermer</button><button class="btn" type="button" data-copier>${I('copy')} Copier</button><a class="btn principal" href="${esc(mail)}" target="_blank" rel="noopener">${I('mail')} Envoyer par mail</a></div>`);
       const d = document.querySelector("dialog.boite:last-of-type");
       if (d) d.querySelector("[data-copier]").addEventListener("click", ev => {
@@ -596,7 +598,11 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
         if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.texte).then(fini, () => { ta.select(); try { document.execCommand("copy"); fini(); } catch (x) {} });
         else { ta.select(); try { document.execCommand("copy"); fini(); } catch (x) {} }
       });
-      if (d) d.querySelector("a.btn").addEventListener("click", ev => ev.stopPropagation());
+      // au toucher de « Envoyer par mail », le texte est aussi copié : si la messagerie coupe le mail, il suffit de coller
+      if (d) d.querySelector("a.btn").addEventListener("click", ev => {
+        ev.stopPropagation();
+        try { if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(r.texte).catch(() => {}); } catch (x) {}
+      });
     })
     .withFailureHandler(err => { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Lecture du quiz impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); })
     .apiTexteQuiz(q.fichier);
