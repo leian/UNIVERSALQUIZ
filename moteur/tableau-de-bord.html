@@ -78,6 +78,13 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .onglet:hover{color:var(--ink)}
 @media (max-width:420px){.onglet{gap:5px;padding:12px 10px 10px;font-size:.95rem}}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
+.famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0 0}
+.famille b{font-size:.85rem;color:var(--soft);font-weight:600;margin-right:2px}
+.famille a,.famille span.on{display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s}
+.famille a:hover{border-color:var(--rouge)}
+.famille a:active{transform:scale(.95)}
+.famille span.on{background:var(--rouge);border-color:var(--rouge);color:#fff}
+.famille small{font-weight:500;opacity:.75;font-size:.78rem}
 .onglet:focus-visible,.btn:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .onglet .nb{font-size:.78rem;background:var(--line);color:var(--ink);border-radius:999px;padding:0 7px;font-weight:700}
 .onglet.on .nb{background:var(--rouge-c);color:var(--rouge)}
@@ -126,6 +133,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
       <a class="pastille-maj" id="pastille-maj" href="#maj" hidden title="Nouvelle version disponible" aria-label="Nouvelle version disponible"><i data-ic="refresh"></i></a>
     </div>
   </header>
+  <nav class="famille" id="famille" aria-label="Choisir l'enfant" hidden></nav>
   <h1 class="titre-page">Suivi de {{PRENOM}}</h1>
   <div id="maj" class="msg maj" hidden></div>
   <nav class="onglets" id="onglets" role="tablist">
@@ -818,6 +826,16 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     $("maj").hidden = false;
     $("maj").innerHTML = `${I("refresh")} <b>Une nouvelle version de SoccaQuiz est disponible (${esc(derniere)})</b> : tu as la ${esc(U.version)}.<br><a class="btn principal" style="margin-top:8px" href="${esc(U.installateur)}" target="_top">${I("refresh")} Mettre à jour mon site</a>`;
   })();
+})();
+
+/* famille : passer à l'espace parent d'un autre enfant (même compte Google) */
+(() => {
+  const l = (window.__UQ && window.__UQ.famille) || [], el = document.getElementById("famille");
+  if (!el || l.length < 2) return;
+  const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
+  el.innerHTML = "<b>Enfant :</b>" + l.map(x => x.ici ? `<span class="on" aria-current="page">${nom(x)}</span>`
+    : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
+  el.hidden = false;
 })();
 </script>
 </body>

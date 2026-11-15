@@ -89,6 +89,7 @@ function doGet(e) {
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
     const inst = installer_();
+    try { inscrireFamille_(inst); } catch (err) { console.error(err); }   // jamais bloquant
     let html;
     // dans l'espace parent, l'accueil est le tableau de bord des parents (pas la page de l'enfant)
     const pageServie = CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page;
@@ -245,8 +246,10 @@ function assembler_(html, page, inst) {
   };
   cfg.theme = themeDe_(cfg.classe);
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
-  if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
-  if (page === 'ajouter' && !estEnfant_()) cfg.gemini = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE') || '';
+  if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
+  if (page === 'ajouter' && !estEnfant_()) cfg.gemini = cleGemini_();
+  // espace parent : les autres enfants de la famille (sélecteur en haut, « ajouter aussi pour… »)
+  if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
@@ -825,6 +828,7 @@ function apiClasse(d) {
   if (c) p.setProperties({ CLASSE: c, CLASSE_ANNEE: String(anneeScolaire_()) });
   else { p.deleteProperty('CLASSE'); p.deleteProperty('CLASSE_ANNEE'); }
   const classe = classe_();
+  try { CacheService.getScriptCache().remove('famille-inscrit'); inscrireFamille_(installer_()); } catch (e) {}
   return { ok: true, classe, theme: themeDe_(classe) };
 }
 
@@ -868,10 +872,81 @@ function apiGeminiCle(d) {
   if (estEnfant_()) return refusEnfant_();
   const cle = String((d && d.cle) || '').trim();
   const props = PropertiesService.getScriptProperties();
-  if (!cle) { props.deleteProperty('GEMINI_CLE'); return { ok: true }; }
-  if (!/^(AIza|AQ\.)[\w.\-]{25,200}$/.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
-  props.setProperty('GEMINI_CLE', cle);
+  if (cle && !CLE_GEMINI_.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
+  if (cle) props.setProperty('GEMINI_CLE', cle); else props.deleteProperty('GEMINI_CLE');
+  // la même clé sert à tous les enfants de la famille
+  if (CONFIG.urlParent) try { ecrireFamille_(f => { if (cle) f.gemini = cle; else delete f.gemini; }); } catch (e) {}
   return { ok: true };
+}
+const CLE_GEMINI_ = /^(AIza|AQ\.)[\w.\-]{25,200}$/;
+// clé du site, sinon celle de la famille (saisie dans l'espace parent d'un autre enfant)
+function cleGemini_() {
+  const propre = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
+  if (propre || !CONFIG.urlParent) return propre || '';
+  try { const g = lireFamille_().gemini; return CLE_GEMINI_.test(g || '') ? g : ''; } catch (e) { return ''; }
+}
+
+/* ---------------- famille : un seul espace parent pour plusieurs enfants ----------------
+   Chaque site (un par enfant, même compte Google) s'inscrit dans le fichier « SoccaQuiz – Famille.json »
+   à la racine du Drive du parent : prénom, classe, adresses, dossier des quiz. L'espace parent s'en sert
+   pour passer d'un enfant à l'autre et pour ajouter un quiz à plusieurs enfants ; la clé Gemini y est
+   aussi gardée, pour n'être saisie qu'une fois. Ce fichier n'est lu que par les sites du parent
+   (ils s'exécutent avec son compte) et n'est jamais envoyé au site de l'enfant. */
+const NOM_FAMILLE = 'SoccaQuiz – Famille.json';
+const URL_SITE_ = /^https:\/\/script\.google\.com\/(a\/[\w.\-]+\/)?macros\/s\/[\w\-]+\/exec$/;
+function fichierFamille_(creer) {
+  const p = PropertiesService.getScriptProperties(), id = p.getProperty('FAMILLE');
+  let f = null;
+  if (id) try { f = DriveApp.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; }
+  if (!f) { const it = DriveApp.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
+  if (!f && creer) f = DriveApp.getRootFolder().createFile(NOM_FAMILLE, '{"sites":[]}', MimeType.PLAIN_TEXT);
+  if (f && f.getId() !== id) p.setProperty('FAMILLE', f.getId());
+  return f;
+}
+function lireFamille_(f) {
+  f = f || fichierFamille_(false);
+  let d = null;
+  if (f) try { d = JSON.parse(f.getBlob().getDataAsString('UTF-8')); } catch (e) { d = null; }
+  if (!d || typeof d !== 'object') d = {};
+  d.sites = Array.isArray(d.sites) ? d.sites.filter(x => x && typeof x === 'object') : [];
+  return d;
+}
+function ecrireFamille_(modifier) {
+  const verrou = LockService.getScriptLock();     // pas de verrou entre projets : deux inscriptions simultanées sont très rares
+  verrou.waitLock(20000);
+  try {
+    const f = fichierFamille_(true), d = lireFamille_(f);
+    modifier(d);
+    f.setContent(JSON.stringify(d, null, 1));
+  } finally { verrou.releaseLock(); }
+  CacheService.getScriptCache().remove('famille');
+}
+// le site se (ré)inscrit au plus toutes les 6 heures, et tout de suite après un changement de classe
+function inscrireFamille_(inst) {
+  if (!URL_SITE_.test(CONFIG.urlParent || '')) return;      // site installé à la main : pas de famille
+  const cache = CacheService.getScriptCache();
+  if (cache.get('famille-inscrit')) return;
+  const moi = { parent: CONFIG.urlParent, enfant: CONFIG.urlEnfant || '', prenom: CONFIG.prenom || '', classe: classe_(), dossier: inst.dossier.getId() };
+  ecrireFamille_(d => {
+    const i = d.sites.findIndex(x => x.parent === moi.parent || x.dossier === moi.dossier);   // site réinstallé : même dossier
+    if (i >= 0) d.sites[i] = moi; else d.sites.push(moi);
+  });
+  cache.put('famille-inscrit', '1', 21600);
+}
+// enfants de la famille dont le dossier existe encore (site supprimé : il disparaît de la liste)
+function familleListe_() {
+  if (!URL_SITE_.test(CONFIG.urlParent || '')) return [];
+  const cache = CacheService.getScriptCache(), enCache = cache.get('famille');
+  let l = null;
+  if (enCache) try { l = JSON.parse(enCache); } catch (e) { l = null; }
+  if (!l) {
+    l = lireFamille_().sites.filter(x => URL_SITE_.test(String(x.parent || '')) && (x.parent === CONFIG.urlParent || (() => {
+      try { return !DriveApp.getFolderById(String(x.dossier)).isTrashed(); } catch (e) { return false; }
+    })())).map(x => ({ prenom: String(x.prenom || '').slice(0, 40), classe: String(x.classe || '').slice(0, 10), parent: x.parent, dossier: String(x.dossier || '') }));
+    try { cache.put('famille', JSON.stringify(l), 300); } catch (e) {}
+  }
+  if (l.length < 2) return [];
+  return l.map(x => Object.assign(x, { ici: x.parent === CONFIG.urlParent }));
 }
 
 /* une question du quiz (format JSON interne), vérifiée et nettoyée ; null si elle est inutilisable.
@@ -975,7 +1050,7 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   return null;
 }
 
-function apiAjouterQuiz(texte) {
+function apiAjouterQuiz(texte, aussi) {
   if (estEnfant_()) return refusEnfant_();
   texte = String(texte || '').trim();
   if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
@@ -988,7 +1063,7 @@ function apiAjouterQuiz(texte) {
     const nom = nomLibre_(inst.dossier, meta.titre);
     inst.dossier.createFile(nom + '.html', texte, MimeType.HTML);
     CacheService.getScriptCache().remove('catalogue');
-    return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [] };
+    return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [], aussi: copierAussi_(aussi, meta.titre, texte) };
   }
 
   // cas 2 : le format en lignes du message pour l'IA (Q|…, V|…, S|…) — le plus économe en tokens
@@ -1037,7 +1112,20 @@ function apiAjouterQuiz(texte) {
   const nom = nomLibre_(inst.dossier, titre);
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
   CacheService.getScriptCache().remove('catalogue');
-  return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert };
+  return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
+}
+
+// même quiz déposé dans le dossier d'autres enfants de la famille (adresses de leur espace parent) ;
+// seuls les enfants inscrits dans le fichier de la famille sont acceptés. Il apparaît chez eux en moins d'une minute.
+function copierAussi_(aussi, titre, html) {
+  if (!Array.isArray(aussi) || !aussi.length) return [];
+  const faits = [];
+  familleListe_().forEach(x => {
+    if (x.ici || aussi.indexOf(x.parent) < 0) return;
+    try { const d = DriveApp.getFolderById(x.dossier); d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML); faits.push(x.prenom || 'un autre enfant'); }
+    catch (e) { console.error(e); }
+  });
+  return faits;
 }
 
 /* Format en lignes (voir le message pour l'IA dans page-ajouter.html) :

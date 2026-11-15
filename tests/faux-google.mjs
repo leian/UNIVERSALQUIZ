@@ -24,6 +24,7 @@ const fichier = (chemin) => ({
   getLastUpdated: () => new Date(statSync(chemin).mtimeMs),
   getDateCreated: () => new Date(statSync(chemin).birthtimeMs || statSync(chemin).mtimeMs),
   getBlob: () => ({ getDataAsString: () => readFileSync(chemin, 'utf8') }),
+  setContent: (c) => { writeFileSync(chemin, c); },
   getSharingAccess: () => partages['f:' + chemin] || 'PRIVATE',
   setSharing: (a) => { partages['f:' + chemin] = a; },
   moveTo: () => {},
@@ -68,7 +69,7 @@ const ctx = {
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }) },
-  MimeType: { HTML: 'text/html' },
+  MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
   ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }) },
   DriveApp: {
     Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', ANYONE: 'ANYONE' }, Permission: { VIEW: 'VIEW' },
@@ -96,7 +97,7 @@ const FAUX_RUN = `<script>(function(){var f=window.fetch.bind(window);
 function chaine(ok,ko){return new Proxy({},{get:function(_,k){
  if(k==='withSuccessHandler')return function(h){return chaine(h,ko)};
  if(k==='withFailureHandler')return function(h){return chaine(ok,h)};
- return function(arg){f('/rpc',{method:'POST',body:JSON.stringify({fn:k,arg:arg})}).then(function(r){return r.json()}).then(function(d){if(d.erreur_serveur){ko&&ko(new Error(d.erreur_serveur))}else{ok&&ok(d.r)}})}}})}
+ return function(arg){f('/rpc',{method:'POST',body:JSON.stringify({fn:k,arg:arg,args:[].slice.call(arguments)})}).then(function(r){return r.json()}).then(function(d){if(d.erreur_serveur){ko&&ko(new Error(d.erreur_serveur))}else{ok&&ok(d.r)}})}}})}
 window.google={script:{run:chaine(null,null)}};})();</script>`;
 
 const serveur = http.createServer(async (req, res) => {
@@ -111,10 +112,10 @@ const serveur = http.createServer(async (req, res) => {
     }
     if (url.pathname === '/rpc') {
       let corps = ''; for await (const c of req) corps += c;
-      const { fn, arg } = JSON.parse(corps);
+      const { fn, arg, args } = JSON.parse(corps);
       if (!/^api/.test(fn)) throw new Error('fonction non autorisée');
       res.writeHead(200, { 'content-type': 'application/json' });
-      return res.end(JSON.stringify({ r: ctx[fn](arg) }));
+      return res.end(JSON.stringify({ r: Array.isArray(args) ? ctx[fn](...args) : ctx[fn](arg) }));
     }
     if (url.pathname === '/eval') {      // pour les tests
       let corps = ''; for await (const c of req) corps += c;

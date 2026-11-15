@@ -17,6 +17,9 @@ h1{font-size:1.8rem;margin:.2em 0 .1em;text-align:center}
 .num{display:inline-grid;place-items:center;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#fff;font-size:.95rem;flex:none}
 .etape p{margin:6px 0}
 .petit{font-size:.9rem;color:var(--soft)}
+.pour-qui{margin:10px 0 4px;display:flex;flex-wrap:wrap;gap:6px 14px;align-items:center}
+.pour-qui label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
+.pour-qui input{width:18px;height:18px;accent-color:var(--rouge,#c0392b)}
 label{font-weight:600}
 input[type=text],select{font:inherit;padding:8px 10px;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink)}
 textarea{width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;padding:10px;border:2px solid var(--line);border-radius:12px;background:var(--bg);color:var(--ink);resize:vertical}
@@ -66,6 +69,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <label for="nb">Questions</label>
       <select id="nb"><option selected>20</option><option>30</option><option>40</option></select>
     </div>
+    <div id="pour-qui" class="pour-qui" hidden></div>
     <p class="petit">20 questions suffisent pour une partie. 30 ou 40 font varier les questions d'une partie à l'autre, mais l'IA met plus longtemps.</p>
   </section>
 
@@ -201,14 +205,23 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
         const url = (U.url || '') + '?page=' + encodeURIComponent(r.page);
         res.innerHTML = '<div class="ok"><p>🎉 Le quiz <b>' + h(r.titre) + '</b> est prêt' + (r.nb ? ' (' + r.nb + ' questions)' : '') + '.</p>' +
           (r.avertissements && r.avertissements.length ? '<p class="petit">' + r.avertissements.map(h).join('<br>') + '</p>' : '') +
+          (r.aussi && r.aussi.length ? '<p>Ajouté aussi pour ' + r.aussi.map(h).join(', ') + '.</p>' : '') +
           '<p><a class="btn" href="' + h(url) + '" target="_top">▶ Jouer au quiz</a></p>' +
           '<p class="petit">Joue deux ou trois questions pour vérifier : l\'IA peut se tromper si une photo est floue.</p></div>';
         $('reponse').value = '';
         fini(r);
       })
       .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; fini(null); })
-      .apiAjouterQuiz(texte));
+      .apiAjouterQuiz(texte, aussiCoches()));
   }
+  // famille : le même quiz peut être ajouté aux autres enfants (frères et sœurs de la même classe…)
+  const autres = ((window.__UQ && window.__UQ.famille) || []).filter(x => !x.ici);
+  if (autres.length) {
+    $('pour-qui').innerHTML = '<b>Ajouter aussi pour :</b>' + autres.map((x, i) =>
+      '<label><input type="checkbox" data-parent="' + h(x.parent) + '"> ' + h(x.prenom || 'Sans prénom') + (x.classe ? ' <span class="petit">(' + h(x.classe) + ')</span>' : '') + '</label>').join('');
+    $('pour-qui').hidden = false;
+  }
+  function aussiCoches() { return [...document.querySelectorAll('#pour-qui input:checked')].map(c => c.getAttribute('data-parent')); }
   // retour depuis l'IA : grand bouton en bas de l'écran, sans avoir à chercher l'étape 3
   let partiIA = false;
   liensIA.forEach(a => a.addEventListener('click', () => { partiIA = true; }));

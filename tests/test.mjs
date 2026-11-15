@@ -677,6 +677,45 @@ try {
 
   const pol = await (await fetch(BASE + '/exec')).text();
   ok(!/fonts\.(googleapis|gstatic)/.test(pol) && /polices\/polices\.css/.test(pol), 'polices servies par GitHub Pages : aucune requête vers Google Fonts');
+  // famille : un seul espace parent pour plusieurs enfants (sites du même compte Google)
+  {
+    const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;
+    const P1 = 'https://script.google.com/macros/s/LANA/exec', P2 = 'https://script.google.com/macros/s/HUGO/exec';
+    await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana";
+      PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE");
+      ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));
+      ecrireFamille_(d => d.sites.push({ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DriveApp.createFolder("SoccaQuiz – Hugo").getId() },
+        { parent: "https://script.google.com/macros/s/PARTI/exec", prenom: "Ancien", dossier: "d:/nulle/part" },
+        { parent: "javascript:alert(1)", prenom: "Piège", dossier: "d:${DRIVE}" }));`);
+    await page.goto(BASE + '/exec');
+    const fam = await page.locator('#famille').innerText().catch(() => '');
+    ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').innerText()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1 && !/Ancien|Piège/.test(fam),
+      'famille : sélecteur en haut de l\'espace parent (enfant actuel, lien vers l\'autre ; site supprimé et adresse douteuse écartés) — ' + fam.replace(/\s+/g, ' '));
+    ok(/Lana/.test((await ev('lireFamille_().sites.map(s => s.prenom).join(",")')).r), 'famille : le site s\'inscrit tout seul dans le fichier de la famille');
+    const g = await ev('(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE"); return cleGemini_() === k; })()');
+    ok(g.r === true, 'famille : clé Gemini saisie une fois, reprise par les autres enfants');
+    await page.goto(BASE + '/exec?page=ajouter');
+    ok(await page.locator(`#pour-qui input[data-parent="${P2}"]`).count() === 1 && /Hugo/.test(await page.locator('#pour-qui').innerText()), 'famille : « Ajouter aussi pour Hugo » sur la page de création');
+    await page.locator(`#pour-qui input[data-parent="${P2}"]`).check();
+    await page.locator('#secours').evaluate(d => { d.open = true; });
+    await page.fill('#reponse', 'T|Les fractions|Moitiés et tiers|maths|🍕|🍰\nQ|Combien font une moitié plus une moitié ?|1|2|3|Deux moitiés font un.\nQ|Quelle est la moitié de 10 ?|5|2|4|10 divisé par 2.\nQ|Quel est le tiers de 9 ?|3|6|1|9 divisé par 3.');
+    await page.locator('#creer').click();
+    await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const htmlHugo = readdirSync(join(DRIVE, 'SoccaQuiz – Hugo')).filter(n => n.endsWith('.html'));
+    ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
+    ok(intrus.r === 0, 'famille : un enfant absent du fichier de la famille est refusé');
+    await ev('CONFIG.espace = "enfant"');
+    await page.goto(BASE + '/exec');
+    ok(await page.evaluate(() => !('famille' in (window.__UQ || {}))), 'famille : rien n\'est envoyé au site de l\'enfant');
+    const a = JSON.parse(avant);
+    await ev(`CONFIG.espace = ${JSON.stringify(a.e)}; CONFIG.urlParent = ${JSON.stringify(a.u)}; CONFIG.prenom = ${JSON.stringify(a.p)};
+      ["GEMINI_CLE", "FAMILLE"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k));
+      ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));`);
+    rmSync(join(DRIVE, 'SoccaQuiz – Hugo'), { recursive: true, force: true });
+    rmSync(join(DRIVE, 'SoccaQuiz – Famille.json'), { force: true });
+  }
+
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {
     const d = DriveApp.createFolder('Universal Quiz');
