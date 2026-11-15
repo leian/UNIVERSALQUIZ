@@ -770,8 +770,9 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   (async function () {
     const vnum = v => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0), plusRecente = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
     let derniere = "";
-    // la mémoire du jour est ignorée si le site est déjà plus récent qu'elle (mise à jour faite entre-temps)
-    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < 864e5 && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
+    // mémoire de la dernière version : 24 h quand une mise à jour est déjà annoncée, 1 h sinon (une version sortie
+    // juste après une vérification apparaît vite) ; ignorée si le site est déjà plus récent qu'elle
+    try { const m = JSON.parse(localStorage.getItem("uq.maj") || "null"); if (m && Date.now() - m.t < (plusRecente(m.v, U.version) ? 864e5 : 36e5) && !plusRecente(U.version, m.v)) derniere = m.v; } catch (e) {}
     if (!derniere) {
       try {
         const r = await fetch('https:\/\/api.github.com/repos/leian/UNIVERSALQUIZ/releases/latest');
