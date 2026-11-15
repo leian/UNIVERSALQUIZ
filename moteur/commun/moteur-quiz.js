@@ -361,7 +361,7 @@
   }
   function defiler(cle, montrerSuivant) {
     if (cle !== lastKey) { lastKey = cle; window.scrollTo(0, 0); return; }
-    if (montrerSuivant) {
+    if (montrerSuivant && !TACTILE) {              // téléphone : voir enregistrer() (pas de défilement pendant que le clavier se ferme)
       const nb = appli().querySelector('.next-btn');
       if (nb && nb.getBoundingClientRect().bottom > window.innerHeight) nb.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
@@ -488,16 +488,27 @@
   // note : 'accents' quand la réponse n'est fausse que par les accents ou l'apostrophe
   function enregistrer(donne, ok, texte, note) {
     if (selected !== null || tropTot()) return;
+    // téléphone : le champ de réponse a encore le clavier (et parfois un mot en cours de saisie, souligné) ;
+    // le retirer de la page sans le quitter d'abord peut figer les touchers sur Android jusqu'à ce qu'on change
+    // d'application. On le quitte proprement avant de réafficher la question.
+    const champ = document.activeElement;
+    if (TACTILE && champ && /^(INPUT|TEXTAREA)$/.test(champ.tagName)) try { champ.blur(); } catch (e) {}
     selected = donne === undefined ? '' : donne;
     answers[cur] = { given: donne, ok: !!ok, texte, i: indicesVus.has(cur), note: ok ? '' : note || '' };
     tQuestion = Date.now();                         // un second toucher rapide ne saute pas la correction
     renderQuestion();
     // la correction et le bouton « suivant » sous le pouce : on les fait apparaître s'ils sont sous l'écran
     const suite = appli().querySelector('.next-btn');
-    if (suite && suite.getBoundingClientRect().bottom > window.innerHeight) suite.scrollIntoView({ block: 'end' });
+    const montrer = () => { const nb = appli().querySelector('.next-btn'); if (nb && nb.getBoundingClientRect().bottom > window.innerHeight) nb.scrollIntoView({ block: 'end' }); };
+    // téléphone : un défilement pendant que le clavier se ferme, au moment où l'enfant touche déjà « Question suivante »,
+    // laisse le toucher coincé sur Android (plus rien ne répond jusqu'à un changement d'application). On attend que
+    // le clavier soit fermé, on ne défile que si le bouton est encore caché et qu'aucun doigt n'est posé, sans animation.
+    if (!TACTILE) montrer();
+    else { const q0 = cur; setTimeout(() => { if (cur === q0 && state === 'q' && !doigtPose) montrer(); }, champ && /^(INPUT|TEXTAREA)$/.test(champ.tagName) ? 500 : 0); }
     // lecteur d'écran : résultat annoncé, focus sur « suivant » (Entrée ou Espace pour continuer)
     annoncer(texteDe((appli().querySelector('.explanation') || {}).innerHTML));
-    if (suite) try { suite.focus({ preventScroll: true }); } catch (e) {}
+    // (au clavier et pour les lecteurs d'écran ; pas sur écran tactile, où donner le focus juste après la fermeture du clavier fige Android)
+    if (suite && !TACTILE) try { suite.focus({ preventScroll: true }); } catch (e) {}
     if (ok) recompenseReponse();
     if (window.Animations) Animations.reponse(!!ok, duel ? 0 : serieEnCours(), themeActuel());
   }
@@ -945,7 +956,9 @@
 
   // un toucher trop rapide juste après le changement de question (double toucher sur « Question suivante ») est ignoré
   let toucher = false, tQuestion = 0;
-  document.addEventListener('pointerdown', e => { toucher = e.pointerType === 'touch'; }, true);
+  let doigtPose = false;
+  document.addEventListener('pointerdown', e => { toucher = e.pointerType === 'touch'; doigtPose = true; }, true);
+  ['pointerup', 'pointercancel'].forEach(t => document.addEventListener(t, () => { doigtPose = false; }, true));
   const tropTot = () => toucher && !navigator.webdriver && Date.now() - tQuestion < 400;   // (les tests automatiques enchaînent vite)
   function clignoter(sel) { const el = appli().querySelector(sel); if (!el) return; el.classList.remove('clignote'); void el.offsetWidth; el.classList.add('clignote'); }
   function actionExercice(action, n) {
