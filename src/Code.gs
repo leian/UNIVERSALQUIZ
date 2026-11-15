@@ -79,6 +79,7 @@ const COMMUN = {
   'recompenses.js': 'lib/recompenses-js',
   'moteur-quiz.js': 'lib/moteur-quiz-js',
   'animations.js': 'lib/animations-js',
+  'dessins.js': 'lib/dessins-js',
   'badges.js': 'lib/badges-js'
 };
 const MATIERES = {
@@ -230,6 +231,7 @@ function assembler_(html, page, inst) {
   const cat = catalogue_(inst.dossier);
   const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
   const aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
+  const aDessins = /src=["']commun\/dessins\.js["']/i.test(html);
 
   html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, (m, f) =>
     COMMUN[f] ? lib_(COMMUN[f], true) : '<!-- ' + f + ' introuvable -->');      // déjà entouré de <style>
@@ -239,7 +241,8 @@ function assembler_(html, page, inst) {
     if (!COMMUN[f]) return '<!-- ' + f + ' introuvable -->';
     let s = lib_(COMMUN[f], true);                     // déjà entouré de <script>
     if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib_(COMMUN['badges.js'], true);
-    if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib_(COMMUN['animations.js'], true);   // quiz déjà déposés : ajouté sans les modifier
+    if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib_(COMMUN['animations.js'], true);
+    if (f === 'moteur-quiz.js' && !aDessins) s = lib_(COMMUN['dessins.js'], true) + '\n' + s;   // avant le moteur : catalogue des dessins   // quiz déjà déposés : ajouté sans les modifier
     return s;
   });
 
@@ -902,6 +905,8 @@ function apiGeminiCle(d) {
   if (CONFIG.urlParent) try { ecrireFamille_(f => { if (cle) f.gemini = cle; else delete f.gemini; }); } catch (e) {}
   return { ok: true };
 }
+// nom d'un dessin du catalogue du moteur (moteur/commun/dessins.js) : img=labo:becher, propositions « danger:corrosif »…
+const DESSIN_ = /^(?:(?:labo|danger|protection|etat):[a-z]{2,20}|heure:\d{1,2}h\d{2}(?:,\d{1,2}h\d{2}){0,3}|nombre:\d{1,12})$/;
 const CLE_GEMINI_ = /^(AIza|AQ\.)[\w.\-]{25,200}$/;
 // clé du site, sinon celle de la famille (saisie dans l'espace parent d'un autre enfant)
 function cleGemini_() {
@@ -995,7 +1000,7 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
   if (!base.q && type !== 'trous') return null;
   // écoute : phrase lue à voix haute (anglais…) et notes de musique
-  const img = emoji_(q.img || q.image);
+  const img = emoji_(q.img || q.image) || (DESSIN_.test(String(q.img || '')) ? String(q.img) : '');
   if (img) base.img = img;
   const dire = txt(q.dire || q.ecoute || q.audio, 300);
   if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }

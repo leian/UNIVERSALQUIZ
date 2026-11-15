@@ -194,9 +194,13 @@
     if (t && t.attendu) return t.attendu(q);
     if (C.attendu) { const r = C.attendu(q); if (r != null) return r; }
     if (typeDe(q) === 'input') return q.disp ? H(q.disp) : (esc(q.a != null ? q.a : (q.ans || [])[0]) + (q.unit ? ' ' + esc(q.unit) : ''));
-    return C.optionHTML ? C.optionHTML(q, q.a) : H(q.a);
+    return C.optionHTML ? C.optionHTML(q, q.a) : dessin(q.a) ? esc(Dessins.nom(q.a)) : H(q.a);
   }
-  const texteReponse = (q, r) => r ? (r.texte != null ? r.texte : (C.texteReponse ? C.texteReponse(q, r.given) : (typeDe(q) === 'input' ? esc(r.given) : (C.optionHTML ? C.optionHTML(q, r.given) : H(r.given))))) : '—';
+  const texteReponse = (q, r) => r ? (r.texte != null ? r.texte : (C.texteReponse ? C.texteReponse(q, r.given) : (typeDe(q) === 'input' ? esc(r.given) : (C.optionHTML ? C.optionHTML(q, r.given) : dessin(r.given) ? esc(Dessins.nom(r.given)) : H(r.given))))) : '—';
+  // dessin du catalogue (labo:becher, danger:corrosif…, voir dessins.js) : le quiz n'écrit que le nom
+  const dessin = v => !!(window.Dessins && typeof v === 'string' && Dessins.existe(v));
+  const optionsDessins = q => Array.isArray(q.opts) && q.opts.length > 0 && q.opts.every(o => dessin(o) && Dessins.petitPossible(o));
+  const optHTML = (q, o) => C.optionHTML ? C.optionHTML(q, o) : optionsDessins(q) ? `<span class="opt-dessin">${Dessins.petit(o)}</span><span class="sr-only">${esc(Dessins.nom(o))}</span>` : dessin(o) ? esc(Dessins.nom(o)) : H(o);
   const texteQuestion = q => C.texteQuestion ? C.texteQuestion(q) : H(q.q);
   // une « phrase d'explication » : au moins 5 mots, ponctuée, nettement plus longue que les autres éléments
   const estPhraseExplication = (t, autres) => { const n = s => String(s).trim().split(/\s+/).length; return n(t) >= 5 && /[.!]$/.test(String(t).trim()) && autres.every(a => n(a) * 2 < n(t)); };
@@ -249,7 +253,7 @@
     const ty = typeDe(q), point = x => x && !/[.!?…:]$/.test(x) ? x + '.' : x;
     if (ty === 'trous') t = point(t) + ' ' + String(q.texte || '').replace(/\[[^\]]*\]/g, ' … ');
     else if (ty === 'cliquer') t = point(t) + ' ' + String(q.texte || '').replace(/\*/g, '');
-    else if (q.type === 'qcm' && Array.isArray(q.opts)) t = point(t) + ' ' + q.opts.map((o, i) => { const x = texteDe(C.optionHTML ? C.optionHTML(q, o) : H(o)).trim(); return x ? `${i + 1} : ${point(x)}` : ''; }).filter(Boolean).join(' ');
+    else if (q.type === 'qcm' && Array.isArray(q.opts)) t = point(t) + ' ' + q.opts.map((o, i) => { const x = texteDe(optHTML(q, o)).trim(); return x ? `${i + 1} : ${point(x)}` : ''; }).filter(Boolean).join(' ');
     const u = new SpeechSynthesisUtterance(t.replace(/_{2,}/g, ' … ').trim());
     u.lang = 'fr-FR'; u.rate = 0.85;
     const v = voixListe().find(x => String(x.lang).toLowerCase().startsWith('fr')); if (v) u.voice = v;
@@ -299,7 +303,7 @@
   function versEcrit(p) {
     const o = p._orig || p, st = etatQuestion(p);
     if (!st || st[1] < 2 || p.type !== 'qcm' || typeDe(o) !== 'qcm' || themeActuel() === 'petits') return false;
-    if (C.optionHTML || C.texteQuestion || p.garderOrdre || p.fixed || typeof p.a !== 'string') return false;
+    if (C.optionHTML || C.texteQuestion || p.garderOrdre || p.fixed || typeof p.a !== 'string' || dessin(p.a)) return false;
     const a = p.a.trim();
     if (!a || /[<>]/.test(a) || a.length > 25 || a.split(/\s+/).length > 3) return false;
     // pas d'écrit si un mauvais choix serait accepté comme bonne réponse (« a » pour « à » hors français…)
@@ -329,6 +333,7 @@
   function visuel(q) {
     const svg = (C.figure && C.figure(q)) || q.svg || (C.illustrations && C.illustrations[q.cat]);
     if (svg) return `<div class="fig-box">${svg}</div>`;
+    if (dessin(q.img)) return `<div class="fig-box dessin" role="img" aria-label="${esc(Dessins.nom(q.img))}">${Dessins.grand(q.img)}</div>`;
     // grande image seulement si la question en a une utile (img=🐘 : objet ou être concret) ;
     // sinon rien : la question monte et l'emoji de la catégorie reste en petit dans l'étiquette
     if (q.img) return `<div class="emo-box">${C.deco || DECO_DEFAUT}${emojiImg(q.img, 'emo-grand')}</div>`;
@@ -1005,10 +1010,10 @@
     let body;
     if (T) body = T.corps(q, ctxDe(q));
     else if (q.type === 'qcm') {
-      body = `<div class="options-grid ${C.classeOptions ? (C.classeOptions(q) || '') : ''}">${q.opts.map((opt, i) => {
+      body = `<div class="options-grid ${C.classeOptions ? (C.classeOptions(q) || '') : optionsDessins(q) ? 'opts-dessins' : ''}">${q.opts.map((opt, i) => {
         let cls = 'opt-btn';
         if (answered) cls += opt === q.a ? ' correct' : opt === selected ? ' wrong' : ' neutral';
-        return `<button class="${cls}" ${answered ? 'disabled' : ''} onclick="MoteurQuiz.answer(${i})"><span class="opt-letter">${NUMS[i]}</span><span class="opt-body">${C.optionHTML ? C.optionHTML(q, opt) : H(opt)}</span>${answered ? SR(opt === q.a ? 'ok' : opt === selected ? 'ko' : '') : ''}</button>`;
+        return `<button class="${cls}" ${answered ? 'disabled' : ''} onclick="MoteurQuiz.answer(${i})"><span class="opt-letter">${NUMS[i]}</span><span class="opt-body">${optHTML(q, opt)}</span>${answered ? SR(opt === q.a ? 'ok' : opt === selected ? 'ko' : '') : ''}</button>`;
       }).join('')}</div>`;
     } else {
       body = `${q._ecrit && !answered ? `<div class="ecrit-tag">${ic('crayon')} Niveau supérieur : écris la réponse !</div>` : ''}<div class="input-row">

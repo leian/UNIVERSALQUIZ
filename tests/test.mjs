@@ -684,6 +684,29 @@ try {
 
   const pol = await (await fetch(BASE + '/exec')).text();
   ok(!/fonts\.(googleapis|gstatic)/.test(pol) && /polices\/polices\.css/.test(pol), 'polices servies par GitHub Pages : aucune requête vers Google Fonts');
+  // dessins du catalogue : img=labo:becher, propositions dessinées, horloge (le quiz n'écrit que les noms)
+  {
+    const avantD = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = ""');
+    const qd = await ev(`apiAjouterQuiz(${JSON.stringify("T|Le matériel de chimie|Reconnaître le matériel|sciences|🧪|⚗️\n## Matériel|🧪\nQ|Comment s'appelle ce matériel ?|Un bécher|Un ballon|Un erlenmeyer|C'est un bécher.|img=labo:becher\nQ|Lequel est le pictogramme « corrosif » ?|danger:corrosif|danger:toxique|danger:inflammable|Il ronge la peau.\nQ|Quelle heure indique l'horloge ?|3 h 45|4 h 15|9 h 20|Petite aiguille entre 3 et 4.|img=heure:3h45\nQ|Comment s'appelle ce pictogramme ?|Port des gants|Port de la blouse|Port du masque|Il protège les mains.|img=pirate:xx")})`);
+    ok(qd.r && qd.r.ok && qd.r.nb === 4, 'dessins : quiz créé avec des noms de dessins — ' + JSON.stringify(qd.r && (qd.r.erreur || qd.r.avertissements)));
+    await page.goto(BASE + '/exec?page=' + qd.r.page);
+    await page.locator('.start-btn').click();
+    const vu = { grand: 0, props: 0, horloge: 0, inconnu: 0, nom: '' };
+    for (let i = 0; i < 12; i++) {
+      if (await page.locator('.result-card').count()) break;
+      if (await page.locator('.next-btn').count()) { await page.locator('.next-btn').click(); continue; }
+      const txt = await page.locator('.question-text').innerText();
+      if (/matériel/.test(txt)) vu.grand = await page.locator('.fig-box.dessin svg path').count();
+      if (/corrosif/.test(txt)) { vu.props = await page.locator('.opts-dessins .opt-dessin svg').count(); vu.nom = await page.locator('.opts-dessins').innerText(); }
+      if (/horloge/.test(txt)) vu.horloge = await page.locator('.fig-box.dessin svg circle').count();
+      if (/pictogramme \?/.test(txt)) vu.inconnu = await page.locator('.fig-box.dessin').count();
+      await page.locator('.opt-btn').first().click();
+    }
+    ok(vu.grand > 0 && vu.props === 3 && /Corrosif/.test(vu.nom) && vu.horloge > 0 && vu.inconnu === 0, 'dessins : bécher et horloge dessinés en grand, pictogrammes en propositions (nom lu par le lecteur d\'écran), nom inconnu ignoré — ' + JSON.stringify(vu));
+    await ev(`CONFIG.espace = ${JSON.stringify(avantD)}`);
+  }
+
   // famille : un seul espace parent pour plusieurs enfants (sites du même compte Google)
   {
     const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;

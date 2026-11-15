@@ -58,6 +58,11 @@
   .emo { width: 1em; height: 1em; vertical-align: -0.12em; }
   .explanation.avec-mascotte { display: flex; gap: 10px; align-items: flex-start; }
   .explanation.avec-mascotte .mascotte { width: 56px; height: 56px; margin-top: -4px; }
+  /* propositions dessinées (catalogue dessins.js) : grille d'images */
+  .options-grid.opts-dessins { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+  .opts-dessins .opt-btn { flex-direction: column; justify-content: center; padding: 10px; }
+  .opts-dessins .opt-dessin svg { width: 84px; height: 84px; display: block; margin: 0 auto; }
+  .fig-box.dessin svg { max-height: 160px; }
   /* mascotte compagne à côté de la question (maternelle à 5e) */
   .q-compagnon { display: flex; gap: 10px; align-items: flex-start; }
   .q-compagnon .compagnon { width: 60px; height: 60px; margin-top: -2px; transform-origin: 50% 100%; }
