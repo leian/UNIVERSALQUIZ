@@ -239,8 +239,8 @@
     else if (q.type === 'qcm' && Array.isArray(q.opts)) t = point(t) + ' ' + q.opts.map((o, i) => { const x = texteDe(C.optionHTML ? C.optionHTML(q, o) : H(o)).trim(); return x ? `${i + 1} : ${point(x)}` : ''; }).filter(Boolean).join(' ');
     const u = new SpeechSynthesisUtterance(t.replace(/_{2,}/g, ' … ').trim());
     u.lang = 'fr-FR'; u.rate = 0.85;
-    const v = speechSynthesis.getVoices().find(x => x.lang.toLowerCase().startsWith('fr')); if (v) u.voice = v;
-    speechSynthesis.speak(u);
+    const v = voixListe().find(x => String(x.lang).toLowerCase().startsWith('fr')); if (v) u.voice = v;
+    lancerLecture(u);
   }
   const meilleurScore = (pct) => {
     const k = 'sq.meilleur.' + (C.titre || '');
@@ -518,8 +518,21 @@
   const sequence = q => (Array.isArray(q.notes) ? q.notes : []).map(x => (Array.isArray(x) ? x : [x]).map(lireNote).filter(Boolean));
 
   let actx = null, sons = [];
+  let dernierCancel = 0, voixCache = [];
+  // liste des voix lue une fois puis gardée (relue seulement quand le navigateur annonce un changement)
+  function voixListe() { if (!voixCache.length) try { voixCache = speechSynthesis.getVoices() || []; } catch (e) {} return voixCache; }
+  try { if ('speechSynthesis' in window) speechSynthesis.addEventListener('voiceschanged', () => { voixCache = []; }); } catch (e) {}
+  // lecture lancée un peu après une coupure : sur Android, speak() juste après cancel() est parfois ignoré,
+  // et l'enfant retouche le bouton en boucle
+  function lancerLecture(u) {
+    const attente = Math.max(0, 120 - (Date.now() - dernierCancel));
+    if (!attente) { try { speechSynthesis.speak(u); } catch (e) {} return; }   // tout de suite : iOS veut la lecture dans le toucher
+    setTimeout(() => { try { speechSynthesis.speak(u); } catch (e) {} }, attente);
+  }
   function couperSon() {
-    try { if ('speechSynthesis' in window) speechSynthesis.cancel(); } catch (e) {}
+    // Android : cancel() et getVoices() passent par le moteur de synthèse du téléphone et peuvent bloquer la page
+    // un instant ; on ne coupe que si une lecture est en cours ou en attente
+    try { if ('speechSynthesis' in window && (speechSynthesis.speaking || speechSynthesis.pending)) { speechSynthesis.cancel(); dernierCancel = Date.now(); } } catch (e) {}
     sons.forEach(o => { try { o.stop(); } catch (e) {} }); sons = [];
   }
   function jouerNotes(q) {
@@ -557,7 +570,7 @@
   // voix de la langue (exacte, sinon même langue de base) ; sans voix choisie, Android et Brave lisent avec la voix
   // par défaut du téléphone, souvent française (« I » dit « i ») : on attend que la liste des voix soit chargée
   function voixPour(langue) {
-    const voix = speechSynthesis.getVoices(), base = langue.slice(0, 2).toLowerCase(), l = x => String(x.lang).replace('_', '-').toLowerCase();
+    const voix = voixListe(), base = langue.slice(0, 2).toLowerCase(), l = x => String(x.lang).replace('_', '-').toLowerCase();
     return voix.find(x => l(x) === langue.toLowerCase() && x.localService) || voix.find(x => l(x) === langue.toLowerCase())
       || voix.find(x => l(x).startsWith(base) && x.localService) || voix.find(x => l(x).startsWith(base)) || null;
   }
@@ -572,9 +585,9 @@
       const u = new SpeechSynthesisUtterance(String(q.dire));
       u.lang = langue; u.rate = lent ? 0.6 : 0.9;
       const v = voixPour(langue); if (v) try { u.voice = v; } catch (e) {}
-      speechSynthesis.speak(u);
+      lancerLecture(u);
     };
-    if (speechSynthesis.getVoices().length) return parler();
+    if (voixListe().length) return parler();
     let fait = false;
     const une = () => { if (!fait) { fait = true; parler(); } };
     try { speechSynthesis.addEventListener('voiceschanged', une, { once: true }); } catch (e) {}
@@ -586,7 +599,7 @@
     if (!('speechSynthesis' in window)) return;
     const base = String(langue).slice(0, 2).toLowerCase();
     const test = () => {
-      const voix = speechSynthesis.getVoices(); if (!voix.length) return false;
+      const voix = voixListe(); if (!voix.length) return false;
       const el = document.getElementById('voix-note');
       if (el && !voix.some(x => String(x.lang).replace('_', '-').toLowerCase().startsWith(base))) { el.textContent = `Pas de voix ${NOMS_LANGUES[base] || 'pour cette langue'} sur cet appareil : demande à quelqu'un de lire la phrase.`; el.hidden = false; }
       return true;
