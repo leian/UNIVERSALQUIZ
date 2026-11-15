@@ -699,6 +699,8 @@ try {
     ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').innerText()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1 && !/Ancien|Piège/.test(fam),
       'famille : sélecteur en haut de l\'espace parent (enfant actuel, lien vers l\'autre ; site supprimé et adresse douteuse écartés) — ' + fam.replace(/\s+/g, ' '));
     ok(/Lana/.test((await ev('lireFamille_().sites.map(s => s.prenom).join(",")')).r), 'famille : le site s\'inscrit tout seul dans le fichier de la famille');
+    const ancienne = await ev('(() => { const k = "AIza" + "y".repeat(35); PropertiesService.getScriptProperties().setProperty("GEMINI_CLE", k); ecrireFamille_(d => { delete d.gemini; }); CacheService.getScriptCache().remove("famille-inscrit"); inscrireFamille_(installer_()); return lireFamille_().gemini === k; })()');
+    ok(ancienne.r === true, 'famille : une clé Gemini enregistrée avant le partage en famille est recopiée pour les autres enfants');
     const g = await ev('(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE"); return cleGemini_() === k; })()');
     ok(g.r === true, 'famille : clé Gemini saisie une fois, reprise par les autres enfants');
     await page.goto(BASE + '/exec?page=ajouter');

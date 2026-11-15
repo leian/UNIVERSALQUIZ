@@ -960,6 +960,9 @@ function inscrireFamille_(inst) {
     const i = d.sites.findIndex(x => x.parent === moi.parent || x.dossier === moi.dossier);   // site réinstallé : même dossier
     if (i >= 0) d.sites[i] = moi; else d.sites.push(moi);
     parents = parentsDe_(d);
+    // clé Gemini enregistrée avant le partage en famille (v2.60) : elle est recopiée pour les autres enfants
+    const propre = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
+    if (propre && !CLE_GEMINI_.test(d.gemini || '')) d.gemini = propre;
   });
   // nouvel enfant ajouté après l'invitation : son dossier est partagé lui aussi avec l'autre parent
   if (parents.length) partager_(inst.dossier, parents, true);

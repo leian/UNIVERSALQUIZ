@@ -80,10 +80,11 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
 .famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0 0}
 .famille b{font-size:.85rem;color:var(--soft);font-weight:600;margin-right:2px}
-.famille a,.famille span.on{display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;color:var(--ink);text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s}
-.famille a:hover{border-color:var(--rouge)}
+/* les deux en rouge SoccaQuiz (lisibles en thème clair comme sombre) ; l'enfant affiché en rouge foncé, cerclé */
+.famille a,.famille span.on{display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:2px solid var(--rouge);background:var(--rouge);color:#fff;text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s,filter .12s}
+.famille a:hover{filter:brightness(1.08)}
 .famille a:active{transform:scale(.95)}
-.famille span.on{background:var(--rouge);border-color:var(--rouge);color:#fff}
+.famille span.on{background:color-mix(in srgb,var(--rouge) 55%,#000);border-color:#fff3;box-shadow:0 0 0 2px color-mix(in srgb,var(--rouge) 55%,#000)}
 .famille small{font-weight:500;opacity:.75;font-size:.78rem}
 .onglet:focus-visible,.btn:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .onglet .nb{font-size:.78rem;background:var(--line);color:var(--ink);border-radius:999px;padding:0 7px;font-weight:700}
