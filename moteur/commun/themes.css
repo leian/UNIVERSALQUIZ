@@ -166,3 +166,21 @@ html[data-theme="lecteurs"] #saut-mascotte { aspect-ratio: 172 / 260; background
 @keyframes saut-images { from { background-position: 0 0; } to { background-position: 100% 0; } }
 @keyframes saut-visible { 0% { opacity: 0; transform: translateY(24px); } 12%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
 @media (prefers-reduced-motion: reduce) { #saut-mascotte.go { animation: saut-visible 1.6s ease forwards; background-position: 40% 0; } }
+
+/* ---- Effet de bascule sur tous les boutons : on voit tout de suite qu'on a bien touché ----
+   « scale » (et non « transform ») pour ne pas déranger les boutons déjà déplacés ou animés */
+:is(button, [role="button"], a.btn, a.card, a.next-btn, .btn, .chip, .filtre, input[type="button"], input[type="submit"]) {
+  transition: scale .12s ease, filter .12s ease, box-shadow .12s ease;
+  -webkit-tap-highlight-color: transparent;
+}
+:is(button, [role="button"], a.btn, a.card, a.next-btn, .btn, .chip, .filtre, input[type="button"], input[type="submit"]):active:not(:disabled):not([aria-disabled="true"]),
+.appuye {
+  scale: .95;
+  filter: brightness(.92);
+  transition-duration: .04s;
+}
+a.card:active, a.card.appuye { scale: .98; }   /* grandes cartes : bascule plus légère */
+@media (prefers-reduced-motion: reduce) {
+  :is(button, [role="button"], a.btn, a.card, a.next-btn, .btn, .chip, .filtre, input[type="button"], input[type="submit"]):active:not(:disabled),
+  .appuye { scale: none; filter: brightness(.85); }
+}

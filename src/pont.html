@@ -94,3 +94,19 @@
   document.addEventListener('click', auClic, true);
   document.addEventListener('auxclick', auClic, true);
 })();
+
+// effet de bascule des boutons (themes.css) : sur téléphone, :active n'apparaît pas toujours pendant un toucher bref ;
+// on pose la classe « appuye » le temps du toucher, et un peu après pour qu'on la voie même sur un tap rapide
+(function () {
+  const CIBLE = 'button, [role="button"], a.btn, a.card, a.next-btn, .btn, .chip, .filtre, input[type="button"], input[type="submit"]';
+  let el = null, minuterie = 0;
+  const lacher = () => { const e = el; el = null; if (e) { clearTimeout(minuterie); minuterie = setTimeout(() => e.classList.remove('appuye'), 110); } };
+  document.addEventListener('pointerdown', ev => {
+    const b = ev.target.closest && ev.target.closest(CIBLE);
+    if (!b || b.disabled || b.getAttribute('aria-disabled') === 'true') return;
+    if (el && el !== b) el.classList.remove('appuye');
+    el = b; b.classList.add('appuye');
+  }, { passive: true });
+  ['pointerup', 'pointercancel', 'dragstart'].forEach(t => document.addEventListener(t, lacher, { passive: true }));
+  document.addEventListener('scroll', () => { if (el) { el.classList.remove('appuye'); el = null; } }, { passive: true, capture: true });
+})();
