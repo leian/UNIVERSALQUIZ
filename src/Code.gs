@@ -8,18 +8,17 @@
      …/exec                      → page d'accueil « SoccaQuiz »
      …/exec?page=<nom du quiz>   → un quiz (fichier <nom>.html du dossier Drive)
      …/exec?page=tableau-de-bord → suivi des résultats (parents)
-     …/exec?page=controles       → contrôles papier (PDF du dossier Drive)
      …/exec?page=ajouter         → ajout d'un quiz (parents)
 
    Deux publications du même site (créées par l'installateur en ligne) :
-     • le site de l'enfant (accès : tout le monde, sans compte) : quiz, contrôles, accueil ;
+     • le site de l'enfant (accès : tout le monde, sans compte) : quiz, accueil ;
      • l'espace parent (accès : « Seulement moi », Google vérifie le compte du parent) :
        tout le site, plus « Ajouter un quiz », le suivi des résultats et la clé Gemini.
    Dans le site de l'enfant, les pages et les actions réservées aux parents sont refusées.
 
    Où sont les choses :
      • le moteur (commun/…) et les pages d'accueil : dans ce projet (dossier lib/)
-     • les quiz (.html) et les contrôles (.pdf) : dans le dossier Drive « SoccaQuiz » (« Universal Quiz » pour les sites installés avant)
+     • les quiz (.html) : dans le dossier Drive « SoccaQuiz » (« Universal Quiz » pour les sites installés avant)
      • les résultats : dans le Google Sheets « SoccaQuiz – Résultats » (même dossier)
 
    Le dossier et le Sheets sont créés tout seuls à la première visite
@@ -30,7 +29,6 @@
 const CONFIG = {
   prenom: '',                     // prénom de l'enfant (tableau de bord, encouragements) ; vide = « mon enfant »
   nomDossier: 'SoccaQuiz',        // nom du dossier créé dans ton Google Drive
-  partagerPdf: true,              // rend les PDF lisibles par lien, pour que l'enfant puisse les ouvrir
   dureeCacheCatalogue: 60,        // secondes : délai max avant qu'un nouveau quiz apparaisse dans la liste
   version: '',                    // rempli par l'installateur en ligne (ex. v2.0)
   installateur: '',               // adresse de l'installateur en ligne, pour proposer les mises à jour
@@ -49,7 +47,7 @@ const NOM_SHEETS = 'SoccaQuiz – Résultats';
 const ANCIEN_DOSSIER = 'Universal Quiz', ANCIEN_SHEETS = 'Universal Quiz – Résultats';
 // mode (ajouté en v2.49) : normal, erreurs (« refaire mes erreurs »), duel (défi en famille), revision ; vide = normal
 const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', 'total', 'duree', 'dateLocale', 'appareil', 'cats', 'questions', 'mode'];
-const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'controles': 'lib/page-controles', 'ajouter': 'lib/page-ajouter' };
+const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'ajouter': 'lib/page-ajouter' };
 // pages et actions réservées à l'espace parent
 const PAGES_PARENT = ['tableau-de-bord', 'ajouter'];
 function estEnfant_() { return CONFIG.espace === 'enfant'; }
@@ -148,7 +146,7 @@ function diagnostic() {
   if (!estEnfant_()) CacheService.getScriptCache().remove('catalogue');   // depuis le site de l'enfant : pas de vidage du cache à répétition
   const cat = catalogue_(inst.dossier);
   console.log('Dossier : ' + inst.dossier.getName() + ' — ' + inst.dossier.getUrl());
-  console.log(cat.QUIZ.length + ' quiz, ' + cat.CONTROLES.length + ' contrôle(s) PDF');
+  console.log(cat.QUIZ.length + ' quiz');
   cat.QUIZ.forEach(q => console.log('  • ' + q.fichier + ' → « ' + q.titre + ' » (' + q.matiere + ')'));
   console.log('Résultats : ' + Math.max(0, inst.ss.getSheets()[0].getLastRow() - 1) + ' partie(s) — ' + inst.ss.getUrl());
   console.log('Site : ' + (ScriptApp.getService().getUrl() || 'pas encore déployé'));
@@ -263,7 +261,7 @@ function assembler_(html, page, inst) {
     classe: classe_(),
     classes: CLASSES,
     revisions: (page === 'index' && CONFIG.espace !== 'parent') ? (() => { try { const r = revisions_(); return { n: r.aRevoir.length, defi: r.defi.length, mois: r.moisDefi, nouveau: r.nouveauDefi }; } catch (e) { return null; } })() : null,
-    maitrise: page === 'ajouter' || page === 'controles' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
+    maitrise: page === 'ajouter' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
     saison: saison_(),
     saisonDuJour: saisonDe_(),
     saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1',
@@ -287,7 +285,7 @@ function assembler_(html, page, inst) {
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
-  const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar CONTROLES = ' + jsonScript_(cat.CONTROLES) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
+  const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
   const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
 
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
@@ -346,7 +344,7 @@ function lib_(nom, avecPrenom) {
 
 /* =====================================================================
    CATALOGUE AUTOMATIQUE
-   Chaque .html du dossier = un quiz ; chaque .pdf = un contrôle papier.
+   Chaque .html du dossier = un quiz.
    Titre, matière et icône sont lus dans MoteurQuiz.lancer({ … }).
    Un fichier catalogue.js (format du dépôt GitHub) déposé dans le
    dossier, s'il existe, fournit les descriptions et badges exacts.
@@ -359,11 +357,10 @@ function catalogue_(dossier) {
   const props = PropertiesService.getScriptProperties();
   const toutes = props.getProperties();
   const aEcrire = {};
-  const QUIZ = [], CONTROLES = [], liens = {};
-  let surcharges = { Q: {}, C: {} };
+  const QUIZ = [];
+  let surcharges = { Q: {} };
 
   const it = dossier.getFiles();
-  const pdfs = [];
   while (it.hasNext()) {
     const f = it.next();
     const nom = f.getName();
@@ -378,45 +375,24 @@ function catalogue_(dossier) {
         aEcrire[cle] = JSON.stringify(meta);
       }
       QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.biblio ? { biblio: meta.biblio } : {}));
-    } else if (/\.pdf$/i.test(nom)) {
-      pdfs.push(f);
     }
   }
 
-  pdfs.forEach(f => {
-    const nom = f.getName(), id = f.getId();
-    if (CONFIG.partagerPdf && toutes['p_' + id] !== '1') {
-      try {
-        if (f.getSharingAccess() !== DriveApp.Access.ANYONE_WITH_LINK && f.getSharingAccess() !== DriveApp.Access.ANYONE) {
-          f.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
-        }
-        aEcrire['p_' + id] = '1';
-      } catch (e) { console.warn('Partage impossible pour ' + nom + ' : ' + e.message); }
-    }
-    liens[nom] = { voir: 'https://drive.google.com/file/d/' + id + '/view', dl: 'https://drive.google.com/uc?export=download&id=' + id };
-    const base = nom.replace(/\.pdf$/i, '');
-    CONTROLES.push({
-      titre: joli_(base.replace(/^controle[_-]?/i, '').replace(/[_-]\d{2}-\d{2}-\d{4}$|[_-]\d{4}-\d{2}-\d{2}$/, '')),
-      matiere: 'autre', fichier: nom, description: 'PDF à imprimer',
-      date: dateDepuisNom_(nom) || jour_(f.getDateCreated())
-    });
-  });
-
   // les descriptions du catalogue.js (s'il existe) l'emportent
   QUIZ.forEach(q => { const s = surcharges.Q[q.fichier]; if (s) Object.assign(q, s, { fichier: q.fichier }); });
-  CONTROLES.forEach(c => { const s = surcharges.C[c.fichier]; if (s) Object.assign(c, s, { fichier: c.fichier }); });
 
   if (Object.keys(aEcrire).length) props.setProperties(aEcrire);
-  // fichiers supprimés ou renommés : leurs entrées m_… et p_… sont retirées des propriétés (limite de 500 Ko)
-  const vus = {}; QUIZ.concat(CONTROLES).forEach(x => { vus[x.fichier] = 1; });
+  // fichiers supprimés ou renommés : leurs entrées m_… sont retirées des propriétés (limite de 500 Ko) ;
+  // p_… : marques de partage des anciens contrôles PDF (fonction retirée en v2.71)
+  const vus = {}; QUIZ.forEach(x => { vus[x.fichier] = 1; });
   try {
     Object.keys(toutes).forEach(k => {
       if (aEcrire[k]) return;
       if (/^m_/.test(k)) { let m = null; try { m = JSON.parse(toutes[k]); } catch (e) {} if (!m || !vus[m.n]) props.deleteProperty(k); }
-      else if (/^p_/.test(k) && !pdfs.some(f => 'p_' + f.getId() === k)) props.deleteProperty(k);
+      else if (/^p_/.test(k)) props.deleteProperty(k);
     });
   } catch (e) {}
-  const cat = { QUIZ, CONTROLES, liens };
+  const cat = { QUIZ };
   try { cache.put('catalogue', JSON.stringify(cat), CONFIG.dureeCacheCatalogue); } catch (e) {}
   return cat;
 }
@@ -444,16 +420,16 @@ function lireMeta_(html, nom, cree) {
 }
 
 function lireSurcharges_(f) {
-  // le fichier n'est jamais exécuté : on lit seulement les tableaux QUIZ et CONTROLES, écrits comme des données
+  // le fichier n'est jamais exécuté : on lit seulement le tableau QUIZ, écrit comme des données
   try {
     const code = f.getBlob().getDataAsString('UTF-8');
     const tableau = nom => {
       const i = code.search(new RegExp('\\b' + nom + '\\s*=\\s*\\['));
       return i < 0 ? [] : JSON.parse(litteralVersJson_(code, code.indexOf('[', i)));
     };
-    const r = { Q: tableau('QUIZ'), C: tableau('CONTROLES') };
+    const r = { Q: tableau('QUIZ') };
     const parFichier = l => (Array.isArray(l) ? l : []).reduce((o, x) => { if (x && x.fichier) o[String(x.fichier).split('/').pop()] = x; return o; }, {});
-    return { Q: parFichier(r.Q), C: parFichier(r.C) };
+    return { Q: parFichier(r.Q) };
   } catch (e) {
     console.warn('catalogue.js illisible : ' + e.message);
     return null;
@@ -1215,7 +1191,7 @@ function apiRetirerParent(d) {
 }
 /* ---------------- remise à zéro (Réglages, parent qui a installé) ----------------
    Rien n'est détruit : l'ancien tableau des résultats est renommé « … (archive du JJ/MM/AAAA) » et remplacé
-   par un tableau vide, les quiz et PDF partent dans la corbeille du Drive. La mémoire des appareils de l'enfant
+   par un tableau vide, les quiz partent dans la corbeille du Drive. La mémoire des appareils de l'enfant
    (historique local, file d'envoi, badges vus, tenue de la socca…) est effacée à leur prochaine visite (pont.html). */
 function apiRemettreAZero(d) {
   if (interdit_()) return refusEnfant_();
@@ -1223,7 +1199,7 @@ function apiRemettreAZero(d) {
   d = d || {};
   const attendu = String(CONFIG.prenom || 'zéro').trim().toLowerCase(), donne = String(d.confirmation || '').trim().toLowerCase();
   if (!donne || donne !== attendu) return { erreur: 'Pour confirmer, tape « ' + (CONFIG.prenom || 'zéro') + ' ».' };
-  if (!d.resultats && !d.quiz && !d.controles && !d.reglages && !d.gemini && !d.appareils) return { erreur: 'Coche au moins une case.' };
+  if (!d.resultats && !d.quiz) return { erreur: 'Coche au moins une case.' };
   const inst = installer_(), props = PropertiesService.getScriptProperties(), cache = CacheService.getScriptCache(), fait = [];
   if (d.resultats) {
     const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Paris', 'dd/MM/yyyy');
@@ -1239,12 +1215,8 @@ function apiRemettreAZero(d) {
     return n;
   };
   if (d.quiz) fait.push(corbeille(/\.html?$/i) + ' quiz à la corbeille');
-  if (d.controles) fait.push(corbeille(/\.pdf$/i) + ' contrôle(s) à la corbeille');
-  if (d.reglages) { ['CLASSE', 'CLASSE_ANNEE', 'SAISON_OFF'].forEach(k => props.deleteProperty(k)); fait.push('classe et décorations remises comme à l\'installation'); }
-  if (d.gemini) { props.deleteProperty('GEMINI_CLE'); try { ecrireFamille_(f => { delete f.gemini; }); } catch (e) {} fait.push('clé Gemini effacée'); }
-  if (d.appareils || d.resultats) { props.setProperty('RAZ', String(Date.now())); fait.push('mémoire des appareils effacée à leur prochaine visite'); }
+  if (d.resultats) { props.setProperty('RAZ', String(Date.now())); fait.push('mémoire des appareils effacée à leur prochaine visite'); }
   try { cache.removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
-  if (d.reglages) try { inscrireFamille_(installer_()); } catch (e) {}
   return { ok: true, fait };
 }
 
@@ -1269,7 +1241,7 @@ function apiSupprimerSite(d) {
     }
   } catch (e) { console.error(e); }
   if (parents.length) partager_(inst.dossier, parents, false);
-  if (!d.garder) inst.dossier.setTrashed(true);                    // quiz, contrôles et tableau des résultats : corbeille du Drive (30 jours)
+  if (!d.garder) inst.dossier.setTrashed(true);                    // quiz et tableau des résultats : corbeille du Drive (30 jours)
   props.deleteAllProperties();
   try { CacheService.getScriptCache().removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); } catch (e) {}
   const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';

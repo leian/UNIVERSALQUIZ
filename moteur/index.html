@@ -22,7 +22,7 @@ body{margin:0;background:var(--bg);color:var(--ink);font-family:"Nunito",system-
 .ic{width:1.15em;height:1.15em;flex:none;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.2em}
 .tuile{display:inline-grid;place-items:center;width:40px;height:40px;border-radius:12px;background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--c);flex:none}
 .tuile .ic{width:22px;height:22px}
-/* en-tête : marque à gauche, contrôles papier à droite ; salut avec la mascotte */
+/* en-tête : marque ; salut avec la mascotte */
 header{margin-bottom:14px}
 .barre{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 h1{font-family:"Fredoka",sans-serif;font-weight:700;font-size:clamp(1.5rem,5vw,2.1rem);margin:0}
@@ -142,7 +142,6 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <header>
     <div class="barre">
       <h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="44" height="44" alt=""><span>Socca<em>Quiz</em></span></h1>
-      <a class="btn-icone" id="btn-controles" href="controles.html" hidden><i data-ic="printer"></i> Contrôles</a>
     </div>
     <div class="salut"><span class="mascotte m-accueil" aria-hidden="true"></span><div><b id="salut">Salut {{PRENOM}} !</b>Choisis un quiz et lance-toi.<div id="serie"></div></div></div>
     <p class="espace-parent" id="espace-parent" hidden><i data-ic="lock"></i> Espace parent · ton enfant utilise son propre lien, sans les pages parents</p>
@@ -196,7 +195,6 @@ const norm = s => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "
 // prénom vide (le serveur met alors « mon enfant ») : salut neutre, sans « mon enfant »
 const PRENOM = (p => p && p !== "mon enfant" ? p : "")("{{PRENOM}}".trim());
 document.getElementById("salut").textContent = PRENOM ? "Salut " + PRENOM + " !" : "Salut !";
-if ((window.CONTROLES || []).length) document.getElementById("btn-controles").hidden = false;
 let filtre = "tout";
 
 function afficherFiltres(){

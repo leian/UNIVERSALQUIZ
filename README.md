@@ -2,10 +2,10 @@
 
 Ce projet transforme une leçon prise en photo en quiz de révision interactif, hébergé gratuitement chez Google.
 
-- **Les quiz** (`.html`) et **les contrôles papier** (`.pdf`) se trouvent dans un dossier Google Drive. On publie un quiz en déposant son fichier, sans GitHub ni déploiement.
+- **Les quiz** (`.html`) se trouvent dans un dossier Google Drive. On publie un quiz en déposant son fichier, sans GitHub ni déploiement.
 - **Les résultats** s'enregistrent dans un Google Sheets, avec un tableau de bord pour les parents, des badges, des séries de jours et le bilan « Ma semaine ».
 - **Le site** est une « application web » Google Apps Script, publiée à **deux adresses** `https://script.google.com/macros/s/…/exec` :
-  - **le site de l'enfant**, ouvert à toute personne qui a le lien, sans compte : les quiz, les contrôles papier, l'accueil. Les pages et les actions des parents y sont refusées par le serveur, et seul un lien « 🔒 Espace parent » y mène ;
+  - **le site de l'enfant**, ouvert à toute personne qui a le lien, sans compte : les quiz, l'accueil. Les pages et les actions des parents y sont refusées par le serveur, et seul un lien « 🔒 Espace parent » y mène ;
   - **l'espace parent**, réglé sur « Seulement moi » : Google vérifie que c'est bien le compte de la famille. Son accueil n'est pas la page de l'enfant mais le **tableau de bord des parents** : actions (« ➕ Créer un quiz », « ✉️ Envoyer le lien à mon enfant », installateur), version du site et bouton « 🔄 Mettre à jour mon site » si besoin, état de la clé Gemini, indicateurs et résultats, et gestion des quiz (« ▶ Tester », « 🗑️ Supprimer »). Les parties jouées depuis l'espace parent ne sont pas comptées dans les résultats de l'enfant.
 
 Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'importe quelle famille puisse l'installer.
@@ -27,7 +27,7 @@ Le mail d'invitation à copier dans Gmail : https://leian.github.io/UNIVERSALQUI
 | Fichier | Rôle |
 |---|---|
 | `moteur/commun/` | Le moteur de quiz : affichage, correction, récompenses, badges, suivi |
-| `moteur/index.html`, `tableau-de-bord.html`, `controles.html` | Les pages d'accueil « SoccaQuiz », « Suivi des résultats » et « Contrôles papier » |
+| `moteur/index.html`, `tableau-de-bord.html` | Les pages d'accueil « SoccaQuiz » et « Suivi des résultats » |
 | `src/Code.gs` | Le serveur : pages, catalogue automatique, résultats dans Sheets, installation automatique, réglages (prénom…) |
 | `src/pont.html` | Inséré dans chaque page : redirige `fetch('/api/resultats')` vers Google et corrige les liens |
 | `src/exemple-quiz.html` | Le quiz d'exemple créé à l'installation, qui sert aussi de modèle pour l'IA |

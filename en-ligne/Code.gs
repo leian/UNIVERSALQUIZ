@@ -51,11 +51,12 @@ function ecrireSite_(n, s) {
   CLES_SITE.forEach(k => { if (s[k] != null && s[k] !== '') props.setProperty(k, String(s[k])); else props.deleteProperty(k); });
 }
 function oublierSite_(n) {
-  const a = autres_();
-  if (n > 0) { a.splice(n - 1, 1); PropertiesService.getUserProperties().setProperty('autres', JSON.stringify(a)); return; }
-  // site principal supprimé : le site suivant prend sa place (il garde son nom de dossier « SoccaQuiz – Prénom »)
-  ecrireSite_(0, a.length ? a.shift() : {});
-  PropertiesService.getUserProperties().setProperty('autres', JSON.stringify(a));
+  const a = autres_(), props = PropertiesService.getUserProperties();
+  if (n > 0) a.splice(n - 1, 1);
+  else ecrireSite_(0, a.length ? a.shift() : {});   // site principal supprimé : le suivant prend sa place (il garde son dossier « SoccaQuiz – Prénom »)
+  if (a.length) props.setProperty('autres', JSON.stringify(a)); else props.deleteProperty('autres');
+  // plus aucun site : l'installateur ne garde plus rien sur cette personne (droit à l'effacement)
+  if (!props.getProperty('scriptId') && !a.length) props.deleteAllProperties();
 }
 function nSite_(n) { n = parseInt(n, 10); return isFinite(n) && n > 0 ? n : 0; }
 /* rang actuel du site désigné par la page ; refuse si le projet désigné n'est plus là (deux onglets ouverts…) */
@@ -181,20 +182,6 @@ function desactiver_(s) {
   return { ok, desactive: ok && nb > 0, erreur };
 }
 
-/* Effacer toutes les données gardées par l'installateur pour cette personne (droit à l'effacement) :
-   chaque site est d'abord désactivé quand c'est possible, puis toutes les propriétés sont effacées.
-   Les sites qui n'ont pas pu être désactivés sont renvoyés, avec le lien vers leur programme. */
-function apiEffacerTout() {
-  return avecVerrou_(() => {
-    const restes = [];
-    [lireSite_(0)].concat(autres_()).forEach(s => {
-      if (!s || !s.scriptId) return;
-      if (!desactiver_(s).ok) restes.push({ prenom: s.prenom || '', url: s.url || '', lienProjet: lienProjet_(s.scriptId) });
-    });
-    PropertiesService.getUserProperties().deleteAllProperties();
-    return { ok: true, restes };
-  });
-}
 
 /* Mise à jour : même projet, mêmes adresses. */
 function apiMettreAJour(ref) {
@@ -430,13 +417,7 @@ function pageHtml_(suppr) {
   '<button class="btn" id="ajouter-site" type="button">✨ Créer ce site</button></details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
-  '<details class="avance cache" id="effacer"><summary>Effacer toutes mes données de l\'installateur</summary>' +
-  '<div class="ko" style="margin-top:8px"><p style="margin:0 0 6px">L\'installateur garde, pour chacun de tes sites : le prénom, la classe, le nom du dossier, la version, l\'identifiant du programme et les adresses. Tout effacer :</p>' +
-  '<ul style="margin:0 0 6px;padding-left:20px"><li><b>désactive d\'abord chaque site</b> : ses adresses (enfant et parent) ne fonctionneront plus ;</li><li>puis efface tout ce que l\'installateur garde sur toi.</li></ul>' +
-  '<p style="margin:0 0 6px">Tes quiz et tes résultats restent dans ton Drive (supprime-les toi-même si tu veux). Pour revoir les sites, il faudra les réinstaller, à de nouvelles adresses.</p>' +
-  '<p style="margin:0 0 6px"><b>Tous tes sites sont concernés.</b> Pour supprimer un seul enfant, utilise plutôt « Supprimer » dans sa carte. Pour confirmer, tape <b>EFFACER</b> :</p>' +
-  '<input id="effacer-mot" autocomplete="off" style="max-width:200px"> <button class="btn" id="effacer-oui" type="button" disabled>Oui, tout effacer</button></div></details>' +
-  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
+  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
   '<a href="https://leian.github.io/UNIVERSALQUIZ/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
   '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\n' + scriptPage_() + '</script></body></html>';
 }
@@ -571,7 +552,6 @@ function scriptPage_() {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
       $('intro').textContent = ETAT.sites.length > 1 ? 'Tes sites de quiz, dans ton propre compte Google.' : 'Ton site de quiz, dans ton propre compte Google.';
       $('sites').innerHTML = ETAT.sites.map(function (s) { return carteSite(s, ETAT.sites.length === 1); }).join('');
-      $('effacer').style.display = 'block';
       afficherToutMaj();
     }
     // plusieurs sites à mettre à jour : un seul bouton, les sites passent l'un après l'autre
@@ -646,21 +626,6 @@ function scriptPage_() {
       $('suppr-fin').onclick = function () { supprimer({ id: S.id }, $('suppr-fin'), null, true); };
       $('suppr-annuler').onclick = function (ev) { ev.preventDefault(); $('suppression').innerHTML = ''; };
     }
-    $('effacer-mot').addEventListener('input', function () { $('effacer-oui').disabled = $('effacer-mot').value.trim().toUpperCase() !== 'EFFACER'; });
-    // tout effacer : sites désactivés quand c'est possible, puis toutes les données de l'installateur effacées
-    $('effacer-oui').onclick = function () {
-      var b = $('effacer-oui'); b.disabled = true; res.innerHTML = '<p class="petit">Effacement en cours…</p>';
-      google.script.run.withSuccessHandler(function (r) {
-        b.disabled = false; $('effacer').open = false;
-        if (!r || r.erreur) return erreur(r);
-        ETAT.sites = []; $('deja').style.display = 'none'; afficherNouveau(false);
-        $('intro').textContent = 'Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.';
-        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>✅ Tout est effacé :</b> l\'installateur ne garde plus rien sur toi.</p>' +
-          ((r.restes || []).length ? '<p style="margin:0 0 6px">Ces sites n\'ont pas pu être désactivés : ouvre leur programme et mets-le à la corbeille (⋮ → Supprimer) pour couper leurs adresses.</p><ul style="margin:0 0 6px">' +
-            r.restes.map(function (x) { return '<li><a href="' + h(x.lienProjet) + '" target="_blank" rel="noopener">' + h(x.prenom ? 'Site de ' + x.prenom : 'Programme SoccaQuiz') + '</a></li>'; }).join('') + '</ul>' : '') +
-          '<p class="petit" style="margin:0">Tes quiz et tes résultats restent dans ton Drive. Pour retirer aussi l\'autorisation donnée à l\'installateur : <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">myaccount.google.com/permissions</a>.</p></div>';
-      }).withFailureHandler(function (e) { b.disabled = false; erreur(echec(e)); }).apiEffacerTout();
-    };
     function charger() {
       google.script.run
         .withSuccessHandler(function (e) {
@@ -669,7 +634,6 @@ function scriptPage_() {
           ETAT.sites = e.sites || [];
           if (ETAT.sites.length) afficherSites();
           if (!e.installe) afficherNouveau(false);
-          $('effacer').style.display = 'block';
           if (e.erreurGithub) res.innerHTML = '<div class="ko">GitHub ne répond pas : impossible de vérifier ou d\'installer une nouvelle version pour l\'instant. Tes sites fonctionnent normalement ; réessaie dans quelques minutes.<br><span class="petit">' + h(e.erreurGithub) + '</span></div>';
         })
         .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(echec(e)); })

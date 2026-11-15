@@ -23,7 +23,7 @@ Enregistre l'écran du téléphone ou du PC, sans son si tu veux, puis publie la
 3. l'installation : prénom, « Installer mon site », adresse du site créé ;
 4. sur script.google.com, le projet « SoccaQuiz » qui vient d'apparaître : c'est la preuve de l'usage des accès ;
 5. le bouton « Mettre à jour ce site » ;
-6. si possible, « ➕ Un autre site » (deuxième projet « SoccaQuiz – Léa », un projet par site, comme le dit la justification) et le bouton « Effacer toutes mes données de l'installateur ».
+6. si possible, « ➕ Un autre site » (deuxième projet « SoccaQuiz – Léa », un projet par site, comme le dit la justification) et le bouton « Supprimer » d'un site (effacement : plus aucune donnée gardée par l'installateur quand il ne reste plus de site).
 
 La vidéo de novembre 2026 (ci-dessus) ne montre ni le deuxième site ni l'effacement : si Google demande une précision, en tourner une nouvelle.
 

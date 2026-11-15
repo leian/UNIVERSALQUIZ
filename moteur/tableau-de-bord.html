@@ -916,14 +916,10 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   document.getElementById("box-raz").hidden = false;
   const prenom = U.razMot || "zéro";
   const cases = [
-    ["resultats", "Résultats et progression", "badges, notions, révisions, défi du mois, album ; l'ancien tableau est gardé en archive dans le Drive"],
-    ["quiz", "Quiz", "les quiz partent dans la corbeille du Drive"],
-    ["controles", "Contrôles (PDF)", "à la corbeille du Drive"],
-    ["reglages", "Classe et décorations de saison", "remises comme à l'installation"],
-    ["gemini", "Clé Gemini", "pour toute la famille : elle sera à saisir de nouveau"],
-    ["appareils", "Mémoire des appareils de l'enfant", "historique local, badges déjà vus, tenue de la socca ; effacée à leur prochaine visite (incluse avec les résultats)"]
+    ["resultats", "Résultats et progression", "badges, notions, révisions, défi du mois, album, et la mémoire des téléphones de {{PRENOM}} ; l'ancien tableau est gardé en archive dans le Drive"],
+    ["quiz", "Quiz", "les quiz partent dans la corbeille du Drive"]
   ];
-  z.innerHTML = "<p style=\"margin:0 0 8px\">Coche ce qui doit repartir de zéro. Rien n'est détruit définitivement : archive et corbeille du Drive.</p>" +
+  z.innerHTML = "<p style=\"margin:0 0 8px\">Le site et son lien restent les mêmes (pratique à la rentrée). Coche ce qui doit repartir de zéro ; rien n'est détruit définitivement : archive et corbeille du Drive.</p>" +
     cases.map(([k, t, d]) => `<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer"><input type="checkbox" data-raz="${k}" style="width:18px;height:18px;margin-top:2px;accent-color:var(--rouge)"><span><b>${t}</b><br><span class="small">${d}</span></span></label>`).join("") +
     `<p style="margin:12px 0 6px">Pour confirmer, tape <b>${esc(prenom)}</b> :</p><p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="raz-confirmation" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="raz-go" disabled>Remettre à zéro</button></p><div id="raz-msg"></div>`;
   const coche = () => [...z.querySelectorAll("[data-raz]:checked")].map(c => c.getAttribute("data-raz"));

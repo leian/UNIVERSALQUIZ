@@ -104,7 +104,7 @@ try {
   const record = await page.evaluate(() => window.Badges && Badges.meilleur ? Badges.meilleur(null) : 'absent');
   ok(record === attendu, 'record de fin de quiz : repris des résultats enregistrés, pas de la mémoire de l\'appareil — ' + record + ' / ' + attendu);
 
-  // dépôt d'un nouveau quiz + d'un PDF dans le dossier
+  // dépôt d'un nouveau quiz (et d'un ancien PDF de contrôle, ignoré depuis la v2.71) dans le dossier
   const dossier = join(DRIVE, 'SoccaQuiz');
   copyFileSync(join(RACINE, 'src', 'exemple-quiz.html'), join(dossier, 'quiz_Test_copie_12-11-2026.html'));
   writeFileSync(join(dossier, 'controle_Test_12-11-2026.pdf'), '%PDF-1.4\n');
@@ -505,11 +505,11 @@ try {
   await page.locator('#resultat .ko').waitFor({ timeout: 5000 });
   ok(true, 'texte invalide → message d\'erreur clair');
 
-  // contrôles PDF
+  // contrôles PDF retirés (v2.71) : page inconnue, aucun bouton, PDF ignorés
   await page.goto(BASE + '/exec?page=controles');
-  const lien = page.locator('a.open').first();
-  await Promise.all([page.waitForEvent('popup', { timeout: 5000 }).catch(() => null), lien.click()]);
-  ok(/drive\.google\.com\/file\/d\//.test(await lien.getAttribute('href')), 'lien PDF réécrit vers Drive');
+  ok(/introuvable/i.test(await page.locator('body').innerText()), 'contrôles PDF retirés : la page n\'existe plus');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('#btn-controles').count() === 0 && await page.evaluate(() => typeof window.CONTROLES === 'undefined'), 'contrôles PDF retirés : ni bouton ni liste sur l\'accueil');
 
   // prénom
   await ev('CONFIG.prenom = "Zoé"');

@@ -4,7 +4,7 @@
    1. les appels fetch('/api/resultats…') du moteur sont redirigés
       vers google.script.run (Google Sheets) ;
    2. les liens « xxx.html » deviennent « …/exec?page=xxx »,
-      les liens « xxx.pdf » pointent vers le fichier dans Drive.
+      (les contrôles PDF de la première version ont été retirés en v2.71).
    ===================================================================== */
 (function () {
   // réglages posés par Code.gs juste avant ce script (window.__UQ)
@@ -68,7 +68,6 @@
     if (!href || /^(?:[a-z][a-z0-9+.-]*:|\/\/|#)/i.test(href)) return null;    // déjà absolu, ancre…
     var nom = href.split('#')[0].split('?')[0].split('/').pop();
     try { nom = decodeURIComponent(nom); } catch (e) {}
-    if (/\.pdf$/i.test(nom)) { var l = CFG.liens && CFG.liens[nom]; return l ? (telecharger ? l.dl : l.voir) : null; }
     if (/\.html?$/i.test(nom) || nom === '') {
       var page = nom.replace(/\.html?$/i, '');
       // dans le site de l'enfant, les pages des parents s'ouvrent dans l'espace parent
@@ -83,7 +82,7 @@
     if (!c) return;
     a.setAttribute('href', c);
     a.removeAttribute('download');
-    a.setAttribute('target', /\.pdf$/i.test(href.split('?')[0]) ? '_blank' : '_top');
+    a.setAttribute('target', '_top');
   }
   function auClic(e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;

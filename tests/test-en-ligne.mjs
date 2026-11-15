@@ -171,12 +171,12 @@ compte = 0;
 panne = (m, u) => m === 'POST' && /deployments$/.test(u) && ++compte === 2 ? reponse(500, { error: { code: 500, message: 'Internal error' } }) : null;
 let r2 = ctx.apiAjouterSite({ prenom: 'Paul', classe: 'CP' });
 panne = null;
-let aP = JSON.parse(userProps.autres)[0];
+let aP = JSON.parse(userProps.autres || '[]')[0];
 ok(r2.erreur && /Terminer l'installation/.test(r2.erreur) && aP && aP.scriptId && aP.deploymentId && !aP.deploymentIdParent && !aP.version, 'installation interrompue : le site et sa publication enfant sont enregistrés aussitôt');
 e = ctx.apiEtat();
 ok(e.sites.length === 2 && e.sites[1].incomplet && e.sites[1].id === aP.scriptId, 'état : site interrompu affiché « à terminer »');
 r2 = ctx.apiMettreAJour({ n: 1, id: aP.scriptId });
-aP = JSON.parse(userProps.autres)[0];
+aP = JSON.parse(userProps.autres || '[]')[0];
 ok(r2.ok && !r2.maj && Object.keys(projets).length === avantInterruption + 1 && Object.keys(projets[aP.scriptId].deploiements).length === 2 && aP.version === 'v-test',
   'reprise : installation terminée sur le même projet, deux publications en tout (aucune orpheline)');
 
@@ -190,9 +190,9 @@ ok(r.ok && r.n === 1 && r.id === aP.scriptId, 'le scriptId fait foi, même si le
 panne = m => m === 'DELETE' ? reponse(500, { error: { code: 500, message: 'Backend Error' } }) : null;
 r = ctx.apiRecommencer({ n: 1, id: aP.scriptId });
 panne = null;
-ok(r.erreur && /n'a pas pu être désactivé/.test(r.erreur) && JSON.parse(userProps.autres).length === 1, 'désactivation en échec : le site n\'est pas oublié');
+ok(r.erreur && /n'a pas pu être désactivé/.test(r.erreur) && JSON.parse(userProps.autres || '[]').length === 1, 'désactivation en échec : le site n\'est pas oublié');
 r = ctx.apiRecommencer({ n: 1, id: aP.scriptId });
-ok(r.ok && r.desactive && JSON.parse(userProps.autres).length === 0 && !Object.keys(projets[aP.scriptId].deploiements).length, 'désactivation réussie : publications supprimées, site oublié');
+ok(r.ok && r.desactive && JSON.parse(userProps.autres || '[]').length === 0 && !Object.keys(projets[aP.scriptId].deploiements).length, 'désactivation réussie : publications supprimées, site oublié');
 
 // 6. projet supprimé par la famille → nouveau site, annoncé comme tel
 delete projets[userProps.scriptId];
@@ -227,11 +227,11 @@ ok(r.ok && /classe: 'CE1',/.test(projets[principal.id].contenu.find(f => f.name 
   && /nomDossier: 'SoccaQuiz',/.test(projets[principal.id].contenu.find(f => f.name === 'Code').source), 'installation : la classe est écrite dans le site, dossier « SoccaQuiz » pour le site principal');
 const avantAjout = Object.keys(projets).length;
 r2 = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
-const a1 = JSON.parse(userProps.autres)[0], codeLea = projets[a1.scriptId].contenu.find(f => f.name === 'Code').source;
+const a1 = JSON.parse(userProps.autres || '[]')[0], codeLea = projets[a1.scriptId].contenu.find(f => f.name === 'Code').source;
 ok(r2.ok && r2.n === 1 && Object.keys(projets).length === avantAjout + 1 && projets[a1.scriptId].titre === 'SoccaQuiz – Léa' && /nomDossier: 'SoccaQuiz – Léa',/.test(codeLea) && /classe: '6e',/.test(codeLea) && /prenom: 'Léa',/.test(codeLea)
   && userProps.scriptId === principal.id && r2.url !== principal.url, 'autre site : nouveau projet « SoccaQuiz – Léa », son propre dossier, sa classe ; le site principal est intact');
 let r3 = ctx.apiAjouterSite({ prenom: '', classe: 'adulte' });
-const a2 = JSON.parse(userProps.autres)[1];
+const a2 = JSON.parse(userProps.autres || '[]')[1];
 ok(r3.ok && r3.n === 2 && a2.dossier === 'SoccaQuiz – Mes révisions' && /classe: 'adulte',/.test(projets[a2.scriptId].contenu.find(f => f.name === 'Code').source), 'site pour moi : dossier « SoccaQuiz – Mes révisions », classe adulte');
 e = ctx.apiEtat();
 ok(e.sites.length === 3 && e.sites.map(x => x.n).join() === '0,1,2' && e.sites[1].prenom === 'Léa' && e.sites[2].classe === 'adulte' && e.installe && e.url === principal.url, 'état : les trois sites sont listés, le site principal reste aux champs habituels');
@@ -242,13 +242,13 @@ r = ctx.apiRecommencer({ n: 1, id: a1.scriptId });
 e = ctx.apiEtat();
 ok(r.desactive && e.sites.length === 2 && e.sites[1].classe === 'adulte' && e.sites[1].n === 1 && e.installe, 'suppression d\'un autre site : désactivé, les autres sites sont gardés et renumérotés');
 r = ctx.apiRecommencer({ n: 2, id: a2.scriptId });          // ancien rang (onglet pas rechargé) : le scriptId fait foi
-ok(r.ok && r.n === 1 && JSON.parse(userProps.autres).length === 0 && userProps.scriptId === principal.id, 'onglet pas rechargé : c\'est bien le site désigné qui est supprimé, pas un autre');
+ok(r.ok && r.n === 1 && JSON.parse(userProps.autres || '[]').length === 0 && userProps.scriptId === principal.id, 'onglet pas rechargé : c\'est bien le site désigné qui est supprimé, pas un autre');
 
-// 9. effacer toutes les données de l'installateur : sites désactivés, puis tout effacé
+// 9. droit à l'effacement : chaque site supprimé l'un après l'autre → l'installateur ne garde plus rien
 r3 = ctx.apiAjouterSite({ prenom: 'Léo', classe: 'CM1' });
-const deps = [userProps.deploymentId, JSON.parse(userProps.autres)[0].deploymentId];
-r = ctx.apiEffacerTout();
-ok(r.ok && !r.restes.length && !Object.keys(userProps).length && !(deps[0] in projets[principal.id].deploiements) && !(deps[1] in projets[r3.id].deploiements), 'tout effacer : chaque site désactivé, puis toutes les propriétés effacées');
+const deps = [userProps.deploymentId, JSON.parse(userProps.autres || '[]')[0].deploymentId];
+ctx.apiRecommencer({ id: r3.id }); r = ctx.apiRecommencer({ id: principal.id });
+ok(r.ok && !Object.keys(userProps).length && !(deps[0] in projets[principal.id].deploiements) && !(deps[1] in projets[r3.id].deploiements), 'tous les sites supprimés un à un : chacun désactivé, plus aucune propriété gardée par l\'installateur');
 ctx.doGet({ parameter: { recommencer: '1' } });
 ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n\'existe plus (aucun effet)');
 
@@ -263,7 +263,8 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   const etat = ctx.apiEtat();
   ok(r.ok && r.urlParent === r1.urlParent && etat.installe && etat.sites.length === 1 && etat.sites[0].prenom === 'Caroline' && etat.sites[0].url === caro.url && userProps.dossier && /Caroline/.test(userProps.dossier) && r.restants.length === 1,
     'suppression du site principal : le site de Caroline prend sa place (même adresse, même dossier), adresses restantes renvoyées pour la famille — ' + JSON.stringify({ n: etat.sites.length, dossier: userProps.dossier }));
-  ctx.apiEffacerTout();
+  ctx.apiRecommencer({ id: etat.sites[0].id });
+  ok(!Object.keys(userProps).length, 'dernier site supprimé : plus rien de gardé');
 }
 
 // 10. la page : HTML complet et script valide ; pas de journal d'erreur chez l'éditeur
@@ -271,7 +272,7 @@ const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
 let syntaxe = true; try { new vm.Script(script); } catch (err) { syntaxe = false; console.log(err); }
 ok(/Installer mon site/.test(html) && /usersettings/.test(html) && syntaxe && !/<\/script/i.test(script), 'page de l\'installateur : contenu et script valides');
-ok(/Effacer toutes mes données de l\\?'installateur/.test(html) && /apiEffacerTout/.test(html) && /ne le partage qu\\?'avec lui/.test(html), 'page : bouton « Effacer toutes mes données », pied de page exact');
+ok(!/apiEffacerTout|Effacer toutes mes données/.test(html) && /supprime chaque site/.test(html) && /ne le partage qu\\?'avec lui/.test(html), 'page : plus de bouton « Effacer tout » (doublon), le pied de page explique comment tout effacer');
 const source = readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8');
 ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) && JSON.parse(readFileSync(join(RACINE, 'en-ligne', 'appsscript.json'), 'utf8')).exceptionLogging === 'NONE', 'aucun journal d\'erreur envoyé à l\'éditeur (exceptionLogging NONE, pas de console)');
 

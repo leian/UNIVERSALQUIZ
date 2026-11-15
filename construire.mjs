@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /* =====================================================================
    CONSTRUCTION DU PROJET APPS SCRIPT
-   Prend le moteur (moteur/commun/, moteur/index.html, tableau-de-bord.html,
-   controles.html) et fabrique le dossier build/, d'où outils/fabriquer-charge.mjs
+   Prend le moteur (moteur/commun/, moteur/index.html, tableau-de-bord.html)
+   et fabrique le dossier build/, d'où outils/fabriquer-charge.mjs
    tire universal-quiz.json (lu par l'installateur en ligne).
    Usage : node construire.mjs
    ===================================================================== */
@@ -50,7 +50,6 @@ const COMMUN = {
 
 const PAGES = {
   'index.html': ['page-index', t => t],
-  'controles.html': ['page-controles', t => t],
   'tableau-de-bord.html': ['page-tableau-de-bord', t => t]
 };
 
