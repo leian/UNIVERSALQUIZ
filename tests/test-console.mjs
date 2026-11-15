@@ -117,6 +117,7 @@ ok(ctx.apiPublier({ id: 'anglais-listen-and-repeat', titre: 'Autre', classes: ['
 ok(ctx.apiPublier({ id: 'anglais-listen-and-repeat', titre: 'Listen 2', matiere: 'anglais', classes: ['CM1'], texte: QUIZ, remplacer: true }).ok && JSON.parse(depot['docs/bibliotheque/index.json']).quiz.filter(q => q.id === 'anglais-listen-and-repeat').length === 1, 'remplacer : une seule entrée, mise à jour');
 ok(ctx.apiBibliotheque().quiz.length === 2 && ctx.apiTexteBibliotheque('anglais-x').texte.startsWith('T|X') && ctx.apiTexteBibliotheque('../x').erreur, 'bibliothèque lue sur GitHub ; texte d\'un quiz ; identifiant invalide refusé');
 ok(ctx.apiRetirer('anglais-x').ok && JSON.parse(depot['docs/bibliotheque/index.json']).quiz.length === 1 && depot['docs/bibliotheque/anglais-x.txt'], 'retirer : enlevé de index.json, fichier gardé');
+{ const b = ctx.apiBibliotheque(); ok(b.retires && b.retires.some(x => x.id === 'anglais-x') && ctx.apiEtat().retires.some(x => x.id === 'anglais-x'), 'retirer : le quiz retiré (titre, date, raison) est listé par la console (Bibliothèque et propositions)'); }
 
 // 5. adresse de réception publiée pour les sites
 ok(ctx.apiUrlPropositions('http://pirate.fr').erreur && ctx.apiUrlPropositions('https://script.google.com/macros/s/AKfycbyABCDEFGHIJKLMNOPQRSTUV123/exec').ok && JSON.parse(depot['docs/soccaquiz.json']).propositions.endsWith('/exec') && ctx.apiEtat().urlPropositions,

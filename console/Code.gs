@@ -100,8 +100,10 @@ function apiEtat() {
   const props = lignes.map(r => ({ id: String(r[0]), date: r[1] instanceof Date ? r[1].toISOString() : String(r[1]), statut: String(r[2]), titre: String(r[3]), classe: String(r[4]), matiere: String(r[5]), nb: +r[6] || 0, texte: String(r[7]), version: String(r[8]), publie: String(r[9] || '') }))
     .sort((a, b) => b.date.localeCompare(a.date));
   let quota = null; try { quota = MailApp.getRemainingDailyQuota(); } catch (e) {}
+  // quiz retirés de la bibliothèque (pour les signaler sur les propositions publiées)
+  let retires = []; try { if (p.getProperty('GITHUB_JETON')) retires = lireIndex_().index.retires || []; } catch (e) {}
   return {
-    propositions: props,
+    propositions: props, retires,
     jeton: !!p.getProperty('GITHUB_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
@@ -164,7 +166,8 @@ function jsonJoli_(o) { return JSON.stringify(o, null, 2) + '\n'; }
 
 function apiBibliotheque() {
   exiger_();
-  return { ok: true, quiz: lireIndex_().index.quiz };
+  const i = lireIndex_().index;
+  return { ok: true, quiz: i.quiz, retires: Array.isArray(i.retires) ? i.retires : [] };
 }
 
 /* d = { id, titre, matiere, classes: [], icone, description, texte, proposition, remplacer } */
@@ -191,6 +194,7 @@ function apiPublier(d) {
   if (!entree.icone) delete entree.icone;
   if (!entree.description) delete entree.description;
   if (deja >= 0) index.quiz[deja] = entree; else index.quiz.unshift(entree);
+  if (Array.isArray(index.retires)) index.retires = index.retires.filter(x => x && x.id !== id);   // republié : plus « retiré »
   ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : ' + (deja >= 0 ? 'mise à jour de ' : 'ajout de ') + titre);
   if (d.proposition) {
     const l = trouverLigne_(d.proposition);
@@ -480,7 +484,9 @@ function client_() {
   /* ---------- Propositions ---------- */
   function carteProp(p) {
     var lib = { nouveau: 'À relire', publie: 'Publié', refuse: 'Refusé' }[p.statut] || p.statut;
-    return '<div class="carte" data-id="' + esc(p.id) + '"><h3>' + esc(p.titre || 'Sans titre') + ' <span class="etiq ' + esc(p.statut) + '">' + esc(lib) + '</span></h3>' +
+    var ret = p.publie ? (ETAT.retires || []).filter(function (x) { return x && x.id === p.publie; })[0] : null;
+    return '<div class="carte" data-id="' + esc(p.id) + '"><h3>' + esc(p.titre || 'Sans titre') + ' <span class="etiq ' + esc(ret ? 'refuse' : p.statut) + '">' + esc(ret ? 'Retiré' : lib) + '</span></h3>' +
+      (ret ? blocRetire(ret) : '') +
       '<div class="meta">' + esc(date(p.date)) + ' · ' + esc(NOMS[p.matiere] || p.matiere || '?') + (p.classe ? ' · ' + esc(p.classe) : '') + ' · ' + p.nb + ' questions' + (p.version ? ' · site ' + esc(p.version) : '') + (p.publie ? ' · publié sous « ' + esc(p.publie) + ' »' : '') + '</div>' +
       '<div class="actions">' +
       (p.statut === 'nouveau' ? '<button class="btn principal" data-a="relire">' + I('eye') + ' Relire et publier</button><button class="btn" data-a="refuser">' + I('x') + ' Refuser</button>'
@@ -506,9 +512,15 @@ function client_() {
       else if (a === 'refuser' || a === 'remettre') { b.disabled = true; appel('apiStatut', [id, a === 'refuser' ? 'refuse' : 'nouveau'], function () { charger(); }); }
       else if (a === 'supprimer') { if (confirm('Supprimer définitivement cette proposition ?')) appel('apiSupprimerProposition', [id], function () { charger(); }); }
     }
+    var rid = carte && carte.dataset.retire;
+    if (onglet === 'bibliotheque' && rid && a === 'republier') {
+      var r0 = (ETAT.retires || []).filter(function (x) { return x.id === rid; })[0] || { id: rid, titre: '' };
+      b.disabled = true;
+      appel('apiTexteBibliotheque', [rid], function (r) { edition = depuisTexte(r.texte, null); edition.id = rid; if (r0.titre) edition.titre = r0.titre; edition.remplacer = true; edition.verrou = true; afficher(); });
+    }
     if (onglet === 'bibliotheque' && id) {
       var q = (BIB || []).filter(function (x) { return x.id === id; })[0]; if (!q) return;
-      if (a === 'retirer') { var raison = prompt('Retirer « ' + q.titre + ' » de la bibliothèque ?\nLes familles qui l\'ont déjà ajouté le gardent, avec la mention « Retiré de la bibliothèque ».\n\nRaison affichée chez elles (facultatif, ex. « erreur dans une réponse ») :', ''); if (raison !== null) { b.disabled = true; appel('apiRetirer', [id, raison], function () { BIB = null; info('Retiré. Les sites le verront disparaître d\'ici une minute.'); vueBibliotheque($('contenu'), true); }); } }
+      if (a === 'retirer') { var raison = prompt('Retirer « ' + q.titre + ' » de la bibliothèque ?\nLes familles qui l\'ont déjà ajouté le gardent, avec la mention « Retiré de la bibliothèque ».\n\nRaison affichée chez elles (facultatif, ex. « erreur dans une réponse ») :', ''); if (raison !== null) { b.disabled = true; appel('apiRetirer', [id, raison], function () { BIB = null; info('Retiré. Les familles qui l\'avaient ajouté verront « Retiré de la bibliothèque » dans leur onglet Quiz d\'ici une minute (voir la liste « Retirés » plus bas).'); vueBibliotheque($('contenu'), true); }); } }
       else if (a === 'modifier') { b.disabled = true; appel('apiTexteBibliotheque', [id], function (r) { edition = depuisTexte(r.texte, null); edition.id = q.id; edition.titre = q.titre; edition.matiere = q.matiere; edition.classes = q.classes || []; edition.icone = q.icone || ''; edition.description = q.description || ''; edition.remplacer = true; edition.verrou = true; afficher(); }); }
     }
   });
@@ -555,12 +567,18 @@ function client_() {
     };
   }
 
+  /* message vu par les familles qui avaient ajouté un quiz retiré (onglet Quiz de leur espace parent) */
+  function blocRetire(r) {
+    return '<p class="petit" style="margin:4px 0 8px;padding:8px 10px;background:var(--rouge-c);border-radius:8px">Retiré de la bibliothèque' + (r.date ? ' le ' + esc(new Date(r.date + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '') + '.<br>' +
+      'Les familles qui l\'avaient ajouté le gardent et voient dans l\'onglet Quiz de leur espace parent : <b>« ⚠️ Retiré de la bibliothèque' + (r.raison ? ' : ' + esc(r.raison) : '') + ' »</b></p>';
+  }
+
   /* ---------- Bibliothèque ---------- */
   function vueBibliotheque(c, garderMsg) {
     var msg = garderMsg && $('message') ? $('message').outerHTML : MSG;
     if (!BIB) {
       c.innerHTML = msg + '<p class="petit">Lecture de la bibliothèque sur GitHub…</p>';
-      appel('apiBibliotheque', [], function (r) { BIB = r.quiz; if (onglet === 'bibliotheque' && !edition) vueBibliotheque(c, true); }, function (m) { c.innerHTML = MSG; erreur(m); });
+      appel('apiBibliotheque', [], function (r) { BIB = r.quiz; ETAT.retires = r.retires || []; if (onglet === 'bibliotheque' && !edition) vueBibliotheque(c, true); }, function (m) { c.innerHTML = MSG; erreur(m); });
       return;
     }
     c.innerHTML = msg + '<div class="box"><h2>' + I('book') + 'Bibliothèque publiée (' + BIB.length + ')</h2>' +
@@ -569,7 +587,13 @@ function client_() {
           (q.description ? '<p class="petit" style="margin:0 0 8px">' + esc(q.description) + '</p>' : '') +
           '<div class="actions"><button class="btn" data-a="modifier"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('eye') + ' Modifier</button><a class="btn" href="https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/' + esc(q.id) + '.txt" target="_blank" rel="noopener">' + I('ext') + ' Texte</a><button class="btn danger" data-a="retirer"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('trash') + ' Retirer</button></div></div>';
       }).join('') : '<p class="vide">La bibliothèque est vide.</p>') +
-      '<div class="actions"><button class="btn" id="b-ajout">' + I('plus') + ' Ajouter un quiz à la main</button><button class="btn" id="b-maj">' + I('undo') + ' Actualiser</button></div></div>';
+      '<div class="actions"><button class="btn" id="b-ajout">' + I('plus') + ' Ajouter un quiz à la main</button><button class="btn" id="b-maj">' + I('undo') + ' Actualiser</button></div></div>' +
+      ((ETAT.retires || []).length ? '<div class="box"><h2>' + I('x') + 'Retirés de la bibliothèque (' + ETAT.retires.length + ')</h2>' +
+        ETAT.retires.slice().reverse().map(function (r) {
+          return '<div class="carte" data-retire="' + esc(r.id) + '"><h3>' + esc(r.titre || r.id) + ' <span class="etiq refuse">Retiré</span></h3>' + blocRetire(r) +
+            '<div class="actions"><a class="btn" href="https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/' + esc(r.id) + '.txt" target="_blank" rel="noopener">' + I('ext') + ' Texte</a>' +
+            '<button class="btn" data-a="republier"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('undo') + ' Corriger et republier</button></div></div>';
+        }).join('') + '</div>' : '');
     $('b-ajout').onclick = function () { edition = { texte: '', classes: [], nouveau: true }; afficher(); };
     $('b-maj').onclick = function () { BIB = null; vueBibliotheque(c); };
   }
