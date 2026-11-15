@@ -746,7 +746,9 @@ function apiAjouterQuiz(texte) {
       liste.slice().forEach(x => { const s = x.replace(/^(le|la|les|un|une|des|du)\s+|^l['’]\s*/i, ''); if (s && s !== x) liste.push(s); });
       if (!liste.length) { avert.push('Question ' + (i + 1) + ' ignorée (pas de réponse).'); return; }
       const qq = Object.assign(base, { type: 'input', ans: Array.from(new Set(liste)) });
-      const h = txt(q.hint || q.indice, 200); if (h) qq.hint = h;
+      // un indice qui contient la réponse (« Ce liquide porte le nom de chaux ») est retiré
+      const sans = x => x.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      const h = txt(q.hint || q.indice, 200); if (h && !qq.ans.some(r => sans(r).length >= 3 && sans(h).includes(sans(r)) || sans(r).split(/\s+/).some(m => m.length >= 4 && sans(h).includes(m)))) qq.hint = h;
       questions.push(qq);
     } else if (type === 'trous') {
       const texte = txt(q.texte, 600), nb = (texte.match(/\[[^\]]+\]/g) || []).length;

@@ -323,16 +323,16 @@ try {
     'Q|Futur : nous … (chanter)|chanterons|chanterez|chanteront|-ons avec nous.',
     'X|Écris le mot manquant.|Le nombre du bas est le *dénominateur*.|Le bas.',
     'X|Touche les verbes au futur.|Demain, je *chanterai* et tu *danseras*.|Deux verbes.',
-    'V|Envoyer est irrégulier.|V|J\'enverrai.', '```'].join('\n'));
+    'V|Envoyer est irrégulier.|V|J\'enverrai.', 'S|Quel liquide se trouble avec le CO2 ?|eau de chaux|L\'eau de chaux.|indice=Son nom contient « chaux »', '```'].join('\n'));
   await page.locator('#creer').click();
   await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
   const ctrl = await page.locator('#resultat').innerText();
   await page.locator('#resultat a.btn').click();
   await page.waitForURL(/page=quiz_le-futur_/);
   const htmlCtrl = await page.content();
-  ok(/5 questions/.test(ctrl) && /ambigu/.test(ctrl) && /double/.test(ctrl) && !/"cat":"Notions/.test(htmlCtrl) && !/Sujet/.test(htmlCtrl)
+  ok(/6 questions/.test(ctrl) && !/Son nom contient/.test(htmlCtrl) && /ambigu/.test(ctrl) && /double/.test(ctrl) && !/"cat":"Notions/.test(htmlCtrl) && !/Sujet/.test(htmlCtrl)
      && /"opts":\["joueras","jouras"\]/.test(htmlCtrl) && /"type":"trous","texte":"Le nombre du bas est le \[dénominateur\]\."/.test(htmlCtrl) && /"type":"cliquer"/.test(htmlCtrl),
-    'contrôles : analyse ignorée, choix « A ou B » et question en double écartés, choix en double fusionnés, X à un seul mot à écrire → texte à trous');
+    'contrôles : analyse ignorée, choix « A ou B » et question en double écartés, choix en double fusionnés, X à un seul mot à écrire → texte à trous, indice qui donne la réponse retiré');
   // bouton unique « Coller et créer » : lit le presse-papiers
   await page.context().grantPermissions(['clipboard-read', 'clipboard-write'], { origin: BASE });
   await page.goto(BASE + '/exec?page=ajouter');
