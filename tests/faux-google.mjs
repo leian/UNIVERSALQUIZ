@@ -96,9 +96,10 @@ const ctx = {
     open: (f) => classeur(f.id)
   },
   HtmlService: {
+    XFrameOptionsMode: { ALLOWALL: 'ALLOWALL', DEFAULT: 'DEFAULT' },
     createHtmlOutputFromFile: (n) => { const c = readFileSync(join(BUILD, n + '.html'), 'utf8'); if (!/^\s*</.test(c)) throw new Error('Format du contenu HTML non valide : ' + c.slice(0, 40)); return { getContent: () => c }; },
     createHtmlOutput: (html) => { const o = { titre: '', metas: [], getContent: () => html,
-      setTitle(t) { o.titre = t; return o; }, setFaviconUrl(u) { o.favicon = u; return o; }, addMetaTag(k, v) { o.metas.push([k, v]); return o; } }; return o; }
+      setTitle(t) { o.titre = t; return o; }, setFaviconUrl(u) { o.favicon = u; return o; }, addMetaTag(k, v) { o.metas.push([k, v]); return o; }, setXFrameOptionsMode(m) { o.cadre = m; return o; } }; return o; }
   }
 };
 vm.createContext(ctx);
@@ -119,7 +120,8 @@ const serveur = http.createServer(async (req, res) => {
       const out = ctx.doGet({ parameter: Object.fromEntries(url.searchParams) });
       let html = out.getContent().replace(/<head\b[^>]*>/i, m => m + FAUX_RUN);
       if (!/<head/i.test(html)) html = FAUX_RUN + html;
-      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-titre': encodeURIComponent(out.titre) });
+      // comme Google : sans ALLOWALL, la page refuse d'être affichée dans un autre site
+      res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'x-titre': encodeURIComponent(out.titre), ...(out.cadre === 'ALLOWALL' ? {} : { 'x-frame-options': 'SAMEORIGIN' }) });
       return res.end(html);
     }
     if (url.pathname === '/rpc') {

@@ -31,9 +31,11 @@ if (spawnSync(process.execPath, [join(RACINE, 'construire.mjs')], { stdio: 'inhe
 rmSync(DRIVE, { recursive: true, force: true }); rmSync(join(ICI, 'corbeille'), { recursive: true, force: true });
 const serveur = spawn(process.execPath, [join(ICI, 'faux-google.mjs'), join(RACINE, 'build'), DRIVE, String(PORT)], { stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise(ok => serveur.stdout.once('data', ok));
+// appli installable (dossier appli/) : son propre faux Google, sur un autre port
+const appli = spawnSync(process.execPath, [join(ICI, 'test-appli.mjs')], { stdio: 'inherit' }).status;
 
 const ev = async code => (await (await fetch(BASE + '/eval', { method: 'POST', body: code })).json());
-let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1);
+let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1) + (appli === 0 ? 0 : 1);
 const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (!c) echecs++; };
 
 const options = { args: ['--no-sandbox'] };
@@ -688,12 +690,11 @@ try {
   })()`);
   ok(aller.r.egal && aller.r.refus, 'proposer un quiz : quiz du site relu en lignes sans rien perdre (11 types, écoute, notes, indice, mémo), refusé côté enfant' + (aller.r.egal ? '' : ' — ' + aller.r.a + ' ≠ ' + aller.r.b));
 
-  // bibliothèque : liste lue sur GitHub Pages (simulé avec docs/bibliotheque), ajout au site en un toucher, puis « Proposer »
-  // (bibliothèque publiée vide, quiz tous retirés : on reprend les quiz retirés pour que l'essai garde du contenu)
-  const indexEssai = () => { const i = JSON.parse(readFileSync(join(RACINE, 'docs/bibliotheque/index.json'), 'utf8')); if (!i.quiz.length) i.quiz = (i.retires || []).map(x => x.entree).filter(Boolean); delete i.retires; return JSON.stringify(i); };
+  // bibliothèque : liste lue sur GitHub Pages, simulée avec tests/bibliotheque (un quiz d'essai gardé avec les tests :
+  // la bibliothèque publiée change à chaque ajout ou retrait depuis la console, l'essai ne doit pas en dépendre)
   await page.route(/leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\//, async r => {
     const f = new URL(r.request().url()).pathname.split('/').pop();
-    try { await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': f.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8' }, body: f === 'index.json' ? indexEssai() : readFileSync(join(RACINE, 'docs/bibliotheque', f), 'utf8') }); }
+    try { await r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': f.endsWith('.json') ? 'application/json' : 'text/plain; charset=utf-8' }, body: readFileSync(join(ICI, 'bibliotheque', f), 'utf8') }); }
     catch (e) { await r.fulfill({ status: 404, body: '' }); }
   });
   await ev(`PropertiesService.getScriptProperties().setProperties({ CLASSE: 'CM1', CLASSE_ANNEE: String(anneeScolaire_()) })`);

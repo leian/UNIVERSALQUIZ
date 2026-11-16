@@ -86,7 +86,34 @@
   }
   function auClic(e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
-    if (a) corriger(a);
+    if (!a) return;
+    corriger(a);
+    if (dansAppli) resterDansAppli(a, e);
+  }
+
+  /* ---------- 3. appli installée ----------
+     Le site est affiché dans le cadre de l'appli (…/exec?cadre=1, voir Code.gs) : un lien « _top » remplacerait
+     l'appli par le site. Les pages du site sont donc demandées à l'appli, qui les charge dans son cadre ; le reste
+     (espace parent, autres sites) s'ouvre à part. Actif seulement une fois que l'appli a répondu : ouvert hors de
+     l'appli, même avec ?cadre=1, le site se comporte comme d'habitude. Ne sert qu'à la navigation. */
+  var dansAppli = false;
+  function resterDansAppli(a, e) {
+    var brut = a.getAttribute('href') || '', cible = a.getAttribute('target') || '_top';
+    if (brut.charAt(0) === '#' || !/^https?:/i.test(a.href) || cible !== '_top') return;
+    if (CFG.url && (a.href === CFG.url || a.href.indexOf(CFG.url + '?') === 0 || a.href.indexOf(CFG.url + '#') === 0)) {
+      if (e.type !== 'click' || e.button || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault();
+      window.top.postMessage({ uq: 'aller', url: a.href }, CFG.cadre);
+    } else {
+      a.setAttribute('target', '_blank');
+      a.setAttribute('rel', 'noopener');
+    }
+  }
+  if (CFG.cadre && window.top !== window) {
+    window.addEventListener('message', function (e) {
+      if (e.origin === CFG.cadre && e.source === window.top && e.data && e.data.uq === 'cadre-ok') dansAppli = true;
+    });
+    try { window.top.postMessage({ uq: 'pret' }, CFG.cadre); } catch (e) {}
   }
   // garde-fou : si un script de la page plante, on le dit au lieu de laisser une page à moitié vide
   window.addEventListener('error', function (e) {
