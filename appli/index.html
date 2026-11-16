@@ -21,6 +21,7 @@
   #demarrage.fini { opacity: 0; pointer-events: none; }
   #demarrage img { width: 120px; height: 120px; border-radius: 26px; }
   #demarrage.attente img { animation: battre 1.4s ease-in-out infinite; }
+  #demarrage #secours { font: 500 14px/1.4 system-ui, sans-serif; color: #6b5b4e; }
   #demarrage button { font: inherit; color: #fff; background: #a9010d; border: 0; border-radius: 999px; padding: 10px 22px; }
   @keyframes battre { 50% { transform: scale(1.06); } }
   @media (prefers-reduced-motion: reduce) { #demarrage.attente img { animation: none; } }
@@ -31,6 +32,7 @@
   <img src="icone-192.png" alt="">
   <span id="msg" role="status">Chargement…</span>
   <button id="reessayer" type="button" hidden>Réessayer</button>
+  <a id="secours" href="#" hidden>Ouvrir sans l'appli</a>
 </div>
 <iframe id="cadre" title="SoccaQuiz" allow="microphone; autoplay; clipboard-write"></iframe>
 <script>
@@ -45,9 +47,9 @@
 (function () {
   var MOTIF = /^AKfy[\w-]{20,200}$/;
   var REGLAGES = 'https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json';
-  var DELAI = 15000;                       // sans nouvelle du site après ce délai : site classique
+  var DELAI = 15000;                       // sans nouvelle du site après ce délai : message et « Réessayer »
   var dem = document.getElementById('demarrage'), msg = document.getElementById('msg');
-  var bouton = document.getElementById('reessayer'), cadre = document.getElementById('cadre');
+  var bouton = document.getElementById('reessayer'), cadre = document.getElementById('cadre'), secours = document.getElementById('secours');
 
   var id = null;
   try { id = new URLSearchParams(location.search).get('s'); } catch (e) {}
@@ -64,10 +66,14 @@
   var BASE = 'https://script.google.com/macros/s/' + id + '/exec';
   var minuterie = 0, parti = false;
 
-  function classique(url) {                // on quitte l'enveloppe pour le site tel qu'il a toujours été
+  // on quitte l'enveloppe pour le site tel qu'il a toujours été (…&classique=1 : le site ne renvoie pas vers l'appli)
+  function classique(url) {
     if (parti) return;
     parti = true;
-    location.replace(url || BASE);
+    var u = new URL(url || BASE);
+    u.searchParams.delete('cadre');
+    u.searchParams.set('classique', '1');
+    location.replace(u.href);
   }
   /* seulement une page de CE site : …/exec ou …/exec?… */
   function pageDuSite(url) {
@@ -78,12 +84,14 @@
   }
   function attendre(url) {
     clearTimeout(minuterie);
+    // jamais de renvoi automatique vers l'adresse Google (bandeau Google) : un message, « Réessayer »,
+    // et en dernier recours un lien discret pour ouvrir le site hors de l'appli, au choix de la personne
     minuterie = setTimeout(function () {
-      if (navigator.onLine === false) {
-        dem.classList.remove('attente', 'fini');
-        msg.textContent = 'Pas de connexion à Internet. Réessaie dans un instant.';
-        bouton.hidden = false;
-      } else classique(url);
+      dem.classList.remove('attente', 'fini');
+      msg.textContent = navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz met du temps à répondre. Réessaie dans un instant.';
+      bouton.hidden = false;
+      secours.hidden = navigator.onLine === false;
+      secours.onclick = function (e) { e.preventDefault(); classique(url); };
     }, DELAI);
   }
   function ouvrir(url) {
@@ -95,6 +103,7 @@
     dem.classList.remove('fini');
     msg.textContent = 'Chargement…';
     bouton.hidden = true;
+    secours.hidden = true;
     attendre(simple);
     cadre.src = u.href;
   }
@@ -118,7 +127,10 @@
   bouton.addEventListener('click', function () { location.reload(); });
   window.addEventListener('online', function () { if (!bouton.hidden) location.reload(); });
 
-  ouvrir(BASE);
+  // page demandée (…&q=page=quiz_x) : ancien lien ou favori renvoyé ici par le site
+  var q = '';
+  try { q = new URLSearchParams(location.search).get('q') || ''; } catch (e) {}
+  ouvrir(q && q.length < 2000 ? BASE + '?' + q : BASE);
   // interrupteur général : "appli": "off" → tout le monde revient au site classique, icônes déjà installées comprises
   fetch(REGLAGES, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; })
     .then(function (c) { if (c && c.appli === 'off') classique(); })

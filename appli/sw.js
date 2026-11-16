@@ -1,6 +1,6 @@
 /* Cache de l'enveloppe seulement (sa page, ses icônes) : l'écran de démarrage s'affiche tout de suite.
    Les pages de SoccaQuiz (Google Apps Script) viennent d'un autre site et ne passent jamais par ici. */
-const CACHE = 'sq-app-v1';   // changer le numéro pour forcer le renouvellement
+const CACHE = 'sq-app-v2';   // changer le numéro pour forcer le renouvellement
 const FICHIERS = ['./', 'manifest.webmanifest', 'icone-192.png', 'icone-512.png'];
 
 self.addEventListener('install', e => {

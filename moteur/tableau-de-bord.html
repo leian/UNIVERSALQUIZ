@@ -799,23 +799,25 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   const U = window.__UQ || {}, $ = id => document.getElementById(id);
   if (U.installateur) { $("lien-installateur").href = U.installateur; $("lien-installateur").hidden = false; }
   // « Site de l'enfant » : l'adresse de l'enfant (espace parent) ; sinon la page d'accueil du site
-  if (U.urlEnfant) { $("lien-enfant").href = U.urlEnfant; $("lien-enfant").target = "_top"; }
+  // lien de l'enfant : son appli (sans le bandeau Google) dès qu'elle existe, sinon l'adresse du site
+  const lienEnfant = U.appli || U.urlEnfant;
+  if (U.urlEnfant) { $("lien-enfant").href = lienEnfant; $("lien-enfant").target = "_top"; }
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + " Accueil";
   else $("lien-enfant").hidden = true;
   const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
-  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de l'enfant (à lui envoyer)", U.urlEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
+  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de l'enfant (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
     || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.");
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
     $("envoyer-lien").onclick = async () => {
       const objet = "Ton site de quiz pour réviser";
-      const texte = "Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n" + U.urlEnfant + "\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !";
+      const texte = "Coucou !\n\nVoici ton site de quiz pour réviser tes leçons :\n" + lienEnfant + "\n\nMets-le en favori pour le retrouver facilement.\n\nBonnes révisions !";
       let copie = false;
-      try { await navigator.clipboard.writeText(U.urlEnfant); copie = true; } catch (e) {}
+      try { await navigator.clipboard.writeText(lienEnfant); copie = true; } catch (e) {}
       try { window.open("mailto:?subject=" + encodeURIComponent(objet) + "&body=" + encodeURIComponent(texte), "_blank"); } catch (e) {}
       const gmail = 'https:\/\/mail.google.com/mail/?view=cm&fs=1&su=' + encodeURIComponent(objet) + '&body=' + encodeURIComponent(texte);
       $("info-lien").hidden = false;
-      $("info-lien").innerHTML = (copie ? "✅ Lien copié. " : `Copie impossible sur cet appareil : voici le lien <span class="adr">${esc(U.urlEnfant)}</span>`) +
+      $("info-lien").innerHTML = (copie ? "✅ Lien copié. " : `Copie impossible sur cet appareil : voici le lien <span class="adr">${esc(lienEnfant)}</span>`) +
         `Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou ${copie ? "colle le lien" : "copie ce lien"} dans un message.`;
     };
   }

@@ -45,11 +45,39 @@ const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
 // (pont.html) : jamais à changer un style, un texte ou une fonction — une seule interface pour le lien et pour l'appli.
 const ORIGINE_APPLI = 'https://leian.github.io';
 let CADRE_ = false;                    // remis à zéro dans doGet
-let DEPUIS_APPLI_ = false;             // espace parent ouvert depuis l'appli (…?appli=1) : remis à zéro dans doGet
+let CLASSIQUE_ = false;                // …?classique=1 : site affiché hors de l'appli (secours, interrupteur "off")
 /* adresse de l'appli pour le site de l'enfant : …/app/?s=<identifiant de son déploiement> ('' si inconnue) */
 function urlAppli_() {
   const m = String(CONFIG.urlEnfant || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
   return m ? ORIGINE_APPLI + '/app/?s=' + m[1] : '';
+}
+/* Le bandeau « Cette application a été créée par un utilisateur de Google Apps Script » n'est affiché par Google
+   que lorsque l'adresse script.google.com du site est ouverte directement ; dans le cadre de l'appli, il n'y est pas.
+   Le site de l'enfant ouvert directement (favori, ancien lien, lien partagé…) ne montre donc jamais ses pages : il
+   renvoie tout de suite vers l'appli, à la même page. Si le navigateur refuse ce renvoi automatique (Google ne
+   l'autorise qu'après un toucher), un seul grand bouton « Ouvrir SoccaQuiz » s'affiche.
+   Exception : …?classique=1 (secours choisi dans l'appli, ou interrupteur "appli": "off"). */
+/* paramètres de la page demandée, sans ceux de l'appli : rouvre la même page dans l'appli (…/app/?s=…&q=…) */
+let REQUETE_ = '';
+function requete_(p) {
+  return Object.keys(p || {}).filter(k => ['cadre', 'classique', 'appli'].indexOf(k) < 0 && p[k] !== '')
+    .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(p[k])).join('&');
+}
+function versAppli_(p) {
+  const appli = urlAppli_();
+  if (!estEnfant_() || CADRE_ || CLASSIQUE_ || !appli) return null;
+  const q = requete_(p);
+  const cible = appli + (q ? '&q=' + encodeURIComponent(q) : '');
+  const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+  return HtmlService.createHtmlOutput(
+    '<style>html,body{margin:0;height:100%;background:#fff8ef}body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;font:600 18px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#2b2350;text-align:center;padding:24px;box-sizing:border-box}' +
+    'img{width:110px;height:110px;border-radius:24px}a{color:#fff;background:#a9010d;border-radius:999px;padding:14px 28px;text-decoration:none;font-size:20px}#msg{min-height:1.4em}</style>' +
+    '<img src="' + h(ORIGINE_APPLI + '/app/icone-192.png') + '" alt="">' +
+    '<a id="ouvrir" href="' + h(cible) + '" target="_top">Ouvrir SoccaQuiz</a><span id="msg"></span>' +
+    '<script>(function () { var c = ' + jsonScript_(cible) + ';' +
+    ' try { window.top.location.replace(c); } catch (e) {}' +
+    ' setTimeout(function () { document.getElementById("msg").textContent = "Touche le bouton pour ouvrir tes quiz."; }, 1200); })();</script>')
+    .setTitle('SoccaQuiz').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1');
 }
 /* autorise l'affichage dans le cadre de l'appli ; jamais pour l'espace parent (connexion Google, clickjacking) */
 function cadre_(sortie) {
@@ -119,9 +147,12 @@ function doGet(e) {
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
   CADRE_ = p.cadre === '1' && CONFIG.espace !== 'parent';
-  DEPUIS_APPLI_ = p.appli === '1' && CONFIG.espace === 'parent';
+  CLASSIQUE_ = p.classique === '1';
+  REQUETE_ = requete_(p);
   const page = nettoyerNom_(p.page || 'index');
   try {
+    const renvoi = versAppli_(p);
+    if (renvoi) return renvoi;
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
     if (!accesParent_()) return pageErreur_('Espace non partagé', PAS_PARTAGE);
     // …?oublier=<espace parent d'un site supprimé> : lien donné par l'installateur après une suppression faite sans passer par ce site
@@ -289,8 +320,10 @@ function assembler_(html, page, inst) {
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
-  // espace parent ouvert depuis l'appli : son lien « site de l'enfant » ramène dans l'appli (pont.html)
-  if (DEPUIS_APPLI_ && urlAppli_()) cfg.retourAppli = urlAppli_();
+  // adresse de l'appli de l'enfant : liens « site de l'enfant » de l'espace parent, retour du site ouvert hors de l'appli (pont.html)
+  if (urlAppli_()) cfg.appli = urlAppli_();
+  if (CLASSIQUE_) cfg.classique = true;
+  if (CADRE_) cfg.q = REQUETE_;                // page en cours, pour la rouvrir dans l'appli si besoin
   if (CADRE_) cfg.cadre = ORIGINE_APPLI;      // ouvert par l'appli installée : pont.html garde les liens dans l'appli
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
@@ -338,13 +371,13 @@ function pageEspaceParent_() {
     '<h2 style="margin-top:0">🔒 Espace parent</h2>' +
     '<p>Cette page est réservée aux parents. Elle s\'ouvre avec le lien « Espace parent », en étant connecté au compte Google du parent.</p>' +
     (CONFIG.urlParent ? '<p><a href="' + h(CONFIG.urlParent) + '" target="_top" style="display:inline-block;background:#c8102e;color:#fff;border-radius:999px;padding:10px 18px;text-decoration:none;font-weight:600">🔒 Ouvrir l\'espace parent</a></p>' : '') +
-    (CONFIG.urlEnfant ? '<p><a href="' + h(CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>' + signalCadre_())
+    (CONFIG.urlEnfant ? '<p><a href="' + h(urlAppli_() || CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>' + signalCadre_())
     .setTitle('Espace parent').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1'));
 }
 
 function pageErreur_(titre, message) {
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-  const accueil = urlIci_();
+  const accueil = (estEnfant_() && urlAppli_()) || urlIci_();
   return cadre_(HtmlService.createHtmlOutput(
     '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:1px solid #e5e7eb;border-radius:14px">' +
     '<h2 style="margin-top:0">😕 ' + h(titre) + '</h2><p>' + h(message) + '</p>' +

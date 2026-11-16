@@ -497,7 +497,7 @@ function scriptPage_() {
       var a = ev.target.closest && ev.target.closest('#mail-enfant, .mail-enfant');
       if (!a || !a.dataset.url) return;
       ev.preventDefault();
-      var url = a.dataset.url;
+      var url = lienEnfant(a.dataset.url, a.dataset.appli);
       copier(url);
       try { window.open(mailEnfant(url), '_blank'); } catch (e) {}
       var info = a.parentNode.querySelector('.info-mail');
@@ -566,10 +566,10 @@ function scriptPage_() {
     // carte d'un site installé : le prénom en titre, « Site de <prénom> » sur le bouton (pas deux fois la même chose)
     function titreCarte(s) { return s.classe !== 'adulte' && s.prenom ? s.prenom : titreSite(s); }
     function nomSite(s) { return s.classe === 'adulte' ? 'Mes quiz' : s.prenom ? 'Site de ' + s.prenom : 'Site de l\'enfant'; }
-    /* Appli installable : le bouton ouvre le site dans l'appli (sans le bandeau Google) quand soccaquiz.json l'autorise :
-       "appli": "on" pour tous, "beta" sur Android seulement (iPhone pas encore vérifié), sinon le lien habituel. */
+    /* Appli installable : le bouton et le lien envoyé à l'enfant ouvrent le site dans l'appli, jamais l'adresse Google
+       directe (celle qui affiche le bandeau Google), sauf si soccaquiz.json coupe l'appli ("appli": "off"). */
     var MODE_APPLI = '';
-    function lienEnfant(classique, appli) { return appli && (MODE_APPLI === 'on' || (MODE_APPLI === 'beta' && /Android/i.test(navigator.userAgent))) ? appli : classique; }
+    function lienEnfant(classique, appli) { return appli && MODE_APPLI !== 'off' ? appli : classique; }
     fetch('https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; }).then(function (c) {
       MODE_APPLI = String((c && c.appli) || '');
       [].forEach.call(document.querySelectorAll('a.lien-enfant'), function (a) { a.href = lienEnfant(a.dataset.classique, a.dataset.appli); });
@@ -585,7 +585,7 @@ function scriptPage_() {
         '<div class="msg">' + (s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
         '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
-        (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a>') + '</div>' +
+        (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a>') + '</div>' +
         (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>' + h(nomSite(s)) + '</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
         (!s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
           : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +

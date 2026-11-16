@@ -88,30 +88,40 @@
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
     corriger(a);
-    if (dansAppli) resterDansAppli(a, e);
-    else if (retourAppli && CFG.urlEnfant && a.href === CFG.urlEnfant) a.href = retourAppli;
+    if (CFG.espace === 'enfant' && CFG.cadre) resterDansAppli(a, e);
+    else if (CFG.espace === 'enfant' && CFG.classique) garderClassique(a);
+    else if (CFG.appli) versAppliEnfant(a);
+  }
+  /* espace parent (ou toute page hors du site de l'enfant) : un lien vers le site de l'enfant ouvre son appli,
+     à la même page, jamais l'adresse Google directe (celle qui affiche le bandeau Google) */
+  function versAppliEnfant(a) {
+    if (!CFG.urlEnfant) return;
+    var h = a.href;
+    if (h === CFG.urlEnfant) a.href = CFG.appli;
+    else if (h.indexOf(CFG.urlEnfant + '?') === 0) a.href = CFG.appli + '&q=' + encodeURIComponent(h.slice(CFG.urlEnfant.length + 1).split('#')[0]);
+  }
+  /* secours (…?classique=1) : les pages suivantes restent hors de l'appli, sans y être renvoyées */
+  function garderClassique(a) {
+    var h = a.href;
+    if (!CFG.url || (h !== CFG.url && h.indexOf(CFG.url + '?') !== 0) || /[?&]classique=1/.test(h)) return;
+    a.href = h.split('#')[0] + (h.indexOf('?') < 0 ? '?' : '&') + 'classique=1';
   }
 
   /* ---------- 3. appli installée ----------
      Le site est affiché dans le cadre de l'appli (…/exec?cadre=1, voir Code.gs) : un lien « _top » remplacerait
      l'appli par le site. Les pages du site sont donc demandées à l'appli, qui les charge dans son cadre ; le reste
-     (espace parent, autres sites) s'ouvre à part. Actif seulement une fois que l'appli a répondu : ouvert hors de
-     l'appli, même avec ?cadre=1, le site se comporte comme d'habitude. Ne sert qu'à la navigation. */
+     (espace parent, autres sites) s'ouvre à part. Ne sert qu'à la navigation. Si la page a été ouverte avec ?cadre=1
+     hors de l'appli (aucune réponse de l'appli en 4 s), elle renvoie vers l'appli : jamais le bandeau Google. */
   var dansAppli = false;
   function resterDansAppli(a, e) {
     var brut = a.getAttribute('href') || '', cible = a.getAttribute('target') || '_top';
     if (brut.charAt(0) === '#' || !/^https?:/i.test(a.href) || cible !== '_top') return;
+    if (CFG.appli && a.href.indexOf(CFG.appli) === 0) return;            // vers l'appli elle-même : on la recharge
     if (CFG.url && (a.href === CFG.url || a.href.indexOf(CFG.url + '?') === 0 || a.href.indexOf(CFG.url + '#') === 0)) {
       if (e.type !== 'click' || e.button || e.ctrlKey || e.metaKey || e.shiftKey) return;
       e.preventDefault();
       window.top.postMessage({ uq: 'aller', url: a.href }, CFG.cadre);
     } else {
-      // l'espace parent saura qu'on vient de l'appli : son lien « site de l'enfant » y ramènera
-      if (CFG.urlParent && (a.href === CFG.urlParent || a.href.indexOf(CFG.urlParent + '?') === 0) && !/[?&]appli=1(?:&|#|$)/.test(a.href)) {
-        var h = a.href.split('#');
-        h[0] += (h[0].indexOf('?') < 0 ? '?' : '&') + 'appli=1';
-        a.href = h.join('#');
-      }
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
     }
@@ -134,22 +144,32 @@
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', porteParent); else porteParent();
 
-  /* Espace parent ouvert depuis l'appli (…?appli=1) : on s'en souvient le temps de l'onglet, pour que le lien
-     « site de l'enfant » ramène dans l'appli depuis n'importe quelle page de l'espace parent. Ouvert normalement,
-     l'espace parent garde son lien habituel. */
-  var retourAppli = '';
-  if (CFG.espace === 'parent') {
-    try {
-      if (CFG.retourAppli) sessionStorage.setItem('sq-retour-appli', CFG.retourAppli);
-      retourAppli = CFG.retourAppli || sessionStorage.getItem('sq-retour-appli') || '';
-    } catch (e) { retourAppli = CFG.retourAppli || ''; }
-    if (retourAppli.indexOf('https:\/\/leian.github.io\/app\/?s=') !== 0) retourAppli = '';
-  }
-  if (CFG.cadre && window.top !== window) {
+  if (CFG.espace === 'enfant' && CFG.cadre) {
     window.addEventListener('message', function (e) {
       if (e.origin === CFG.cadre && e.source === window.top && e.data && e.data.uq === 'cadre-ok') dansAppli = true;
     });
     try { window.top.postMessage({ uq: 'pret' }, CFG.cadre); } catch (e) {}
+    setTimeout(function () {
+      if (dansAppli || !CFG.appli) return;
+      var q = CFG.q || '';
+      ouvrirAppli(CFG.appli + (q ? '&q=' + encodeURIComponent(q) : ''));
+    }, 4000);
+  }
+  /* renvoi vers l'appli : automatique si le navigateur l'accepte, sinon un seul grand bouton (Google n'autorise
+     le changement de page qu'après un toucher) ; la page du site reste cachée derrière */
+  function ouvrirAppli(cible) {
+    try { window.top.location.replace(cible); } catch (e) {}
+    setTimeout(function () {
+      if (document.getElementById('sq-vers-appli') || !document.body) return;
+      var d = document.createElement('div');
+      d.id = 'sq-vers-appli';
+      d.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;background:#fff8ef;color:#2b2350;font:600 18px/1.4 system-ui,sans-serif;text-align:center;padding:24px';
+      var a = document.createElement('a');
+      a.href = cible; a.target = '_top'; a.textContent = 'Ouvrir SoccaQuiz';
+      a.style.cssText = 'color:#fff;background:#a9010d;border-radius:999px;padding:14px 28px;text-decoration:none;font-size:20px';
+      d.appendChild(a);
+      document.body.appendChild(d);
+    }, 600);
   }
   // garde-fou : si un script de la page plante, on le dit au lieu de laisser une page à moitié vide
   window.addEventListener('error', function (e) {
