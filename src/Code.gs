@@ -431,7 +431,7 @@ function catalogue_(dossier) {
         meta = Object.assign({ u: maj, n: nom }, lireMeta_(f.getBlob().getDataAsString('UTF-8'), nom, f.getDateCreated()));
         aEcrire[cle] = JSON.stringify(meta);
       }
-      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.nq ? { nq: meta.nq } : {}, meta.biblio ? { biblio: meta.biblio } : {}));
+      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.nq ? { nq: meta.nq } : {}, meta.biblio ? { biblio: meta.biblio } : {}, meta.biblio && meta.biblioV ? { biblioV: meta.biblioV } : {}));
     }
   }
 
@@ -454,7 +454,7 @@ function catalogue_(dossier) {
   return cat;
 }
 
-const META_V = 2;                       // à augmenter quand lireMeta_ lit un nouveau champ : les quiz déjà lus sont relus
+const META_V = 3;                       // à augmenter quand lireMeta_ lit un nouveau champ : les quiz déjà lus sont relus
 function lireMeta_(html, nom, cree) {
   const i = html.lastIndexOf('MoteurQuiz.lancer');
   const bloc = i >= 0 ? html.slice(i) : html;
@@ -479,7 +479,8 @@ function lireMeta_(html, nom, cree) {
     nq: nq > 0 && nq < 1000 ? nq : 0,
     v: META_V,
     date: dateDepuisNom_(nom) || jour_(cree),
-    biblio: /^[a-z0-9-]{1,80}$/.test(champ('biblio')) ? champ('biblio') : ''    // quiz ajouté depuis la bibliothèque : son identifiant
+    biblio: /^[a-z0-9-]{1,80}$/.test(champ('biblio')) ? champ('biblio') : '',   // quiz ajouté depuis la bibliothèque : son identifiant
+    biblioV: /^\d{1,6}$/.test(champ('biblioV')) ? champ('biblioV') : ''           // … et sa version
   };
 }
 
@@ -820,7 +821,103 @@ function apiTexteQuiz(nom) {
   let cfg = null;
   try { cfg = JSON.parse(html.slice(i + 'MoteurQuiz.lancer('.length, fin)); } catch (e) {}
   if (i < 0 || !cfg || !Array.isArray(cfg.questions)) return { erreur: 'Ce quiz a été fait à la main : il ne peut pas être proposé depuis le site.' };
-  return { ok: true, titre: String(cfg.titre || ''), texte: lignesDeQuiz_(cfg) };
+  return { ok: true, titre: String(cfg.titre || ''), texte: lignesDeQuiz_(cfg), biblio: String(cfg.biblio || '') };
+}
+
+/* Corriger un quiz du site : son texte (format en lignes) remplace son contenu, sous le même nom de fichier
+   (adresse, résultats et révisions gardés). Mêmes contrôles qu'à la création. o.biblio / o.biblioV : mise à jour
+   depuis la bibliothèque ; sinon l'identifiant de la bibliothèque déjà dans le quiz est gardé. */
+function apiRemplacerQuiz(nom, texte, o) {
+  if (interdit_()) return refusEnfant_();
+  nom = String(nom || '').split('/').pop();
+  if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
+  texte = String(texte || '').trim();
+  if (texte.length < 20 || texte.length > 300000) return { erreur: 'Texte du quiz vide ou trop long.' };
+  const f = trouverFichier_(installer_().dossier, nom);
+  if (!f) return { erreur: 'Ce quiz n\'existe plus.' };
+  const ancien = configQuiz_(f.getBlob().getDataAsString('UTF-8'));
+  if (!ancien) return { erreur: 'Ce quiz a été fait à la main : il ne peut pas être corrigé depuis le site.' };
+  o = o || {};
+  const biblio = /^[a-z0-9-]{1,80}$/.test(String(o.biblio || '')) ? String(o.biblio) : String(ancien.biblio || '');
+  const biblioV = o.biblio ? String(o.biblioV || '') : String(ancien.biblioV || '');
+  const q = construireQuiz_(texte, biblio, biblioV);
+  if (q.erreur) return q;
+  try { f.setContent(q.html); } catch (e) { return { erreur: 'Modification refusée par Google Drive : seul le parent qui a créé ce quiz peut le corriger.' }; }
+  CacheService.getScriptCache().remove('catalogue');
+  return { ok: true, titre: q.titre, nb: q.nb, avertissements: q.avert };
+}
+function configQuiz_(html) {
+  const i = html.lastIndexOf('MoteurQuiz.lancer('), fin = html.lastIndexOf(');');
+  if (i < 0) return null;
+  try { const c = JSON.parse(html.slice(i + 'MoteurQuiz.lancer('.length, fin)); return c && Array.isArray(c.questions) ? c : null; } catch (e) { return null; }
+}
+
+/* ---------------- signalements d'erreur ----------------
+   L'enfant (« Signaler une erreur » sous une question ratée ou sous « À retenir ») ou le parent (résultats)
+   signale une erreur ; elle est gardée dans l'onglet « Signalements » du tableau des résultats. Le parent la
+   corrige lui-même (apiRemplacerQuiz) ou l'envoie à la console SoccaQuiz avec un code ; la console renvoie la
+   correction, que l'espace parent lit avec ce code. */
+const COL_SIGNAL = ['id', 'date', 'origine', 'page', 'titre', 'question', 'attendu', 'k', 'motif', 'remarque', 'statut', 'code', 'maj'];
+const STATUTS_SIGNAL = ['nouveau', 'transmis', 'corrige', 'ignore'];
+function feuilleSignal_() {
+  const ss = installer_().ss;
+  let sh = ss.getSheetByName('Signalements');
+  if (!sh) { sh = ss.insertSheet('Signalements'); sh.appendRow(COL_SIGNAL); }
+  return sh;
+}
+function apiSignaler(d) {
+  d = d || {};
+  const enfant = estEnfant_();
+  if (!enfant && interdit_()) return refusEnfant_();
+  const t = (v, n) => cellule_(String(v == null ? '' : v).replace(/<[^>]*>/g, ' ').replace(/[\r\n\t]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, n));
+  const page = nettoyerNom_(String(d.page || ''));
+  const question = t(d.question, 400);
+  if (!page || !question) return { erreur: 'Signalement incomplet.' };
+  const motif = ['reponse', 'question', 'rappel', 'autre'].indexOf(d.motif) >= 0 ? d.motif : 'autre';
+  // lien de l'enfant (accès sans compte) : 10 signalements par tranche de 10 minutes, 100 en attente au plus
+  const cache = CacheService.getScriptCache(), cle = 'signal-' + Math.floor(Date.now() / 6e5);
+  const n = +(cache.get(cle) || 0);
+  if (enfant && n >= 10) return { erreur: 'Beaucoup de signalements en ce moment : réessaie plus tard.' };
+  cache.put(cle, String(n + 1), 900);
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(15000);
+  try {
+    const sh = feuilleSignal_(), v = sh.getDataRange().getValues().slice(1);
+    if (enfant && v.filter(r => r[10] === 'nouveau').length >= 100) return { erreur: 'Trop de signalements en attente.' };
+    // même question déjà signalée et pas encore traitée : on ne la garde qu'une fois
+    const deja = v.find(r => r[3] === page && r[5] === question && (r[10] === 'nouveau' || r[10] === 'transmis'));
+    if (deja) return { ok: true, id: String(deja[0]), deja: true };
+    const id = Utilities.getUuid().slice(0, 8), maintenant = new Date().toISOString();
+    sh.appendRow([id, maintenant, enfant ? 'enfant' : 'parent', page, t(d.titre, 120), question, t(d.attendu, 300), t(d.k, 80), motif, t(d.remarque, 300), 'nouveau', '', maintenant]);
+    return { ok: true, id };
+  } finally { verrou.releaseLock(); }
+}
+function apiSignalements() {
+  if (interdit_()) return refusEnfant_();
+  const ss = installer_().ss, sh = ss.getSheetByName('Signalements');
+  if (!sh || sh.getLastRow() < 2) return { ok: true, liste: [] };
+  const v = sh.getRange(2, 1, sh.getLastRow() - 1, COL_SIGNAL.length).getValues().filter(r => r[0]);
+  // fichier du quiz : la page signalée, ou (pages « Mes révisions » / défi) le quiz qui porte ce titre
+  const cat = catalogue_(installer_().dossier).QUIZ;
+  const fichier = (page, titre) => { const p = cat.find(q => q.fichier.replace(/\.html?$/i, '') === page); if (p) return p.fichier; const t = cat.find(q => q.titre === titre); return t ? t.fichier : ''; };
+  const liste = v.map(r => { const o = COL_SIGNAL.reduce((x, c, i) => { x[c] = String(r[i]).replace(/^'(?=[=+\-@])/, ''); return x; }, {}); o.fichier = fichier(o.page, o.titre); return o; })
+    .sort((a, b) => b.date.localeCompare(a.date)).slice(0, 200);
+  return { ok: true, liste };
+}
+function apiSignalementMaj(id, statut, code) {
+  if (interdit_()) return refusEnfant_();
+  if (STATUTS_SIGNAL.indexOf(statut) < 0) return { erreur: 'Statut inconnu.' };
+  if (code && !/^[a-z0-9]{20,40}$/.test(String(code))) return { erreur: 'Code invalide.' };
+  const sh = installer_().ss.getSheetByName('Signalements');
+  if (!sh) return { erreur: 'Signalement introuvable.' };
+  const v = sh.getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (String(v[i][0]) === String(id)) {
+    sh.getRange(i + 1, 11).setValue(statut);
+    if (code) sh.getRange(i + 1, 12).setValue(String(code));
+    sh.getRange(i + 1, 13).setValue(new Date().toISOString());
+    return { ok: true };
+  }
+  return { erreur: 'Signalement introuvable.' };
 }
 
 /* configuration interne d'un quiz → format en lignes (l'inverse de lireFormatLignes_ + normaliserQuestion_) */
@@ -1150,7 +1247,7 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   return null;
 }
 
-function apiAjouterQuiz(texte, aussi, source) {
+function apiAjouterQuiz(texte, aussi, source, biblioV) {
   if (interdit_()) return refusEnfant_();
   texte = String(texte || '').trim();
   if (texte.length < 20) return { erreur: "Colle d'abord la réponse de l'IA dans le cadre." };
@@ -1166,6 +1263,18 @@ function apiAjouterQuiz(texte, aussi, source) {
     return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [], aussi: copierAussi_(aussi, meta.titre, texte) };
   }
 
+  const q = construireQuiz_(texte, source, biblioV);
+  if (q.erreur) return q;
+  const { html, titre, nb, avert } = q;
+  const nom = nomLibre_(inst.dossier, titre);
+  inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
+  CacheService.getScriptCache().remove('catalogue');
+  return { ok: true, page: nom, titre, nb, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
+}
+
+/* texte d'un quiz (format en lignes ou JSON) → page du quiz, avec tous les contrôles de la création ;
+   source : identifiant de la bibliothèque, biblioV : sa version (pour proposer les mises à jour) */
+function construireQuiz_(texte, source, biblioV) {
   // cas 2 : le format en lignes du message pour l'IA (Q|…, V|…, S|…) — le plus économe en tokens
   // cas 3 : l'ancien format JSON, toujours accepté
   let d = lireFormatLignes_(texte);
@@ -1208,13 +1317,12 @@ function apiAjouterQuiz(texte, aussi, source) {
     icone, badge, icones,
     langueAudio: /^[a-z]{2}(-[A-Za-z]{2})?$/.test(txt(d.langueAudio || d.langue, 10)) ? txt(d.langueAudio || d.langue, 10) : '',
     couleur: COULEURS_[matiere], questions, memo, texte: true,
-    biblio: /^[a-z0-9-]{1,80}$/.test(String(source || '')) ? String(source) : ''    // ajouté depuis la bibliothèque : on saura s'il en est retiré
+    biblio: /^[a-z0-9-]{1,80}$/.test(String(source || '')) ? String(source) : '',   // ajouté depuis la bibliothèque : on saura s'il en est retiré
+    biblioV: /^[a-z0-9-]{1,80}$/.test(String(source || '')) && /^\d{1,6}$/.test(String(biblioV || '')) ? String(biblioV) : ''
   });
-  const nom = nomLibre_(inst.dossier, titre);
-  inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
-  CacheService.getScriptCache().remove('catalogue');
-  return { ok: true, page: nom, titre, nb: questions.length, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
+  return { html, titre, nb: questions.length, avert };
 }
+
 
 /* ---------------- autre parent ----------------
    Le parent qui a installé le site invite une adresse Google : le dossier de chaque enfant de la famille
@@ -1448,6 +1556,7 @@ function fabriquerQuizHtml_(c) {
   if (c.texte) cfg.texte = true;          // texte pur (quiz créé depuis le site) : le moteur n'y retire aucune balise
   if (c.badge) cfg.badge = c.badge;
   if (c.biblio) cfg.biblio = c.biblio;
+  if (c.biblioV) cfg.biblioV = c.biblioV;
   if (c.icones && Object.keys(c.icones).length) cfg.icones = c.icones;
   if (c.langueAudio) cfg.langueAudio = c.langueAudio;
   const pills = [];

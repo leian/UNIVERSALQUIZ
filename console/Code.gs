@@ -31,7 +31,10 @@ function proprietaire_() {
 }
 function exiger_() { if (!proprietaire_()) throw new Error('Réservé à l\'éditeur de SoccaQuiz.'); }
 
-function doGet() {
+function doGet(e) {
+  // espace parent d'une famille : où en est la correction demandée avec ce code ? (seul qui a le code la lit)
+  const code = e && e.parameter && e.parameter.correction;
+  if (code) return ContentService.createTextOutput(JSON.stringify(correction_(String(code)))).setMimeType(ContentService.MimeType.JSON);
   const sortie = proprietaire_() ? pageHtml_()
     : '<!DOCTYPE html><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><body style="font:17px system-ui;text-align:center;padding:40px;background:#fff8ef;color:#2a1f1a"><p>Cette adresse reçoit les quiz proposés depuis les sites SoccaQuiz.</p><p><a href="' + PAGES + '">Découvrir SoccaQuiz</a></p></body>';
   return HtmlService.createHtmlOutput(sortie)
@@ -51,6 +54,7 @@ function doPost(e) {
   return rep(r);
 }
 function recevoir_(d) {
+  if (d && d.type === 'erreur') return recevoirErreur_(d);
   if (!d || d.type !== 'proposition') return { erreur: 'Requête inconnue.' };
   const texte = String(d.texte || '').replace(/\r/g, '').trim();
   if (texte.length < 40 || texte.length > 30000) return { erreur: 'Quiz vide ou trop long.' };
@@ -77,6 +81,106 @@ function recevoir_(d) {
     return { ok: true, id };
   } finally { verrou.releaseLock(); }
 }
+/* ---------------- erreurs signalées par les familles ----------------
+   Corps : JSON { type: 'erreur', code, titre, classe, biblio, question, attendu, motif, remarque, texte, version }.
+   code : tiré au hasard par l'espace parent ; il sert à relire la correction (doGet ?correction=). Rien d'autre
+   n'identifie la famille. */
+const COL_ERR_ = ['id', 'date', 'statut', 'code', 'titre', 'classe', 'biblio', 'question', 'attendu', 'motif', 'remarque', 'texte', 'version', 'correction', 'message', 'maj'];
+function feuilleErreurs_() {
+  const ss = feuille_().getParent();
+  let sh = ss.getSheetByName('Erreurs');
+  if (!sh) { sh = ss.insertSheet('Erreurs'); sh.appendRow(COL_ERR_); }
+  return sh;
+}
+function recevoirErreur_(d) {
+  const code = String(d.code || '');
+  if (!/^[a-z0-9]{20,40}$/.test(code)) return { erreur: 'Code invalide.' };
+  const texte = String(d.texte || '').replace(/\r/g, '').trim();
+  if (texte.length < 40 || texte.length > 30000 || !/^T\|/m.test(texte)) return { erreur: 'Quiz vide ou trop long.' };
+  const cache = CacheService.getScriptCache(), cle = 'envois-' + Math.floor(Date.now() / 6e5);
+  const n = +(cache.get(cle) || 0);
+  if (n >= 20) return { erreur: 'Trop d\'envois en ce moment : réessaie dans quelques minutes.' };
+  cache.put(cle, String(n + 1), 900);
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try {
+    const sh = feuilleErreurs_(), v = sh.getDataRange().getValues();
+    if (v.some(r => String(r[3]) === code)) return { ok: true, deja: true };
+    if (v.filter(r => r[2] === 'nouveau').length >= 300) return { erreur: 'Trop de signalements en attente : réessaie plus tard.' };
+    const classe = CLASSES_.indexOf(String(d.classe || '')) >= 0 ? String(d.classe) : '';
+    const biblio = /^[a-z0-9-]{1,80}$/.test(String(d.biblio || '')) ? String(d.biblio) : '';
+    const motif = ['reponse', 'question', 'rappel', 'autre'].indexOf(d.motif) >= 0 ? d.motif : 'autre';
+    const id = Utilities.getUuid().slice(0, 8), t = (x, m) => cellule_(texteCourt_(x, m));
+    sh.appendRow([id, new Date(), 'nouveau', code, t(d.titre, 100), classe, biblio, t(d.question, 400), t(d.attendu, 300), motif, t(d.remarque, 300), cellule_(texte), t(d.version, 12), '', '', '']);
+    return { ok: true };
+  } finally { verrou.releaseLock(); }
+}
+function cellule_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) && !/^-?\d/.test(v) ? "'" + v : v; }
+const nonCellule_ = v => String(v == null ? '' : v).replace(/^'(?=[=+\-@])/, '');
+function correction_(code) {
+  if (!/^[a-z0-9]{20,40}$/.test(code)) return { statut: 'inconnu' };
+  const sh = feuille_().getParent().getSheetByName('Erreurs');
+  if (!sh) return { statut: 'inconnu' };
+  const r = sh.getDataRange().getValues().find(x => String(x[3]) === code);
+  if (!r) return { statut: 'inconnu' };
+  const statut = String(r[2]);
+  if (statut === 'corrige') return { statut, texte: nonCellule_(r[13]), message: nonCellule_(r[14]) };
+  if (statut === 'sans-erreur') return { statut, message: nonCellule_(r[14]) };
+  return { statut: 'attente' };
+}
+function trouverErreur_(id) {
+  const sh = feuilleErreurs_(), v = sh.getDataRange().getValues();
+  for (let i = 1; i < v.length; i++) if (String(v[i][0]) === String(id)) return { sh, i: i + 1, r: v[i] };
+  return null;
+}
+/* d = { texte, message, pourTous } : la correction est renvoyée à la famille ; quiz de la bibliothèque et pourTous :
+   corrigé aussi dans la bibliothèque (nouvelle version proposée à toutes les familles qui l'ont) */
+function apiCorrigerErreur(id, d) {
+  exiger_();
+  d = d || {};
+  const l = trouverErreur_(id); if (!l) return { erreur: 'Signalement introuvable.' };
+  const texte = String(d.texte || '').replace(/\r/g, '').trim() + '\n';
+  const nb = texte.split('\n').filter(x => /^[QVSGOACXNPK]\|/.test(x.trim())).length;
+  if (!/^T\|/m.test(texte) || nb < 3) return { erreur: 'Le texte doit contenir une ligne T| et au moins 3 questions.' };
+  let biblio = '';
+  if (d.pourTous && l.r[6]) {
+    if (!PropertiesService.getScriptProperties().getProperty('GITHUB_JETON')) return { erreur: 'Ajoute d\'abord le jeton GitHub (onglet Réglages), ou décoche « pour toutes les familles ».' };
+    const id2 = String(l.r[6]), { index, sha } = lireIndex_(), k = index.quiz.findIndex(q => q.id === id2);
+    if (k < 0) return { erreur: 'Ce quiz n\'est plus dans la bibliothèque : décoche « pour toutes les familles ».' };
+    const f = lireFichier_('docs/bibliotheque/' + id2 + '.txt');
+    ecrireFichier_('docs/bibliotheque/' + id2 + '.txt', texte, f && f.sha, 'Bibliothèque : correction de ' + index.quiz[k].titre);
+    index.quiz[k].nb = nb; index.quiz[k].v = (+index.quiz[k].v || 1) + 1;
+    index.quiz[k].corrige = Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd');
+    ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : correction de ' + index.quiz[k].titre);
+    biblio = id2;
+  }
+  l.sh.getRange(l.i, 3).setValue('corrige');
+  l.sh.getRange(l.i, 14).setValue(cellule_(texte));
+  l.sh.getRange(l.i, 15).setValue(cellule_(texteCourt_(d.message, 400)));
+  l.sh.getRange(l.i, 16).setValue(new Date());
+  return { ok: true, biblio };
+}
+function apiSansErreur(id, message) {
+  exiger_();
+  const l = trouverErreur_(id); if (!l) return { erreur: 'Signalement introuvable.' };
+  l.sh.getRange(l.i, 3).setValue('sans-erreur');
+  l.sh.getRange(l.i, 15).setValue(cellule_(texteCourt_(message, 400)));
+  l.sh.getRange(l.i, 16).setValue(new Date());
+  return { ok: true };
+}
+function apiRouvrirErreur(id) {
+  exiger_();
+  const l = trouverErreur_(id); if (!l) return { erreur: 'Signalement introuvable.' };
+  l.sh.getRange(l.i, 3).setValue('nouveau');
+  return { ok: true };
+}
+function apiSupprimerErreur(id) {
+  exiger_();
+  const l = trouverErreur_(id); if (!l) return { erreur: 'Signalement introuvable.' };
+  l.sh.deleteRow(l.i);
+  return { ok: true };
+}
+
 const texteCourt_ = (v, n) => String(v == null ? '' : v).replace(/[\r\n\t]+/g, ' ').trim().slice(0, n);
 
 function feuille_() {
@@ -102,8 +206,14 @@ function apiEtat() {
   let quota = null; try { quota = MailApp.getRemainingDailyQuota(); } catch (e) {}
   // quiz retirés de la bibliothèque (pour les signaler sur les propositions publiées)
   let retires = []; try { if (p.getProperty('GITHUB_JETON')) retires = lireIndex_().index.retires || []; } catch (e) {}
+  let erreurs = [];
+  try {
+    const sh = feuille_().getParent().getSheetByName('Erreurs');
+    if (sh && sh.getLastRow() > 1) erreurs = sh.getRange(2, 1, sh.getLastRow() - 1, COL_ERR_.length).getValues().filter(r => r[0]).map(r => COL_ERR_.reduce((o, c, i) => {
+      o[c] = r[i] instanceof Date ? r[i].toISOString() : nonCellule_(r[i]); return o; }, {})).sort((a, b) => b.date.localeCompare(a.date));
+  } catch (e) {}
   return {
-    propositions: props, retires,
+    propositions: props, retires, erreurs,
     jeton: !!p.getProperty('GITHUB_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
@@ -193,6 +303,7 @@ function apiPublier(d) {
   const entree = { id, titre, matiere, classes, nb, icone: texteCourt_(d.icone, 16), description: texteCourt_(d.description, 200), ajoute: Utilities.formatDate(new Date(), 'Europe/Paris', 'yyyy-MM-dd') };
   if (!entree.icone) delete entree.icone;
   if (!entree.description) delete entree.description;
+  if (deja >= 0) entree.v = (+index.quiz[deja].v || 1) + 1;         // remplacé : les familles qui l'ont voient « Mettre à jour »
   if (deja >= 0) index.quiz[deja] = entree; else index.quiz.unshift(entree);
   if (Array.isArray(index.retires)) index.retires = index.retires.filter(x => x && x.id !== id);   // republié : plus « retiré »
   ecrireFichier_('docs/bibliotheque/index.json', jsonJoli_(index), sha, 'Bibliothèque : ' + (deja >= 0 ? 'mise à jour de ' : 'ajout de ') + titre);
@@ -395,8 +506,8 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
-      .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : '') + '</button>').join('') +
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
+      .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
 }
@@ -457,7 +568,7 @@ function client_() {
     check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     upload: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>', plus: '<path d="M12 5v14M5 12h14"/>', ext: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
-    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>'
+    send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>', key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>'
   };
   var I = function (n) { return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES[n] || '') + '</svg>'; };
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
@@ -487,7 +598,7 @@ function client_() {
   }
   function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60); }
 
-  function charger(apres) { appel('apiEtat', [], function (e) { ETAT = e; var n = e.propositions.filter(function (p) { return p.statut === 'nouveau'; }).length; $('nb-prop').textContent = n; $('nb-prop').hidden = !n; if (apres) apres(); else afficher(); }); }
+  function charger(apres) { appel('apiEtat', [], function (e) { ETAT = e; var n = e.propositions.filter(function (p) { return p.statut === 'nouveau'; }).length; $('nb-prop').textContent = n; $('nb-prop').hidden = !n; var ne = (e.erreurs || []).filter(function (x) { return x.statut === 'nouveau'; }).length; $('nb-err').textContent = ne; $('nb-err').hidden = !ne; if (apres) apres(); else afficher(); }); }
 
   function ouvrir(o) {
     onglet = o; edition = null;
@@ -499,9 +610,66 @@ function client_() {
   function afficher() {
     var c = $('contenu');
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
+    if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
   }
+
+  /* ---------- Erreurs signalées par les familles ---------- */
+  var MOTIFS = { reponse: 'Bonne réponse fausse', question: 'Question mal écrite ou incomprise', rappel: 'Rappel de la leçon faux', autre: '' };
+  function carteErreur(x) {
+    var lib = { nouveau: 'À corriger', corrige: 'Corrigé', 'sans-erreur': 'Pas d\'erreur' }[x.statut] || x.statut;
+    return '<div class="carte" data-err="' + esc(x.id) + '"><h3>' + esc(x.titre || 'Sans titre') + ' <span class="etiq ' + (x.statut === 'nouveau' ? 'nouveau' : x.statut === 'corrige' ? 'publie' : 'refuse') + '">' + esc(lib) + '</span>' + (x.biblio ? ' <span class="etiq">Bibliothèque</span>' : '') + '</h3>' +
+      '<div class="meta">' + esc(date(x.date)) + (x.classe ? ' · ' + esc(x.classe) : '') + (x.version ? ' · site ' + esc(x.version) : '') + '</div>' +
+      '<p style="margin:4px 0"><b>' + esc(x.question) + '</b></p>' +
+      (x.attendu ? '<p class="petit" style="margin:2px 0">Réponse attendue par le quiz : ' + esc(x.attendu) + '</p>' : '') +
+      (MOTIFS[x.motif] || x.remarque ? '<p class="petit" style="margin:2px 0">' + esc([MOTIFS[x.motif], x.remarque ? '« ' + x.remarque + ' »' : ''].filter(Boolean).join(' · ')) + '</p>' : '') +
+      (x.message ? '<p class="petit" style="margin:2px 0">Ta réponse : « ' + esc(x.message) + ' »</p>' : '') +
+      '<div class="actions">' + (x.statut === 'nouveau' ? '<button class="btn principal" data-e="corriger">' + I('eye') + ' Relire et corriger</button>'
+        : '<button class="btn" data-e="corriger">' + I('eye') + ' Revoir</button><button class="btn" data-e="rouvrir">' + I('undo') + ' Remettre à corriger</button><button class="btn danger" data-e="supprimer">' + I('trash') + ' Supprimer</button>') + '</div></div>';
+  }
+  function vueErreurs(c) {
+    var E = ETAT.erreurs || [], nouv = E.filter(function (x) { return x.statut === 'nouveau'; }), autres = E.filter(function (x) { return x.statut !== 'nouveau'; });
+    c.innerHTML = MSG + '<div class="box"><h2>' + I('flag') + 'À corriger</h2><p class="petit">Erreurs signalées par les familles dans leurs quiz (questions à réviser, rappels « À retenir »). Ta correction leur revient dans l\'espace parent, qui la leur propose ; pour un quiz de la bibliothèque, elle peut corriger aussi le quiz pour toutes les familles.</p>' +
+      (nouv.length ? nouv.map(carteErreur).join('') : '<p class="vide">Aucune erreur en attente.</p>') + '</div>' +
+      (autres.length ? '<div class="box"><details><summary>Déjà traitées (' + autres.length + ')</summary>' + autres.map(carteErreur).join('') + '</details></div>' : '');
+  }
+  function editeurErreur(c) {
+    var x = (ETAT.erreurs || []).filter(function (y) { return y.id === edition.id; })[0];
+    if (!x) { edition = null; return afficher(); }
+    var texte = x.correction || x.texte;
+    c.innerHTML = MSG + '<div class="box"><h2>' + I('flag') + 'Corriger « ' + esc(x.titre) + ' »</h2>' +
+      '<p><b>Question signalée :</b> ' + esc(x.question) + '</p>' +
+      (x.attendu ? '<p class="petit">Réponse attendue par le quiz : ' + esc(x.attendu) + '</p>' : '') +
+      (MOTIFS[x.motif] || x.remarque ? '<p class="petit">' + esc([MOTIFS[x.motif], x.remarque ? '« ' + x.remarque + ' »' : ''].filter(Boolean).join(' · ')) + '</p>' : '') +
+      '<label for="x-texte">Texte du quiz (la ligne signalée est sélectionnée)</label><textarea id="x-texte" rows="16" spellcheck="false">' + esc(texte) + '</textarea>' +
+      '<label for="x-msg">Message pour la famille (facultatif)</label><input id="x-msg" maxlength="400" value="' + esc(x.message || '') + '" placeholder="ex. Merci ! La réponse est corrigée.">' +
+      (x.biblio ? '<label style="font-weight:600"><input type="checkbox" id="x-tous" checked> Corriger aussi dans la bibliothèque, pour toutes les familles qui ont ce quiz (« ' + esc(x.biblio) + ' »)</label>' : '') +
+      '<div class="actions" style="margin-top:12px"><button class="btn principal" id="x-ok">' + I('check') + ' Envoyer la correction</button><button class="btn" id="x-rien">' + I('x') + ' Pas d\'erreur (envoyer le message)</button><button class="btn" id="x-retour">Retour</button></div></div>';
+    var ta = $('x-texte'), cle = String(x.question).replace(/^À retenir : /, '').toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').trim().slice(0, 30);
+    var L = texte.split('\n'), pos = 0;
+    for (var i = 0; i < L.length; i++) { if (cle && L[i].toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, ' ').indexOf(cle) >= 0) { ta.focus(); ta.setSelectionRange(pos, pos + L[i].length); ta.scrollTop = Math.max(0, i * 19 - 80); break; } pos += L[i].length + 1; }
+    $('x-retour').onclick = function () { edition = null; afficher(); };
+    $('x-ok').onclick = function () {
+      var b = this; b.disabled = true;
+      appel('apiCorrigerErreur', [x.id, { texte: ta.value, message: $('x-msg').value, pourTous: !!($('x-tous') && $('x-tous').checked) }], function (r) {
+        edition = null; charger(function () { ouvrir('erreurs'); info('Correction envoyée : la famille la verra dans son espace parent.' + (r.biblio ? ' Le quiz « ' + r.biblio + ' » est aussi corrigé dans la bibliothèque : les familles qui l\'ont verront « Mettre à jour ».' : '')); });
+      }, function (m) { b.disabled = false; erreur(m); });
+    };
+    $('x-rien').onclick = function () {
+      var b = this;
+      if (!$('x-msg').value.trim()) { erreur('Écris d\'abord un petit message pour expliquer à la famille pourquoi ce n\'est pas une erreur.'); $('x-msg').focus(); return; }
+      b.disabled = true;
+      appel('apiSansErreur', [x.id, $('x-msg').value], function () { edition = null; charger(function () { ouvrir('erreurs'); info('Réponse envoyée à la famille.'); }); }, function (m) { b.disabled = false; erreur(m); });
+    };
+  }
+  $('contenu').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-e]'); if (!b || onglet !== 'erreurs') return;
+    var id = (e.target.closest('.carte') || {}).dataset; id = id && id.err; if (!id) return;
+    if (b.dataset.e === 'corriger') { edition = { erreur: true, id: id }; afficher(); }
+    else if (b.dataset.e === 'rouvrir') { b.disabled = true; appel('apiRouvrirErreur', [id], function () { charger(function () { ouvrir('erreurs'); }); }); }
+    else if (b.dataset.e === 'supprimer') confirmer(b, 'Toucher encore pour supprimer', function () { appel('apiSupprimerErreur', [id], function () { charger(function () { ouvrir('erreurs'); }); }); });
+  });
 
   /* ---------- Propositions ---------- */
   function carteProp(p) {

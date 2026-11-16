@@ -17,6 +17,19 @@ const feuille = {
   deleteRow: l => lignes.splice(l - 1, 1)
 };
 const ss = { getId: () => 'feuille123', getSheets: () => [feuille] };
+feuille.getParent = () => ss;
+// onglet « Erreurs » (créé par la console)
+const lignesE = [];
+const feuilleE = {
+  appendRow: r => lignesE.push(r.slice()),
+  getDataRange: () => ({ getValues: () => lignesE.map(r => r.slice()) }),
+  getLastRow: () => lignesE.length,
+  getRange: (l, c, nl, nc) => ({ setValue: v => { lignesE[l - 1][c - 1] = v; }, getValues: () => lignesE.slice(l - 1, l - 1 + nl).map(r => r.slice(c - 1, c - 1 + nc)) }),
+  deleteRow: l => lignesE.splice(l - 1, 1)
+};
+let ongletE = false;
+ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : null;
+ss.insertSheet = n => { ongletE = true; return feuilleE; };
 // faux GitHub (API contents)
 const depot = { 'docs/bibliotheque/index.json': JSON.stringify({ version: 1, quiz: [{ id: 'anglais-x', titre: 'X', matiere: 'anglais', classes: ['CM1'], nb: 5, ajoute: '2026-11-01' }] }), 'docs/bibliotheque/anglais-x.txt': 'T|X\nQ|a|b|c\n', 'docs/soccaquiz.json': '{}' };
 const commits = [];
@@ -147,5 +160,50 @@ ok(/Repère <!--\/MAIL--> introuvable/.test(refus), 'repère du mail manquant : 
 const installer = readFileSync(join(RACINE, 'docs', 'installer.html'), 'utf8');
 ok(/http-equiv="refresh" content="0; url=https:\/\/script\.google\.com\/macros\/s\/AKfy/.test(installer) && (installer.match(/AKfycbxseeW1[\w-]+/g) || []).every(x => readFileSync(join(RACINE, 'en-ligne', 'LISEZMOI.md'), 'utf8').includes(x) && readFileSync(join(RACINE, 'console', 'Code.gs'), 'utf8').includes(x)), 'docs/installer.html, la notice et les liens de la console mènent au même installateur');
 
+
+// erreurs signalées par les familles : réception, correction (famille seule ou toute la bibliothèque), relecture par code
+{
+  actif = 'soccaquiz@gmail.com';
+  const QUIZ_E = 'T|X|Sous-titre|anglais|🇬🇧|⭐\nQ|What is « cat » ?|chat|chien|vache|Explication\nQ|b|c|d|e|f\nQ|g|h|i|j|k\nM|Un rappel faux\n';
+  const code = 'abcdefghij0123456789klmnopqrstuv';
+  const BID = JSON.parse(depot['docs/bibliotheque/index.json']).quiz[0].id;     // un quiz encore dans la bibliothèque
+  const lire = c => JSON.parse(ctx.doGet({ parameter: { correction: c } }).t);
+  ok(lire(code).statut === 'inconnu', 'correction : code inconnu → « inconnu »');
+  Object.keys(cache).filter(k => /^envois-/.test(k)).forEach(k => delete cache[k]);     // compteur d'envois des tests précédents
+  const r1 = post({ type: 'erreur', code, titre: 'X', classe: 'CM1', biblio: BID, question: 'What is « cat » ?', attendu: 'chat', motif: 'reponse', remarque: '=HYPERLINK("x")', texte: QUIZ_E, version: 'v2.82' });
+  ok(r1.ok && lignesE.length === 2 && lignesE[1][2] === 'nouveau' && lignesE[1][3] === code && /^'=/.test(lignesE[1][10]), 'erreur reçue : rangée dans l\'onglet « Erreurs », formule neutralisée');
+  ok(post({ type: 'erreur', code, texte: QUIZ_E }).deja && lignesE.length === 2, 'même code envoyé deux fois : gardé une fois');
+  ok(post({ type: 'erreur', code: 'court', texte: QUIZ_E }).erreur && post({ type: 'erreur', code: code.replace('a', 'z'), texte: 'rien' }).erreur, 'code invalide ou texte qui n\'est pas un quiz : refusé');
+  ok(lire(code).statut === 'attente', 'correction pas encore faite : « attente »');
+  const e = ctx.apiEtat();
+  const x = e.erreurs.find(y => y.code === code);
+  ok(x && x.question === 'What is « cat » ?' && x.biblio === BID && x.remarque === '=HYPERLINK("x")', 'console : l\'erreur est listée (texte d\'origine rendu)');
+  actif = 'intrus@gmail.com';
+  let refus = ''; try { ctx.apiCorrigerErreur(x.id, { texte: QUIZ_E }); } catch (err) { refus = err.message; }
+  ok(/Réservé/.test(refus), 'corriger : réservé à l\'éditeur');
+  actif = 'soccaquiz@gmail.com';
+  ok(!!ctx.apiCorrigerErreur(x.id, { texte: 'pas un quiz' }).erreur, 'correction qui n\'est pas un quiz : refusée');
+  const avant = JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID);
+  const corrige = QUIZ_E.replace('|chat|chien|', '|un chat|chien|');
+  const c1 = ctx.apiCorrigerErreur(x.id, { texte: corrige, message: 'Merci !', pourTous: true });
+  const apres = JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID);
+  const l = lire(code);
+  ok(c1.ok && c1.biblio === BID && l.statut === 'corrige' && /\|un chat\|/.test(l.texte) && l.message === 'Merci !', 'correction envoyée : la famille la lit avec son code (texte et message)');
+  ok(/\|un chat\|/.test(depot['docs/bibliotheque/' + BID + '.txt']) && apres.v === (+avant.v || 1) + 1 && apres.nb === 3, '« pour toutes les familles » : quiz de la bibliothèque corrigé, nouvelle version (v ' + apres.v + ')');
+  // famille seule : la bibliothèque ne bouge pas
+  const code2 = 'zyxwvutsrqponmlkjihgfedcba987654';
+  post({ type: 'erreur', code: code2, titre: 'Y', question: 'b', texte: QUIZ_E });
+  const y = ctx.apiEtat().erreurs.find(z => z.code === code2);
+  const v0 = JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID).v;
+  ok(ctx.apiCorrigerErreur(y.id, { texte: corrige, pourTous: true }).ok && JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID).v === v0, 'quiz d\'une famille (pas de la bibliothèque) : seule cette famille reçoit la correction');
+  ok(ctx.apiRouvrirErreur(y.id).ok && lire(code2).statut === 'attente' && ctx.apiSansErreur(y.id, 'C\'est bien « chat ».').ok && lire(code2).statut === 'sans-erreur' && lire(code2).message === 'C\'est bien « chat ».' && !lire(code2).texte,
+    '« Pas d\'erreur » : la famille reçoit le message, sans texte de quiz');
+  ok(ctx.apiSupprimerErreur(y.id).ok && lire(code2).statut === 'inconnu', 'signalement supprimé');
+  // republier un quiz de la bibliothèque (Bibliothèque → Remplacer) : nouvelle version aussi
+  const vA = JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID).v;
+  ctx.apiPublier({ id: BID, titre: 'X', matiere: 'anglais', classes: ['CM1'], texte: corrige, remplacer: true });
+  ok(JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID).v === vA + 1, 'quiz de la bibliothèque remplacé : nouvelle version proposée aux familles');
+  ok(/data-o="erreurs"/.test(ctx.doGet({ parameter: {} }).h) && /nb-err/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Erreurs » avec son compteur');
+}
 console.log(echecs ? '[console] ' + echecs + ' échec(s)' : '[console] tout est vert');
 process.exit(echecs ? 1 : 0);

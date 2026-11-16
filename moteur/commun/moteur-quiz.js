@@ -82,6 +82,8 @@
     melange: '<path d="M2 18h1.4c1.3 0 2.5-.6 3.3-1.7l6.1-8.6c.7-1.1 2-1.7 3.3-1.7H22"/><path d="m18 2 4 4-4 4"/><path d="M2 6h1.9c1.5 0 2.9.9 3.6 2.2"/><path d="M22 18h-5.9c-1.3 0-2.6-.7-3.3-1.8l-.5-.8"/><path d="m18 14 4 4-4 4"/>',
     duo: '<circle cx="9" cy="7" r="4"/><path d="M2 21v-2a4 4 0 0 1 4-4h6a4 4 0 0 1 4 4v2"/><path d="M16 3.1a4 4 0 0 1 0 7.8M22 21v-2a4 4 0 0 0-3-3.9"/>',
     crayon: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
+    drapeau: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+    check: '<path d="M20 6 9 17l-5-5"/>',
     trophee: '<path d="M8 21h8M12 17v4M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 5h3v2a3 3 0 0 1-3 3M7 5H4v2a3 3 0 0 0 3 3"/>'
   };
   const ic = (n, st) => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true"${st ? ` style="${st}"` : ''}>${ICQ[n]}</svg>`;
@@ -1278,6 +1280,49 @@
     return { q: texteQuestion(q), cat: q.cat, donne: answers[i] ? texteReponse(q, answers[i]) : '', attendu: attendu(q), ok, k, o, i: !!(answers[i] && answers[i].i) };
   }
 
+  /* ---------- signaler une erreur (site de l'enfant) ----------
+     Sous chaque question à réviser et sous « À retenir » : l'enfant dit ce qui ne va pas ; le signalement va à son
+     parent (onglet Résultats de l'espace parent), qui corrige le quiz ou l'envoie à SoccaQuiz. */
+  const peutSignaler = () => !!(window.__UQ && __UQ.espace === 'enfant' && window.google && google.script && google.script.run);
+  const sansBalises = h => String(h == null ? '' : h).replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&').replace(/\s+/g, ' ').trim();
+  function boutonSignaler(i) {
+    return peutSignaler() ? `<div class="signaler-zone" data-i="${i}"><button type="button" class="signaler" onclick="MoteurQuiz.signaler(${i}, this)">${ic('drapeau')} Signaler une erreur</button></div>` : '';
+  }
+  function signaler(i, bouton) {
+    const zone = bouton && bouton.closest('.signaler-zone');
+    if (!zone || zone.querySelector('form')) return;
+    const q = i >= 0 ? shuffled[i] : null;
+    const motifs = q ? [['reponse', 'La bonne réponse est fausse'], ['question', 'La question est mal écrite ou je ne la comprends pas'], ['autre', 'Autre chose']]
+      : [['rappel', 'Un rappel de la leçon est faux'], ['autre', 'Autre chose']];
+    zone.insertAdjacentHTML('beforeend', `<form class="signaler-form" onsubmit="return false">
+        <fieldset><legend>Qu'est-ce qui ne va pas ?</legend>
+          ${motifs.map((m, k) => `<label><input type="radio" name="motif-${i}" value="${m[0]}" ${k ? '' : 'checked'}> ${m[1]}</label>`).join('')}</fieldset>
+        <label class="signaler-rq">Tu peux expliquer (si tu veux)<textarea maxlength="300" rows="2"></textarea></label>
+        <div class="signaler-bts"><button type="button" class="signaler-non">Annuler</button><button type="button" class="signaler-oui">Envoyer</button></div>
+        <p class="signaler-msg" role="status" aria-live="polite"></p></form>`);
+    bouton.hidden = true;
+    const f = zone.querySelector('form'), msg = f.querySelector('.signaler-msg');
+    f.querySelector('.signaler-non').onclick = () => { f.remove(); bouton.hidden = false; bouton.focus(); };
+    f.querySelector('.signaler-oui').onclick = () => {
+      const ok = f.querySelector('.signaler-oui'); ok.disabled = true; msg.textContent = 'Envoi…';
+      const src = q ? (q._orig || q) : null;
+      let memo = ''; if (!q) { try { memo = typeof C.memo === 'function' ? C.memo() : (C.memo || ''); } catch (e) {} }
+      google.script.run
+        .withSuccessHandler(r => {
+          if (!r || r.erreur) { ok.disabled = false; msg.textContent = (r && r.erreur) || 'Envoi impossible. Réessaie plus tard.'; return; }
+          f.innerHTML = `<p class="signaler-merci">${ic('check')} Merci ! Ton parent va regarder ça.</p>`;
+        })
+        .withFailureHandler(() => { ok.disabled = false; msg.textContent = 'Envoi impossible (connexion ?). Réessaie plus tard.'; })
+        .apiSignaler({
+          page: (window.__UQ && __UQ.page) || '', titre: (src && src.src) || C.titre,
+          question: q ? sansBalises(texteQuestion(q)) : 'À retenir : ' + sansBalises(memo).replace(/^📝\s*À retenir\s*/, '').slice(0, 300),
+          attendu: q ? sansBalises(attendu(q)) : '', k: q ? cleQuestion(q) : '',
+          motif: (f.querySelector('input[type=radio]:checked') || {}).value || 'autre', remarque: f.querySelector('textarea').value
+        });
+    };
+    const premier = f.querySelector('input'); if (premier) premier.focus();
+  }
+
   function renderResult() {
     enQuestion(false);
     state = 'result';
@@ -1321,7 +1366,7 @@
             <div class="review-ans correct-ans"><span class="review-ans-label">Bonne réponse</span><span>${attendu(item.q)}</span></div>
           </div>
           ${exp ? `<div class="review-exp">💡 ${exp}</div>` : ''}
-        </div>`;
+        ${boutonSignaler(item.i)}</div>`;
     }).join('');
     const reviewSection = wrong.length === 0
       ? `<div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:1rem;text-align:center;margin-top:2rem;color:#14532d;font-weight:600;">🎉 Parfait ! Aucune erreur à réviser.</div>`
@@ -1346,7 +1391,7 @@
           ${MES_QUIZ}
         </div>
         ${reviewSection}
-        ${memo}
+        ${memo}${memo ? boutonSignaler(-1) : ''}
       </div>`;
     envelopperLarges(appli());
     defiler('result');
@@ -1439,7 +1484,7 @@
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
     famille: renderFamille, duel: () => { debloquerVoix(); lancerDuel(); }, revanche: () => lancerDuel(true), propositions: voirPropositions, sauter,
-    rafraichir: () => renderQuestion(), quitterQuiz, fermerQuitter,
+    rafraichir: () => renderQuestion(), quitterQuiz, fermerQuitter, signaler,
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc, forme, comparer: (attendus, v, q) => comparer([].concat(attendus), v, regles(q || {})),

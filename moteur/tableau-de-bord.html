@@ -120,6 +120,16 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 .bib-apercu{grid-column:1/-1;margin:6px 0 0;padding-left:20px;font-size:.88rem;color:var(--ink)}
 .bib-apercu li{margin:2px 0}
 .btn.fait{border-color:#bbf7d0;color:var(--ok)}
+.sig{border-top:1px solid var(--line);padding:12px 0}
+.sig:first-of-type{border-top:none}
+.sig .sig-q{font-weight:600;margin:4px 0}
+.sig .bts,.det .q-act{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.sig .etat-sig{display:inline-flex;align-items:center;gap:6px;font-size:.85rem;border-radius:999px;padding:2px 10px;background:var(--bg);border:1px solid var(--line)}
+.sig .etat-sig.dispo{background:#e9f7ee;border-color:#a7dcb7;color:#14532d;font-weight:600}
+.det .q-act .btn{font-size:.8rem;padding:4px 10px;min-height:32px}
+dialog.boite.large{max-width:720px}
+.boite textarea.editeur{min-height:300px;font-size:.85rem}
+.boite .aide{font-size:.8rem;color:var(--soft);margin:6px 0}
 .boite textarea{width:100%;min-height:120px;font:.8rem/1.4 ui-monospace,monospace;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px}
 .enreg{margin:6px 0 0;font-size:.85rem;color:var(--soft)}.enreg.ko{color:var(--ko)}
 </style>
@@ -129,7 +139,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
   <header class="barre">
     <div class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="40" height="40" alt=""><span>Socca<em>Quiz</em></span><span class="badge-parent"><i data-ic="lock"></i> Espace parent</span></div>
     <div class="actions-tete">
-      <a class="btn" id="lien-enfant" href="index.html"><i data-ic="eye"></i> Site de l'enfant</a>
+      <a class="btn" id="lien-enfant" href="index.html"><i data-ic="eye"></i> Site de {{PRENOM}}</a>
       <a class="btn principal" href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a>
       <a class="pastille-maj" id="pastille-maj" href="#maj" hidden title="Nouvelle version disponible" aria-label="Nouvelle version disponible"><i data-ic="refresh"></i></a>
     </div>
@@ -144,6 +154,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
     <button type="button" class="onglet" data-o="reglages" role="tab" id="o-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><i data-ic="settings"></i> Réglages</button>
   </nav>
   <div class="panneau" id="p-resultats" role="tabpanel" aria-labelledby="o-resultats">
+  <div id="signalements" class="box" hidden></div>
   <div id="etat"></div>
   <div class="box">
     <div class="filtres">
@@ -256,6 +267,8 @@ const ICONES = {
   clock: '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
   play: '<path d="m6 4 14 8-14 8Z"/>',
   check: '<path d="M20 6 9 17l-5-5"/>',
+  drapeau: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>',
+  crayon: '<path d="M17 3a2.8 2.8 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>',
   copy: '<rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15H4a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h10a1 1 0 0 1 1 1v1"/>',
   trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>'
 };
@@ -436,7 +449,7 @@ function detail(r) {
   const erreurs = r.questions.filter(q => q && typeof q === "object" && !q.ok);
   return `<div class="det">
     ${cats ? `<div class="small" style="margin-bottom:8px">${cats}</div>` : ""}
-    ${erreurs.length ? erreurs.map(q => `<div class="q">${esc(q.q)}<br><span class="ko">✗ ${esc(q.donne || "—")}</span> · <span class="okc">✓ ${esc(q.attendu)}</span></div>`).join("")
+    ${erreurs.length ? erreurs.map(q => `<div class="q">${esc(q.q)}<br><span class="ko">✗ ${esc(q.donne || "—")}</span> · <span class="okc">✓ ${esc(q.attendu)}</span>${window.Sig && Sig.actif() && r.quiz ? `<div class="q-act"><button class="btn" type="button" data-sigq="corriger" data-partie="${esc(r.id)}" data-n="${r.questions.indexOf(q)}">${I("crayon")} Corriger le quiz</button><button class="btn" type="button" data-sigq="envoyer" data-partie="${esc(r.id)}" data-n="${r.questions.indexOf(q)}">${I("drapeau")} Signaler à SoccaQuiz</button></div>` : ""}</div>`).join("")
       : r.questions.length ? `<div class="okc">🎉 Aucune erreur</div>` : `<div class="small">Pas de détail des questions pour cette partie.</div>`}
     ${bouton}</div>`;
 }
@@ -551,10 +564,12 @@ function afficherQuiz() {
   const M = window.MATIERES || {};
   // quiz ajoutés depuis la bibliothèque puis retirés par SoccaQuiz (BIB_RETIRES, rempli plus bas)
   const retire = q => q.biblio && window.BIB_RETIRES && BIB_RETIRES[q.biblio];
+  // quiz de la bibliothèque corrigé depuis son ajout (version plus récente dans index.json, BIB_V rempli plus bas)
+  const nouvelleV = q => q.biblio && window.BIB_V && BIB_V[q.biblio] > (+q.biblioV || 1);
   const nbRetires = Q.filter(retire).length;
   el.innerHTML = (nbRetires ? `<div class="msg maj" style="margin-bottom:10px">${I("info")} <b>${nbRetires > 1 ? nbRetires + " quiz ajoutés depuis la bibliothèque en ont été retirés" : "Un quiz ajouté depuis la bibliothèque en a été retiré"}</b> par SoccaQuiz, souvent à cause d'une erreur. Il reste sur le site de {{PRENOM}} tant que tu ne le supprimes pas.</div>` : "") +
     `<div class="tablewrap"><table><tr><th>Quiz</th><th class="hide-m">Matière</th><th class="hide-m">Ajouté le</th><th></th></tr>` +
-    Q.map(q => `<tr><td>${esc(q.titre)}${retire(q) ? `<br><span class="small" style="color:var(--rouge)">⚠️ Retiré de la bibliothèque${typeof BIB_RETIRES[q.biblio] === "string" ? " : " + esc(BIB_RETIRES[q.biblio]) : ""}</span>` : ""}</td>
+    Q.map(q => `<tr><td>${esc(q.titre)}${nouvelleV(q) && peutSupprimer ? `<br><span class="small" style="color:#15803d">${I("check")} Version corrigée dans la bibliothèque</span> <button class="btn" type="button" data-majbib="${esc(q.fichier)}">Mettre à jour</button>` : ""}${retire(q) ? `<br><span class="small" style="color:var(--rouge)">⚠️ Retiré de la bibliothèque${typeof BIB_RETIRES[q.biblio] === "string" ? " : " + esc(BIB_RETIRES[q.biblio]) : ""}</span>` : ""}</td>
       <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
       <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
       <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn" type="button" data-p="${esc(q.fichier)}">${I('send')} Proposer</button> ` : ""}${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
@@ -729,11 +744,11 @@ const Bib = (function () {
         .withSuccessHandler(r => {
           if (!r || r.erreur) return echec((r && r.erreur) || "Ajout impossible.");
           ajoutes.add(q.id);
-          if (r.page) { (window.QUIZ = window.QUIZ || []).push({ titre: r.titre || q.titre, matiere: q.matiere, fichier: r.page + ".html", date: new Date().toISOString().slice(0, 10) }); afficherQuiz(); }
+          if (r.page) { (window.QUIZ = window.QUIZ || []).push({ titre: r.titre || q.titre, matiere: q.matiere, fichier: r.page + ".html", date: new Date().toISOString().slice(0, 10), biblio: q.id, biblioV: String(q.v || 1) }); afficherQuiz(); }
           bt.className = "btn fait"; bt.innerHTML = I('check') + " Ajouté sur le site de {{PRENOM}}";
         })
         .withFailureHandler(err => echec((err && err.message) || "Ajout impossible."))
-        .apiAjouterQuiz(t, [], q.id);         // l'identifiant de la bibliothèque est gardé dans le quiz
+        .apiAjouterQuiz(t, [], q.id, String(q.v || 1));   // identifiant et version de la bibliothèque gardés dans le quiz
     }).catch(() => echec("Le quiz n'a pas pu être téléchargé. Vérifie la connexion, puis réessaie."));
   }
   $("bib-liste").addEventListener("click", e => {
@@ -805,7 +820,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + " Accueil";
   else $("lien-enfant").hidden = true;
   const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
-  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de l'enfant (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
+  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de {{PRENOM}} (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
     || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.");
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
@@ -947,10 +962,190 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     if (!j || !Array.isArray(j.quiz)) return;
     const presents = new Set(j.quiz.map(q => q && q.id)), raisons = {};
     (Array.isArray(j.retires) ? j.retires : []).forEach(x => { if (x && x.id) raisons[x.id] = String(x.raison || "").slice(0, 200); });
-    const R = {};
+    const R = {}, V = {};
     (window.QUIZ || []).forEach(q => { if (q.biblio && !presents.has(q.biblio)) R[q.biblio] = raisons[q.biblio] || true; });
-    if (Object.keys(R).length) { window.BIB_RETIRES = R; afficherQuiz(); }
+    j.quiz.forEach(q => { if (q && q.id) V[q.id] = +q.v || 1; });
+    window.BIB_V = V;
+    if (Object.keys(R).length) window.BIB_RETIRES = R;
+    afficherQuiz();
   }).catch(() => {});
+})();
+
+/* mise à jour d'un quiz de la bibliothèque corrigé par SoccaQuiz : même fichier, résultats gardés */
+document.getElementById("liste-quiz").addEventListener("click", e => {
+  const b = e.target.closest("button[data-majbib]");
+  if (!b) return;
+  const q = (window.QUIZ || []).find(x => x.fichier === b.dataset.majbib);
+  if (!q || !q.biblio) return;
+  b.disabled = true; b.textContent = "Mise à jour…";
+  const v = String((window.BIB_V || {})[q.biblio] || 1);
+  fetch("https:\/\/leian.github.io/UNIVERSALQUIZ/bibliotheque/" + encodeURIComponent(q.biblio) + ".txt", { cache: "no-cache" })
+    .then(r => { if (!r.ok) throw new Error(); return r.text(); })
+    .then(t => Sig.appel("apiRemplacerQuiz", q.fichier, t, { biblio: q.biblio, biblioV: v }))
+    .then(() => { q.biblioV = v; afficherQuiz(); })
+    .catch(err => { b.disabled = false; b.textContent = "Mettre à jour"; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Mise à jour impossible. Vérifie la connexion, puis réessaie.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); });
+});
+
+/* ---------- signalements d'erreur ----------
+   Signalés par l'enfant (sous les questions à réviser et « À retenir ») ou par le parent (détail d'une partie).
+   Le parent corrige le quiz lui-même (texte en lignes, apiRemplacerQuiz) ou l'envoie à la console SoccaQuiz avec
+   un code ; la console renvoie la correction, lue ici avec ce code (…/exec?correction=<code>). */
+var Sig = (() => {
+  const run = () => !!(window.google && google.script && google.script.run);
+  const U = window.__UQ || {};
+  const actif = () => run() && U.espace !== "enfant";
+  const appel = (fn, ...a) => new Promise((ok, ko) => google.script.run
+    .withSuccessHandler(r => r && r.erreur ? ko(new Error(r.erreur)) : ok(r)).withFailureHandler(ko)[fn](...a));
+  const MOTIFS = { reponse: "la bonne réponse serait fausse", question: "question mal écrite ou pas comprise", rappel: "un rappel de la leçon serait faux", autre: "" };
+  const PRENOM = "{{PRENOM}}";
+  let LISTE = [], CORR = {}, voirTraites = false;
+  const zone = document.getElementById("signalements");
+  const urlConsole = async () => { const c = await lireConfigSQ(); return typeof c.propositions === "string" && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(c.propositions) ? c.propositions : ""; };
+  const oups = m => boite(`<h3>😕 Oups</h3><p>${esc(m)}</p><div class="bts"><button class="btn" type="button">OK</button></div>`);
+  // fenêtre qui reste ouverte pendant l'action (boite() se ferme au premier bouton)
+  function fenetre(html) {
+    const d = document.createElement("dialog");
+    d.className = "boite large";
+    d.innerHTML = html;
+    d.addEventListener("click", e => { if (e.target.closest("[data-fermer]") || e.target === d) d.close(); });
+    d.addEventListener("close", () => d.remove());
+    document.body.appendChild(d);
+    if (d.showModal) d.showModal(); else d.setAttribute("open", "");
+    return d;
+  }
+
+  function charger() {
+    if (!actif()) return;
+    appel("apiSignalements").then(r => { LISTE = r.liste || []; afficher(); verifier(); }).catch(() => {});
+  }
+  async function verifier() {
+    const url = await urlConsole();
+    if (!url) return;
+    await Promise.all(LISTE.filter(s => s.statut === "transmis" && s.code && !CORR[s.code]).map(s =>
+      fetch(url + "?correction=" + encodeURIComponent(s.code)).then(r => r.json()).then(j => { if (j && j.statut) CORR[s.code] = j; }).catch(() => {})));
+    afficher();
+  }
+  function etat(s) {
+    const c = s.code && CORR[s.code];
+    if (s.statut === "transmis" && c && c.statut === "corrige") return `<span class="etat-sig dispo">${I("check")} Correction de SoccaQuiz disponible</span>`;
+    if (s.statut === "transmis" && c && c.statut === "sans-erreur") return `<span class="etat-sig">SoccaQuiz n'a pas trouvé d'erreur</span>`;
+    return { nouveau: `<span class="etat-sig">À regarder</span>`, transmis: `<span class="etat-sig">Envoyé à SoccaQuiz, en attente</span>`, corrige: `<span class="etat-sig">Corrigé</span>`, ignore: `<span class="etat-sig">Classé</span>` }[s.statut] || "";
+  }
+  function boutons(s) {
+    const c = s.code && CORR[s.code], b = (a, ic, t, cl) => `<button class="btn ${cl || ""}" type="button" data-sig="${a}" data-id="${esc(s.id)}">${ic ? I(ic) + " " : ""}${t}</button>`;
+    if (!s.fichier) return `<p class="small">Ce quiz n'est plus sur le site.</p><div class="bts">${b("classer", "", "Classer")}</div>`;
+    if (s.statut === "transmis" && c && c.statut === "corrige") return `<div class="bts">${b("appliquer", "check", "Voir et appliquer la correction", "principal")}</div>`;
+    if (s.statut === "transmis" && c && c.statut === "sans-erreur") return (c.message ? `<p class="small">« ${esc(c.message)} »</p>` : "") + `<div class="bts">${b("classer", "", "OK, classer")}${b("corriger", "crayon", "Corriger moi-même")}</div>`;
+    if (s.statut === "nouveau") return `<div class="bts">${b("corriger", "crayon", "Corriger moi-même", "principal")}${b("envoyer", "drapeau", "Envoyer à SoccaQuiz")}${b("classer", "", "Pas d'erreur, classer")}</div>`;
+    if (s.statut === "transmis") return `<div class="bts">${b("corriger", "crayon", "Corriger moi-même")}</div>`;
+    return "";
+  }
+  function afficher() {
+    if (!zone) return;
+    const ouverts = LISTE.filter(s => s.statut === "nouveau" || s.statut === "transmis"), traites = LISTE.filter(s => s.statut === "corrige" || s.statut === "ignore");
+    zone.hidden = !LISTE.length;
+    if (!LISTE.length) return;
+    const carte = s => `<div class="sig" data-id="${esc(s.id)}">
+      <div class="small">${s.origine === "enfant" ? esc(PRENOM) + " a signalé" : "Tu as signalé"} · ${esc(new Date(s.date).toLocaleDateString("fr-FR"))} · <b>${esc(s.titre)}</b> ${etat(s)}</div>
+      <div class="sig-q">${esc(s.question)}</div>
+      ${s.attendu ? `<div class="small">Réponse attendue par le quiz : <b>${esc(s.attendu)}</b></div>` : ""}
+      ${MOTIFS[s.motif] || s.remarque ? `<div class="small">${esc([MOTIFS[s.motif], s.remarque ? "« " + s.remarque + " »" : ""].filter(Boolean).join(" · "))}</div>` : ""}
+      ${boutons(s)}</div>`;
+    zone.innerHTML = `<h2>${I("drapeau")} Erreurs signalées${ouverts.length ? ` <span class="nb">${ouverts.length}</span>` : ""}</h2>
+      ${ouverts.length ? ouverts.map(carte).join("") : `<p class="small">Aucun signalement en attente.</p>`}
+      ${traites.length ? `<p><button class="btn" type="button" data-sig="traites">${voirTraites ? "Masquer" : "Voir"} les signalements traités (${traites.length})</button></p>${voirTraites ? traites.map(carte).join("") : ""}` : ""}`;
+  }
+  const trouver = id => LISTE.find(s => s.id === id);
+  async function statut(s, st, code) { await appel("apiSignalementMaj", s.id, st, code || ""); s.statut = st; if (code) s.code = code; afficher(); }
+
+  // corriger le quiz soi-même : tout le texte du quiz, la ligne signalée sélectionnée
+  async function corriger(s, texteImpose, apres) {
+    let r;
+    try { r = await appel("apiTexteQuiz", s.fichier); } catch (e) { return oups(e.message); }
+    const texte = texteImpose || r.texte;
+    const d = fenetre(`<h3>${I("crayon")} Corriger « ${esc(r.titre || s.titre)} »</h3>
+      ${texteImpose ? `<p>Voici le quiz corrigé par SoccaQuiz${CORR[s.code] && CORR[s.code].message ? ` : « ${esc(CORR[s.code].message)} »` : ""}. Tu peux encore le modifier avant de l'appliquer.</p>` : `<p class="small">Question signalée : <b>${esc(s.question)}</b></p>`}
+      <textarea class="editeur" spellcheck="false" aria-label="Texte du quiz">${esc(texte)}</textarea>
+      <p class="aide">Une ligne par question : <b>Q|question|bonne réponse|mauvaise|mauvaise|explication</b>, <b>V|affirmation|V ou F|explication</b>, <b>S|question|réponse|explication</b>… Les lignes <b>M|</b> sont les rappels « À retenir ». Le quiz garde son adresse et ses résultats.</p>
+      <p class="small ko" data-msg role="status"></p>
+      <div class="bts"><button class="btn" type="button" data-fermer>Annuler</button><button class="btn principal" type="button" data-ok>${I("check")} ${texteImpose ? "Appliquer la correction" : "Enregistrer"}</button></div>`);
+    const ta = d.querySelector("textarea"), msg = d.querySelector("[data-msg]");
+    // la ligne de la question signalée : sélectionnée et amenée à l'écran
+    const cle = String(s.question).replace(/^À retenir : /, "").toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, " ").trim().slice(0, 30);
+    const lignes = texte.split("\n"); let pos = 0, n = -1;
+    for (let i = 0; i < lignes.length; i++) { if (cle && lignes[i].toLowerCase().replace(/[^a-z0-9à-ÿ]+/g, " ").includes(cle)) { n = i; break; } pos += lignes[i].length + 1; }
+    if (n >= 0 && !texteImpose) setTimeout(() => { ta.focus(); ta.setSelectionRange(pos, pos + lignes[n].length); ta.scrollTop = Math.max(0, n * 18 - 60); }, 50);
+    d.querySelector("[data-ok]").addEventListener("click", async ev => {
+      const b = ev.currentTarget; b.disabled = true; msg.textContent = "Enregistrement…";
+      try {
+        const res = await appel("apiRemplacerQuiz", s.fichier, ta.value);
+        await statut(s, "corrige");
+        d.close();
+        boite(`<h3>${I("check")} Quiz corrigé</h3><p><b>${esc(res.titre)}</b> : ${res.nb} questions. ${esc(PRENOM)} verra la nouvelle version à sa prochaine partie.</p>${(res.avertissements || []).length ? `<p class="small">${res.avertissements.map(esc).join("<br>")}</p>` : ""}<div class="bts"><button class="btn" type="button">OK</button></div>`);
+        if (apres) apres();
+      } catch (e) { b.disabled = false; msg.textContent = e.message || "Enregistrement impossible."; }
+    });
+  }
+  // envoyer à SoccaQuiz : le texte du quiz, la question, la remarque ; ni prénom, ni résultats
+  async function envoyer(s) {
+    const url = await urlConsole();
+    if (!url) return oups("L'envoi à SoccaQuiz n'est pas disponible pour l'instant. Corrige le quiz toi-même, ou réessaie plus tard.");
+    let r;
+    try { r = await appel("apiTexteQuiz", s.fichier); } catch (e) { return oups(e.message); }
+    const d = fenetre(`<h3>${I("drapeau")} Signaler à SoccaQuiz</h3>
+      <p>SoccaQuiz relit le quiz « ${esc(r.titre || s.titre)} », le corrige, puis la correction apparaît ici. Partent seulement le texte du quiz, la question et ta remarque : ni prénom, ni résultats, ni adresse.</p>
+      <p class="small">Question : <b>${esc(s.question)}</b></p>
+      <label class="small" for="sig-rq">Qu'est-ce qui ne va pas ?</label>
+      <textarea id="sig-rq" maxlength="300" style="min-height:70px">${esc(s.remarque || "")}</textarea>
+      <p class="small ko" data-msg role="status"></p>
+      <div class="bts"><button class="btn" type="button" data-fermer>Annuler</button><button class="btn principal" type="button" data-ok>${I("send")} Envoyer</button></div>`);
+    const msg = d.querySelector("[data-msg]");
+    d.querySelector("[data-ok]").addEventListener("click", async ev => {
+      const b = ev.currentTarget, rq = d.querySelector("textarea").value.trim();
+      if (!rq && s.motif === "autre") { msg.textContent = "Dis en quelques mots ce qui ne va pas."; return; }
+      b.disabled = true; msg.textContent = "Envoi…";
+      const a = new Uint8Array(32); crypto.getRandomValues(a);
+      const code = Array.from(a, x => "abcdefghijklmnopqrstuvwxyz0123456789"[x % 36]).join("");
+      try {
+        await fetch(url, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify({
+          type: "erreur", code, titre: r.titre || s.titre, classe: U.classe || "", biblio: r.biblio || "", question: s.question, attendu: s.attendu,
+          motif: s.motif, remarque: rq, texte: r.texte, version: U.version || "" }) });
+        s.remarque = rq;
+        await statut(s, "transmis", code);
+        d.close();
+        boite(`<h3>${I("check")} Envoyé, merci !</h3><p>SoccaQuiz va relire ce quiz. Quand la correction sera prête, elle apparaîtra ici, dans « Erreurs signalées ».</p><div class="bts"><button class="btn" type="button">OK</button></div>`);
+      } catch (e) { b.disabled = false; msg.textContent = "L'envoi n'a pas marché (connexion ?). Réessaie."; }
+    });
+  }
+
+  document.addEventListener("click", async e => {
+    const b = e.target.closest("[data-sig]");
+    if (b) {
+      if (b.dataset.sig === "traites") { voirTraites = !voirTraites; return afficher(); }
+      const s = trouver(b.dataset.id); if (!s) return;
+      if (b.dataset.sig === "corriger") return corriger(s);
+      if (b.dataset.sig === "envoyer") return envoyer(s);
+      if (b.dataset.sig === "classer") return statut(s, "ignore").catch(err => oups(err.message));
+      if (b.dataset.sig === "appliquer") return corriger(s, (CORR[s.code] || {}).texte || "");
+      return;
+    }
+    // détail d'une partie : une question ratée signalée par le parent
+    const q = e.target.closest("[data-sigq]");
+    if (!q) return;
+    const r = (typeof TOUT !== "undefined" ? TOUT : []).find(x => x.id === q.dataset.partie), x = r && r.questions && r.questions[+q.dataset.n];
+    if (!r || !x) return;
+    q.disabled = true;
+    try {
+      const res = await appel("apiSignaler", { page: r.quiz, titre: r.titre, question: x.q, attendu: x.attendu, k: x.k || "", motif: "autre", remarque: "" });
+      const l = await appel("apiSignalements"); LISTE = l.liste || []; afficher();
+      const s = trouver(res.id);
+      if (s && !s.fichier) oups("Ce quiz n'est plus sur le site.");
+      else if (s) await (q.dataset.sigq === "corriger" ? corriger(s) : envoyer(s));
+    } catch (err) { oups(err.message); }
+    q.disabled = false;
+  });
+  if (actif()) charger();
+  return { actif, appel, charger };
 })();
 
 /* supprimer ce site (un enfant) : ménage dans le Drive ici, puis l'installateur désactive le site */

@@ -763,6 +763,109 @@ try {
   const env = JSON.parse(recu || '{}');
   ok(env.type === 'proposition' && /^T\|Listen and repeat/.test(env.texte) && env.classe === 'CM1' && !/@/.test(recu), 'proposer un quiz : envoi direct à la console SoccaQuiz (texte et classe seulement)');
   await page.keyboard.press('Escape');
+
+  // ---- signaler une erreur : l'enfant (questions à réviser, « À retenir »), le parent (résultats), la console ----
+  {
+    const espaceAvant = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = ""');
+    const qs = await ev(`apiAjouterQuiz(${JSON.stringify("T|Les capitales à signaler|Essai|geographie|🗺️|🏛️\n## Capitales|🏛️\nS|Quelle est la capitale de la France ?|Paris|Paris est la capitale.\nS|Quelle est la capitale de l'Italie ?|Rome|Rome est la capitale.\nS|Quelle est la capitale de l'Espagne ?|Madrid|Madrid est la capitale.\nM|Paris est la capitale de la France.\nM|Rome est en Italie.")})`);
+    const pageS = qs.r.page, fichierS = pageS + '.html';
+    await ev('CONFIG.espace = "enfant"');
+    await page.goto(BASE + '/exec?page=' + encodeURIComponent(pageS));
+    await page.locator('.start-btn').click();
+    for (let i = 0; i < 40 && !(await page.locator('.result-card').count()); i++) {
+      if (await page.locator('.next-btn').count()) { await page.locator('.next-btn').click(); continue; }
+      if (await page.locator('#ans-input').count()) { await page.fill('#ans-input', 'zzz'); await page.keyboard.press('Enter'); continue; }
+      await page.waitForTimeout(80);
+    }
+    await page.waitForTimeout(600);
+    const nbSig = await page.locator('.review-item .signaler').count(), memoSig = await page.locator('.frise-section + .signaler-zone .signaler, .result-card > .signaler-zone .signaler').count();
+    ok(nbSig === 3 && memoSig === 1, 'site de l\'enfant : « Signaler une erreur » sous chaque question à réviser et sous « À retenir » — ' + JSON.stringify({ nbSig, memoSig }));
+    await page.locator('.review-item .signaler').first().click();
+    await page.locator('.signaler-form input[value="reponse"]').check();
+    await page.locator('.signaler-form textarea').fill('Je crois que la réponse est fausse');
+    await page.locator('.signaler-form .signaler-oui').click();
+    await page.locator('.signaler-merci').waitFor({ timeout: 5000 }).catch(() => {});
+    ok(/Ton parent va regarder/.test(await page.locator('.signaler-zone').first().innerText()), 'site de l\'enfant : signalement envoyé, « Merci ! Ton parent va regarder ça. »');
+    const refusE = await ev(`[apiSignalements(), apiRemplacerQuiz(${JSON.stringify(fichierS)}, "T|x"), apiSignalementMaj("x", "ignore")]`);
+    ok(refusE.r.every(x => x && x.__status === 403), 'site de l\'enfant : lire les signalements, corriger un quiz ou changer un statut sont refusés');
+    await ev('CONFIG.espace = "parent"');
+    const l1 = (await ev('apiSignalements()')).r.liste;
+    const s1 = l1.find(x => x.page === pageS);
+    ok(s1 && s1.origine === 'enfant' && s1.motif === 'reponse' && s1.remarque === 'Je crois que la réponse est fausse' && s1.fichier === fichierS && s1.statut === 'nouveau' && /capitale/.test(s1.question) && s1.attendu,
+      'espace parent : le signalement de l\'enfant est enregistré (question, réponse attendue, motif, remarque, quiz)');
+    // corriger soi-même : texte du quiz, ligne signalée sélectionnée, enregistré sous le même nom de fichier
+    await page.goto(BASE + '/exec?page=tableau-de-bord');
+    await page.locator('#signalements .sig').first().waitFor({ timeout: 8000 }).catch(() => {});
+    const bloc = await page.locator('#signalements').innerText().catch(() => '');
+    ok(/Erreurs signalées/.test(bloc) && /a signalé/.test(bloc) && /Corriger moi-même/.test(bloc) && /Envoyer à SoccaQuiz/.test(bloc), 'espace parent : bloc « Erreurs signalées » dans Résultats, avec « Corriger moi-même » et « Envoyer à SoccaQuiz »');
+    await page.locator(`#signalements .sig[data-id="${s1.id}"] [data-sig="corriger"]`).click();
+    await page.locator('dialog.boite textarea.editeur').waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => { const t = document.querySelector('dialog.boite textarea.editeur'); return t && t.selectionEnd > t.selectionStart; }, null, { timeout: 3000 }).catch(() => {});
+    const sel = await page.evaluate(() => { const t = document.querySelector('dialog.boite textarea.editeur'); return t.value.slice(t.selectionStart, t.selectionEnd); });
+    ok(/^S\|Quelle est la capitale/.test(sel), 'corriger : la ligne de la question signalée est sélectionnée — « ' + sel + ' »');
+    await page.evaluate(() => { const t = document.querySelector('dialog.boite textarea.editeur'); t.value = t.value.replace(/\|Paris est la capitale\./, '|Paris est bien la capitale (corrigé).'); });
+    await page.locator('dialog.boite [data-ok]').click();
+    await page.locator('dialog.boite', { hasText: 'Quiz corrigé' }).waitFor({ timeout: 8000 }).catch(() => {});
+    const apres1 = await ev(`[apiTexteQuiz(${JSON.stringify(fichierS)}).texte, apiSignalements().liste.find(x => x.id === ${JSON.stringify(s1.id)}).statut]`);
+    ok(/bien la capitale \(corrigé\)/.test(apres1.r[0]) && apres1.r[1] === 'corrige', 'corriger soi-même : quiz enregistré sous le même fichier (résultats gardés), signalement « Corrigé »');
+    await page.keyboard.press('Escape');
+    // envoyer à SoccaQuiz, puis la correction revient de la console (lue avec le code)
+    let corr = { statut: 'attente' }, recuE = null;
+    await page.unroute(/script\.google\.com\/macros\/s\/AKfycbTESTtestTESTtest123\/exec/);
+    await page.route(/script\.google\.com\/macros\/s\/AKfycbTESTtestTESTtest123\/exec/, r => {
+      if (r.request().method() === 'POST') { recuE = r.request().postData(); return r.fulfill({ status: 200, body: '{"ok":true}' }); }
+      return r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(corr) });
+    });
+    const s2 = (await ev(`apiSignaler({ page: ${JSON.stringify(pageS)}, titre: "Les capitales à signaler", question: "Quelle est la capitale de l'Italie ?", attendu: "Rome", motif: "question", remarque: "" })`)).r;
+    await page.reload();
+    await page.locator(`#signalements .sig[data-id="${s2.id}"] [data-sig="envoyer"]`).click();
+    await page.locator('dialog.boite #sig-rq').fill('La question est ambiguë');
+    await page.locator('dialog.boite [data-ok]').click();
+    await page.locator('dialog.boite', { hasText: 'Envoyé, merci' }).waitFor({ timeout: 8000 }).catch(() => {});
+    const envE = JSON.parse(recuE || '{}');
+    const s2b = (await ev('apiSignalements()')).r.liste.find(x => x.id === s2.id);
+    ok(envE.type === 'erreur' && /^[a-z0-9]{32}$/.test(envE.code) && /^T\|Les capitales à signaler/.test(envE.texte) && envE.question === "Quelle est la capitale de l'Italie ?" && envE.remarque === 'La question est ambiguë' && !/@|Lana/.test(recuE) && s2b.statut === 'transmis' && s2b.code === envE.code,
+      'envoyer à SoccaQuiz : quiz, question et remarque envoyés à la console avec un code (ni prénom ni adresse) ; signalement « en attente »');
+    await page.keyboard.press('Escape');
+    corr = { statut: 'corrige', texte: envE.texte.replace("|Rome est la capitale.", "|Rome est la capitale de l'Italie (SoccaQuiz)."), message: 'Merci, c\'est corrigé !' };
+    await page.reload();
+    await page.locator(`#signalements .sig[data-id="${s2.id}"] [data-sig="appliquer"]`).waitFor({ timeout: 8000 }).catch(() => {});
+    ok(/Correction de SoccaQuiz disponible/.test(await page.locator(`#signalements .sig[data-id="${s2.id}"]`).innerText()), 'correction prête dans la console : « Correction de SoccaQuiz disponible »');
+    await page.locator(`#signalements .sig[data-id="${s2.id}"] [data-sig="appliquer"]`).click();
+    await page.locator('dialog.boite textarea.editeur').waitFor({ timeout: 5000 });
+    ok(/\(SoccaQuiz\)/.test(await page.locator('dialog.boite textarea.editeur').inputValue()) && /Merci, c'est corrigé/.test(await page.locator('dialog.boite').innerText()), 'appliquer : le texte corrigé et le message de SoccaQuiz sont montrés avant d\'appliquer');
+    await page.locator('dialog.boite [data-ok]').click();
+    await page.locator('dialog.boite', { hasText: 'Quiz corrigé' }).waitFor({ timeout: 8000 }).catch(() => {});
+    for (let i = 0; i < 30 && (await ev(`apiSignalements().liste.find(x => x.id === ${JSON.stringify(s2.id)}).statut`)).r !== 'corrige'; i++) await page.waitForTimeout(200);
+    const apres2 = await ev(`[apiTexteQuiz(${JSON.stringify(fichierS)}).texte, apiSignalements().liste.find(x => x.id === ${JSON.stringify(s2.id)}).statut]`);
+    ok(/\(SoccaQuiz\)/.test(apres2.r[0]) && /bien la capitale \(corrigé\)/.test(apres2.r[0]) && apres2.r[1] === 'corrige', 'correction de SoccaQuiz appliquée au quiz de la famille ; signalement « Corrigé »');
+    await page.keyboard.press('Escape');
+    // résultats : boutons sur une question ratée d'une partie
+    await page.evaluate(() => document.querySelectorAll('dialog').forEach(d => d.close()));
+    await page.locator('.sess-h').first().click();
+    await page.locator('.det [data-sigq]').first().waitFor({ timeout: 8000 }).catch(() => {});
+    const nbQ = await page.locator('.det [data-sigq="corriger"]').count(), nbE = await page.locator('.det [data-sigq="envoyer"]').count();
+    ok(nbQ > 0 && nbQ === nbE, 'résultats : « Corriger le quiz » et « Signaler à SoccaQuiz » sous chaque question ratée — ' + nbQ);
+    await page.locator('.det [data-sigq="corriger"]').first().click();
+    await page.locator('dialog.boite textarea.editeur').waitFor({ timeout: 8000 }).catch(() => {});
+    ok(await page.locator('dialog.boite textarea.editeur').count() === 1, 'résultats → « Corriger le quiz » : l\'éditeur du quiz s\'ouvre');
+    await page.evaluate(() => document.querySelectorAll('dialog').forEach(d => d.close()));
+    // bibliothèque : quiz corrigé par SoccaQuiz (nouvelle version) → « Mettre à jour » dans l'onglet Quiz
+    const routeV = /leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\/index\.json/;
+    await page.route(routeV, r => { const i = JSON.parse(readFileSync(join(ICI, 'bibliotheque', 'index.json'), 'utf8')); i.quiz.forEach(q => { q.v = 2; }); r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify(i) }); });
+    await page.reload();
+    await page.locator('#o-quiz').click();
+    const bMaj = page.locator('#liste-quiz button[data-majbib]');
+    await bMaj.first().waitFor({ timeout: 8000 }).catch(() => {});
+    const nMaj = await bMaj.count();
+    if (nMaj) await bMaj.first().click();
+    await page.waitForFunction(() => !document.querySelector('#liste-quiz button[data-majbib]'), null, { timeout: 8000 }).catch(() => {});
+    const v2 = await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const t = it.next().getBlob().getDataAsString(); if (/"biblio":\\s*"anglais-listen-and-repeat"/.test(t)) return /"biblioV":\\s*"2"/.test(t); } return false; })()`);
+    ok(nMaj === 1 && v2.r === true && !(await bMaj.count()), 'bibliothèque : quiz corrigé par SoccaQuiz → « Mettre à jour » remplace le quiz de la famille (version 2)');
+    await page.unroute(routeV);
+    await ev(`CONFIG.espace = ${JSON.stringify(espaceAvant)}`);
+  }
   await page.unroute(/leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json/);
   await ev(`PropertiesService.getScriptProperties().deleteProperty('CLASSE')`);
 

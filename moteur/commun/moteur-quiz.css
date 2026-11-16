@@ -157,6 +157,24 @@
 
   /* FICHE MÉMO */
   .frise-section { margin-top: 2.5rem; text-align: left; }
+  /* signaler une erreur (site de l'enfant) : discret sous la question ou sous « À retenir » */
+  .signaler-zone { margin-top: 6px; text-align: right; }
+  .signaler { display: inline-flex; align-items: center; gap: 5px; min-height: 36px; padding: 0 10px; border: 0; background: none; color: #6b7280; font: inherit; font-size: 13px; cursor: pointer; border-radius: 999px; }
+  .signaler:hover, .signaler:focus-visible { background: #f3f4f6; color: #374151; }
+  .signaler .ic { width: 15px; height: 15px; }
+  .signaler-form { text-align: left; margin-top: 8px; padding: 12px 14px; border: 1px solid #e5e7eb; border-radius: 12px; background: #fafafa; font-size: 14px; }
+  .signaler-form fieldset { border: 0; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+  .signaler-form legend { font-weight: 700; margin-bottom: 6px; }
+  .signaler-form label { display: flex; gap: 8px; align-items: flex-start; line-height: 1.35; }
+  .signaler-form input[type=radio] { margin-top: 3px; }
+  .signaler-rq { flex-direction: column; margin-top: 10px; color: #4b5563; }
+  .signaler-rq textarea { width: 100%; box-sizing: border-box; font: inherit; border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 8px; }
+  .signaler-bts { display: flex; gap: 8px; justify-content: flex-end; margin-top: 10px; }
+  .signaler-bts button { min-height: 40px; padding: 0 16px; border-radius: 999px; font: inherit; font-weight: 600; cursor: pointer; border: 1px solid #d1d5db; background: #fff; }
+  .signaler-bts .signaler-oui { background: var(--main, #c8102e); border-color: var(--main, #c8102e); color: #fff; }
+  .signaler-msg:empty { display: none; }
+  .signaler-msg { margin: 8px 0 0; color: #b91c1c; }
+  .signaler-merci { margin: 0; color: #15803d; font-weight: 600; display: flex; align-items: center; gap: 6px; }
   .frise-title { font-size: 16px; font-weight: 600; color: #111; margin-bottom: 4px; display: flex; align-items: center; gap: 8px; }
   .frise-subtitle { font-size: 13px; color: #6b7280; margin-bottom: 1rem; }
   .memo-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: center; }

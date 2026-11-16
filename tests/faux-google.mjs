@@ -57,6 +57,7 @@ const feuille = (s) => ({
   getLastRow: () => s.rows.length,
   appendRow: (r) => { s.rows.push(r.map(String)); },
   deleteRow: (i) => { s.rows.splice(i - 1, 1); },
+  getDataRange: () => ({ getValues: () => s.rows.map(l => l.slice()) }),
   getRange: (r, c, nr, nc) => {
     const g = {
       setValues: (v) => { v.forEach((l, i) => { s.rows[r - 1 + i] = l.map(String); }); return g; },
@@ -67,7 +68,11 @@ const feuille = (s) => ({
     return g;
   }
 });
-const classeur = (id) => ({ getId: () => id, getUrl: () => 'sheets://' + id, getSheets: () => [feuille(sheets[id])], getSheetByName: n => n === 'Parties' ? feuille(sheets[id]) : null });
+// autres onglets d'un classeur (ex. « Signalements ») : feuilles[id + '/' + nom]
+const feuilles = {};
+const classeur = (id) => ({ getId: () => id, getUrl: () => 'sheets://' + id, getSheets: () => [feuille(sheets[id])],
+  getSheetByName: n => n === 'Parties' ? feuille(sheets[id]) : feuilles[id + '/' + n] ? feuille(feuilles[id + '/' + n]) : null,
+  insertSheet: n => feuille(feuilles[id + '/' + n] = { rows: [] }) });
 
 const ctx = {
   console,
@@ -79,7 +84,7 @@ const ctx = {
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
-  Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }) },
+  Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },
   MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
   ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script' },
   FAUX, editeurs,
