@@ -7,3 +7,4 @@ tests/*.png
 dist/
 .outils/
 tests/corbeille/
+tests/drive-appli/

@@ -31,9 +31,11 @@ if (spawnSync(process.execPath, [join(RACINE, 'construire.mjs')], { stdio: 'inhe
 rmSync(DRIVE, { recursive: true, force: true }); rmSync(join(ICI, 'corbeille'), { recursive: true, force: true });
 const serveur = spawn(process.execPath, [join(ICI, 'faux-google.mjs'), join(RACINE, 'build'), DRIVE, String(PORT)], { stdio: ['ignore', 'pipe', 'inherit'] });
 await new Promise(ok => serveur.stdout.once('data', ok));
+// appli installable (dossier appli/) : son propre faux Google, sur un autre port
+const appli = spawnSync(process.execPath, [join(ICI, 'test-appli.mjs')], { stdio: 'inherit' }).status;
 
 const ev = async code => (await (await fetch(BASE + '/eval', { method: 'POST', body: code })).json());
-let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1);
+let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1) + (appli === 0 ? 0 : 1);
 const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (!c) echecs++; };
 
 const options = { args: ['--no-sandbox'] };

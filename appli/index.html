@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SoccaQuiz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#a9010d">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SoccaQuiz">
+<style>
+  html, body { margin: 0; height: 100%; background: #fff8ef; }
+  #cadre { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: #fff8ef; }
+  #demarrage { position: fixed; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 18px; padding: 24px; text-align: center; background: #fff8ef; color: #2b2350;
+    font: 600 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; transition: opacity .25s; }
+  #demarrage.fini { opacity: 0; pointer-events: none; }
+  #demarrage img { width: 120px; height: 120px; border-radius: 26px; }
+  #demarrage.attente img { animation: battre 1.4s ease-in-out infinite; }
+  #demarrage button { font: inherit; color: #fff; background: #a9010d; border: 0; border-radius: 999px; padding: 10px 22px; }
+  @keyframes battre { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { #demarrage.attente img { animation: none; } }
+</style>
+</head>
+<body>
+<div id="demarrage" class="attente">
+  <img src="icone-192.png" alt="">
+  <span id="msg" role="status">Chargement…</span>
+  <button id="reessayer" type="button" hidden>Réessayer</button>
+</div>
+<iframe id="cadre" title="SoccaQuiz" allow="microphone; autoplay; clipboard-write"></iframe>
+<script>
+/* =====================================================================
+   APPLI INSTALLABLE SoccaQuiz — l'« enveloppe »
+   Cette page ne contient aucune page de SoccaQuiz : elle affiche, en plein écran, le site de l'enfant
+   (Google Apps Script) dont l'identifiant est dans l'adresse : …/app/?s=<identifiant du déploiement>.
+   Elle n'apporte que l'icône, le plein écran et l'écran de démarrage. Aucun quiz ni résultat ne passe par elle.
+   Filets de sécurité : interrupteur général (soccaquiz.json, "appli": "off") et retour automatique au site
+   classique si le site ne s'affiche pas dans le cadre (site pas à jour, blocage du navigateur…).
+   ===================================================================== */
+(function () {
+  var MOTIF = /^AKfy[\w-]{20,200}$/;
+  var REGLAGES = 'https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json';
+  var DELAI = 15000;                       // sans nouvelle du site après ce délai : site classique
+  var dem = document.getElementById('demarrage'), msg = document.getElementById('msg');
+  var bouton = document.getElementById('reessayer'), cadre = document.getElementById('cadre');
+
+  var id = null;
+  try { id = new URLSearchParams(location.search).get('s'); } catch (e) {}
+  try {
+    if (id && MOTIF.test(id)) localStorage.setItem('sq-site', id);
+    else id = localStorage.getItem('sq-site');           // secours si l'adresse a perdu son paramètre
+  } catch (e) {}
+  if (!id || !MOTIF.test(id)) {
+    dem.classList.remove('attente');
+    msg.textContent = 'Ouvre le lien SoccaQuiz reçu par mail.';
+    return;
+  }
+
+  var BASE = 'https://script.google.com/macros/s/' + id + '/exec';
+  var minuterie = 0, parti = false;
+
+  function classique(url) {                // on quitte l'enveloppe pour le site tel qu'il a toujours été
+    if (parti) return;
+    parti = true;
+    location.replace(url || BASE);
+  }
+  /* seulement une page de CE site : …/exec ou …/exec?… */
+  function pageDuSite(url) {
+    try {
+      var u = new URL(url);
+      return u.origin + u.pathname === BASE ? u : null;
+    } catch (e) { return null; }
+  }
+  function attendre(url) {
+    clearTimeout(minuterie);
+    minuterie = setTimeout(function () {
+      if (navigator.onLine === false) {
+        dem.classList.remove('attente', 'fini');
+        msg.textContent = 'Pas de connexion à Internet. Réessaie dans un instant.';
+        bouton.hidden = false;
+      } else classique(url);
+    }, DELAI);
+  }
+  function ouvrir(url) {
+    var u = pageDuSite(url);
+    if (!u) return;
+    var simple = u.href;
+    u.searchParams.set('cadre', '1');
+    dem.classList.add('attente');
+    dem.classList.remove('fini');
+    msg.textContent = 'Chargement…';
+    bouton.hidden = true;
+    attendre(simple);
+    cadre.src = u.href;
+  }
+
+  window.addEventListener('message', function (e) {
+    var hote = '';
+    try { hote = new URL(e.origin).hostname; } catch (err) { return; }
+    // les pages Apps Script sont servies depuis *.googleusercontent.com
+    if (hote !== 'script.google.com' && !/\.googleusercontent\.com$/.test(hote)) return;
+    var d = e.data;
+    if (!d || typeof d !== 'object') return;
+    if (d.uq === 'pret') {                 // le site est affiché : on retire l'écran de démarrage
+      clearTimeout(minuterie);
+      dem.classList.add('fini');
+      try { e.source.postMessage({ uq: 'cadre-ok' }, e.origin); } catch (err) {}
+    } else if (d.uq === 'aller' && typeof d.url === 'string') {
+      var u = pageDuSite(d.url);
+      if (u) { u.searchParams.delete('cadre'); ouvrir(u.href); }
+    }
+  });
+  bouton.addEventListener('click', function () { location.reload(); });
+  window.addEventListener('online', function () { if (!bouton.hidden) location.reload(); });
+
+  ouvrir(BASE);
+  // interrupteur général : "appli": "off" → tout le monde revient au site classique, icônes déjà installées comprises
+  fetch(REGLAGES, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; })
+    .then(function (c) { if (c && c.appli === 'off') classique(); })
+    .catch(function () {});
+  if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+</body>
+</html>

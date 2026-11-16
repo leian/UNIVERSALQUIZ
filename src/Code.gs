@@ -40,6 +40,19 @@ const CONFIG = {
 };
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
+// Appli installable (dossier appli/, publiée sur leian.github.io/app/) : elle affiche le site de l'enfant dans un cadre
+// et l'ouvre avec …/exec?cadre=1. Sans ce paramètre, rien ne change. Le mode cadre ne sert qu'à la navigation
+// (pont.html) : jamais à changer un style, un texte ou une fonction — une seule interface pour le lien et pour l'appli.
+const ORIGINE_APPLI = 'https://leian.github.io';
+let CADRE_ = false;                    // remis à zéro dans doGet
+/* autorise l'affichage dans le cadre de l'appli ; jamais pour l'espace parent (connexion Google, clickjacking) */
+function cadre_(sortie) {
+  return CADRE_ ? sortie.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) : sortie;
+}
+/* pages sans pont.html (erreur, « espace parent ») : préviennent quand même l'appli que la page est affichée */
+function signalCadre_() {
+  return CADRE_ ? '<script>try { window.top.postMessage({ uq: "pret" }, ' + JSON.stringify(ORIGINE_APPLI) + '); } catch (e) {}</script>' : '';
+}
 /* ------------------------------------------------------ */
 
 const NOM_SHEETS = 'SoccaQuiz – Résultats';
@@ -99,6 +112,7 @@ function doGet(e) {
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
+  CADRE_ = p.cadre === '1' && CONFIG.espace !== 'parent';
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
@@ -268,6 +282,7 @@ function assembler_(html, page, inst) {
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
+  if (CADRE_) cfg.cadre = ORIGINE_APPLI;      // ouvert par l'appli installée : pont.html garde les liens dans l'appli
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
   if (page === 'ajouter' && !estEnfant_()) cfg.gemini = cleGemini_();
@@ -300,32 +315,32 @@ function assembler_(html, page, inst) {
 
 function servir_(html) {
   const t = (html.match(/<title>([\s\S]*?)<\/title>/i) || [])[1];
-  return HtmlService.createHtmlOutput(html)
+  return cadre_(HtmlService.createHtmlOutput(html)
     .setTitle(texte_(t || 'Quiz'))
     .setFaviconUrl(ICONE_SITE)
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1'));
 }
 
 /* page affichée dans le site de l'enfant quand on demande une page des parents */
 function pageEspaceParent_() {
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
-  return HtmlService.createHtmlOutput(
+  return cadre_(HtmlService.createHtmlOutput(
     '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:2px solid #eadfce;border-radius:16px;background:#fff;color:#2a1f1a">' +
     '<h2 style="margin-top:0">🔒 Espace parent</h2>' +
     '<p>Cette page est réservée aux parents. Elle s\'ouvre avec le lien « Espace parent », en étant connecté au compte Google du parent.</p>' +
     (CONFIG.urlParent ? '<p><a href="' + h(CONFIG.urlParent) + '" target="_top" style="display:inline-block;background:#c8102e;color:#fff;border-radius:999px;padding:10px 18px;text-decoration:none;font-weight:600">🔒 Ouvrir l\'espace parent</a></p>' : '') +
-    (CONFIG.urlEnfant ? '<p><a href="' + h(CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>')
-    .setTitle('Espace parent').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    (CONFIG.urlEnfant ? '<p><a href="' + h(CONFIG.urlEnfant) + '" target="_top">← Revenir aux quiz</a></p>' : '') + '</div>' + signalCadre_())
+    .setTitle('Espace parent').setFaviconUrl(ICONE_SITE).addMetaTag('viewport', 'width=device-width, initial-scale=1'));
 }
 
 function pageErreur_(titre, message) {
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const accueil = urlIci_();
-  return HtmlService.createHtmlOutput(
+  return cadre_(HtmlService.createHtmlOutput(
     '<div style="font-family:system-ui,sans-serif;max-width:560px;margin:40px auto;padding:24px;border:1px solid #e5e7eb;border-radius:14px">' +
     '<h2 style="margin-top:0">😕 ' + h(titre) + '</h2><p>' + h(message) + '</p>' +
-    (accueil ? '<p><a href="' + h(accueil) + '" target="_top">📚 Revenir à mes quiz</a></p>' : '') + '</div>')
-    .setTitle(titre).addMetaTag('viewport', 'width=device-width, initial-scale=1');
+    (accueil ? '<p><a href="' + h(accueil) + '" target="_top">📚 Revenir à mes quiz</a></p>' : '') + '</div>' + signalCadre_())
+    .setTitle(titre).addMetaTag('viewport', 'width=device-width, initial-scale=1'));
 }
 
 /* lecture d'un fichier du projet (lib/…) ; {{PRENOM}} y est remplacé par le prénom des réglages.
