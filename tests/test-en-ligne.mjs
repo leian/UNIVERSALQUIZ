@@ -320,8 +320,8 @@ ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) &
   };
   const deux = [site(0, 'Lana', 'CM1', 'v2.78'), site(1, '', 'CE2', 'v2.76'), site(2, 'Yan', 'adulte', 'v2.78')];
   let v = await voir('beta', true, deux);
-  ok(v.vu.length === 3 && v.vu[0].titre === '✅ Lana' && v.vu[0].bouton === '▶ Site de Lana' && v.vu[1].bouton === '▶ Site de l\'enfant' && /Site n° 2/.test(v.vu[1].titre) && v.vu[2].bouton === '▶ Mes quiz' && v.vu[2].titre === '✅ Révisions de Yan' && !v.erreurs.length,
-    'cartes : le prénom en titre, « Site de <prénom> » sur le bouton — ' + JSON.stringify(v.vu.map(x => [x.titre, x.bouton])) + v.erreurs.join(' | '));
+  ok(v.vu.length === 3 && v.vu[0].titre === 'Lana' && /Envoyer le lien à Lana/.test(v.vu[0].texte) && /Envoyer le lien à mon enfant/.test(v.vu[1].texte) && v.vu[0].bouton === '▶ Site de Lana' && v.vu[1].bouton === '▶ Site de l\'enfant' && /Site n° 2/.test(v.vu[1].titre) && v.vu[2].bouton === '▶ Mes quiz' && v.vu[2].titre === 'Révisions de Yan' && !v.erreurs.length,
+    'cartes : le prénom en titre (sans coche), « Site de <prénom> » et « Envoyer le lien à <prénom> » sur les boutons — ' + JSON.stringify(v.vu.map(x => [x.titre, x.bouton])) + v.erreurs.join(' | '));
   ok(v.vu[0].lien === A && v.vu[1].lien === U && v.vu[0].mail === U, '"appli": "beta" sur Android : le bouton ouvre l\'appli pour un site à jour, le lien habituel pour un site trop ancien ; le lien à envoyer à l\'enfant ne change pas');
   v = await voir('beta', false, deux);
   ok(v.vu[0].lien === U, '"appli": "beta" sur iPhone : lien habituel (pas encore vérifié sur iPhone)');

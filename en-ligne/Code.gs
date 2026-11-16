@@ -581,11 +581,11 @@ function scriptPage_() {
         '<button class="btn" data-action="maj" type="button">✨ Terminer l\'installation</button>' +
         '<details class="avance"><summary>Options avancées</summary><p class="petit"><a href="#" data-action="recommencer">Abandonner ce site</a></p>' +
         '<div class="confirmer cache ko"><p>Ses publications éventuelles seront désactivées et l\'installateur l\'oubliera.</p><button class="btn" data-action="oui-recommencer" type="button">Oui, abandonner</button> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></div></details></section>';
-      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">✅ ' + h(titreCarte(s)) + '</span>' + '</h2>'   /* pas de classe ici : elle se change dans l'espace parent, que l'installateur ne voit pas */ +
+      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">' + h(titreCarte(s)) + '</span>' + '</h2>'   /* pas de classe ici : elle se change dans l'espace parent, que l'installateur ne voit pas */ +
         '<div class="msg">' + (s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
         '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
-        (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '">✉️ Envoyer le lien à mon enfant</a>') + '</div>' +
+        (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a>') + '</div>' +
         (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>' + h(nomSite(s)) + '</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
         (!s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
           : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +
