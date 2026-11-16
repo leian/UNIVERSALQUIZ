@@ -53,7 +53,7 @@ async function nouvellePage() {
   await contexte.route('https://script.google.com/**', async r => {
     const u = new URL(r.request().url());
     if (!siteAJour) u.searchParams.delete('cadre');          // site pas encore mis à jour : il ne connaît pas ?cadre=1
-    const chemin = u.pathname.replace(`/macros/s/${ID}`, '');
+    const chemin = u.pathname.replace(/^\/macros\/s\/[^/]+/, '');
     const rep = await r.fetch({ url: LOCAL + chemin + u.search });
     return r.fulfill({ response: rep });
   });
@@ -96,6 +96,7 @@ try {
   await cadre.evaluate(u => { const a = document.createElement('a'); a.id = 't-parent'; a.href = u; a.textContent = 'parent'; a.style.cssText = 'position:fixed;top:0;left:0;z-index:99999'; document.body.appendChild(a); }, 'https://script.google.com/macros/s/PARENT/exec?page=ajouter');
   const [autre] = await Promise.all([page.context().waitForEvent('page', { timeout: 5000 }).catch(() => null), cadre.locator('#t-parent').click()]);
   ok(!!autre && page.url() === APPLI + '?s=' + ID, 'appli : un lien vers l\'espace parent s\'ouvre dans une autre fenêtre');
+  ok(!!autre && /[?&]page=ajouter&appli=1$/.test(autre.url()), 'appli : l\'espace parent est prévenu qu\'on vient de l\'appli (?appli=1) — ' + (autre && autre.url()));
   if (autre) await autre.close();
   // l'appli refuse d'afficher autre chose que ce site
   await cadre.evaluate(() => window.top.postMessage({ uq: 'aller', url: 'https://script.google.com/macros/s/AUTRE/exec' }, '*'));
@@ -114,6 +115,31 @@ try {
   await page.waitForURL(/page=quiz_exemple/, { timeout: 5000 }).catch(() => {});
   ok(/page=quiz_exemple/.test(page.url()) && !/leian\.github\.io/.test(page.url()), 'hors de l\'appli : même avec ?cadre=1, les liens se comportent comme d\'habitude');
   await page.context().close();
+
+  // 3 bis. espace parent ouvert depuis l'appli : son lien « site de l'enfant » ramène dans l'appli
+  const PARENT = 'https://script.google.com/macros/s/PARENT/exec';
+  ok(!/"retourAppli"/.test(await (await fetch(LOCAL + '/exec?appli=1')).text()), 'site de l\'enfant : ?appli=1 n\'y change rien');
+  await ev('CONFIG.espace = "parent"; 0');
+  ok(!/"retourAppli"/.test(await (await fetch(LOCAL + '/exec')).text()), 'espace parent ouvert normalement : aucun réglage de retour vers l\'appli');
+  ok((await (await fetch(LOCAL + '/exec?appli=1')).text()).includes('"retourAppli":"' + APPLI + '?s=' + ID + '"'), 'espace parent ouvert depuis l\'appli : il reçoit l\'adresse de l\'appli de l\'enfant');
+  const lienEnfant = async p => {
+    await p.evaluate(u => { const a = document.createElement('a'); a.id = 't-enfant'; a.href = u; a.target = '_top'; a.textContent = 'enfant'; a.style.cssText = 'position:fixed;top:0;left:0;z-index:99999'; document.body.appendChild(a); }, SITE);
+    await ev('CONFIG.espace = "enfant"; 0');
+    await p.locator('#t-enfant').click();
+    await p.waitForURL(u => !String(u).includes('/PARENT/'), { timeout: 8000 }).catch(() => {});
+    await ev('CONFIG.espace = "parent"; 0');
+    return p.url();
+  };
+  page = await nouvellePage();
+  await page.goto(PARENT + '?appli=1');
+  await page.goto(PARENT);                       // autre page de l'espace parent, même onglet : on s'en souvient
+  ok(await lienEnfant(page) === APPLI + '?s=' + ID, 'espace parent ouvert depuis l\'appli : « site de l\'enfant » ramène dans l\'appli, même après un changement de page');
+  await page.context().close();
+  page = await nouvellePage();
+  await page.goto(PARENT);
+  ok(await lienEnfant(page) === SITE, 'espace parent ouvert normalement : « site de l\'enfant » ouvre le lien habituel');
+  await page.context().close();
+  await ev('CONFIG.espace = "enfant"; 0');
 
   // 4. filets de sécurité
   page = await nouvellePage();

@@ -89,6 +89,7 @@
     if (!a) return;
     corriger(a);
     if (dansAppli) resterDansAppli(a, e);
+    else if (retourAppli && CFG.urlEnfant && a.href === CFG.urlEnfant) a.href = retourAppli;
   }
 
   /* ---------- 3. appli installée ----------
@@ -105,9 +106,26 @@
       e.preventDefault();
       window.top.postMessage({ uq: 'aller', url: a.href }, CFG.cadre);
     } else {
+      // l'espace parent saura qu'on vient de l'appli : son lien « site de l'enfant » y ramènera
+      if (CFG.urlParent && (a.href === CFG.urlParent || a.href.indexOf(CFG.urlParent + '?') === 0) && !/[?&]appli=1(?:&|#|$)/.test(a.href)) {
+        var h = a.href.split('#');
+        h[0] += (h[0].indexOf('?') < 0 ? '?' : '&') + 'appli=1';
+        a.href = h.join('#');
+      }
       a.setAttribute('target', '_blank');
       a.setAttribute('rel', 'noopener');
     }
+  }
+  /* Espace parent ouvert depuis l'appli (…?appli=1) : on s'en souvient le temps de l'onglet, pour que le lien
+     « site de l'enfant » ramène dans l'appli depuis n'importe quelle page de l'espace parent. Ouvert normalement,
+     l'espace parent garde son lien habituel. */
+  var retourAppli = '';
+  if (CFG.espace === 'parent') {
+    try {
+      if (CFG.retourAppli) sessionStorage.setItem('sq-retour-appli', CFG.retourAppli);
+      retourAppli = CFG.retourAppli || sessionStorage.getItem('sq-retour-appli') || '';
+    } catch (e) { retourAppli = CFG.retourAppli || ''; }
+    if (retourAppli.indexOf('https:\/\/leian.github.io\/app\/?s=') !== 0) retourAppli = '';
   }
   if (CFG.cadre && window.top !== window) {
     window.addEventListener('message', function (e) {

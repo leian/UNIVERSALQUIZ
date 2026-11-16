@@ -45,6 +45,12 @@ const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
 // (pont.html) : jamais à changer un style, un texte ou une fonction — une seule interface pour le lien et pour l'appli.
 const ORIGINE_APPLI = 'https://leian.github.io';
 let CADRE_ = false;                    // remis à zéro dans doGet
+let DEPUIS_APPLI_ = false;             // espace parent ouvert depuis l'appli (…?appli=1) : remis à zéro dans doGet
+/* adresse de l'appli pour le site de l'enfant : …/app/?s=<identifiant de son déploiement> ('' si inconnue) */
+function urlAppli_() {
+  const m = String(CONFIG.urlEnfant || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
+  return m ? ORIGINE_APPLI + '/app/?s=' + m[1] : '';
+}
 /* autorise l'affichage dans le cadre de l'appli ; jamais pour l'espace parent (connexion Google, clickjacking) */
 function cadre_(sortie) {
   return CADRE_ ? sortie.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL) : sortie;
@@ -113,6 +119,7 @@ function doGet(e) {
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
   CADRE_ = p.cadre === '1' && CONFIG.espace !== 'parent';
+  DEPUIS_APPLI_ = p.appli === '1' && CONFIG.espace === 'parent';
   const page = nettoyerNom_(p.page || 'index');
   try {
     if (estEnfant_() && PAGES_PARENT.indexOf(page) >= 0) return pageEspaceParent_();
@@ -282,6 +289,8 @@ function assembler_(html, page, inst) {
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
+  // espace parent ouvert depuis l'appli : son lien « site de l'enfant » ramène dans l'appli (pont.html)
+  if (DEPUIS_APPLI_ && urlAppli_()) cfg.retourAppli = urlAppli_();
   if (CADRE_) cfg.cadre = ORIGINE_APPLI;      // ouvert par l'appli installée : pont.html garde les liens dans l'appli
   // la clé Gemini n'est donnée qu'à la page « Ajouter un quiz », jamais aux quiz que joue l'enfant
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
