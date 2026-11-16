@@ -284,5 +284,54 @@ ok(!/apiEffacerTout|Effacer toutes mes données/.test(html) && /supprime chaque 
 const source = readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8');
 ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) && JSON.parse(readFileSync(join(RACINE, 'en-ligne', 'appsscript.json'), 'utf8')).exceptionLogging === 'NONE', 'aucun journal d\'erreur envoyé à l\'éditeur (exceptionLogging NONE, pas de console)');
 
+// 11. appli installable : adresse calculée par l'installateur, bouton « Site de <prénom> » selon l'interrupteur
+{
+  const U = 'https://script.google.com/macros/s/AKfycbTEST_site-de-l-enfant_0123456789/exec', A = 'https://leian.github.io/app/?s=AKfycbTEST_site-de-l-enfant_0123456789';
+  ok(ctx.appli_(U, 'v2.77') === A && ctx.appli_(U, 'v2.100') === A && ctx.appli_(U, 'v2.76') === '' && ctx.appli_(U, '') === '' && ctx.appli_(U, 'v-test') === '' &&
+    ctx.appli_('https://script.google.com/a/macros/ecole.fr/s/AKfycbTEST_site-de-l-enfant_0123456789/exec', 'v2.80') === '' && ctx.appli_('https://exemple.fr/?s=AKfycbTEST_site-de-l-enfant_0123456789', 'v2.80') === '',
+    'adresse de l\'appli : seulement pour un site v2.77 ou plus récent, à une adresse script.google.com ordinaire');
+  const { createRequire } = await import('node:module');
+  const require = createRequire(import.meta.url);
+  let playwright; try { playwright = require('playwright'); } catch (e) { playwright = require(process.env.PLAYWRIGHT || '/opt/npm-tools/node_modules/playwright'); }
+  const options = { args: ['--no-sandbox'] };
+  if (process.env.CHROME) options.executablePath = process.env.CHROME;
+  const browser = await playwright.chromium.launch(options).catch(() => playwright.chromium.launch({ ...options, executablePath: '/usr/bin/google-chrome' }));
+  const site = (n, prenom, classe, version) => ({ n, id: 'script' + n, prenom, classe, url: U, urlParent: 'https://script.google.com/macros/s/PARENT/exec', version, derniere: version, appli: ctx.appli_(U, version), nouvelle: false, incomplet: false, versions: 3, maxVersions: 200, lienProjet: '' });
+  const voir = async (mode, android, sites) => {
+    const contexte = await browser.newContext({ userAgent: android ? 'Mozilla/5.0 (Linux; Android 14; Pixel 8) Chrome/130 Mobile Safari/537.36' : 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) Version/18.0 Mobile/15E148 Safari/604.1' });
+    const page = await contexte.newPage();
+    const erreurs = []; page.on('pageerror', e => erreurs.push(e.message));
+    await contexte.route('**/*', r => {
+      const u = r.request().url();
+      if (u === 'https://installateur.test/') return r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html });
+      if (/soccaquiz\.json/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: JSON.stringify(mode === null ? {} : { appli: mode }) });
+      return r.fulfill({ status: 200, body: '' });
+    });
+    await page.addInitScript(etat => {
+      const run = (ok) => new Proxy({}, { get: (_, nom) => nom === 'withSuccessHandler' ? f => run(f) : nom === 'withFailureHandler' ? () => run(ok) : () => setTimeout(() => ok && ok(nom === 'apiEtat' ? etat : {}), 0) });
+      window.google = { script: { run: run(null) } };
+    }, { installe: true, sites, classes: ctx.CLASSES || [], erreurGithub: '' });
+    await page.goto('https://installateur.test/');
+    await page.locator('a.lien-enfant').first().waitFor({ timeout: 5000 });
+    await page.waitForTimeout(300);
+    const vu = await page.evaluate(() => [].map.call(document.querySelectorAll('.site'), c => ({ titre: c.querySelector('.titre').textContent, bouton: c.querySelector('a.lien-enfant').textContent, lien: c.querySelector('a.lien-enfant').href, mail: (c.querySelector('.mail-enfant') || {}).dataset && c.querySelector('.mail-enfant').dataset.url, texte: c.textContent })));
+    await contexte.close();
+    return { vu, erreurs };
+  };
+  const deux = [site(0, 'Lana', 'CM1', 'v2.78'), site(1, '', 'CE2', 'v2.76'), site(2, 'Yan', 'adulte', 'v2.78')];
+  let v = await voir('beta', true, deux);
+  ok(v.vu.length === 3 && v.vu[0].titre === '✅ Lana' && v.vu[0].bouton === '▶ Site de Lana' && v.vu[1].bouton === '▶ Site de l\'enfant' && /Site n° 2/.test(v.vu[1].titre) && v.vu[2].bouton === '▶ Mes quiz' && v.vu[2].titre === '✅ Révisions de Yan' && !v.erreurs.length,
+    'cartes : le prénom en titre, « Site de <prénom> » sur le bouton — ' + JSON.stringify(v.vu.map(x => [x.titre, x.bouton])) + v.erreurs.join(' | '));
+  ok(v.vu[0].lien === A && v.vu[1].lien === U && v.vu[0].mail === U, '"appli": "beta" sur Android : le bouton ouvre l\'appli pour un site à jour, le lien habituel pour un site trop ancien ; le lien à envoyer à l\'enfant ne change pas');
+  v = await voir('beta', false, deux);
+  ok(v.vu[0].lien === U, '"appli": "beta" sur iPhone : lien habituel (pas encore vérifié sur iPhone)');
+  v = await voir('on', false, deux);
+  ok(v.vu[0].lien === A && v.vu[1].lien === U, '"appli": "on" : l\'appli pour tous les appareils');
+  v = await voir('off', true, deux);
+  const w = await voir(null, true, [site(0, 'Lana', 'CM1', 'v2.78')]);
+  ok(v.vu[0].lien === U && w.vu[0].lien === U && /Site de Lana\s*: les quiz, sans compte/.test(w.vu[0].texte), '"appli": "off" ou réglage absent : lien habituel ; un seul site : l\'explication reprend « Site de Lana »');
+  await browser.close();
+}
+
 console.log(echecs ? `[en ligne] ${echecs} échec(s)` : '[en ligne] tout est vert');
 process.exit(echecs ? 1 : 0);

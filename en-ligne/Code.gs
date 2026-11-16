@@ -84,6 +84,15 @@ function plusRecente_(a, b) {
   return false;
 }
 
+/* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
+   le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
+   La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
+const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
+function appli_(url, version) {
+  const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
+  return m && /\d/.test(String(version || '')) && !plusRecente_(VERSION_APPLI, version) ? URL_APPLI + m[1] : '';
+}
+
 /* Ce que la page doit afficher : sites déjà installés, nouvelle version ?
    Les sites sont toujours renvoyés, même si GitHub ne répond pas (derniere = ''). */
 function apiEtat(indice) {
@@ -100,7 +109,7 @@ function apiEtat(indice) {
     if (reelle && reelle !== s.version) { s.version = reelle; try { ecrireSite_(n, s); } catch (e) {} }
     // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
     let versions = 0; try { versions = nbVersions_(s.scriptId); } catch (e) {}
-    return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: s.urlParent || '', version: s.version || '', derniere,
+    return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: s.urlParent || '', version: s.version || '', derniere, appli: appli_(s.url, s.version),
       nouvelle: !!s.version && plusRecente_(derniere, s.version), incomplet: !s.version,
       versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(s.scriptId) };
   }).filter(Boolean);
@@ -265,7 +274,7 @@ function publier_(maj, n) {
 
     Object.assign(site, { deploymentId: dep, deploymentIdParent: depP, url, urlParent, version: moteur.version });
     ecrireSite_(n, site);
-    return { ok: true, n, id, prenom, classe: site.classe || '', url, urlParent, version: moteur.version,
+    return { ok: true, n, id, prenom, classe: site.classe || '', url, urlParent, version: moteur.version, appli: appli_(url, moteur.version),
       maj: !!maj && dejaPublie && !nouveauSite, nouveauSite, adresseChangee: adresseChangee && !nouveauSite,
       nouveauParent: dejaPublie && !avaitParent && !nouveauSite };
   } catch (e) {
@@ -526,7 +535,7 @@ function scriptPage_() {
           bouton.disabled = false;
           if (!r || r.erreur) { zone.innerHTML = ''; if (fn === 'apiAjouterSite' && r && /Terminer/.test(r.erreur || '')) charger(); erreur(r, enPlace ? n : null); if (fini) fini(false); return; }
           zone.innerHTML = ''; res.innerHTML = '';
-          var s = { n: r.n || 0, id: r.id, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version, nouvelle: false };
+          var s = { n: r.n || 0, id: r.id, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version, nouvelle: false, appli: r.appli || '' };
           var i = -1; ETAT.sites.forEach(function (x, k) { if (x.n === s.n) i = k; });
           if (i >= 0) ETAT.sites[i] = s; else ETAT.sites.push(s);
           afficherSites();
@@ -554,6 +563,17 @@ function scriptPage_() {
         '<p class="petit" style="margin:0">Ne modifie rien d\'autre dans le programme.</p></div>';
     }
     function titreSite(s) { return s.classe === 'adulte' ? (s.prenom ? 'Révisions de ' + s.prenom : 'Mes révisions') : s.prenom ? 'Site de ' + s.prenom : (s.n ? 'Site n° ' + (s.n + 1) : 'Ton site est prêt'); }
+    // carte d'un site installé : le prénom en titre, « Site de <prénom> » sur le bouton (pas deux fois la même chose)
+    function titreCarte(s) { return s.classe !== 'adulte' && s.prenom ? s.prenom : titreSite(s); }
+    function nomSite(s) { return s.classe === 'adulte' ? 'Mes quiz' : s.prenom ? 'Site de ' + s.prenom : 'Site de l\'enfant'; }
+    /* Appli installable : le bouton ouvre le site dans l'appli (sans le bandeau Google) quand soccaquiz.json l'autorise :
+       "appli": "on" pour tous, "beta" sur Android seulement (iPhone pas encore vérifié), sinon le lien habituel. */
+    var MODE_APPLI = '';
+    function lienEnfant(classique, appli) { return appli && (MODE_APPLI === 'on' || (MODE_APPLI === 'beta' && /Android/i.test(navigator.userAgent))) ? appli : classique; }
+    fetch('https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json', { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; }).then(function (c) {
+      MODE_APPLI = String((c && c.appli) || '');
+      [].forEach.call(document.querySelectorAll('a.lien-enfant'), function (a) { a.href = lienEnfant(a.dataset.classique, a.dataset.appli); });
+    }).catch(function () {});
     function carteSite(s, seul) {
       var adulte = s.classe === 'adulte';
       if (s.incomplet) return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">⚠️ ' + h(titreSite(s)) + ' : installation interrompue</span></h2>' +
@@ -561,12 +581,12 @@ function scriptPage_() {
         '<button class="btn" data-action="maj" type="button">✨ Terminer l\'installation</button>' +
         '<details class="avance"><summary>Options avancées</summary><p class="petit"><a href="#" data-action="recommencer">Abandonner ce site</a></p>' +
         '<div class="confirmer cache ko"><p>Ses publications éventuelles seront désactivées et l\'installateur l\'oubliera.</p><button class="btn" data-action="oui-recommencer" type="button">Oui, abandonner</button> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></div></details></section>';
-      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">✅ ' + h(titreSite(s)) + '</span>' + '</h2>'   /* pas de classe ici : elle se change dans l'espace parent, que l'installateur ne voit pas */ +
+      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">✅ ' + h(titreCarte(s)) + '</span>' + '</h2>'   /* pas de classe ici : elle se change dans l'espace parent, que l'installateur ne voit pas */ +
         '<div class="msg">' + (s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
-        '<div class="actions"><a class="btn" href="' + h(s.url) + '">▶ ' + (adulte ? 'Mes quiz' : 'Site de l\'enfant') + '</a>' +
+        '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
         (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '">✉️ Envoyer le lien à mon enfant</a>') + '</div>' +
-        (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>Site de l\'enfant</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
+        (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>' + h(nomSite(s)) + '</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
         (!s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
           : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +
             '<p class="petit" style="margin:6px 0 0">Son adresse, ses quiz et ses résultats ne changent pas.</p></div>') +
