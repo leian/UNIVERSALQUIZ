@@ -1,22 +1,13 @@
 T|Listen and repeat|Écoute puis répète|anglais|🎧|🦜
 ## Se présenter|👋
 P|Écoute, puis répète.|Hello, my name is Lana.
-P|Écoute, puis répète.|I am ten years old.
-P|Écoute, puis répète.|I live in Nice.
 Q|Que veut dire la phrase entendue ?|J'ai dix ans.|J'ai deux ans.|Tu as dix ans.|I am ten years old = J'ai dix ans.|dire=I am ten years old.
 ## Poser une question|❓
-P|Écoute, puis répète.|What is your name?
-P|Écoute, puis répète.|How are you today?
-P|Écoute, puis répète.|Where are you from?
 Q|Que veut dire la phrase entendue ?|D'où viens-tu ?|Où vas-tu ?|Je viens de France.|Where are you from? = D'où viens-tu ?|dire=Where are you from?
 ## Les goûts|❤️
-P|Écoute, puis répète.|I like apples and bananas.
-P|Écoute, puis répète.|My favourite colour is blue.
 S|Écoute et écris le mot qui manque : I like ___ .|cats|On entend « I like cats » : j'aime les chats.|dire=I like cats.
 O|Écoute, puis remets la phrase dans l'ordre.|I|don't|like|milk|dire=I don't like milk.
 ## À l'école|🏫
-P|Écoute, puis répète.|Open your book, please.
-P|Écoute, puis répète.|Can I go to the toilet, please?
 V|« Sit down, please » veut dire « Assieds-toi, s'il te plaît ».|V|Sit down = s'asseoir.|dire=Sit down, please.
 M|Écoute d'abord la phrase en entier, puis répète-la lentement.
 M|Le bouton « Lentement » aide pour les phrases longues.
