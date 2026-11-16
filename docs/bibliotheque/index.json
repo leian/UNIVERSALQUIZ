@@ -1,6 +1,19 @@
 {
   "version": 1,
-  "quiz": [],
+  "quiz": [
+    {
+      "id": "anglais-listen-and-repeat",
+      "titre": "Listen and repeat",
+      "matiere": "anglais",
+      "classes": [
+        "6e"
+      ],
+      "nb": 6,
+      "icone": "🎧",
+      "description": "Écoute puis répète",
+      "ajoute": "2026-11-16"
+    }
+  ],
   "retires": [
     {
       "id": "anglais-moody-moods",
