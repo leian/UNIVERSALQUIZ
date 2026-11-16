@@ -90,7 +90,10 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
 #socca .garde button:disabled{filter:grayscale(1);opacity:.3;cursor:default}
 #socca .garde button.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 .card .maitrise .emb{display:flex;gap:2px}.card .maitrise .emb img{width:20px;height:20px}
-.card .new{position:absolute;top:10px;right:10px;background:#15803d;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px}
+.card .t{flex:1;min-width:0}
+.card .coin{flex:none;align-self:flex-start;margin:-4px -6px 0 0;display:flex;flex-direction:column;align-items:flex-end;gap:4px}
+.card .nq{font:600 .75rem "Fredoka",sans-serif;color:var(--soft);background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:1px 8px;white-space:nowrap}
+.card .new{background:#15803d;color:#fff;font:700 .7rem "Fredoka",sans-serif;border-radius:999px;padding:2px 8px;white-space:nowrap}
 .marque{display:flex;align-items:center;gap:10px}
 .marque img{border-radius:14px}
 .marque em{font-style:normal;color:#b3001b}
@@ -226,20 +229,26 @@ function afficherListe(){
     const M = MATIERES[m];
     return `<section><h2 style="--c:${M.c}"><span class="tuile">${I(m)}</span>${M.nom}</h2><div class="grid">` +
       qs.map(q => `<a class="card" style="--c:${M.c}" href="${encodeURI(q.fichier)}">
-        <div class="tete"><span class="tuile">${I(m)}</span><div class="t">${esc(q.titre)}</div></div>
-        <div class="d">${esc(q.description)}</div>${badge(q)}${maitrise(q)}</a>`).join("") + `</div></section>`;
+        <div class="tete"><span class="tuile">${I(m)}</span><div class="t">${esc(q.titre)}</div>${coin(q)}</div>
+        ${q.description ? `<div class="d">${esc(q.description)}</div>` : ""}${badge(q)}${maitrise(q)}</a>`).join("") + `</div></section>`;
   }).join("");
 }
 
 /* ---------- scores (suivi des résultats) ---------- */
 let STATS = {};
 const cle = f => String(f).split("/").pop().replace(/\.html$/i, "");
+// coin de la carte : nombre de questions d'une partie, et « Nouveau ! » pour un quiz de moins de 7 jours jamais joué.
+// Le thème d'âge réduit la partie comme dans le moteur (moteur-quiz.js, PROFILS : petits 8, lecteurs 10).
+const MAX_PARTIE = { petits: 8, lecteurs: 10 };
+function coin(q) {
+  const max = MAX_PARTIE[document.documentElement.dataset.theme] || Infinity, n = Math.min(nb(q.nq), max);
+  const nouveau = !STATS[cle(q.fichier)] && q.date && (Date.now() - new Date(q.date)) < 7 * 864e5 && /\.html$/i.test(q.fichier);
+  const h = (nouveau ? `<span class="new">Nouveau !</span>` : "") + (n > 0 ? `<span class="nq" title="${n} question${n > 1 ? "s" : ""} par partie">${n} question${n > 1 ? "s" : ""}</span>` : "");
+  return h ? `<span class="coin">${h}</span>` : "";
+}
 function badge(q) {
   const s = STATS[cle(q.fichier)];
-  if (!s) {
-    const recent = q.date && (Date.now() - new Date(q.date)) < 7 * 864e5;
-    return recent && /\.html$/i.test(q.fichier) ? `<span class="new">Nouveau !</span>` : "";
-  }
+  if (!s) return "";
   const nb = s.best >= 90 ? 3 : s.best >= 70 ? 2 : s.best >= 50 ? 1 : 0;
   const etoiles = [0, 1, 2].map(i => `<svg class="ic" viewBox="0 0 24 24" aria-hidden="true" style="width:14px;height:14px;${i < nb ? "fill:#e8a83a;stroke:#e8a83a" : "opacity:.35"}">${ICONES.star}</svg>`).join("");
   return `<span class="score" title="Meilleur score">${etoiles} ${s.best} % · ${s.n} partie${s.n > 1 ? "s" : ""}</span>`;
@@ -429,8 +438,8 @@ socca();
 (function () {
   var U = window.__UQ || {}, f = document.getElementById("foot");
   var lien = (href, txt) => `<a href="${esc(href)}" target="_top">${txt}</a>`;
-  if (U.espace === "enfant") {            // l'enfant ne voit pas les pages des parents, seulement la porte de l'espace parent
-    f.innerHTML = U.urlParent ? lien(U.urlParent, I("lock") + " Espace parent") : "";
+  if (U.espace === "enfant") {            // l'enfant ne voit pas les pages des parents ; la porte de l'espace parent est ajoutée
+    f.remove();                           // tout en bas de chaque page par le pont (pont.html, « porte de l'espace parent »)
     return;
   }
   if (U.espace === "parent") document.getElementById("espace-parent").hidden = false;

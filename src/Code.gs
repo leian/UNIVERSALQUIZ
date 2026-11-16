@@ -394,11 +394,11 @@ function catalogue_(dossier) {
       const cle = 'm_' + f.getId(), maj = f.getLastUpdated().getTime();
       let meta = null;
       try { meta = JSON.parse(toutes[cle] || 'null'); } catch (e) {}
-      if (!meta || meta.u !== maj || meta.n !== nom) {
+      if (!meta || meta.u !== maj || meta.n !== nom || meta.v !== META_V) {
         meta = Object.assign({ u: maj, n: nom }, lireMeta_(f.getBlob().getDataAsString('UTF-8'), nom, f.getDateCreated()));
         aEcrire[cle] = JSON.stringify(meta);
       }
-      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.biblio ? { biblio: meta.biblio } : {}));
+      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.nq ? { nq: meta.nq } : {}, meta.biblio ? { biblio: meta.biblio } : {}));
     }
   }
 
@@ -421,6 +421,7 @@ function catalogue_(dossier) {
   return cat;
 }
 
+const META_V = 2;                       // à augmenter quand lireMeta_ lit un nouveau champ : les quiz déjà lus sont relus
 function lireMeta_(html, nom, cree) {
   const i = html.lastIndexOf('MoteurQuiz.lancer');
   const bloc = i >= 0 ? html.slice(i) : html;
@@ -432,12 +433,18 @@ function lireMeta_(html, nom, cree) {
   const titre = texte_(champ('titre')) || titreBalise || joli_(nom.replace(/\.html?$/i, ''));
   const matiere = (champ('matiere') || 'autre').toLowerCase();
   const sous = texte_(champ('sousTitre').split(/<br\s*\/?>/i)[0]);
-  const nb = (html.match(/Pool\s*:\s*(\d+)\s*questions/i) || [])[1];
+  // nombre de questions d'une partie (coin de la carte du quiz) : celui du quiz (nbQuestions, 20 par défaut),
+  // au plus le nombre de questions écrites (« Pool : N questions ») ; le thème d'âge peut encore le réduire (index.html)
+  const pool = +((html.match(/Pool\s*:\s*(\d+)\s*questions/i) || [])[1] || 0);
+  const parPartie = +((bloc.match(/\bnbQuestions["']?\s*:\s*(\d+)/) || [])[1] || 0);
+  const nq = pool ? Math.min(parPartie || 20, pool) : parPartie;
   return {
     titre: titre.slice(0, 120),
     matiere: MATIERES[matiere] ? matiere : 'autre',
     badge: (/^(⭐|🌟|✨)?$/u.test(champ('badge')) && champ('icone')) || champ('badge') || '',
-    description: [sous, nb ? nb + ' questions' : ''].filter(Boolean).join(' · ').slice(0, 200),
+    description: sous.slice(0, 200),
+    nq: nq > 0 && nq < 1000 ? nq : 0,
+    v: META_V,
     date: dateDepuisNom_(nom) || jour_(cree),
     biblio: /^[a-z0-9-]{1,80}$/.test(champ('biblio')) ? champ('biblio') : ''    // quiz ajouté depuis la bibliothèque : son identifiant
   };

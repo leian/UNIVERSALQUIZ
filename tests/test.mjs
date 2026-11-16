@@ -603,10 +603,26 @@ try {
   const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false })]');
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
-  const pied = await page.locator('#foot').innerText();
-  ok(/Espace parent/.test(pied) && !/Ajouter un quiz|Créer un quiz|Suivi/.test(pied) && await page.locator('a.card').count() > 0, 'site de l\'enfant : quiz visibles, seul lien parent « 🔒 Espace parent »');
+  // porte de l'espace parent : ajoutée par le pont, dernier élément de chaque page du site de l'enfant
+  const porte = () => page.evaluate(() => { const p = document.getElementById('porte-parent'), a = p && p.querySelector('a'); return { n: document.querySelectorAll('#porte-parent').length, dernier: !!p && (() => { for (let e = p.nextElementSibling; e; e = e.nextElementSibling) { const c = getComputedStyle(e); if (c.display !== 'none' && !/fixed|absolute/.test(c.position) && !/^(SCRIPT|STYLE|TEMPLATE)$/.test(e.tagName)) return false; } return true; })(), href: a && a.href, texte: p && p.innerText.trim(), bas: !!p && [].every.call(document.querySelectorAll('main, aside, #app, .wrap'), e => e.getBoundingClientRect().bottom <= p.getBoundingClientRect().top + 1), ailleurs: [].filter.call(document.querySelectorAll('a'), x => !x.closest('#porte-parent') && /Espace parent|Suivi des résultats|Créer un quiz/.test(x.textContent)).length }; });
+  const urlParentEssai = (await ev('CONFIG.urlParent')).r;
+  const pA = await porte();
+  ok(pA.n === 1 && pA.dernier && pA.bas && pA.texte === 'Espace parent' && pA.href === urlParentEssai && pA.ailleurs === 0 && await page.locator('#foot').count() === 0 && await page.locator('a.card').count() > 0,
+    'site de l\'enfant, accueil : quiz visibles, un seul lien parent « Espace parent », tout en bas de la page (après la colonne de côté) — ' + JSON.stringify(pA));
+  const coins = await page.evaluate(() => [].map.call(document.querySelectorAll('a.card'), c => ({ nq: (c.querySelector('.coin .nq') || {}).textContent || '', d: (c.querySelector('.d') || {}).textContent || '', haut: c.querySelector('.coin') ? c.querySelector('.coin').getBoundingClientRect().top - c.getBoundingClientRect().top : -1, droite: c.querySelector('.coin') ? c.getBoundingClientRect().right - c.querySelector('.coin').getBoundingClientRect().right : -1 })));
+  ok(coins.length && coins.every(c => /^\d+ questions?$/.test(c.nq) && c.haut >= 0 && c.haut < 20 && c.droite >= 0 && c.droite < 20 && !/\d+ questions/.test(c.d)),
+    'cartes des quiz : nombre de questions en haut à droite (plus dans la description) — ' + JSON.stringify(coins.slice(0, 3)));
+  await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
+  await page.locator('#app').waitFor();
+  const pQ = await porte();
+  ok(pQ.n === 1 && pQ.dernier && pQ.bas && pQ.href === urlParentEssai, 'site de l\'enfant, page de quiz : lien « Espace parent » tout en bas — ' + JSON.stringify(pQ));
+  await page.goto(BASE + '/exec?page=revisions');
+  const pR = await porte();
+  ok(pR.n === 1 && pR.dernier && pR.href === urlParentEssai, 'site de l\'enfant, révisions : lien « Espace parent » tout en bas — ' + JSON.stringify(pR));
+  await page.goto(BASE + '/exec');
   await ev('CONFIG.espace = "parent"; CONFIG.urlParent = ""');
   await page.goto(BASE + '/exec');
+  ok(await page.locator('#porte-parent').count() === 0, 'espace parent : pas de lien vers lui-même en bas de page');
   ok(await page.locator('.actions-tete a.principal').isVisible() && /Créer un quiz/.test(await page.locator('.actions-tete').innerText()) && await page.locator('#onglets').isVisible() && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (« Créer un quiz » en haut, onglets, pas la page de l\'enfant)');
   ok(await page.locator('#liste-quiz a.tester').count() > 0 && await page.locator('#liste-quiz button[data-f]').count() > 0, 'espace parent : chaque quiz peut être testé ou supprimé');
   ok(/Clé Gemini/.test(await page.locator('#info-gemini').innerText()), 'espace parent : état de la clé Gemini affiché');

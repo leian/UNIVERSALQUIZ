@@ -116,6 +116,24 @@
       a.setAttribute('rel', 'noopener');
     }
   }
+  /* ---------- 4. porte de l'espace parent ----------
+     Site de l'enfant : un lien discret vers l'espace parent, tout en bas de CHAQUE page (accueil, quiz, révisions,
+     défi), toujours au même endroit — après tout le contenu, colonne de côté comprise. Les pages n'en mettent donc
+     pas elles-mêmes. Le clic passe par auClic comme tout lien (dans l'appli : ouverture à part). */
+  function porteParent() {
+    if (CFG.espace !== 'enfant' || !CFG.urlParent || !document.body || document.getElementById('porte-parent')) return;
+    var p = document.createElement('p');
+    p.id = 'porte-parent';
+    p.style.cssText = 'clear:both;text-align:center;margin:40px 0 0;padding:0 12px 20px;font:500 .85rem/1.3 inherit';
+    var a = document.createElement('a');
+    a.href = CFG.urlParent; a.target = '_top';
+    a.style.cssText = 'display:inline-flex;align-items:center;gap:6px;min-height:44px;padding:0 10px;color:var(--soft, inherit);text-decoration:none';
+    a.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg><span>Espace parent</span>';
+    p.appendChild(a);
+    document.body.appendChild(p);
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', porteParent); else porteParent();
+
   /* Espace parent ouvert depuis l'appli (…?appli=1) : on s'en souvient le temps de l'onglet, pour que le lien
      « site de l'enfant » ramène dans l'appli depuis n'importe quelle page de l'espace parent. Ouvert normalement,
      l'espace parent garde son lien habituel. */
