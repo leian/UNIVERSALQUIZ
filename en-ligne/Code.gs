@@ -450,7 +450,7 @@ function pageHtml_(suppr, vue) {
 
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
-  '<a href="https://leian.github.io/UNIVERSALQUIZ/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
+  '<a href="https://soccaquiz.fr/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
   '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\nwindow.__VUE = ' + JSON.stringify(vue || '') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }
 
