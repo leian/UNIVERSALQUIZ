@@ -76,7 +76,7 @@
     try { (JSON.parse(localStorage.getItem('uqSuivi.local')) || []).forEach(r => noter(r.quiz, r.score, r.total, r.date, r.mode)); } catch (e) {}
   }
   async function chargerDistant() {
-    if (!/^https?:/.test(location.protocol)) return;
+    if (!/^https?:/.test(location.protocol) && !(window.__UQ && window.__UQ.direct)) return;   // __UQ.direct : page assemblée par l'appli (about:srcdoc)
     try {
       const r = await fetch('/api/resultats', { cache: 'no-store', credentials: 'same-origin' });
       if (!r.ok) return;

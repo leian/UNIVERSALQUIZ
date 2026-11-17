@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>SoccaQuiz</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#a9010d">
+<link rel="icon" href="icone-192.png">
+<link rel="apple-touch-icon" href="icone-180.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="SoccaQuiz">
+<style>
+  html, body { margin: 0; height: 100%; background: #fff8ef; overflow: hidden; }
+  iframe.page { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  #demarrage { position: fixed; inset: 0; z-index: 99; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 18px; padding: 24px; text-align: center; background: #fff8ef; color: #2b2350;
+    font: 600 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; transition: opacity .25s; }
+  #demarrage.fini { opacity: 0; pointer-events: none; }
+  #demarrage img { width: 120px; height: 120px; border-radius: 26px; }
+  #demarrage.attente img { animation: battre 1.4s ease-in-out infinite; }
+  #demarrage button { font: inherit; color: #fff; background: #a9010d; border: 0; border-radius: 999px; padding: 10px 22px; }
+  #charge { position: fixed; left: 0; top: 0; height: 3px; width: 0; z-index: 98; background: #c8102e; transition: width 2s ease-out, opacity .3s; opacity: 0; }
+  #charge.actif { width: 80%; opacity: 1; }
+  @keyframes battre { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { #demarrage.attente img { animation: none; } #charge { transition: none; } }
+</style>
+</head>
+<body>
+<div id="demarrage" class="attente">
+  <img src="icone-192.png" alt="">
+  <span id="msg" role="status">Chargement…</span>
+  <button id="reessayer" type="button" hidden>Réessayer</button>
+</div>
+<div id="charge" aria-hidden="true"></div>
+<script>
+/* =====================================================================
+   APPLI SoccaQuiz SERVIE HORS DE GOOGLE (site statique, Cloudflare Pages)
+   Plan : « site de l'enfant hors de Google » (projet claude.ai). Règle : uniquement des fichiers statiques ici,
+   jamais de fonction serveur ; les données restent dans le Google de chaque famille (…/exec?api=…).
+   - l'adresse donne le site de la famille : ?s=<identifiant du déploiement du site de l'enfant>
+   - les pages (accueil, quiz) sont assemblées ICI avec les mêmes fichiers que le site servi par Google
+     (lib/*.html, construits par construire.mjs) et affichées dans un cadre de même origine (srcdoc) :
+     changer de page ne recharge jamais l'appli ;
+   - la dernière liste de quiz, les scores et les quiz déjà ouverts sont gardés sur l'appareil : affichage
+     immédiat, mise à jour discrète en arrière-plan ;
+   - un site sans l'API (version d'avant la v2.87) est ouvert par l'ancienne appli (leian.github.io/app).
+   ===================================================================== */
+(function () {
+  var COMMUN = __COMMUN__;                 // posé par construire.mjs : la même liste que Code.gs
+  var ANCIENNE = 'https:\/\/leian.github.io/app/?s=';
+  var MOTIF = /^AKfy[\w-]{20,200}$/;
+  var dem = document.getElementById('demarrage'), msg = document.getElementById('msg'), bouton = document.getElementById('reessayer');
+  var barre = document.getElementById('charge');
+  var p = new URLSearchParams(location.search);
+
+  var lireJ = function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } };
+  var ecrireJ = function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } };
+  try {
+    if (p.get('chrono') === '1') localStorage.setItem('uq-chrono', '1');
+    if (p.get('chrono') === '0') localStorage.removeItem('uq-chrono');
+  } catch (e) {}
+
+  // site de la famille : ?s=… (gardé sur l'appareil si l'adresse le perd) ; essais sur l'ordinateur : ?exec=<adresse locale>
+  var id = p.get('s'), BASE = '';
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  if (local && p.get('exec')) { BASE = p.get('exec'); id = id || 'local'; }
+  else {
+    try {
+      if (id && MOTIF.test(id)) localStorage.setItem('sq-site', id);
+      else id = localStorage.getItem('sq-site');
+    } catch (e) {}
+    if (!id || !MOTIF.test(id)) { arreter('Ouvre le lien SoccaQuiz reçu par mail.'); return; }
+    BASE = 'https:\/\/script.google.com/macros/s/' + id + '/exec';
+  }
+  var K_ETAT = 'sq-etat:' + id, K_QUIZ = 'sq-quiz:' + id + ':';
+
+  function arreter(t, reessayer) {
+    dem.classList.remove('attente', 'fini');
+    msg.textContent = t;
+    bouton.hidden = !reessayer;
+  }
+  bouton.addEventListener('click', function () { location.reload(); });
+
+  /* ---------- échanges avec le Google de la famille ---------- */
+  function lireJson(r) {
+    return r.text().then(function (t) {
+      try { return JSON.parse(t); } catch (e) { var err = new Error('Réponse illisible'); err.ancien = /<html/i.test(t); throw err; }
+    });
+  }
+  function api(nom, params) {
+    var q = new URLSearchParams(params || {});
+    q.set('api', nom);
+    return fetch(BASE + '?' + q.toString(), { credentials: 'omit' }).then(lireJson).then(function (d) {
+      if (!d || !d.v) { var e = new Error('Site pas à jour'); e.ancien = true; throw e; }
+      return d;
+    });
+  }
+  function poster(o) {      // texte simple : pas de requête préalable CORS
+    return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
+  }
+  function versAncienneAppli() {
+    if (local) { arreter('Ce site n\'a pas encore l\'API (version 2.87 ou plus).', true); return; }
+    location.replace(ANCIENNE + encodeURIComponent(id) + (location.hash.length > 1 ? '&q=' + encodeURIComponent('page=' + location.hash.slice(1)) : ''));
+  }
+
+  /* ---------- fichiers du moteur (mêmes fichiers que la version Google) ---------- */
+  var L = {};
+  function chargerLibs() {
+    var noms = ['page-index', 'pont'].concat(Object.keys(COMMUN).map(function (f) { return COMMUN[f]; }));
+    return Promise.all(noms.map(function (n) {
+      return fetch('lib/' + n + '.html').then(function (r) { if (!r.ok) throw new Error('lib/' + n); return r.text(); }).then(function (t) { L[n] = t; });
+    }));
+  }
+  function lib(nom, avecPrenom) {
+    var s = L[nom];
+    if (!avecPrenom) return s;
+    var prenom = String((etat && etat.prenom) || '').trim().replace(/'/g, '’').replace(/[<>"`\\&$]/g, '');
+    if (prenom) return s.split('{{PRENOM}}').join(prenom);
+    return s.replace(/[ ,\u00a0]*\{\{PRENOM\}\}/g, '');
+  }
+  var jsonScript = function (v) { return JSON.stringify(v).replace(/</g, '\\u003c').replace(/[\u2028\u2029]/g, function (c) { return '\\u' + c.charCodeAt(0).toString(16); }); };
+  /* même travail que assembler_() de Code.gs, fait sur l'appareil */
+  function assembler(html, page, cfg) {
+    var aBadges = /src=["']commun\/badges\.js["']/i.test(html);
+    var aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
+    var aDessins = /src=["']commun\/dessins\.js["']/i.test(html);
+    html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, function (m, f) { return COMMUN[f] ? lib(COMMUN[f], true) : ''; });
+    html = html.replace(/<script\b[^>]*src=["']commun\/([\w.-]+\.js)["'][^>]*>\s*<\/script>/gi, function (m, f) {
+      if (f === 'catalogue.js' || !COMMUN[f]) return '';
+      var s = lib(COMMUN[f], true);
+      if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib(COMMUN['badges.js'], true);
+      if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib(COMMUN['animations.js'], true);
+      if (f === 'moteur-quiz.js' && !aDessins) s = lib(COMMUN['dessins.js'], true) + '\n' + s;
+      return s;
+    });
+    var tete = '\n<script>window.__UQ = ' + jsonScript(cfg) + ';<\/script>\n' + lib('pont', false) +
+      '\n<script>\nvar QUIZ = ' + jsonScript(etat.quiz || []) + ';\nvar MATIERES = ' + jsonScript(etat.matieres || {}) + ';\n<\/script>\n';
+    var styleTheme = '<link rel="stylesheet" href="' + (etat.polices || '') + '">\n' + lib(COMMUN['themes.css'], false);
+    var genre = (cfg.genresDessines || []).indexOf(cfg.theme) >= 0 && cfg.genreEffectif !== 'n';
+    html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') +
+      (genre ? ' data-genre="' + cfg.genreEffectif + '"' + ((cfg.genresSaisons || []).indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') +
+      (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
+    return /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, function (m) { return m + tete; }) : tete + html;
+  }
+
+  /* ---------- données de la famille, gardées sur l'appareil ---------- */
+  var etat = lireJ(K_ETAT), enCours = null;
+  function rafraichir() {
+    if (enCours) return enCours;
+    enCours = api('etat').then(function (e) {
+      var change = JSON.stringify(e) !== JSON.stringify(etat);
+      etat = e;
+      ecrireJ(K_ETAT, e);
+      return change;
+    }).finally(function () { enCours = null; });
+    return enCours;
+  }
+  // partie enregistrée : ajoutée tout de suite aux scores gardés (accueil, badges), avant la mise à jour du serveur
+  function ajouterPartie(brut) {
+    try {
+      var r = typeof brut === 'string' ? JSON.parse(brut) : brut;
+      if (!etat || !etat.reglages || !r) return;
+      var l = etat.reglages.resultats = etat.reglages.resultats || [];
+      l.unshift({ id: 'local:' + (r._id || Date.now()), date: new Date().toISOString(), quiz: String(r.quiz || ''), titre: r.titre || '', matiere: r.matiere || '',
+        score: +r.score || 0, total: +r.total || 0, duree: r.duree == null ? null : +r.duree, mode: r.mode || 'normal' });
+      ecrireJ(K_ETAT, etat);
+    } catch (e) {}
+  }
+  var quizMemoire = {};
+  function quiz(page) {
+    var t0 = Date.now(), k = K_QUIZ + page;
+    var garde = quizMemoire[page] || (page === 'revisions' || page === 'defi' ? null : lireJ(k));
+    var frais = api('quiz', { page: page }).then(function (q) {
+      if (q && q.html) {
+        quizMemoire[page] = q;
+        if (page !== 'revisions' && page !== 'defi' && !ecrireJ(k, q)) nettoyerQuiz(k, q);
+      }
+      q.ms = Date.now() - t0;
+      return q;
+    });
+    if (garde && garde.html) { frais.catch(function () {}); return Promise.resolve(Object.assign({}, garde, { ms: 0, garde: true })); }
+    return frais;
+  }
+  function nettoyerQuiz(k, q) {         // mémoire de l'appareil pleine : on retire les autres quiz gardés, puis on réessaie
+    try { Object.keys(localStorage).forEach(function (x) { if (x.indexOf('sq-quiz:') === 0) localStorage.removeItem(x); }); } catch (e) {}
+    ecrireJ(k, q);
+  }
+
+  /* ---------- pages ---------- */
+  var pageCourante = null, numero = 0;
+  var pageDeLAdresse = function () { var h = location.hash.slice(1); try { h = decodeURIComponent(h); } catch (e) {} return h.replace(/[^\p{L}\p{N}_.\- ]/gu, '').slice(0, 150) || 'index'; };
+  function montrer(html) {
+    var n = ++numero;
+    var f = document.createElement('iframe');
+    f.className = 'page';
+    f.title = 'SoccaQuiz';
+    f.setAttribute('allow', 'microphone; autoplay; clipboard-write');
+    f.style.zIndex = String(n);
+    f.numero = n;
+    f.addEventListener('load', function () { prete(f); });
+
+    f.srcdoc = html;
+    document.body.appendChild(f);
+  }
+  // la page est prête (pont.html l'annonce dès que son contenu est en place, sans attendre les images) :
+  // les pages précédentes sont retirées
+  function prete(f) {
+    if (!f || f.dejaPrete) return;
+    if (f.numero !== numero) { f.remove(); return; }
+    f.dejaPrete = true;
+    Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { if (x !== f) x.remove(); });
+    barre.classList.remove('actif');
+    dem.classList.add('fini');
+    try { f.contentWindow.focus(); } catch (e) {}
+  }
+  function reglages(page, extra) {
+    var cfg = Object.assign({}, etat.reglages, { page: page, chemin: '/' + page + '.html', direct: true, site: id, url: '' }, extra || {});
+    if (page !== 'index') cfg.revisions = null;
+    return cfg;
+  }
+  function afficher(page) {
+    pageCourante = page;
+    barre.classList.add('actif');
+    if (page === 'index') { montrer(assembler(lib('page-index', true), 'index', reglages('index'))); return Promise.resolve(); }
+    return quiz(page).then(function (q) {
+      if (pageCourante !== page) return;
+      if (!q || !q.html) {
+        montrer(assembler(lib('page-index', true), 'index', reglages('index')));
+        return;
+      }
+      montrer(assembler(q.html, page, reglages(page, { maitrise: q.maitrise, chrono: { etapes: [[q.garde ? 'quiz déjà sur l\'appareil' : 'quiz', q.ms]], total: q.ms, demande: '' } })));
+    }).catch(function (e) {
+      if (e && e.ancien) return versAncienneAppli();
+      barre.classList.remove('actif');
+      if (!document.querySelector('iframe.page')) arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz met du temps à répondre. Réessaie dans un instant.', true);
+    });
+  }
+
+  /* ---------- ce que les pages demandent à l'appli (pont.html, mode direct) ---------- */
+  window.SQ = {
+    pret: function (win) {
+      Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { if (x.contentWindow === win) prete(x); });
+    },
+    aller: function (page) {
+      page = String(page || 'index');
+      try { sessionStorage.setItem('uq-chrono-clic', String(Date.now())); } catch (e) {}
+      if (page === 'index') { if (location.hash) location.hash = ''; else afficher('index'); }
+      else if (location.hash.slice(1) === encodeURIComponent(page)) afficher(page);
+      else location.hash = encodeURIComponent(page);
+    },
+    appel: function (fn, arg) {
+      if (fn === 'apiEnregistrer') return poster({ api: 'enregistrer', d: arg }).then(function (r) {
+        if (r && r.ok && !r.deja && !r.essai) ajouterPartie(arg);
+        setTimeout(function () { rafraichir().catch(function () {}); }, 1500);    // le serveur a recalculé révisions et maîtrise
+        return r;
+      });
+      if (fn === 'apiSignaler') return poster({ api: 'signaler', d: arg });
+      if (fn === 'apiLister') return Promise.resolve({ resultats: ((etat && etat.reglages && etat.reglages.resultats) || []).slice() });
+      return Promise.reject(new Error('Action réservée à l\'espace parent.'));
+    }
+  };
+  window.addEventListener('hashchange', function () { afficher(pageDeLAdresse()); });
+
+  /* ---------- démarrage ---------- */
+  var libs = chargerLibs();
+  if (etat && etat.reglages) {
+    // affichage immédiat avec ce qui est gardé sur l'appareil, puis mise à jour discrète
+    libs.then(function () { return afficher(pageDeLAdresse()); }).then(function () {
+      return rafraichir().then(function (change) { if (change && pageCourante === 'index') afficher('index'); });
+    }).catch(function (e) { if (e && e.ancien) versAncienneAppli(); });
+  } else {
+    Promise.all([libs, rafraichir()]).then(function () { return afficher(pageDeLAdresse()); }).catch(function (e) {
+      if (e && e.ancien) return versAncienneAppli();
+      arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true);
+    });
+  }
+  if ('serviceWorker' in navigator && !local) navigator.serviceWorker.register('sw.js').catch(function () {});
+})();
+</script>
+</body>
+</html>

@@ -11,6 +11,27 @@
   var CFG = window.__UQ || { url: '', page: '', chemin: location.pathname, liens: {} };
   if (!CFG.liens) CFG.liens = {};
   window.__UQ = CFG;
+  /* appli servie hors de Google : tous les sites de l'appareil partagent la même adresse, donc la même mémoire.
+     Chaque site range la sienne à part (« sq:<site>:<clé> ») : deux enfants sur une même tablette ne mélangent
+     ni leurs parties en attente ni leurs badges. Seul le chrono est commun à l'appareil. */
+  if (CFG.direct && CFG.site) try {
+    var vraie = window.localStorage, pre = 'sq:' + CFG.site + ':', commun = /^uq-chrono/;
+    var cle = function (k) { k = String(k); return commun.test(k) ? k : pre + k; };
+    var mesCles = function () { var l = []; for (var i = 0; i < vraie.length; i++) { var k = vraie.key(i); if (k && k.indexOf(pre) === 0) l.push(k.slice(pre.length)); } return l; };
+    var rangement = {
+      getItem: function (k) { return vraie.getItem(cle(k)); },
+      setItem: function (k, v) { vraie.setItem(cle(k), String(v)); },
+      removeItem: function (k) { vraie.removeItem(cle(k)); },
+      clear: function () { mesCles().forEach(function (k) { vraie.removeItem(pre + k); }); },
+      key: function (i) { return mesCles()[i] || null; }
+    };
+    var mem = new Proxy(rangement, {
+      get: function (t, k) { return k === 'length' ? mesCles().length : t[k]; },
+      ownKeys: function () { return mesCles(); },
+      getOwnPropertyDescriptor: function (t, k) { return mesCles().indexOf(k) >= 0 ? { enumerable: true, configurable: true, value: vraie.getItem(pre + k) } : undefined; }
+    });
+    Object.defineProperty(window, 'localStorage', { configurable: true, get: function () { return mem; } });
+  } catch (e) {}
   // remise à zéro demandée par le parent (Réglages) : mémoire de l'appareil effacée une fois ; les préférences
   // de l'appareil (sons, micro, enregistrement coupé) sont gardées
   try {
@@ -57,7 +78,7 @@
       l.push('<b>⏱ ' + (CFG.page || 'page') + '</b>');
       if (clic) l.push('Toucher → page prête : <b>' + sec(Date.now() - clic > 60000 ? null : (window.__uqPret || Date.now()) - clic) + '</b>');
       if (S) {
-        l.push('Serveur : <b>' + sec(S.total) + '</b>');
+        l.push((CFG.direct ? 'Données : <b>' : 'Serveur : <b>') + sec(S.total) + '</b>');
         l.push('<span style="opacity:.8">' + S.etapes.filter(function (x) { return x[1] >= 5; }).map(function (x) { return x[0] + ' ' + sec(x[1]); }).join(' · ') + '</span>');
       }
       if (nav) l.push('Affichage : ' + sec(nav.domContentLoadedEventEnd) + ' (chargée ' + sec(nav.loadEventEnd || null) + ')');
@@ -76,6 +97,19 @@
   })();
   window.UQChrono = Chrono;
 
+  /* appli servie hors de Google : google.script.run n'existe pas ; les appels directs du moteur (signalement…)
+     passent par l'appli, qui ne connaît que les actions du site de l'enfant */
+  if (CFG.direct && !(window.google && google.script && google.script.run) && window.Proxy) {
+    var chaine = function (ok, ko) {
+      return new Proxy({}, { get: function (_, k) {
+        if (k === 'withSuccessHandler') return function (h) { return chaine(h, ko); };
+        if (k === 'withFailureHandler') return function (h) { return chaine(ok, h); };
+        return function (arg) { window.parent.SQ.appel(k, arg).then(function (d) { if (ok) ok(d); }, function (e) { if (ko) ko(e); }); };
+      } });
+    };
+    window.google = { script: { run: chaine(null, null) } };
+  }
+
   /* ---------- 1. API des résultats ---------- */
   var vraiFetch = window.fetch ? window.fetch.bind(window) : null;
   function reponse(status, data) {
@@ -88,6 +122,12 @@
   function appel(fn, arg, statutOk) {
     var t0 = Date.now();
     return new Promise(function (ok) {
+      // appli servie hors de Google (CFG.direct) : la page est dans l'appli, qui parle au Google de la famille
+      if (CFG.direct && window.parent && window.parent.SQ) {
+        window.parent.SQ.appel(fn, arg).then(function (d) { Chrono.appel(fn, t0); ok(d && d.__status ? reponse(d.__status, d) : reponse(statutOk || 200, d)); },
+          function (e) { Chrono.appel(fn + ' (échec)', t0); ok(reponse(500, { erreur: String((e && e.message) || e) })); });
+        return;
+      }
       var run = window.google && google.script && google.script.run;
       if (!run) return ok(reponse(503, { erreur: 'Connexion à Google indisponible' }));
       run.withSuccessHandler(function (d) { Chrono.appel(fn, t0); ok(d && d.__status ? reponse(d.__status, d) : reponse(statutOk || 200, d)); })
@@ -157,10 +197,33 @@
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
     Chrono.depart();
+    if (CFG.direct) return lienDirect(a, e);
     corriger(a);
     if (CFG.espace === 'enfant' && CFG.cadre) resterDansAppli(a, e);
     else if (CFG.espace === 'enfant' && CFG.classique) garderClassique(a);
     else if (CFG.appli) versAppliEnfant(a);
+  }
+  /* appli servie hors de Google : une page du site est demandée à l'appli (pas de rechargement) ;
+     les pages des parents et les autres sites s'ouvrent à part */
+  function lienDirect(a, e) {
+    var brut = a.getAttribute('href') || '';
+    if (!brut || brut.charAt(0) === '#' || /^(mailto|tel|javascript):/i.test(brut)) return;
+    if (!/^(?:[a-z][a-z0-9+.-]*:|\/\/)/i.test(brut)) {
+      var nom = brut.split('#')[0].split('?')[0].split('/').pop();
+      try { nom = decodeURIComponent(nom); } catch (x) {}
+      if (/\.html?$/i.test(nom) || nom === '') {
+        var page = nom.replace(/\.html?$/i, '') || 'index';
+        if ((CFG.pagesParent || []).indexOf(page) >= 0 && CFG.urlParent) {
+          a.setAttribute('href', CFG.urlParent + '?page=' + encodeURIComponent(page));
+        } else {
+          e.preventDefault();
+          if (e.type === 'click' && !e.button && window.parent && window.parent.SQ) window.parent.SQ.aller(page);
+          return;
+        }
+      }
+    }
+    a.setAttribute('target', '_blank');
+    a.setAttribute('rel', 'noopener');
   }
   /* espace parent (ou toute page hors du site de l'enfant) : un lien vers le site de l'enfant ouvre son appli,
      à la même page, jamais l'adresse Google directe (celle qui affiche le bandeau Google) */
@@ -213,6 +276,11 @@
     document.body.appendChild(p);
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', porteParent); else porteParent();
+  // appli servie hors de Google : la page annonce à l'appli qu'elle est en place (l'appli retire la précédente)
+  if (CFG.direct) {
+    var annoncer = function () { try { if (window.parent && window.parent.SQ) window.parent.SQ.pret(window); } catch (e) {} };
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', annoncer); else setTimeout(annoncer, 0);
+  }
 
   if (CFG.espace === 'enfant' && CFG.cadre) {
     window.addEventListener('message', function (e) {

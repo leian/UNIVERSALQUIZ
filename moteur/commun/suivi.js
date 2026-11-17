@@ -40,7 +40,7 @@
   }
   async function envoyer() {
     const file = lireFile();
-    if (!file.length || !/^https?:/.test(location.protocol)) return;
+    if (!file.length || (!/^https?:/.test(location.protocol) && !(window.__UQ && window.__UQ.direct))) return;   // __UQ.direct : page assemblée par l'appli (about:srcdoc)
     const partis = new Set();
     for (const r of file) {
       try {

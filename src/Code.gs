@@ -204,7 +204,7 @@ function apiGet_(p) {
     const inst = installer_();
     if (p.api === 'etat') {
       const cat = catalogue_(inst.dossier);
-      return { v: API_V, version: CONFIG.version, reglages: reglagesPage_('index', inst, cat), quiz: cat.QUIZ, matieres: MATIERES };
+      return { v: API_V, version: CONFIG.version, prenom: CONFIG.prenom || '', polices: POLICES, reglages: reglagesPage_('index', inst, cat), quiz: cat.QUIZ, matieres: MATIERES };
     }
     if (p.api === 'quiz') {
       const page = nettoyerNom_(p.page || '');
@@ -382,6 +382,7 @@ function reglagesPage_(page, inst, cat) {
     genreAuto: genreDuPrenom_(CONFIG.prenom), // ce que donne le prénom (affiché à côté de « Automatique »)
     genreEffectif: genre_(),
     genresDessines: GENRES_DESSINES,
+    genresSaisons: GENRES_SAISONS,
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);

@@ -8,3 +8,5 @@ dist/
 .outils/
 tests/corbeille/
 tests/drive-appli/
+build-site/
+tests/drive-site/
