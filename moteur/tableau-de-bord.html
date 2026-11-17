@@ -230,6 +230,10 @@ dialog.boite.large{max-width:720px}
       <h2><i data-ic="phone"></i>Cet appareil</h2>
       <div id="appareil"></div>
     </div>
+    <div class="box" id="box-chrono" hidden>
+      <h2><i data-ic="phone"></i>Mesurer la vitesse</h2>
+      <div id="chrono" class="small"></div>
+    </div>
     <div class="box">
       <h2><i data-ic="link"></i>Adresses du site</h2>
       <div id="adresses" class="small"></div>
@@ -851,6 +855,13 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   if (U.urlEnfant) { $("lien-enfant").href = lienEnfant; $("lien-enfant").target = "_top"; }
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + " Accueil";
   else $("lien-enfant").hidden = true;
+  // chronomètre (pont.html) : s'allume sur l'appareil qui ouvre le site de l'enfant avec chrono=1 et y reste
+  if (U.urlEnfant) {
+    const avec = v => U.appli ? U.appli + "&q=chrono%3D" + v : U.urlEnfant + "?chrono=" + v;
+    $("box-chrono").hidden = false;
+    $("chrono").innerHTML = `<p style="margin:0 0 10px">Ouvre le site de {{PRENOM}} avec un petit chronomètre en bas de l'écran : temps de chaque page et de chaque échange avec Google. Il reste allumé sur ce téléphone, appli installée comprise, jusqu'à « Arrêter le chrono ».</p>` +
+      `<a class="btn" href="${esc(avec(1))}" target="_top">${I("eye")} Ouvrir avec le chrono</a> <a class="btn" href="${esc(avec(0))}" target="_top">Arrêter le chrono</a>`;
+  }
   const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
   $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de {{PRENOM}} (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
     || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.");
