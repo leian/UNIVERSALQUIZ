@@ -600,7 +600,7 @@ try {
   ok(/Espace parent/.test(await page.locator('body').innerText()) && await page.locator('#reponse').count() === 0, 'site de l\'enfant : « Ajouter un quiz » renvoie vers l\'espace parent');
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   ok(/réservée aux parents/.test(await page.locator('body').innerText()), 'site de l\'enfant : le suivi des résultats est réservé aux parents');
-  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false })]');
+  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false }), apiMascotte({ mascotte: "rap" })]');
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
   // porte de l'espace parent : ajoutée par le pont, dernier élément de chaque page du site de l'enfant
@@ -642,6 +642,17 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('html').getAttribute('data-saison') === null, 'saisons éteintes : plus de décor sur la page');
   await ev('apiSaison({ active: true })');
+  // mascotte du lycée : liste déroulante dans Réglages seulement au lycée, attribut posé sur la page
+  const classeAvant = (await ev('classe_()')).r;
+  ok(await page.locator('#choix-mascotte').count() === 0 && await page.locator('html').getAttribute('data-mascotte') === null, 'mascotte : pas de choix hors du lycée');
+  await ev('apiClasse({ classe: "1re" })');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('#choix-mascotte option').count() === 2 && await page.locator('html').getAttribute('data-mascotte') === 'gothique', 'mascotte : au lycée, deux tenues au choix, gothique par défaut');
+  ok((await ev('apiMascotte({ mascotte: "pirate" })')).r.erreur && (await ev('apiMascotte({ mascotte: "rap" })')).r.ok, 'mascotte : seule une tenue de la liste est acceptée');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('html').getAttribute('data-mascotte') === 'rap' && await page.locator('#choix-mascotte').inputValue() === 'rap', 'mascotte : la tenue choisie est posée sur la page et dans Réglages');
+  await ev('PropertiesService.getScriptProperties().deleteProperty("MASCOTTE")');
+  await ev('apiClasse({ classe: ' + JSON.stringify(classeAvant) + ' })');
   const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
   await ev('CONFIG.espace = ""');

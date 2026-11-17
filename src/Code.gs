@@ -317,6 +317,8 @@ function assembler_(html, page, inst) {
     saison: saison_(),
     saisonDuJour: saisonDe_(),
     saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1',
+    mascotte: mascotte_(),
+    mascottes: MASCOTTES_LYCEE,
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
@@ -348,7 +350,7 @@ function assembler_(html, page, inst) {
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
   // polices (Fredoka, Nunito, Andika) servies par GitHub Pages : aucune requête vers Google Fonts depuis le site de l'enfant
   const styleTheme = '<link rel="stylesheet" href="' + POLICES + '">\n' + lib_(COMMUN['themes.css'], false);
-  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
   html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
@@ -1004,6 +1006,22 @@ function apiClasse(d) {
   const classe = classe_();
   try { CacheService.getScriptCache().remove('famille-inscrit'); inscrireFamille_(installer_()); } catch (e) {}
   return { ok: true, classe, theme: themeDe_(classe) };
+}
+
+/* ---------------- mascotte du lycée ----------------
+   Au lycée, le parent choisit la tenue de la mascotte (Réglages, sous la classe) : <html data-mascotte="…">.
+   Images : docs/themes/lycee-<mascotte>/ ; la première de la liste sert par défaut. */
+const MASCOTTES_LYCEE = ['gothique', 'rap'];
+function mascotte_() {
+  const m = PropertiesService.getScriptProperties().getProperty('MASCOTTE');
+  return MASCOTTES_LYCEE.indexOf(m) >= 0 ? m : MASCOTTES_LYCEE[0];
+}
+function apiMascotte(d) {
+  if (interdit_()) return refusEnfant_();
+  const m = String((d && d.mascotte) || '');
+  if (MASCOTTES_LYCEE.indexOf(m) < 0) return { erreur: 'Mascotte inconnue.' };
+  PropertiesService.getScriptProperties().setProperty('MASCOTTE', m);
+  return { ok: true, mascotte: m };
 }
 
 /* ---------------- saisons ----------------

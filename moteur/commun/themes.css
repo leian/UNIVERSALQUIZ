@@ -35,6 +35,15 @@ html[data-theme="lycee"] .m-accueil { background-image:url("https:\/\/leian.gith
 html[data-theme="lycee"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/bravo.webp"); }
 html[data-theme="lycee"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/encouragement.webp"); }
 html[data-theme="lycee"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee/reflexion.webp"); }
+/* lycée : tenue choisie par le parent (Réglages → Mascotte) */
+html[data-theme="lycee"][data-mascotte="gothique"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/reflexion.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/reflexion.webp"); }
 html[data-theme="parent"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/accueil.webp"); }
 html[data-theme="parent"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/bravo.webp"); }
 html[data-theme="parent"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/encouragement.webp"); }
