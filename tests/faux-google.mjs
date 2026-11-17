@@ -81,7 +81,7 @@ const ctx = {
     getProperties: () => ({ ...props }), setProperties: o => Object.assign(props, o), deleteProperty: k => { delete props[k]; },
     deleteAllProperties: () => { Object.keys(props).forEach(k => { delete props[k]; }); }, getKeys: () => Object.keys(props)
   }) },
-  CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }) }) },
+  CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }), putAll: o => Object.assign(cache, o), getAll: ks => Object.fromEntries(ks.filter(k => k in cache).map(k => [k, cache[k]])) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },

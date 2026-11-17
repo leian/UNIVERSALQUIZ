@@ -21,6 +21,61 @@
   } catch (e) {}
   try { console.info('[SoccaQuiz] pont actif — page « ' + CFG.page + ' », site ' + (CFG.url || '(adresse inconnue)')); } catch (e) {}
 
+  /* ---------- 0. chronomètre (…/exec?chrono=1, arrêt : ?chrono=0) ----------
+     Mesure, sur cet appareil : le temps entre le toucher d'un lien et la page prête, le travail du serveur
+     (étapes posées par Code.gs dans __UQ.chrono), l'affichage de la page et chaque appel au serveur.
+     Rien n'est envoyé : tout s'affiche dans un petit encadré en bas de l'écran. */
+  var Chrono = (function () {
+    var K = 'uq-chrono', K_CLIC = 'uq-chrono-clic', actif = false, appels = [], boite = null;
+    var S = CFG.chrono || null;
+    try {
+      if (S && S.demande === '1') localStorage.setItem(K, '1');
+      if (S && S.demande === '0') localStorage.removeItem(K);
+      actif = localStorage.getItem(K) === '1';
+    } catch (e) {}
+    var clic = null;
+    try { clic = +sessionStorage.getItem(K_CLIC) || +localStorage.getItem(K_CLIC) || null; localStorage.removeItem(K_CLIC); sessionStorage.removeItem(K_CLIC); } catch (e) {}
+    var sec = function (ms) { return ms == null || !isFinite(ms) ? '–' : (ms / 1000).toFixed(2).replace('.', ',') + ' s'; };
+    function rendre() {
+      if (!actif || !document.body) return;
+      if (!boite) {
+        boite = document.createElement('div');
+        boite.id = 'uq-chrono';
+        boite.setAttribute('role', 'status');
+        boite.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:2147483646;max-width:min(92vw,340px);background:rgba(20,16,14,.88);color:#fff;font:12px/1.35 ui-monospace,Menlo,Consolas,monospace;border-radius:10px;padding:8px 10px;box-shadow:0 4px 14px rgba(0,0,0,.3)';
+        boite.addEventListener('click', function (e) {
+          if (e.target.getAttribute('data-c') !== 'stop') return;
+          e.preventDefault();
+          try { localStorage.removeItem(K); } catch (x) {}
+          actif = false; boite.remove();
+        });
+        document.body.appendChild(boite);
+      }
+      var nav = null;
+      try { nav = performance.getEntriesByType('navigation')[0] || null; } catch (e) {}
+      var l = [];
+      l.push('<b>⏱ ' + (CFG.page || 'page') + '</b>');
+      if (clic) l.push('Toucher → page prête : <b>' + sec(Date.now() - clic > 60000 ? null : (window.__uqPret || Date.now()) - clic) + '</b>');
+      if (S) {
+        l.push('Serveur : <b>' + sec(S.total) + '</b>');
+        l.push('<span style="opacity:.8">' + S.etapes.filter(function (x) { return x[1] >= 5; }).map(function (x) { return x[0] + ' ' + sec(x[1]); }).join(' · ') + '</span>');
+      }
+      if (nav) l.push('Affichage : ' + sec(nav.domContentLoadedEventEnd) + ' (chargée ' + sec(nav.loadEventEnd || null) + ')');
+      appels.forEach(function (a) { l.push('Appel ' + a[0] + ' : <b>' + sec(a[1]) + '</b>'); });
+      l.push('<span style="opacity:.7"><a href="#" data-c="stop" style="color:#ffd27a">Arrêter le chrono</a></span>');
+      boite.innerHTML = l.join('<br>');
+    }
+    function afficher() { if (document.readyState === 'complete') { window.__uqPret = window.__uqPret || Date.now(); rendre(); } }
+    if (actif) {
+      if (document.readyState === 'complete') afficher(); else window.addEventListener('load', function () { setTimeout(afficher, 0); });
+    }
+    return {
+      depart: function () { if (!actif) return; try { sessionStorage.setItem(K_CLIC, String(Date.now())); localStorage.setItem(K_CLIC, String(Date.now())); } catch (e) {} },
+      appel: function (fn, t0) { if (!actif) return; appels.push([fn, Date.now() - t0]); if (appels.length > 8) appels.shift(); rendre(); }
+    };
+  })();
+  window.UQChrono = Chrono;
+
   /* ---------- 1. API des résultats ---------- */
   var vraiFetch = window.fetch ? window.fetch.bind(window) : null;
   function reponse(status, data) {
@@ -31,11 +86,12 @@
     };
   }
   function appel(fn, arg, statutOk) {
+    var t0 = Date.now();
     return new Promise(function (ok) {
       var run = window.google && google.script && google.script.run;
       if (!run) return ok(reponse(503, { erreur: 'Connexion à Google indisponible' }));
-      run.withSuccessHandler(function (d) { ok(d && d.__status ? reponse(d.__status, d) : reponse(statutOk || 200, d)); })
-         .withFailureHandler(function (e) { ok(reponse(500, { erreur: String((e && e.message) || e) })); })[fn](arg);
+      run.withSuccessHandler(function (d) { Chrono.appel(fn, t0); ok(d && d.__status ? reponse(d.__status, d) : reponse(statutOk || 200, d)); })
+         .withFailureHandler(function (e) { Chrono.appel(fn + ' (échec)', t0); ok(reponse(500, { erreur: String((e && e.message) || e) })); })[fn](arg);
     });
   }
   function parametres(qs) {
@@ -47,6 +103,18 @@
     });
     return o;
   }
+  /* scores de toutes les parties : posés dans la page par le serveur (__UQ.resultats). L'accueil et les badges
+     les lisent sans attendre le serveur, tant que rien n'a été enregistré ou supprimé depuis cette page ;
+     une même demande faite deux fois en même temps ne part qu'une fois. */
+  var resultatsPage = Array.isArray(CFG.resultats) ? CFG.resultats : null, enVol = {};
+  function lister(q) {
+    var cle = JSON.stringify(q);
+    if (cle === '{}' && resultatsPage) return Promise.resolve(reponse(200, { resultats: resultatsPage.slice() }));
+    if (enVol[cle]) return enVol[cle];
+    var p = enVol[cle] = appel('apiLister', q);
+    p.then(function () { delete enVol[cle]; });
+    return p;
+  }
   window.fetch = function (url, opts) {
     var u = typeof url === 'string' ? url : (url && url.url) || String(url);
     var m = u.match(/^(?:https?:\/\/[^\/]+)?\/api\/resultats\/?(?:\?(.*))?$/);
@@ -55,10 +123,11 @@
       if (methode === 'POST') {
         var corps = (opts && opts.body) || '{}';
         try { var r = JSON.parse(corps); r.quiz = CFG.page; corps = JSON.stringify(r); } catch (e) {}
+        resultatsPage = null;
         return appel('apiEnregistrer', corps, 201);
       }
-      if (methode === 'DELETE') return appel('apiSupprimer', q.id || '');
-      return appel('apiLister', q);
+      if (methode === 'DELETE') { resultatsPage = null; return appel('apiSupprimer', q.id || ''); }
+      return lister(q);
     }
     return vraiFetch ? vraiFetch.apply(window, arguments) : Promise.reject(new TypeError('fetch indisponible'));
   };
@@ -87,6 +156,7 @@
   function auClic(e) {
     var a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
     if (!a) return;
+    Chrono.depart();
     corriger(a);
     if (CFG.espace === 'enfant' && CFG.cadre) resterDansAppli(a, e);
     else if (CFG.espace === 'enfant' && CFG.classique) garderClassique(a);

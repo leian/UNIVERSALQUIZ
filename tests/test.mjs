@@ -118,6 +118,27 @@ try {
   await page.locator('.semaine').waitFor({ timeout: 5000 }).catch(() => {});
   ok(await page.locator('.semaine .sem-jour.fait').count() === 1 && /1\s*quiz joué/.test(await page.locator('.semaine').innerText()), '« Ma semaine » : 1 quiz joué, jour du jour coché');
 
+  // fluidité : scores posés dans la page (pas d'appel au serveur au chargement), chronomètre, cache en morceaux
+  await page.goto(BASE + '/exec?chrono=1');
+  await page.locator('#uq-chrono').waitFor({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(600);
+  const chrono = await page.locator('#uq-chrono').innerText().catch(() => '');
+  ok(/Serveur : \d/.test(chrono) && !/apiLister/.test(chrono) && await page.evaluate(() => Array.isArray(__UQ.resultats) && __UQ.resultats.length >= 1 && !('joueur' in __UQ.resultats[0])),
+    'fluidité : scores posés dans la page (aucun appel apiLister à l\'ouverture), chronomètre affiché avec ?chrono=1 — ' + chrono.replace(/\s+/g, ' ').slice(0, 160));
+  await page.locator('a.card').first().click();
+  await page.waitForURL(/page=quiz_/);
+  await page.locator('#uq-chrono').waitFor({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(400);
+  ok(/Toucher → page prête : \d/.test(await page.locator('#uq-chrono').innerText().catch(() => '')), 'chronomètre : gardé de page en page, durée depuis le toucher du lien');
+  await page.locator('#uq-chrono a[data-c="stop"]').click();
+  await page.goto(BASE + '/exec');
+  await page.waitForTimeout(400);
+  ok(await page.locator('#uq-chrono').count() === 0, 'chronomètre : « Arrêter le chrono » le retire');
+  const gros = await ev(`(() => { mettreEnCache_('essai', 'é'.repeat(70000)); const t = lireCache_('essai'); const tete = CacheService.getScriptCache().get('essai'); CacheService.getScriptCache().remove('essai:1'); return [t.length, tete, lireCache_('essai')]; })()`);
+  ok(gros.r[0] === 70000 && gros.r[1] === '#3' && gros.r[2] === null, 'cache : grande valeur rangée en morceaux, relue entière, ignorée s\'il manque un morceau');
+  const qz = await ev(`(() => { const i = installer_(); const a = quizEnCache_(i, 'quiz_exemple_capitales'); const k = Object.keys(CacheService.getScriptCache()).length; viderCatalogue_(); return [!!a, CacheService.getScriptCache().get('qgen') !== null]; })()`);
+  ok(qz.r[0] && qz.r[1], 'cache : quiz gardé 5 min, oublié quand la liste des quiz change');
+
   // « Mes révisions » et défi du mois : répétition espacée sur les questions ratées
   const rq = await ev(`(() => {
     const o = k => JSON.stringify({ type: 'qcm', q: 'Capitale ' + k + ' ?', opts: ['A', 'B', 'C'], a: 'A', cat: 'Europe', exp: 'x', k, src: 'Capitales', mat: 'geographie' });

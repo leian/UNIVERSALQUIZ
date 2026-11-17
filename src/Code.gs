@@ -143,6 +143,8 @@ const MATIERES = {
    ===================================================================== */
 function doGet(e) {
   const p = (e && e.parameter) || {};
+  CHRONO_ = { t0: Date.now(), t: Date.now(), etapes: [] };
+  CHRONO_DEMANDE_ = p.chrono === '1' || p.chrono === '0' ? p.chrono : '';
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
@@ -159,7 +161,9 @@ function doGet(e) {
     if (p.oublier && !estEnfant_() && estProprietaire_() && URL_SITE_.test(String(p.oublier)) && p.oublier !== CONFIG.urlParent) try { ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== p.oublier); }); } catch (e) {}
     DEMANDE_SUPPR_ = !!p.supprimer;
     const inst = installer_();
+    chrono_('ouverture');
     try { inscrireFamille_(inst); } catch (err) { console.error(err); }   // jamais bloquant
+    chrono_('famille');
     let html;
     // dans l'espace parent, l'accueil est le tableau de bord des parents (pas la page de l'enfant)
     const pageServie = CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page;
@@ -169,10 +173,10 @@ function doGet(e) {
       html = pageRevision_(page);
       if (!html) return pageErreur_('Rien à revoir pour l\'instant', 'Bravo ! Aucune question n\'attend d\'être revue. Reviens après avoir joué quelques quiz.');
     } else {
-      const f = trouverQuiz_(inst.dossier, page);
-      if (!f) return pageErreur_('Quiz introuvable', 'Aucun fichier « ' + page + '.html » dans le dossier Drive « ' + inst.dossier.getName() + ' ».');
-      html = f.getBlob().getDataAsString('UTF-8');
+      html = quizEnCache_(inst, page);
+      if (html == null) return pageErreur_('Quiz introuvable', 'Aucun fichier « ' + page + '.html » dans le dossier Drive « ' + inst.dossier.getName() + ' ».');
     }
+    chrono_('page');
     return servir_(assembler_(html, page, inst));
   } catch (err) {
     console.error(err);
@@ -195,7 +199,7 @@ function installer() {
 /* Petit bilan, à lancer depuis l'éditeur en cas de doute. */
 function diagnostic() {
   const inst = installer_();
-  if (!estEnfant_()) CacheService.getScriptCache().remove('catalogue');   // depuis le site de l'enfant : pas de vidage du cache à répétition
+  if (!estEnfant_()) viderCatalogue_();   // depuis le site de l'enfant : pas de vidage du cache à répétition
   const cat = catalogue_(inst.dossier);
   console.log('Dossier : ' + inst.dossier.getName() + ' — ' + inst.dossier.getUrl());
   console.log(cat.QUIZ.length + ' quiz');
@@ -209,10 +213,25 @@ function diagnostic() {
    ===================================================================== */
 let INST_ = null, LIGNES_ = null;      // gardés le temps d'une exécution (remis à zéro dans doGet)
 function installer_() {
-  const props = PropertiesService.getScriptProperties(), cle = props.getProperty('DOSSIER') + '|' + props.getProperty('RESULTATS');
+  const props = PropertiesService.getScriptProperties(), idD = props.getProperty('DOSSIER'), idS = props.getProperty('RESULTATS'), cle = idD + '|' + idS;
   if (INST_ && INST_.cle === cle) return INST_.r;
-  const r = installer0_();
-  INST_ = { r, cle: props.getProperty('DOSSIER') + '|' + props.getProperty('RESULTATS') };
+  // espace parent : seul un visiteur qui a accès au dossier passe (les données en cache ne passent pas par Drive)
+  if (CONFIG.espace === 'parent' && !accesParent_()) throw new Error(PAS_PARTAGE);
+  const cache = CacheService.getScriptCache();
+  let r;
+  if (idD && idS && cache.get('inst') === cle) {
+    // vérifiés il y a moins de 10 minutes : ouverts seulement si la page en a besoin (souvent, tout vient du cache)
+    let d = null, s = null;
+    r = {
+      get dossier() { return d || (d = DriveApp.getFolderById(idD)); },
+      get ss() { return s || (s = SpreadsheetApp.openById(idS)); }
+    };
+  } else {
+    r = installer0_();
+  }
+  const cle2 = props.getProperty('DOSSIER') + '|' + props.getProperty('RESULTATS');
+  if (cle2 !== cle || cache.get('inst') !== cle2) try { cache.put('inst', cle2, 600); } catch (e) {}
+  INST_ = { r, cle: cle2 };
   return r;
 }
 function installer0_() {
@@ -282,6 +301,7 @@ function creerSheets_(dossier) {
    ===================================================================== */
 function assembler_(html, page, inst) {
   const cat = catalogue_(inst.dossier);
+  chrono_('catalogue');
   const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
   const aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
   const aDessins = /src=["']commun\/dessins\.js["']/i.test(html);
@@ -299,6 +319,12 @@ function assembler_(html, page, inst) {
     return s;
   });
 
+  chrono_('moteur');
+  // scores de toutes les parties, posés dans la page : l'accueil et les badges n'ont plus à les demander au serveur
+  const avecResultats = page !== 'ajouter' && page !== 'tableau-de-bord' && !(CONFIG.espace === 'parent' && page === 'index');
+  let resultats = null;
+  if (avecResultats) try { resultats = listeResumee_(); } catch (e) { resultats = null; }
+  chrono_('resultats');
   const cfg = {
     url: urlIci_(),
     espace: CONFIG.espace,
@@ -326,6 +352,8 @@ function assembler_(html, page, inst) {
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
+  if (resultats) cfg.resultats = resultats;
+  chrono_('revisions et maitrise');
   // adresse de l'appli de l'enfant : liens « site de l'enfant » de l'espace parent, retour du site ouvert hors de l'appli (pont.html)
   if (urlAppli_()) cfg.appli = urlAppli_();
   if (CLASSIQUE_) cfg.classique = true;
@@ -347,6 +375,8 @@ function assembler_(html, page, inst) {
   if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
+  chrono_('reglages');
+  if (CHRONO_) cfg.chrono = { etapes: CHRONO_.etapes, total: Date.now() - CHRONO_.t0, demande: CHRONO_DEMANDE_ };
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
   const catalogueJs = 'var QUIZ = ' + jsonScript_(cat.QUIZ) + ';\nvar MATIERES = ' + jsonScript_(MATIERES) + ';';
   const tete = '\n<base target="_top">\n' + pont + '\n<script>\n' + catalogueJs + '\n</script>\n';
@@ -625,8 +655,11 @@ function apiEnregistrer(brut) {
     if (sh.getRange(1, COLONNES.length).getValue() !== 'mode') sh.getRange(1, COLONNES.length).setValue('mode');   // Sheets créé avant la colonne « mode »
     sh.appendRow(COLONNES.map(c => cellule_(ligne[c])));
   } finally { verrou.releaseLock(); }
-  try { cache.removeAll(['revisions', 'maitrise']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
+  try { cache.removeAll(['revisions', 'maitrise', 'liste']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
   LIGNES_ = null;
+  // le site n'attend pas cette réponse (l'écran de résultat est déjà affiché) : on en profite pour recalculer
+  // tout de suite ce que la prochaine page demandera (scores, révisions, maîtrise), elle n'aura qu'à le lire
+  try { listeResumee_(); revisions_(); maitrise_(); } catch (e) {}
   return { ok: true, id };
 }
 
@@ -657,7 +690,7 @@ const DELAIS_REVISION = [1, 3, 7, 21];
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function revisions_(maintenant) {
   const cache = CacheService.getScriptCache();
-  if (!maintenant) { const c = cache.get('revisions'); if (c) return JSON.parse(c); }
+  if (!maintenant) { const c = lireCache_('revisions'); if (c) return c; }
   const gen = cache.get('gen') || '';
   const now = maintenant || new Date(), JOUR = 864e5;
   const debutMois = new Date(now.getFullYear(), now.getMonth(), 1), debutMoisPrec = new Date(now.getFullYear(), now.getMonth() - 1, 1);
@@ -693,7 +726,7 @@ function revisions_(maintenant) {
 const NIVEAUX = ['Découverte', 'En progrès', 'Acquis', 'Maîtrisé'];
 function maitrise_() {
   const cache = CacheService.getScriptCache();
-  const c = cache.get('maitrise'); if (c) return JSON.parse(c);
+  const c = lireCache_('maitrise'); if (c) return c;
   const gen = cache.get('gen') || '';
   const origine = dict_(), notions = dict_(), questions = dict_(), titres = dict_();
   lireLignes_().map(complet_).filter(l => l.date).sort((a, b) => a.date.localeCompare(b.date)).forEach(l => {
@@ -759,6 +792,8 @@ function apiLister(q) {
   // site de l'enfant : seulement la liste résumée (scores des quiz), jamais le détail des réponses
   if (estEnfant_()) q = {};
   LIGNES_ = null;
+  installer_();                // espace parent ouvert par un compte sans accès : refusé ici, avant toute lecture
+  if (!q.id && String(q.details) !== '1') return { resultats: listeResumee_() };
   const lignes = lireLignes_();
   if (q.id) {
     const l = lignes.find(x => x.id === q.id);
@@ -778,6 +813,22 @@ function apiLister(q) {
   return { resultats: liste };
 }
 
+/* scores de toutes les parties (sans le détail des réponses) : accueil, badges, meilleur score.
+   Gardés en cache jusqu'à la prochaine partie enregistrée ; aussi posés dans la page (__UQ.resultats). */
+function listeResumee_() {
+  const enCache = lireCache_('liste');
+  if (enCache) return enCache;
+  const gen = CacheService.getScriptCache().get('gen') || '';
+  const liste = lireLignes_().map(l => ({
+    id: l.id, date: l.date, quiz: l.quiz, titre: l.titre, matiere: l.matiere,
+    score: +l.score || 0, total: +l.total || 0, duree: l.duree === '' ? null : +l.duree,
+    appareil: l.appareil, mode: l.mode || 'normal'
+  }));
+  liste.sort((a, b) => String(b.date || b.id).localeCompare(String(a.date || a.id)));
+  mettreEnCache_('liste', liste, gen);
+  return liste;
+}
+
 function apiSupprimer(id) {
   if (interdit_()) return refusEnfant_();
   if (typeof id !== 'string' || !/^r:[0-9T:.\-Z]+:[a-z0-9]+$/.test(id)) return { __status: 400, erreur: 'Identifiant invalide' };
@@ -792,7 +843,7 @@ function apiSupprimer(id) {
       if (ids[i][0] === id) {
         sh.deleteRow(i + 2);
         LIGNES_ = null;
-        try { CacheService.getScriptCache().removeAll(['revisions', 'maitrise']); } catch (e) {}
+        try { CacheService.getScriptCache().removeAll(['revisions', 'maitrise', 'liste']); } catch (e) {}
         return { ok: true };
       }
     }
@@ -809,7 +860,7 @@ function apiSupprimerQuiz(nom) {
   const f = trouverFichier_(inst.dossier, nom);
   if (!f) return { erreur: 'Ce quiz n\'existe plus (déjà supprimé ?).' };
   try { f.setTrashed(true); } catch (e) { inst.dossier.removeFile(f); }   // quiz créé par l'autre parent : seul lui peut le mettre à la corbeille
-  CacheService.getScriptCache().remove('catalogue');
+  viderCatalogue_();
   return { ok: true };
 }
 
@@ -849,7 +900,7 @@ function apiRemplacerQuiz(nom, texte, o) {
   const q = construireQuiz_(texte, biblio, biblioV);
   if (q.erreur) return q;
   try { f.setContent(q.html); } catch (e) { return { erreur: 'Modification refusée par Google Drive : seul le parent qui a créé ce quiz peut le corriger.' }; }
-  CacheService.getScriptCache().remove('catalogue');
+  viderCatalogue_();
   return { ok: true, titre: q.titre, nb: q.nb, avertissements: q.avert };
 }
 function configQuiz_(html) {
@@ -1327,7 +1378,7 @@ function apiAjouterQuiz(texte, aussi, source, biblioV) {
     const meta = lireMeta_(texte, 'quiz.html', new Date());
     const nom = nomLibre_(inst.dossier, meta.titre);
     inst.dossier.createFile(nom + '.html', texte, MimeType.HTML);
-    CacheService.getScriptCache().remove('catalogue');
+    viderCatalogue_();
     return { ok: true, page: nom, titre: meta.titre, nb: null, avertissements: [], aussi: copierAussi_(aussi, meta.titre, texte) };
   }
 
@@ -1336,7 +1387,7 @@ function apiAjouterQuiz(texte, aussi, source, biblioV) {
   const { html, titre, nb, avert } = q;
   const nom = nomLibre_(inst.dossier, titre);
   inst.dossier.createFile(nom + '.html', html, MimeType.HTML);
-  CacheService.getScriptCache().remove('catalogue');
+  viderCatalogue_();
   return { ok: true, page: nom, titre, nb, avertissements: avert, aussi: copierAussi_(aussi, titre, html) };
 }
 
@@ -1456,7 +1507,7 @@ function apiRemettreAZero(d) {
   };
   if (d.quiz) fait.push(corbeille(/\.html?$/i) + ' quiz à la corbeille');
   if (d.resultats) { props.setProperty('RAZ', String(Date.now())); fait.push('mémoire des appareils effacée à leur prochaine visite'); }
-  try { cache.removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
+  try { cache.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst', 'famille', 'famille-inscrit']); cache.put('qgen', String(Date.now()), 21600); cache.put('gen', String(Date.now()), 21600); } catch (e) {}
   return { ok: true, fait };
 }
 
@@ -1483,7 +1534,7 @@ function apiSupprimerSite(d) {
   if (parents.length) partager_(inst.dossier, parents, false);
   if (!d.garder) inst.dossier.setTrashed(true);                    // quiz et tableau des résultats : corbeille du Drive (30 jours)
   props.deleteAllProperties();
-  try { CacheService.getScriptCache().removeAll(['catalogue', 'revisions', 'maitrise', 'famille', 'famille-inscrit']); } catch (e) {}
+  try { const c = CacheService.getScriptCache(); c.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst', 'famille', 'famille-inscrit']); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
   const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';
   return { ok: true, garde: !!d.garder, retour };
 }
@@ -1667,12 +1718,56 @@ function lireLignes_() {
 // une valeur qui commence par = + - @ serait prise pour une formule par Google Sheets
 function cellule_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) && !/^-?\d/.test(v) ? "'" + v : v; }
 function dict_() { return Object.create(null); }      // objet sans prototype : une clé « constructor » ou « __proto__ » ne casse rien
-function mettreEnCache_(cle, valeur, gen) {
+/* Une valeur du cache de Google fait au plus 100 Ko : au-delà, elle est rangée en morceaux de 30 000 caractères
+   (90 Ko au plus en UTF-8), la clé principale ne gardant que « #<nombre de morceaux> ». 20 morceaux au plus. */
+function mettreEnCache_(cle, valeur, gen, duree) {
   try {
-    const t = JSON.stringify(valeur), c = CacheService.getScriptCache();
+    const t = JSON.stringify(valeur), c = CacheService.getScriptCache(), d = duree || 600;
     if (gen !== undefined && (c.get('gen') || '') !== gen) return;      // une partie a été enregistrée pendant le calcul
-    if (Utilities.newBlob(t).getBytes().length < 95000) c.put(cle, t, 600);
+    if (t.length <= 30000) { c.put(cle, t, d); return; }
+    const n = Math.ceil(t.length / 30000);
+    if (n > 20) return;
+    const o = {};
+    for (let i = 0; i < n; i++) o[cle + ':' + i] = t.slice(i * 30000, (i + 1) * 30000);
+    c.putAll(o, d);
+    c.put(cle, '#' + n, d);                      // en dernier : jamais de clé principale sans ses morceaux
   } catch (e) {}
+}
+function lireCache_(cle) {
+  try {
+    const c = CacheService.getScriptCache(), v = c.get(cle);
+    if (!v) return null;
+    if (v.charAt(0) !== '#') return JSON.parse(v);
+    const n = +v.slice(1), cles = [];
+    for (let i = 0; i < n; i++) cles.push(cle + ':' + i);
+    const m = c.getAll(cles);
+    let t = '';
+    for (const k of cles) { if (m[k] == null) return null; t += m[k]; }
+    return JSON.parse(t);
+  } catch (e) { return null; }
+}
+/* liste des quiz modifiée : catalogue et pages de quiz gardés en cache sont oubliés (le numéro qgen change) */
+function viderCatalogue_() {
+  try { const c = CacheService.getScriptCache(); c.remove('catalogue'); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
+}
+/* contenu d'un quiz du dossier, gardé 5 minutes (une recherche dans Drive coûte souvent plus d'une demi-seconde) */
+function quizEnCache_(inst, page) {
+  const cle = 'qz:' + (CacheService.getScriptCache().get('qgen') || '') + ':' + page;
+  const v = lireCache_(cle);
+  if (typeof v === 'string') return v;
+  const f = trouverQuiz_(inst.dossier, page);
+  if (!f) return null;
+  const html = f.getBlob().getDataAsString('UTF-8');
+  mettreEnCache_(cle, html, undefined, 300);
+  return html;
+}
+/* chronomètre (…/exec?chrono=1) : durée de chaque étape côté serveur, affichée par pont.html */
+let CHRONO_ = null, CHRONO_DEMANDE_ = '';
+function chrono_(etape) {
+  if (!CHRONO_) return;
+  const t = Date.now();
+  CHRONO_.etapes.push([etape, t - CHRONO_.t]);
+  CHRONO_.t = t;
 }
 function complet_(l) {
   const lire = s => { try { return JSON.parse(s); } catch (e) { return null; } };
