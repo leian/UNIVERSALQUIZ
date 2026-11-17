@@ -64,6 +64,7 @@
   }
 
   var BASE = 'https://script.google.com/macros/s/' + id + '/exec';
+  var DIRECT = 'https://app.soccaquiz.fr';
   var minuterie = 0, parti = false;
 
   // on quitte l'enveloppe pour le site tel qu'il a toujours été (…&classique=1 : le site ne renvoie pas vers l'appli)
@@ -109,6 +110,16 @@
   }
 
   window.addEventListener('message', function (e) {
+    // appli servie hors de Google (app.soccaquiz.fr) : elle annonce qu'elle est affichée, ou que ce site n'a pas l'API
+    if (e.origin === DIRECT && e.source === cadre.contentWindow && e.data && typeof e.data === 'object') {
+      if (e.data.uq === 'pret') { clearTimeout(minuterie); dem.classList.add('fini'); }
+      else if (e.data.uq === 'ancien') {
+        try { localStorage.setItem('sq-ancien:' + id, String(Date.now())); } catch (err) {}   // revérifié le lendemain (site mis à jour entre-temps)
+        modeActuel = 'cadre';
+        ouvrir(q && q.length < 2000 ? BASE + '?' + q : BASE);
+      }
+      return;
+    }
     var hote = '';
     try { hote = new URL(e.origin).hostname; } catch (err) { return; }
     // les pages Apps Script sont servies depuis *.googleusercontent.com
@@ -130,10 +141,49 @@
   // page demandée (…&q=page=quiz_x) : ancien lien ou favori renvoyé ici par le site
   var q = '';
   try { q = new URLSearchParams(location.search).get('q') || ''; } catch (e) {}
-  ouvrir(q && q.length < 2000 ? BASE + '?' + q : BASE);
+
+  /* Appli servie hors de Google (app.soccaquiz.fr, Cloudflare Pages) ou site dans le cadre de Google ?
+     - interrupteur général "appli" de soccaquiz.json : "direct" → app.soccaquiz.fr ; "on" (ou absent) → cadre de Google ;
+       "off" → site classique. Il est retenu sur l'appareil et appliqué dès l'ouverture suivante (ou tout de suite
+       s'il arrive dans les premières secondes) ;
+     - …&mode=direct, &mode=cadre : choix forcé sur CET appareil (essais) ; &mode=auto : retour à l'interrupteur ;
+     - un site sans l'API (avant la v2.88) est signalé par l'appli (« ancien ») et reste dans le cadre de Google. */
+  var debut = Date.now(), modeForce = null, modeGeneral = null, ancien = false;
+  try {
+    var m = new URLSearchParams(location.search).get('mode');
+    if (m === 'direct' || m === 'cadre') localStorage.setItem('sq-mode', m);
+    if (m === 'auto') localStorage.removeItem('sq-mode');
+    modeForce = localStorage.getItem('sq-mode');
+    modeGeneral = localStorage.getItem('sq-mode-general');
+    ancien = Date.now() - (+localStorage.getItem('sq-ancien:' + id) || 0) < 864e5;
+  } catch (e) {}
+  function modeVoulu() { return !ancien && (modeForce ? modeForce === 'direct' : modeGeneral === 'direct') ? 'direct' : 'cadre'; }
+  function ouvrirDirect() {
+    var p = new URLSearchParams(q.length < 2000 ? q : ''), page = p.get('page') || '';
+    var u = DIRECT + '/?s=' + encodeURIComponent(id) + (p.get('chrono') ? '&chrono=' + encodeURIComponent(p.get('chrono')) : '') +
+      (page && page !== 'index' ? '#' + encodeURIComponent(page) : '');
+    dem.classList.add('attente');
+    dem.classList.remove('fini');
+    msg.textContent = 'Chargement…';
+    bouton.hidden = true;
+    secours.hidden = true;
+    attendre(q && q.length < 2000 ? BASE + '?' + q : BASE);
+    cadre.src = u;
+  }
+  var modeActuel = modeVoulu();
+  if (modeActuel === 'direct') ouvrirDirect(); else ouvrir(q && q.length < 2000 ? BASE + '?' + q : BASE);
   // interrupteur général : "appli": "off" → tout le monde revient au site classique, icônes déjà installées comprises
   fetch(REGLAGES, { cache: 'no-cache' }).then(function (r) { return r.ok ? r.json() : {}; })
-    .then(function (c) { if (c && c.appli === 'off') classique(); })
+    .then(function (c) {
+      if (c && c.appli === 'off') return classique();
+      modeGeneral = c && c.appli === 'direct' ? 'direct' : 'cadre';
+      try { localStorage.setItem('sq-mode-general', modeGeneral); } catch (e) {}
+      // l'interrupteur a changé : appliqué tout de suite si l'appli vient de s'ouvrir, sinon à la prochaine ouverture
+      if (modeVoulu() !== modeActuel && Date.now() - debut < 5000) {
+        modeActuel = modeVoulu();
+        if (modeActuel === 'direct') ouvrirDirect(); else ouvrir(q && q.length < 2000 ? BASE + '?' + q : BASE);
+      }
+    })
     .catch(function () {});
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(function () {});
 })();

@@ -101,7 +101,10 @@
   function poster(o) {      // texte simple : pas de requête préalable CORS
     return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
   }
+  // affichée dans l'appli installée (leian.github.io/app) : on lui parle par messages, jamais de renvoi
+  var ENVELOPPE = 'https:\/\/leian.github.io', dansEnveloppe = window.parent !== window;
   function versAncienneAppli() {
+    if (dansEnveloppe) { try { window.parent.postMessage({ uq: 'ancien' }, ENVELOPPE); } catch (e) {} return; }
     if (local) { arreter('Ce site n\'a pas encore l\'API (version 2.87 ou plus).', true); return; }
     location.replace(ANCIENNE + encodeURIComponent(id) + (location.hash.length > 1 ? '&q=' + encodeURIComponent('page=' + location.hash.slice(1)) : ''));
   }
@@ -191,7 +194,7 @@
   }
 
   /* ---------- pages ---------- */
-  var pageCourante = null, numero = 0;
+  var pageCourante = null, numero = 0, annonce = false;
   var pageDeLAdresse = function () { var h = location.hash.slice(1); try { h = decodeURIComponent(h); } catch (e) {} return h.replace(/[^\p{L}\p{N}_.\- ]/gu, '').slice(0, 150) || 'index'; };
   function montrer(html) {
     var n = ++numero;
@@ -212,6 +215,7 @@
     if (!f || f.dejaPrete) return;
     if (f.numero !== numero) { f.remove(); return; }
     f.dejaPrete = true;
+    if (dansEnveloppe && !annonce) { annonce = true; try { window.parent.postMessage({ uq: 'pret' }, ENVELOPPE); } catch (e) {} }
     Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { if (x !== f) x.remove(); });
     barre.classList.remove('actif');
     dem.classList.add('fini');

@@ -47,7 +47,7 @@ const options = { args: ['--no-sandbox'] };
 if (process.env.CHROME) options.executablePath = process.env.CHROME;
 const browser = await playwright.chromium.launch(options).catch(() => playwright.chromium.launch({ ...options, executablePath: '/usr/bin/google-chrome' }));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.png': 'image/png', '.webmanifest': 'application/manifest+json' };
-let reglages = {}, siteAJour = true, sandbox = SANDBOX_GOOGLE;
+let reglages = {}, siteAJour = true, sandbox = SANDBOX_GOOGLE, sansApi = false;
 
 async function nouvellePage() {
   const contexte = await browser.newContext({ viewport: { width: 400, height: 800 }, serviceWorkers: 'block' });
@@ -64,12 +64,25 @@ async function nouvellePage() {
     try { return r.fulfill({ status: 200, contentType: TYPES[extname(f)] || 'text/plain', body: readFileSync(join(RACINE, 'appli', f)) }); }
     catch (e) { return r.fulfill({ status: 404, body: '' }); }
   });
+  // l'appli servie hors de Google : les fichiers de build-site/, comme sur Cloudflare Pages
+  await contexte.route('https://app.soccaquiz.fr/**', r => {
+    const u = new URL(r.request().url());
+    const f = u.pathname === '/' ? 'index.html' : u.pathname.slice(1);
+    try { return r.fulfill({ status: 200, contentType: TYPES[extname(f)] || 'text/plain', body: readFileSync(join(RACINE, 'build-site', f)) }); }
+    catch (e) { return r.fulfill({ status: 404, body: '' }); }
+  });
   // Google, côté enveloppe : script.google.com/macros/s/<id>/exec → page de Google avec le bandeau + cadre isolé
   await contexte.route('https://script.google.com/**', async r => {
     const u = new URL(r.request().url());
     const m = u.pathname.match(/^\/macros\/s\/([^/]+)\/exec$/);
     if (!m || (m[1] !== ID && m[1] !== IDP)) return r.fulfill({ status: 404, body: 'introuvable' });
     const espace = m[1] === ID ? 'enfant' : 'parent';
+    // l'appli servie hors de Google (app.soccaquiz.fr) appelle l'API JSON : Google y répond directement (CORS ouvert)
+    if (u.searchParams.has('api') || r.request().method() === 'POST') {
+      if (sansApi) return r.fulfill({ status: 200, contentType: 'text/html', body: '<html><body>site ancien</body></html>', headers: { 'access-control-allow-origin': '*' } });
+      const rep = await appelEspace(espace, LOCAL + '/exec' + u.search, { method: r.request().method(), body: r.request().postData() || undefined });
+      return r.fulfill({ status: 200, contentType: 'application/json', headers: { 'access-control-allow-origin': '*' }, body: rep.body });
+    }
     const contenu = await appelEspace(espace, LOCAL + '/exec' + u.search);
     const cadreOk = !contenu.headers['x-frame-options'] && siteAJour;
     const page = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Google</title></head>
@@ -255,7 +268,43 @@ try {
   ok(page.url() === LIEN && /Pas de connexion/.test(await page.locator('#msg').innerText()) && await page.locator('#reessayer').isVisible() && !(await page.locator('#secours').isVisible()), 'sans connexion : message et bouton « Réessayer », pas de page vide');
   await page.context().close();
 
-  // 5. le manifeste
+  // 5. appli servie hors de Google (app.soccaquiz.fr) : choisie par l'interrupteur "appli": "direct" ou forcée sur l'appareil
+  {
+    const directe = p => p.frames().find(f => f.url().startsWith('https://app.soccaquiz.fr/'));
+    const pageDirecte = p => { const f = directe(p); return f && f.childFrames().find(x => x.url() === 'about:srcdoc'); };
+    reglages = { appli: 'direct' };
+    page = await nouvellePage();
+    await page.goto(LIEN);                                     // 1re ouverture : l'interrupteur arrive vite, appliqué tout de suite
+    await page.waitForTimeout(1500);
+    for (let i = 0; i < 60 && !(pageDirecte(page) && await pageDirecte(page).locator('a.card').count().catch(() => 0)); i++) await page.waitForTimeout(100);
+    ok(!!directe(page) && !sitePage(page) && await pret(page) && await pageDirecte(page).locator('a.card').count() >= 1 && !(await bandeauEnfant(page.context())),
+      'interrupteur « direct » : l\'appli ouvre app.soccaquiz.fr (pas Google), l\'accueil s\'affiche, aucun bandeau');
+    await pageDirecte(page).locator('a.card').first().click();
+    let start = null;
+    for (let i = 0; i < 80 && !start; i++) { const f = pageDirecte(page); if (f && await f.locator('.start-btn').count().catch(() => 0)) start = f; else await page.waitForTimeout(100); }
+    ok(!!start && page.url() === LIEN, 'appli directe : quiz ouvert à l\'intérieur, l\'adresse de l\'appli ne change pas');
+    await page.context().close();
+
+    reglages = {};
+    page = await nouvellePage();
+    await page.goto(LIEN + '&mode=direct&q=' + encodeURIComponent('page=' + quiz));   // essai forcé sur cet appareil, page précise
+    for (let i = 0; i < 80 && !(pageDirecte(page) && await pageDirecte(page).locator('.start-btn').count().catch(() => 0)); i++) await page.waitForTimeout(100);
+    ok(!!pageDirecte(page) && await pageDirecte(page).locator('.start-btn').count() === 1, '&mode=direct : essai forcé sur l\'appareil, la page demandée s\'ouvre');
+    await page.context().close();
+
+    sansApi = true;
+    reglages = { appli: 'direct' };
+    page = await nouvellePage();
+    await page.goto(LIEN);
+    for (let i = 0; i < 80 && !sitePage(page); i++) await page.waitForTimeout(100);
+    ok(!!sitePage(page) && await pret(page) && +(await page.evaluate(() => localStorage.getItem('sq-ancien:' + new URLSearchParams(location.search).get('s')))) > Date.now() - 60000 && !(await bandeauEnfant(page.context())),
+      'site sans l\'API (pas à jour) : l\'appli reste dans le cadre de Google, sans bandeau, et s\'en souvient');
+    await page.context().close();
+    sansApi = false;
+    reglages = {};
+  }
+
+  // 6. le manifeste
   const m = JSON.parse(readFileSync(join(RACINE, 'appli', 'manifest.webmanifest'), 'utf8'));
   ok(m.display === 'standalone' && !('start_url' in m) && m.icons.some(i => i.sizes === '192x192') && m.icons.some(i => i.sizes === '512x512') && m.icons.some(i => i.purpose === 'maskable'),
     'manifeste : plein écran, icônes 192 et 512, icône découpable, pas de start_url (l\'icône rouvre l\'adresse installée, ?s= compris)');
