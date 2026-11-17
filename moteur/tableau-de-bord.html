@@ -500,6 +500,8 @@ function enregistrement(id) {
 }
 /* ---------- classe : choisit le thème du site, monte toute seule chaque 1er septembre ---------- */
 const NOMS_MASCOTTES = { gothique: "Gothique (veste en cuir, rangers)", rap: "Rap (casquette, chaîne dorée)" };
+// allure de la mascotte : on ne parle que du dessin, jamais du genre de l'enfant ; « neutre » pour qui ne se reconnaît dans aucun des deux
+const NOMS_GENRES = { f: "au féminin", m: "au masculin", n: "neutre, la socca de toujours" };
 const NOMS_THEMES = { petits: "Petits", lecteurs: "Lecteurs", explorateurs: "Explorateurs", college: "Collège", lycee: "Lycée", parent: "Parent" };
 function afficherClasse() {
   const U = window.__UQ || {}, el = document.getElementById("classe");
@@ -515,7 +517,12 @@ function afficherClasse() {
     (U.theme === "lycee" && U.mascottes ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       U.mascottes.map(m => `<option value="${esc(m)}" ${m === U.mascotte ? "selected" : ""}>${esc(NOMS_MASCOTTES[m] || m)}</option>`).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><span class="mascotte m-accueil" aria-hidden="true"></span><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
-      `<p class="enreg" id="enreg-mascotte" role="status" hidden></p>` : "");
+      `<p class="enreg" id="enreg-mascotte" role="status" hidden></p>` : "") +
+    (U.genresDessines && U.genresDessines.indexOf(U.theme) >= 0 ? `<p style="margin-top:14px"><label for="choix-genre"><b>Allure de la mascotte</b></label><br><select id="choix-genre" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
+      [["auto", `Automatique, d'après le prénom (${NOMS_GENRES[U.genreAuto] || NOMS_GENRES.n})`], ["f", "Au féminin"], ["m", "Au masculin"], ["n", "Neutre : la socca de toujours"]]
+        .map(([v, t]) => `<option value="${v}" ${v === (U.genre || "auto") ? "selected" : ""}>${esc(t)}</option>`).join("") + `</select></p>` +
+      `<p style="display:flex;gap:8px;align-items:center"><span class="mascotte m-accueil" aria-hidden="true"></span><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +
+      `<p class="enreg" id="enreg-genre" role="status" hidden></p>` : "");
   document.getElementById("choix-classe").onchange = e => {
     if (!(window.google && google.script && google.script.run)) return;
     e.target.disabled = true;
@@ -534,6 +541,16 @@ function afficherClasse() {
       .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiMascotte({ mascotte: e.target.value });
+  };
+  const choixG = document.getElementById("choix-genre");
+  if (choixG) choixG.onchange = e => {
+    if (!(window.google && google.script && google.script.run)) return;
+    e.target.disabled = true;
+    const m = enregistrement("enreg-genre");
+    google.script.run
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
+      .apiGenre({ genre: e.target.value });
   };
 }
 afficherClasse();

@@ -600,7 +600,7 @@ try {
   ok(/Espace parent/.test(await page.locator('body').innerText()) && await page.locator('#reponse').count() === 0, 'site de l\'enfant : « Ajouter un quiz » renvoie vers l\'espace parent');
   await page.goto(BASE + '/exec?page=tableau-de-bord');
   ok(/réservée aux parents/.test(await page.locator('body').innerText()), 'site de l\'enfant : le suivi des résultats est réservé aux parents');
-  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false }), apiMascotte({ mascotte: "rap" })]');
+  const refus = await ev('[apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|a|b|c|d|e"), apiGeminiCle({ cle: "" }), apiSupprimerQuiz("x.html"), apiSupprimer("r:2026-01-01T00:00:00.000Z:abc"), apiClasse({ classe: "CP" }), apiSaison({ active: false }), apiMascotte({ mascotte: "rap" }), apiGenre({ genre: "f" })]');
   ok(refus.r.every(x => x && x.__status === 403), 'site de l\'enfant : ajout, clé Gemini et suppressions refusés côté Google');
   await page.goto(BASE + '/exec');
   // porte de l'espace parent : ajoutée par le pont, dernier élément de chaque page du site de l'enfant
@@ -652,6 +652,20 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('html').getAttribute('data-mascotte') === 'rap' && await page.locator('#choix-mascotte').inputValue() === 'rap', 'mascotte : la tenue choisie est posée sur la page et dans Réglages');
   await ev('PropertiesService.getScriptProperties().deleteProperty("MASCOTTE")');
+  // allure de la mascotte (féminin, masculin, neutre) : devinée d'après le prénom, rectifiable dans Réglages
+  const g = (await ev('["Lana","Hugo","Camille","Marie-Lou","Sacha","Justine","Florian","Xq",""].map(genreDuPrenom_).join(",")')).r;
+  ok(g === 'f,m,n,f,n,f,m,n,n', 'mascotte : allure devinée d\'après le prénom, neutre dans le doute (' + g + ')');
+  ok(await page.locator('#choix-genre').count() === 0 && await page.locator('html').getAttribute('data-genre') === null, 'mascotte : pas de choix d\'allure tant que les dessins du thème manquent');
+  await ev('GENRES_DESSINES.push(classe_() === "adulte" ? "parent" : themeDe_(classe_())); CONFIG.prenom = "Lana"');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('#choix-genre option').count() === 4 && await page.locator('#choix-genre').inputValue() === 'auto' && await page.locator('html').getAttribute('data-genre') === 'f', 'mascotte : allure automatique d\'après le prénom, quatre choix dans Réglages');
+  ok((await ev('apiGenre({ genre: "x" })')).r.erreur && (await ev('apiGenre({ genre: "m" })')).r.effectif === 'm', 'mascotte : le parent peut rectifier l\'allure');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('html').getAttribute('data-genre') === 'm' && await page.locator('#choix-genre').inputValue() === 'm', 'mascotte : allure choisie posée sur la page et dans Réglages');
+  await ev('apiGenre({ genre: "n" })');
+  await page.goto(BASE + '/exec');
+  ok(await page.locator('html').getAttribute('data-genre') === null, 'mascotte : neutre = la socca de toujours, sans attribut');
+  await ev('apiGenre({ genre: "auto" }); GENRES_DESSINES.length = 0; CONFIG.prenom = ""');
   await ev('apiClasse({ classe: ' + JSON.stringify(classeAvant) + ' })');
   const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');

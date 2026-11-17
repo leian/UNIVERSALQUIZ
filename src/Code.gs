@@ -319,6 +319,10 @@ function assembler_(html, page, inst) {
     saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1',
     mascotte: mascotte_(),
     mascottes: MASCOTTES_LYCEE,
+    genre: genreReglage_(),                 // réglage du parent : auto, f, m, n
+    genreAuto: genreDuPrenom_(CONFIG.prenom), // ce que donne le prénom (affiché à côté de « Automatique »)
+    genreEffectif: genre_(),
+    genresDessines: GENRES_DESSINES,
     raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
@@ -350,7 +354,7 @@ function assembler_(html, page, inst) {
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
   // polices (Fredoka, Nunito, Andika) servies par GitHub Pages : aucune requête vers Google Fonts depuis le site de l'enfant
   const styleTheme = '<link rel="stylesheet" href="' + POLICES + '">\n' + lib_(COMMUN['themes.css'], false);
-  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (GENRES_DESSINES.indexOf(cfg.theme) >= 0 && cfg.genreEffectif !== 'n' ? ' data-genre="' + cfg.genreEffectif + '"' : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
   html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
@@ -1022,6 +1026,51 @@ function apiMascotte(d) {
   if (MASCOTTES_LYCEE.indexOf(m) < 0) return { erreur: 'Mascotte inconnue.' };
   PropertiesService.getScriptProperties().setProperty('MASCOTTE', m);
   return { ok: true, mascotte: m };
+}
+
+/* ---------------- allure de la mascotte : au féminin, au masculin ou neutre ----------------
+   Par défaut, devinée d'après le prénom (prénom inconnu ou porté par tous : neutre, la socca de toujours).
+   Le parent peut la changer dans Réglages (propriété GENRE : 'f', 'm', 'n' ; absente = automatique).
+   On ne parle que de la mascotte, jamais du genre de l'enfant ; les textes du site restent neutres.
+   Le serveur pose <html data-genre="f|m"> seulement pour les thèmes dont les dessins existent
+   (GENRES_DESSINES) : ailleurs, la mascotte ne change pas et le réglage n'est pas proposé.
+   Images : docs/themes/<thème>-f/ et docs/themes/<thème>-m/ (accueil, bravo, encouragement, reflexion). */
+const GENRES_DESSINES = [];          // ex. ['petits', 'lecteurs', 'explorateurs'] quand les dessins sont prêts
+const GENRES = ['auto', 'f', 'm', 'n'];
+const PRENOMS_MIXTES_ = 'camille sacha sasha noa noah charlie eden alix claude dominique lou andrea andréa ange morgan yael yaël alex dany dani jessy jordan kim loan marley mael maël maé mae nael naël sam swann robin stéphane stephane leslie june ari elia élia'.split(' ');
+const PRENOMS_F_ = ('emma louise jade alice chloe chloé lina mila rose anna léa lea mia julia inès ines ambre zoé zoe léna lena juliette lou agathe jeanne iris eva éva romy nina luna victoria margaux margot manon sarah sara clara lana lola charlotte adèle adele alba louna lyna olivia capucine elena héloïse heloise mathilde ava jeanne anaïs anais apolline gabrielle valentine victoire elsa aya maya yasmine salomé salome céleste celeste lise lucie laura marie pauline justine camila diane hanna hannah emy nour assia sofia sophia marion lison sharon alicia amandine aurélie aurelie céline celine claire élise elise émilie emilie fanny isabelle julie léonie leonie maëlle maelle marine mélanie melanie morgane nathalie océane oceane sandrine sophie stéphanie stephanie valérie valerie virginie lilou maelys maëlys mélina melina nora rachel ruth sixtine thaïs thais violette suzanne gaïa gaia alma ninon constance garance albane bérénice berenice cassandre clémence clemence noémie noemie lisa liza giulia')
+  .split(' ');
+const PRENOMS_M_ = ('gabriel léo leo raphaël raphael louis arthur jules maël adam lucas hugo noé noe liam paul tiago ethan aaron nathan sacha gabin léon leon mohamed mohammed martin isaac victor timéo timeo nolan théo theo mathis axel naël marius enzo evan valentin baptiste antoine thomas alexandre maxime clément clement romain julien nicolas pierre jean jacques françois francois olivier philippe yann yan yanis ilyes ismaël ismael rayan amir younes ayoub sami samuel simon tom tristan elio éliott eliott eliot côme come augustin malo milo ezio lenny kylian kenzo marceau oscar félix felix basile charles david jérémie jeremie daniel benjamin florian kevin kévin anthony quentin vincent sébastien sebastien frédéric frederic laurent christophe guillaume mathieu matthieu jérôme jerome xavier cédric cedric damien adrien alexis bastien corentin dylan erwan gaël gael loïc loic lucien mattéo matteo noam soan wassim zacharie')
+  .split(' ');
+function sansAccent_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
+function genreDuPrenom_(prenom) {
+  // premier prénom seulement (« Marie-Lou » → « marie »), minuscules
+  const p = String(prenom || '').trim().toLowerCase().split(/[\s\-']/)[0];
+  if (!p || p.length < 2) return 'n';
+  const pa = sansAccent_(p), dans = l => l.indexOf(p) >= 0 || l.map(sansAccent_).indexOf(pa) >= 0;
+  if (dans(PRENOMS_MIXTES_)) return 'n';
+  if (dans(PRENOMS_F_)) return 'f';
+  if (dans(PRENOMS_M_)) return 'm';
+  // terminaisons très marquées seulement ; dans le doute : neutre
+  if (/(ine|ette|elle|enne|anne|ia|ie|ina|lla)$/.test(pa)) return 'f';
+  if (/(ien|ard|ert|ric|ent|ois|aud|in|on|o)$/.test(pa)) return 'm';
+  return 'n';
+}
+function genreReglage_() {
+  const g = PropertiesService.getScriptProperties().getProperty('GENRE');
+  return GENRES.indexOf(g) >= 0 ? g : 'auto';
+}
+function genre_() {                    // allure effective : 'f', 'm' ou 'n'
+  const g = genreReglage_();
+  return g === 'auto' ? genreDuPrenom_(CONFIG.prenom) : g;
+}
+function apiGenre(d) {
+  if (interdit_()) return refusEnfant_();
+  const g = String((d && d.genre) || '');
+  if (GENRES.indexOf(g) < 0) return { erreur: 'Choix inconnu.' };
+  const p = PropertiesService.getScriptProperties();
+  if (g === 'auto') p.deleteProperty('GENRE'); else p.setProperty('GENRE', g);
+  return { ok: true, genre: g, effectif: genre_() };
 }
 
 /* ---------------- saisons ----------------
