@@ -49,6 +49,65 @@ html[data-theme="parent"] .m-bravo { background-image:url("https:\/\/leian.githu
 html[data-theme="parent"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/encouragement.webp"); }
 html[data-theme="parent"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/reflexion.webp"); }
 
+/* allure de la mascotte (au féminin / au masculin), posée par le serveur seulement pour les thèmes de GENRES_DESSINES :
+   docs/themes/<thème>-f/ et -m/ ; au lycée, lycee-<tenue>-f/ et -m/. Sans attribut : la socca de toujours. */
+html[data-theme="petits"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/accueil.webp"); }
+html[data-theme="petits"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/bravo.webp"); }
+html[data-theme="petits"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/encouragement.webp"); }
+html[data-theme="petits"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/reflexion.webp"); }
+html[data-theme="lecteurs"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/accueil.webp"); }
+html[data-theme="lecteurs"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/bravo.webp"); }
+html[data-theme="lecteurs"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/encouragement.webp"); }
+html[data-theme="lecteurs"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/reflexion.webp"); }
+html[data-theme="explorateurs"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-f/accueil.webp"); }
+html[data-theme="explorateurs"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-f/bravo.webp"); }
+html[data-theme="explorateurs"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-f/encouragement.webp"); }
+html[data-theme="explorateurs"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-f/reflexion.webp"); }
+html[data-theme="college"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-f/accueil.webp"); }
+html[data-theme="college"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-f/bravo.webp"); }
+html[data-theme="college"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-f/encouragement.webp"); }
+html[data-theme="college"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-f/reflexion.webp"); }
+html[data-theme="parent"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-f/accueil.webp"); }
+html[data-theme="parent"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-f/bravo.webp"); }
+html[data-theme="parent"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-f/encouragement.webp"); }
+html[data-theme="parent"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-f/reflexion.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/reflexion.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/reflexion.webp"); }
+html[data-theme="petits"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/accueil.webp"); }
+html[data-theme="petits"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/bravo.webp"); }
+html[data-theme="petits"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/encouragement.webp"); }
+html[data-theme="petits"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/reflexion.webp"); }
+html[data-theme="lecteurs"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/accueil.webp"); }
+html[data-theme="lecteurs"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/bravo.webp"); }
+html[data-theme="lecteurs"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/encouragement.webp"); }
+html[data-theme="lecteurs"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/reflexion.webp"); }
+html[data-theme="explorateurs"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-m/accueil.webp"); }
+html[data-theme="explorateurs"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-m/bravo.webp"); }
+html[data-theme="explorateurs"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-m/encouragement.webp"); }
+html[data-theme="explorateurs"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs-m/reflexion.webp"); }
+html[data-theme="college"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-m/accueil.webp"); }
+html[data-theme="college"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-m/bravo.webp"); }
+html[data-theme="college"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-m/encouragement.webp"); }
+html[data-theme="college"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/college-m/reflexion.webp"); }
+html[data-theme="parent"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-m/accueil.webp"); }
+html[data-theme="parent"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-m/bravo.webp"); }
+html[data-theme="parent"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-m/encouragement.webp"); }
+html[data-theme="parent"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent-m/reflexion.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/reflexion.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/accueil.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/bravo.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/encouragement.webp"); }
+html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/reflexion.webp"); }
+
 /* ---- Petits : chaud, très rond, gros textes ---- */
 html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }
 html[data-theme="petits"] body { background:#fff4d6; }
@@ -149,6 +208,41 @@ html[data-saison="automne"]:is([data-theme="petits"], [data-theme="lecteurs"], [
 html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/accueil.webp"); }
 html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween/bravo.webp"); }
 
+/* mascotte costumée au féminin / au masculin (petits et primaire), posée seulement pour les saisons de GENRES_SAISONS :
+   docs/themes/saisons/<saison>-f/ et -m/ (accueil, bravo) */
+html[data-saison="noel"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel-f/accueil.webp"); }
+html[data-saison="noel"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel-f/bravo.webp"); }
+html[data-saison="noel"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel-m/accueil.webp"); }
+html[data-saison="noel"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/noel-m/bravo.webp"); }
+html[data-saison="hiver"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver-f/accueil.webp"); }
+html[data-saison="hiver"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver-f/bravo.webp"); }
+html[data-saison="hiver"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver-m/accueil.webp"); }
+html[data-saison="hiver"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/hiver-m/bravo.webp"); }
+html[data-saison="paques"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques-f/accueil.webp"); }
+html[data-saison="paques"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques-f/bravo.webp"); }
+html[data-saison="paques"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques-m/accueil.webp"); }
+html[data-saison="paques"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/paques-m/bravo.webp"); }
+html[data-saison="printemps"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps-f/accueil.webp"); }
+html[data-saison="printemps"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps-f/bravo.webp"); }
+html[data-saison="printemps"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps-m/accueil.webp"); }
+html[data-saison="printemps"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/printemps-m/bravo.webp"); }
+html[data-saison="ete"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete-f/accueil.webp"); }
+html[data-saison="ete"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete-f/bravo.webp"); }
+html[data-saison="ete"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete-m/accueil.webp"); }
+html[data-saison="ete"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/ete-m/bravo.webp"); }
+html[data-saison="rentree"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree-f/accueil.webp"); }
+html[data-saison="rentree"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree-f/bravo.webp"); }
+html[data-saison="rentree"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree-m/accueil.webp"); }
+html[data-saison="rentree"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/rentree-m/bravo.webp"); }
+html[data-saison="automne"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne-f/accueil.webp"); }
+html[data-saison="automne"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne-f/bravo.webp"); }
+html[data-saison="automne"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne-m/accueil.webp"); }
+html[data-saison="automne"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/automne-m/bravo.webp"); }
+html[data-saison="halloween"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween-f/accueil.webp"); }
+html[data-saison="halloween"][data-genre-saison="f"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween-f/bravo.webp"); }
+html[data-saison="halloween"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-accueil { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween-m/accueil.webp"); }
+html[data-saison="halloween"][data-genre-saison="m"]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]) .m-bravo { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/halloween-m/bravo.webp"); }
+
 /* petite animation (neige, pétales, feuilles…) : petits, lecteurs, explorateurs, sans mouvement réduit */
 @media (prefers-reduced-motion: no-preference) {
   html[data-saison]:is([data-theme="petits"], [data-theme="lecteurs"], [data-theme="explorateurs"]):not([data-saison="ete"]):not([data-saison="rentree"])::after {
@@ -171,6 +265,11 @@ html[data-saison="halloween"]:is([data-theme="petits"], [data-theme="lecteurs"],
   background: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/saut.webp") no-repeat 0 0 / 600% 100%; }
 html[data-theme="petits"] #saut-mascotte { aspect-ratio: 188 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/saut.webp"); }
 html[data-theme="lecteurs"] #saut-mascotte { aspect-ratio: 172 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/saut.webp"); }
+/* saut au féminin / au masculin */
+html[data-theme="petits"][data-genre="f"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/saut.webp"); }
+html[data-theme="petits"][data-genre="m"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/saut.webp"); }
+html[data-theme="lecteurs"][data-genre="f"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/saut.webp"); }
+html[data-theme="lecteurs"][data-genre="m"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/saut.webp"); }
 #saut-mascotte.go { animation: saut-images .7s steps(5, jump-none) 2, saut-visible 1.6s ease forwards; }
 @keyframes saut-images { from { background-position: 0 0; } to { background-position: 100% 0; } }
 @keyframes saut-visible { 0% { opacity: 0; transform: translateY(24px); } 12%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
