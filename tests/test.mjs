@@ -139,6 +139,32 @@ try {
   const qz = await ev(`(() => { const i = installer_(); const a = quizEnCache_(i, 'quiz_exemple_capitales'); const k = Object.keys(CacheService.getScriptCache()).length; viderCatalogue_(); return [!!a, CacheService.getScriptCache().get('qgen') !== null]; })()`);
   ok(qz.r[0] && qz.r[1], 'cache : quiz gardé 5 min, oublié quand la liste des quiz change');
 
+  // API JSON pour l'appli servie hors de Google
+  {
+    const espace0 = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = "enfant"');
+    const etat = await (await fetch(BASE + '/exec?api=etat')).json();
+    await ev('CONFIG.espace = ' + JSON.stringify(espace0));
+    ok(etat.v === 1 && Array.isArray(etat.quiz) && etat.quiz.length >= 1 && etat.reglages && 'classe' in etat.reglages && !etat.reglages.dossierUrl && !etat.reglages.famille && Array.isArray(etat.reglages.resultats) && !('joueur' in (etat.reglages.resultats[0] || {})) && etat.matieres && !etat.reglages.gemini,
+      'API : ?api=etat donne réglages, catalogue, scores (sans compte Google) et rien de réservé aux parents');
+    const qz = await (await fetch(BASE + '/exec?api=quiz&page=quiz_exemple_capitales')).json();
+    const absent = await (await fetch(BASE + '/exec?api=quiz&page=tableau-de-bord')).json();
+    ok(/MoteurQuiz\.lancer/.test(qz.html || '') && qz.maitrise && !!absent.erreur, 'API : ?api=quiz donne le contenu du quiz et sa maîtrise, jamais une page des parents');
+    const avant = (await ev('lireLignes_().length')).r;
+    const partie = { quiz: 'quiz_exemple_capitales', titre: 'Essai API', score: 1, total: 2, questions: [], _id: 'apiessai1' };
+    const post = await (await fetch(BASE + '/exec', { method: 'POST', headers: { 'content-type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ api: 'enregistrer', d: JSON.stringify(partie) }) })).json();
+    const deja = await (await fetch(BASE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'enregistrer', d: partie }) })).json();
+    const mauvais = await (await fetch(BASE + '/exec', { method: 'POST', body: 'pas du json' })).json();
+    const apres = (await ev('LIGNES_ = null; lireLignes_().length')).r;
+    ok(post.ok && deja.deja && mauvais.__status === 400 && apres === avant + 1, 'API : POST enregistrer (une seule fois par partie), demande illisible refusée — ' + JSON.stringify([post.ok, deja.deja, mauvais.__status, avant, apres]));
+    const espace = (await ev('CONFIG.espace')).r;
+    await ev('CONFIG.espace = "parent"');
+    const refus = [await (await fetch(BASE + '/exec?api=etat')).json(), await (await fetch(BASE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'enregistrer', d: partie }) })).json()];
+    await ev('CONFIG.espace = ' + JSON.stringify(espace));
+    ok(refus.every(r => r.erreur && !r.reglages && !r.ok), 'API : refusée sur l\'espace parent (servi par Google seulement)');
+    await ev('(() => { const sh = feuille_(); const n = sh.getLastRow(); for (let i = n; i >= 2; i--) if (/apiessai1$/.test(sh.getRange(i, 1).getValue())) sh.deleteRow(i); LIGNES_ = null; CacheService.getScriptCache().removeAll(["liste", "revisions", "maitrise"]); })()');
+  }
+
   // « Mes révisions » et défi du mois : répétition espacée sur les questions ratées
   const rq = await ev(`(() => {
     const o = k => JSON.stringify({ type: 'qcm', q: 'Capitale ' + k + ' ?', opts: ['A', 'B', 'C'], a: 'A', cat: 'Europe', exp: 'x', k, src: 'Capitales', mat: 'geographie' });

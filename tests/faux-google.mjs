@@ -100,6 +100,7 @@ const ctx = {
     openById: (id) => { if (FAUX.etranger) throw new Error('Accès refusé'); if (!sheets[id]) throw new Error('introuvable'); return classeur(id); },
     open: (f) => classeur(f.id)
   },
+  ContentService: { MimeType: { JSON: 'application/json' }, createTextOutput: (t) => { const o = { json: true, getContent: () => t, setMimeType() { return o; } }; return o; } },
   HtmlService: {
     XFrameOptionsMode: { ALLOWALL: 'ALLOWALL', DEFAULT: 'DEFAULT' },
     createHtmlOutputFromFile: (n) => { const c = readFileSync(join(BUILD, n + '.html'), 'utf8'); if (!/^\s*</.test(c)) throw new Error('Format du contenu HTML non valide : ' + c.slice(0, 40)); return { getContent: () => c }; },
@@ -121,8 +122,15 @@ window.google={script:{run:chaine(null,null)}};})();</script>`;
 const serveur = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
   try {
+    if (url.pathname === '/exec' && req.method === 'POST') {      // comme Google : réponse lisible depuis un autre site (CORS)
+      let corps = ''; for await (const c of req) corps += c;
+      const out = ctx.doPost({ postData: { contents: corps, type: req.headers['content-type'] || '' }, parameter: Object.fromEntries(url.searchParams) });
+      res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' });
+      return res.end(out.getContent());
+    }
     if (url.pathname === '/exec') {
       const out = ctx.doGet({ parameter: Object.fromEntries(url.searchParams) });
+      if (out.json) { res.writeHead(200, { 'content-type': 'application/json', 'access-control-allow-origin': '*' }); return res.end(out.getContent()); }
       let html = out.getContent().replace(/<head\b[^>]*>/i, m => m + FAUX_RUN);
       if (!/<head/i.test(html)) html = FAUX_RUN + html;
       // comme Google : sans ALLOWALL, la page refuse d'être affichée dans un autre site

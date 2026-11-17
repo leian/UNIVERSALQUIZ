@@ -152,6 +152,7 @@ function doGet(e) {
   CLASSIQUE_ = p.classique === '1';
   REQUETE_ = requete_(p);
   const page = nettoyerNom_(p.page || 'index');
+  if (p.api) return reponseJson_(apiGet_(p));     // appli servie hors de Google : données seulement, jamais de page
   try {
     const renvoi = versAppli_(p);
     if (renvoi) return renvoi;
@@ -182,6 +183,57 @@ function doGet(e) {
     console.error(err);
     return pageErreur_('Oups, une erreur', String(err && err.message || err));
   }
+}
+
+/* =====================================================================
+   API JSON POUR L'APPLI SERVIE HORS DE GOOGLE (plan « site de l'enfant hors de Google »)
+   GET  …/exec?api=etat             → réglages de l'accueil (__UQ), catalogue des quiz, matières
+   GET  …/exec?api=quiz&page=<nom>  → contenu d'un quiz (ou des pages revisions / defi) et maîtrise de ce quiz
+   POST …/exec, texte {"api":"enregistrer","d":"<partie>"} ou {"api":"signaler","d":{…}}
+   Réservée au site de l'enfant (ou à un site installé à la main) : l'espace parent reste servi par Google.
+   Elle donne exactement ce que reçoivent aujourd'hui les pages du site de l'enfant, avec les mêmes contrôles,
+   et aucune action des parents. API_V augmente à chaque changement : l'appli sait parler aux anciennes versions.
+   ===================================================================== */
+const API_V = 1;
+function reponseJson_(o) {
+  return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
+}
+function apiGet_(p) {
+  if (CONFIG.espace === 'parent') return { v: API_V, erreur: 'Réservé au site de l\'enfant.' };
+  try {
+    const inst = installer_();
+    if (p.api === 'etat') {
+      const cat = catalogue_(inst.dossier);
+      return { v: API_V, version: CONFIG.version, reglages: reglagesPage_('index', inst, cat), quiz: cat.QUIZ, matieres: MATIERES };
+    }
+    if (p.api === 'quiz') {
+      const page = nettoyerNom_(p.page || '');
+      CLES_PAGE_ = null;
+      const html = page === 'revisions' || page === 'defi' ? pageRevision_(page) : PAGES[page] ? null : quizEnCache_(inst, page);
+      if (!html) return { v: API_V, erreur: 'Quiz introuvable.' };
+      let maitrise = null;
+      try { maitrise = maitrisePour_(page, CLES_PAGE_); } catch (e) {}
+      return { v: API_V, page, html, maitrise };
+    }
+    return { v: API_V, erreur: 'Demande inconnue.' };
+  } catch (e) {
+    console.error(e);
+    return { v: API_V, erreur: String(e && e.message || e) };
+  }
+}
+function doPost(e) {
+  if (CONFIG.espace === 'parent') return reponseJson_({ v: API_V, erreur: 'Réservé au site de l\'enfant.' });
+  let o = null;
+  try { o = JSON.parse(e && e.postData && e.postData.contents || 'null'); } catch (err) {}
+  if (!o || typeof o !== 'object') return reponseJson_({ v: API_V, __status: 400, erreur: 'Demande illisible.' });
+  try {
+    if (o.api === 'enregistrer') return reponseJson_(Object.assign({ v: API_V }, apiEnregistrer(typeof o.d === 'string' ? o.d : JSON.stringify(o.d || {}))));
+    if (o.api === 'signaler') return reponseJson_(Object.assign({ v: API_V }, apiSignaler(o.d && typeof o.d === 'object' ? o.d : {})));
+  } catch (err) {
+    console.error(err);
+    return reponseJson_({ v: API_V, __status: 500, erreur: String(err && err.message || err) });
+  }
+  return reponseJson_({ v: API_V, __status: 400, erreur: 'Demande inconnue.' });
 }
 
 /* Fonction à lancer une fois depuis l'éditeur (bouton ▶ Exécuter) :
@@ -299,27 +351,8 @@ function creerSheets_(dossier) {
    (Apps Script ne sert pas de fichiers séparés), puis on ajoute
    le « pont » qui relie la page à Google (résultats, liens).
    ===================================================================== */
-function assembler_(html, page, inst) {
-  const cat = catalogue_(inst.dossier);
-  chrono_('catalogue');
-  const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
-  const aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
-  const aDessins = /src=["']commun\/dessins\.js["']/i.test(html);
-
-  html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, (m, f) =>
-    COMMUN[f] ? lib_(COMMUN[f], true) : '<!-- ' + f + ' introuvable -->');      // déjà entouré de <style>
-
-  html = html.replace(/<script\b[^>]*src=["']commun\/([\w.-]+\.js)["'][^>]*>\s*<\/script>/gi, (m, f) => {
-    if (f === 'catalogue.js') return '';                       // remplacé par le catalogue automatique (dans l'en-tête)
-    if (!COMMUN[f]) return '<!-- ' + f + ' introuvable -->';
-    let s = lib_(COMMUN[f], true);                     // déjà entouré de <script>
-    if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib_(COMMUN['badges.js'], true);
-    if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib_(COMMUN['animations.js'], true);
-    if (f === 'moteur-quiz.js' && !aDessins) s = lib_(COMMUN['dessins.js'], true) + '\n' + s;   // avant le moteur : catalogue des dessins   // quiz déjà déposés : ajouté sans les modifier
-    return s;
-  });
-
-  chrono_('moteur');
+/* réglages d'une page (__UQ) : posés dans la page servie par Google, ou renvoyés en JSON à l'appli (?api=etat) */
+function reglagesPage_(page, inst, cat) {
   // scores de toutes les parties, posés dans la page : l'accueil et les badges n'ont plus à les demander au serveur
   const avecResultats = page !== 'ajouter' && page !== 'tableau-de-bord' && !(CONFIG.espace === 'parent' && page === 'index');
   let resultats = null;
@@ -375,6 +408,31 @@ function assembler_(html, page, inst) {
   if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
+  return cfg;
+}
+
+function assembler_(html, page, inst) {
+  const cat = catalogue_(inst.dossier);
+  chrono_('catalogue');
+  const aBadges = /src=["']commun\/badges\.js["']/i.test(html);
+  const aAnimations = /src=["']commun\/animations\.js["']/i.test(html);
+  const aDessins = /src=["']commun\/dessins\.js["']/i.test(html);
+
+  html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, (m, f) =>
+    COMMUN[f] ? lib_(COMMUN[f], true) : '<!-- ' + f + ' introuvable -->');      // déjà entouré de <style>
+
+  html = html.replace(/<script\b[^>]*src=["']commun\/([\w.-]+\.js)["'][^>]*>\s*<\/script>/gi, (m, f) => {
+    if (f === 'catalogue.js') return '';                       // remplacé par le catalogue automatique (dans l'en-tête)
+    if (!COMMUN[f]) return '<!-- ' + f + ' introuvable -->';
+    let s = lib_(COMMUN[f], true);                     // déjà entouré de <script>
+    if (f === 'moteur-quiz.js' && !aBadges) s += '\n' + lib_(COMMUN['badges.js'], true);
+    if (f === 'moteur-quiz.js' && !aAnimations) s += '\n' + lib_(COMMUN['animations.js'], true);
+    if (f === 'moteur-quiz.js' && !aDessins) s = lib_(COMMUN['dessins.js'], true) + '\n' + s;   // avant le moteur : catalogue des dessins   // quiz déjà déposés : ajouté sans les modifier
+    return s;
+  });
+
+  chrono_('moteur');
+  const cfg = reglagesPage_(page, inst, cat);
   chrono_('reglages');
   if (CHRONO_) cfg.chrono = { etapes: CHRONO_.etapes, total: Date.now() - CHRONO_.t0, demande: CHRONO_DEMANDE_ };
   const pont = '<script>window.__UQ = ' + jsonScript_(cfg) + ';</script>\n' + lib_('lib/pont', false);
