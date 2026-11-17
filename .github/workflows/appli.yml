@@ -1,0 +1,46 @@
+# Publie seulement l'appli servie hors de Google (Cloudflare Pages), sans nouvelle version du site des familles.
+# Actions → « Publier l'appli (Cloudflare) » → Run workflow. Branche « essai » par défaut : adresse d'essai
+# (essai.soccaquiz.pages.dev) ; « main » : l'adresse des familles. Les tests complets tournent d'abord.
+# Uniquement des fichiers statiques (règle : jamais de fonction serveur chez Cloudflare).
+name: Publier l'appli (Cloudflare)
+
+on:
+  workflow_dispatch:
+    inputs:
+      branche:
+        description: 'essai (adresse d essai) ou main (adresse des familles)'
+        required: true
+        default: essai
+
+permissions:
+  contents: read
+
+concurrency:
+  group: publier-appli
+  cancel-in-progress: false
+
+jobs:
+  appli:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5   # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 22
+      - name: Tester le projet (faux Google + Chrome)
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.63.0
+          npx --no-install playwright install --with-deps chromium
+          node tests/test.mjs
+      - name: Publier sur Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          BRANCHE: ${{ inputs.branche }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::error::Secrets CLOUDFLARE_API_TOKEN et CLOUDFLARE_ACCOUNT_ID absents."; exit 1; fi
+          case "$BRANCHE" in main|essai) ;; *) echo "::error::Branche : essai ou main"; exit 1 ;; esac
+          npx --yes wrangler@4 pages project create soccaquiz --production-branch=main >/dev/null 2>&1 || true
+          npx --yes wrangler@4 pages deploy build-site --project-name=soccaquiz --branch="$BRANCHE" --commit-dirty=true

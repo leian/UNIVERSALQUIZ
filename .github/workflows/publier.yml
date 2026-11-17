@@ -72,6 +72,13 @@ jobs:
           path: dist/universal-quiz.json
           if-no-files-found: error
           retention-days: 5
+      # appli servie hors de Google : les fichiers statiques construits et testés ci-dessus
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02   # v4.6.2
+        with:
+          name: appli
+          path: build-site
+          if-no-files-found: error
+          retention-days: 5
 
   publier:
     needs: tester
@@ -111,3 +118,29 @@ jobs:
           # shellcheck disable=SC2086
           gh release create "$TAG" dist/universal-quiz.json --target "$SHA" \
             --title "SoccaQuiz $TAG" --notes-file notes.md $MARQUE
+
+  # 3. appli servie hors de Google (Cloudflare Pages, compte soccaquiz) : uniquement des fichiers statiques,
+  #    envoyés avec un jeton limité à Cloudflare Pages (secrets CLOUDFLARE_API_TOKEN et CLOUDFLARE_ACCOUNT_ID).
+  #    Sans ces secrets, l'étape est sautée. Les préversions (tag avec « - ») partent sur une adresse d'essai.
+  appli:
+    needs: [tester, publier]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093   # v4.3.0
+        with:
+          name: appli
+          path: build-site
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 22
+      - name: Publier l'appli sur Cloudflare Pages
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::notice::Secrets Cloudflare absents : appli non publiée."; exit 0; fi
+          case "$TAG" in *-*) BRANCHE=essai ;; *) BRANCHE=main ;; esac
+          npx --yes wrangler@4 pages project create soccaquiz --production-branch=main >/dev/null 2>&1 || true
+          npx --yes wrangler@4 pages deploy build-site --project-name=soccaquiz --branch="$BRANCHE" --commit-dirty=true
