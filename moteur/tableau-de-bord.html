@@ -1222,7 +1222,8 @@ var Sig = (() => {
         fini = true; window.removeEventListener("message", ecoute); cadre.remove();
         if (m.etat !== "ok") return secours();
         msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>Le site de {{PRENOM}} est entièrement supprimé</b> : ${fait}, son site et son espace parent sont désactivés.` +
-          (m.desinstalle ? `<br><b>SoccaQuiz est entièrement désinstallé</b> : il n'a plus aucun accès à ton compte Google.` : "") + `</p>`;
+          (m.desinstalle ? `<br><b>SoccaQuiz est entièrement désinstallé</b> : il n'a plus aucun accès à ton compte Google.</p>` +
+            `<p class="small" style="margin:6px 0 0">Pour ne plus rien garder du tout (facultatif) : vide la <a href="https:\/\/drive.google.com/drive/trash" target="_blank" rel="noopener">corbeille du Drive</a> (sinon Google l'efface dans 30 jours) ; si tu avais créé une clé Gemini, supprime-la sur <a href="https:\/\/aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a> ; remets l'interrupteur « API Google Apps Script » sur Désactivé (<a href="https:\/\/script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).` : "") + `</p>`;
       };
       window.addEventListener("message", ecoute);
       const cadre = document.createElement("iframe");
