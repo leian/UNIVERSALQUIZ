@@ -226,6 +226,7 @@ function apiRecommencer(ref) {
     const corbeille = auto;              // vérifié : le site ne répond plus
     // programme à la corbeille : ses publications ne répondent plus, même si Google refuse de les supprimer
     if (!r.ok && !corbeille) { const t = traduire_(r.erreur); return { erreur: "Ce site n'a pas pu être désactivé : il est gardé, rien n'a changé. " + (t.message || t.erreur), detail: t.detail, n }; }
+    compter_('suppression', s.version || '', sitesInstalles_());   // avant l'oubli : sans site, l'installateur ne garde plus rien
     oublierSite_(n);
     // adresses pour le ménage de la famille quand la suppression n'est pas passée par l'espace parent du site
     const restants = [lireSite_(0)].concat(autres_()).filter(x => x && x.urlParent).map(x => x.urlParent);
@@ -235,6 +236,37 @@ function apiRecommencer(ref) {
     return { ok: true, desactive: r.desactive, n, prenom: s.prenom || '', urlParent: s.urlParent || '', restants, corbeille, desinstalle };
   });
 }
+/* ---------------- compteurs anonymes (onglet Statistiques de la console) ----------------
+   Pour connaître l'ampleur du déploiement sans rien savoir des familles : à chaque installation, mise à jour ou
+   suppression d'un site, l'installateur envoie à la console un simple « +1 », avec le numéro de version.
+   Aucun identifiant, aucun prénom, aucune adresse ; l'envoi part des serveurs de Google, pas de l'appareil.
+   Sites installés avant les compteurs : la première fois, le nombre de sites déjà installés est envoyé une fois
+   (« existant »), puis la propriété « stat » le note (effacée avec le reste quand il ne reste plus aucun site). */
+function sitesInstalles_() { return [lireSite_(0)].concat(autres_()).filter(x => x && x.scriptId && x.version).length; }
+function compter_(evenement, version, nbAvant) {
+  try {
+    const props = PropertiesService.getUserProperties(), evts = [];
+    if (!props.getProperty('stat') && nbAvant > 0) evts.push({ e: 'existant', n: Math.min(nbAvant, 20) });
+    evts.push({ e: evenement, v: /^v?[\w.\-]{1,15}$/.test(String(version)) ? String(version) : '' });
+    const url = adresseStats_();
+    if (!url) return;
+    UrlFetchApp.fetch(url, { method: 'post', contentType: 'text/plain', payload: JSON.stringify({ type: 'stat', evts }), muteHttpExceptions: true, followRedirects: true });
+    if (evenement !== 'suppression' || nbAvant > 1) props.setProperty('stat', '1');
+  } catch (e) {}                               // un compteur ne doit jamais gêner l'installation
+}
+function adresseStats_() {
+  const cache = CacheService.getScriptCache(), deja = cache.get('adresse-stats');
+  if (deja != null) return deja;
+  let url = '';
+  try {
+    const r = UrlFetchApp.fetch('https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json', { muteHttpExceptions: true });
+    const c = r.getResponseCode() === 200 ? JSON.parse(r.getContentText()) : {};
+    if (typeof c.propositions === 'string' && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(c.propositions)) url = c.propositions;
+  } catch (e) {}
+  cache.put('adresse-stats', url, 21600);
+  return url;
+}
+
 /* le site de l'enfant répond-il encore ? true : oui ; false : non (programme à la corbeille ou supprimé) ; null : on ne sait pas */
 function siteRepond_(s) {
   if (!s || !s.url) return false;
@@ -266,6 +298,7 @@ function apiMettreAJour(ref) {
 function publier_(maj, n) {
   n = nSite_(n);
   const site = lireSite_(n) || {};
+  const avant = sitesInstalles_(), versionAvant = site.version || '';   // pour les compteurs anonymes
   let id = site.scriptId;
   try {
     const moteur = moteur_();
@@ -319,6 +352,7 @@ function publier_(maj, n) {
 
     Object.assign(site, { deploymentId: dep, deploymentIdParent: depP, url, urlParent, version: moteur.version });
     ecrireSite_(n, site);
+    compter_(versionAvant ? 'maj' : 'installation', moteur.version, avant);
     return { ok: true, n, id, prenom, classe: site.classe || '', url, urlParent, version: moteur.version, appli: appli_(url, moteur.version),
       maj: !!maj && dejaPublie && !nouveauSite, nouveauSite, adresseChangee: adresseChangee && !nouveauSite,
       nouveauParent: dejaPublie && !avaitParent && !nouveauSite };
@@ -497,7 +531,7 @@ function pageHtml_(suppr, vue) {
   '<button class="btn" id="ajouter-site" type="button">✨ Créer ce site</button></details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
-  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui.<br>' +
+  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui. L\'installateur compte les installations, mises à jour et suppressions de façon anonyme, sans rien savoir de toi.<br>' +
   '<a href="https://soccaquiz.fr/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
   '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\nwindow.__VUE = ' + JSON.stringify(vue || '') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }

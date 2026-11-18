@@ -38,8 +38,16 @@ const feuilleA = {
   deleteRow: l => lignesA.splice(l - 1, 1)
 };
 let ongletA = false;
-ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : n === 'Aide' && ongletA ? feuilleA : null;
-ss.insertSheet = n => { if (n === 'Aide') { ongletA = true; return feuilleA; } ongletE = true; return feuilleE; };
+// onglet « Statistiques » (compteurs anonymes de l'installateur)
+const lignesS = [];
+const feuilleS = {
+  appendRow: r => lignesS.push(r.slice()),
+  getLastRow: () => lignesS.length,
+  getRange: (l, c, nl, nc) => ({ getValues: () => lignesS.slice(l - 1, l - 1 + nl).map(r => r.slice(c - 1, c - 1 + nc)) })
+};
+let ongletS = false;
+ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : n === 'Aide' && ongletA ? feuilleA : n === 'Statistiques' && ongletS ? feuilleS : null;
+ss.insertSheet = n => { if (n === 'Aide') { ongletA = true; return feuilleA; } if (n === 'Statistiques') { ongletS = true; return feuilleS; } ongletE = true; return feuilleE; };
 // faux GitHub (API contents)
 const depot = { 'docs/bibliotheque/index.json': JSON.stringify({ version: 1, quiz: [{ id: 'anglais-x', titre: 'X', matiere: 'anglais', classes: ['CM1'], nb: 5, ajoute: '2026-11-01' }] }), 'docs/bibliotheque/anglais-x.txt': 'T|X\nQ|a|b|c\n', 'docs/soccaquiz.json': '{}' };
 const commits = [];
@@ -243,6 +251,19 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/script\.google\.com\/macros\/
     'demande remise à répondre, classée, puis supprimée');
   const page = ctx.doGet({ parameter: {} }).h;
   ok(/data-o="aide"/.test(page) && /nb-aide/.test(page) && !/[^:]\/\/(?!\s)/.test((page.match(/<script>([\s\S]*)<\/script>/) || [])[1].replace(/https?:\\\/\\\//g, '')), 'console : onglet « Aide » avec son compteur');
+}
+// compteurs anonymes de l'installateur → onglet Statistiques
+{
+  const r0 = ctx.apiEtat().stats;
+  ok(r0 && r0.enService === 0 && !r0.semaines.length, 'statistiques : vides au départ');
+  ok(post({ type: 'stat', evts: [{ e: 'installation', v: 'v2.93' }] }).ok && post({ type: 'stat', evts: [{ e: 'installation', v: 'v2.93' }] }).ok
+    && post({ type: 'stat', evts: [{ e: 'existant', n: 3 }, { e: 'maj', v: 'v2.93' }] }).ok && post({ type: 'stat', evts: [{ e: 'suppression', v: 'v2.92' }] }).ok, 'compteurs reçus');
+  ok(post({ type: 'stat', evts: [{ e: 'pirate' }] }).erreur && post({ type: 'stat', evts: [{ e: 'existant', n: 5000 }] }).ok && lignesS[lignesS.length - 1][3] === 20
+    && post({ type: 'stat', evts: [{ e: 'maj', v: '<script>' }] }).ok && lignesS[lignesS.length - 1][2] === '', 'compteurs : événement inconnu refusé, nombres bornés, version douteuse effacée');
+  const S = ctx.apiEtat().stats;
+  ok(S.totaux.installation === 2 && S.totaux.maj === 2 && S.totaux.suppression === 1 && S.totaux.existant === 23 && S.enService === 24 && S.semaines.length === 1 && S.semaines[0].installation === 2
+    && S.versions[0].version === 'v2.93' && S.versions[0].installation === 2 && S.versions[0].maj === 1, 'statistiques : en service = déjà là + installés − supprimés, par semaine et par version — ' + JSON.stringify(S.totaux));
+  ok(/data-o="stats"/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Statistiques »');
 }
 console.log(echecs ? '[console] ' + echecs + ' échec(s)' : '[console] tout est vert');
 process.exit(echecs ? 1 : 0);

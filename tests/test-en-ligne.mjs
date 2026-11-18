@@ -67,6 +67,8 @@ function fausseApi(url, o) {
 
 // le site de l'enfant répond-il ? (sa publication existe et son programme n'est pas « à la corbeille »)
 const corbeilleSites = new Set(); let attentes = 0;
+const statsRecues = [];          // compteurs anonymes reçus par la (fausse) console
+let consolePanne = false;
 function siteEnLigne(url) {
   const did = (url.match(/\/s\/([^/]+)\/exec/) || [])[1];
   const p = Object.entries(projets).find(([, x]) => did in x.deploiements);
@@ -77,6 +79,8 @@ const cache = {};
 const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
   UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE) : reponse(503, 'indisponible'))
+    : /leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json$/.test(url) ? reponse(200, { propositions: 'https://script.google.com/macros/s/AKfyCONSOLE/exec' })
+    : /\/AKfyCONSOLE\/exec$/.test(url) ? (consolePanne ? (() => { throw new Error('réseau'); })() : (statsRecues.push(JSON.parse(o.payload)), reponse(200, { ok: true })))
     : /\/exec\?api=etat$/.test(url) ? siteEnLigne(url) : fausseApi(url, o) },
   Utilities: { sleep: () => { attentes++; } },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
@@ -316,6 +320,29 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   r = ctx.apiRecommencer({ id: r1.id, auto: true });
   panne = null;
   ok(r.ok && r.desinstalle && (global.__authRetiree || 0) === avant + 1 && !Object.keys(userProps).length, 'dernier site supprimé : l\'installateur retire son propre accès (désinstallation complète)');
+}
+
+// 9 quater. compteurs anonymes : un « +1 » par installation, mise à jour, suppression ; rien sur la famille
+{
+  statsRecues.length = 0;
+  const evts = () => statsRecues.map(x => x.evts.map(y => y.e + (y.n ? ':' + y.n : '')).join('+')).join(' ');
+  const r1 = ctx.apiInstaller('Tom', 'CE1'); const r2 = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
+  ctx.apiMettreAJour({ id: r1.id });
+  ok(evts() === 'installation installation maj' && statsRecues.every(x => x.type === 'stat') && statsRecues[0].evts[0].v === 'v-test' && userProps.stat === '1',
+    'compteurs : installation, autre site, mise à jour — ' + evts());
+  delete userProps.stat; statsRecues.length = 0;             // famille installée avant les compteurs
+  ctx.apiMettreAJour({ id: r2.id });
+  ok(evts() === 'existant:2+maj', 'site installé avant les compteurs : compté une fois (« existant »), à sa première mise à jour — ' + evts());
+  statsRecues.length = 0;
+  ctx.apiRecommencer({ id: r2.id }); const garde = userProps.stat; ctx.apiRecommencer({ id: r1.id });
+  const brut = JSON.stringify(statsRecues);
+  ok(evts() === 'suppression suppression' && garde === '1' && !Object.keys(userProps).length, 'suppressions comptées ; dernier site supprimé : l\'installateur ne garde plus rien, même pas la marque des compteurs');
+  ok(!/Tom|Léa|script\d|AKfy|@|CE1|6e/.test(brut) && Object.keys(statsRecues[0]).sort().join() === 'evts,type', 'compteurs : ni prénom, ni classe, ni identifiant de site, ni adresse — ' + brut);
+  consolePanne = true;
+  const avant = statsRecues.length;
+  const r3 = ctx.apiInstaller('Zoé', 'CM1');
+  ok(r3.ok && statsRecues.length === avant, 'console injoignable : l\'installation se fait quand même (un compteur n\'est jamais bloquant)');
+  consolePanne = false; ctx.apiRecommencer({ id: r3.id });
 }
 
 // 10. la page : HTML complet et script valide ; pas de journal d'erreur chez l'éditeur

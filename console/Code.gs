@@ -56,6 +56,7 @@ function doPost(e) {
 function recevoir_(d) {
   if (d && d.type === 'erreur') return recevoirErreur_(d);
   if (d && d.type === 'aide') return recevoirAide_(d);
+  if (d && d.type === 'stat') return recevoirStat_(d);
   if (!d || d.type !== 'proposition') return { erreur: 'Requête inconnue.' };
   const texte = String(d.texte || '').replace(/\r/g, '').trim();
   if (texte.length < 40 || texte.length > 30000) return { erreur: 'Quiz vide ou trop long.' };
@@ -153,6 +154,52 @@ function recevoirAide_(d) {
     sh.appendRow([id, new Date(), 'nouveau', cellule_(email), origine, t(d.prenom, 40), classe, t(d.version, 12), cellule_(message), '', '']);
     return { ok: true };
   } finally { verrou.releaseLock(); }
+}
+/* ---------------- compteurs anonymes envoyés par l'installateur (onglet Statistiques) ----------------
+   Corps : JSON { type: 'stat', evts: [{ e: 'installation'|'maj'|'suppression', v: 'v2.93' } | { e: 'existant', n }] }.
+   Rien d'autre : ni identifiant, ni adresse, ni prénom (l'envoi part des serveurs de Google, pas de l'appareil). */
+const COL_STAT_ = ['date', 'evenement', 'version', 'n'];
+const EVTS_ = ['installation', 'maj', 'suppression', 'existant'];
+function feuilleStats_() {
+  const ss = feuille_().getParent();
+  let sh = ss.getSheetByName('Statistiques');
+  if (!sh) { sh = ss.insertSheet('Statistiques'); sh.appendRow(COL_STAT_); }
+  return sh;
+}
+function recevoirStat_(d) {
+  const evts = Array.isArray(d.evts) ? d.evts.slice(0, 3) : [];
+  const lignes = evts.filter(x => x && EVTS_.indexOf(x.e) >= 0).map(x => [new Date(), x.e,
+    x.e === 'existant' ? '' : (/^v?[\w.\-]{1,15}$/.test(String(x.v || '')) ? String(x.v) : ''),
+    x.e === 'existant' ? Math.max(1, Math.min(20, Math.floor(+x.n) || 1)) : 1]);
+  if (!lignes.length) return { erreur: 'Compteur inconnu.' };
+  const cache = CacheService.getScriptCache(), cle = 'stats-' + Math.floor(Date.now() / 6e5), n = +(cache.get(cle) || 0);
+  if (n >= 300) return { erreur: 'Trop d\'envois en ce moment.' };
+  cache.put(cle, String(n + 1), 900);
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try { const sh = feuilleStats_(); lignes.forEach(l => sh.appendRow(l)); return { ok: true }; }
+  finally { verrou.releaseLock(); }
+}
+/* totaux, semaines (lundi), versions */
+function stats_() {
+  const sh = feuille_().getParent().getSheetByName('Statistiques');
+  const t = { existant: 0, installation: 0, maj: 0, suppression: 0 }, semaines = {}, versions = {};
+  let debut = '';
+  if (sh && sh.getLastRow() > 1) sh.getRange(2, 1, sh.getLastRow() - 1, COL_STAT_.length).getValues().forEach(r => {
+    const e = String(r[1]); if (!(e in t)) return;
+    const n = +r[3] || 1, d = r[0] instanceof Date ? r[0] : new Date(r[0]);
+    t[e] += n;
+    if (isNaN(d)) return;
+    const iso = d.toISOString(); if (!debut || iso < debut) debut = iso;
+    const lundi = new Date(d.getFullYear(), d.getMonth(), d.getDate() - ((d.getDay() + 6) % 7));
+    const k = Utilities.formatDate(lundi, 'Europe/Paris', 'yyyy-MM-dd');
+    const w = semaines[k] || (semaines[k] = { semaine: k, installation: 0, maj: 0, suppression: 0 });
+    if (e !== 'existant') w[e] += n;
+    const v = String(r[2] || ''); if (v && (e === 'installation' || e === 'maj')) { const x = versions[v] || (versions[v] = { version: v, installation: 0, maj: 0 }); x[e] += n; }
+  });
+  return { totaux: t, enService: Math.max(0, t.existant + t.installation - t.suppression), debut,
+    semaines: Object.keys(semaines).sort().reverse().slice(0, 12).map(k => semaines[k]),
+    versions: Object.keys(versions).map(k => versions[k]).sort((a, b) => b.version.localeCompare(a.version, 'fr', { numeric: true })).slice(0, 15) };
 }
 function trouverAide_(id) {
   const sh = feuilleAide_(), v = sh.getDataRange().getValues();
@@ -294,8 +341,9 @@ function apiEtat() {
     if (sh && sh.getLastRow() > 1) aide = sh.getRange(2, 1, sh.getLastRow() - 1, COL_AIDE_.length).getValues().filter(r => r[0]).map(r => COL_AIDE_.reduce((o, c, i) => {
       o[c] = r[i] instanceof Date ? r[i].toISOString() : nonCellule_(r[i]); return o; }, {})).sort((a, b) => b.date.localeCompare(a.date));
   } catch (e) {}
+  let stats = null; try { stats = stats_(); } catch (e) {}
   return {
-    propositions: props, retires, erreurs, aide,
+    propositions: props, retires, erreurs, aide, stats,
     jeton: !!p.getProperty('GITHUB_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
@@ -589,13 +637,18 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
       .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : o[0] === 'aide' ? ' <span class="nb" id="nb-aide" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
 }
 
 const CSS_ = `
+.chiffres{display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:10px;margin:8px 0}
+.chiffre{background:var(--bg);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column}
+.chiffre b{font:700 1.8rem Fredoka,system-ui,sans-serif;color:var(--rouge)}.chiffre small{color:var(--soft);font-size:.78rem}
+table.stats{width:100%;border-collapse:collapse;font-size:.95rem}table.stats th,table.stats td{padding:6px 8px;border-bottom:1px solid var(--line);text-align:left}
+table.stats td+td,table.stats th+th{text-align:right}
 :root{--bg:#fff8ef;--card:#fff;--ink:#2a1f1a;--soft:#7a6658;--line:#eadfce;--rouge:#c8102e;--rouge-f:#9e0b24;--rouge-c:#fdeceb;--dore:#e8a83a;--ok:#15803d;--ko:#b91c1c}
 @media (prefers-color-scheme:dark){:root{--bg:#1a1412;--card:#241c18;--ink:#f8efe6;--soft:#c4b3a3;--line:#3a2e27;--rouge:#ef4a5c;--rouge-f:#ff6b7a;--rouge-c:#3a1f22;--ok:#4ade80;--ko:#f87171}}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Nunito,system-ui,sans-serif}
@@ -651,6 +704,7 @@ function client_() {
     check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     upload: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>', plus: '<path d="M12 5v14M5 12h14"/>', ext: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    chart: '<path d="M3 3v18h18"/><path d="M7 15v3M12 10v8M17 6v12"/>',
     aide: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>', key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>'
   };
@@ -696,7 +750,22 @@ function client_() {
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
     if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+  }
+
+  /* ---------- Statistiques : compteurs anonymes envoyés par l'installateur ---------- */
+  function vueStats(c) {
+    var S = ETAT.stats;
+    if (!S) { c.innerHTML = MSG + '<div class="box"><p class="petit">Statistiques indisponibles pour l\'instant.</p></div>'; return; }
+    var t = S.totaux, chiffre = function (n, lib, aide) { return '<div class="chiffre"><b>' + n + '</b><span>' + esc(lib) + '</span>' + (aide ? '<small>' + esc(aide) + '</small>' : '') + '</div>'; };
+    var jour = function (k) { try { return new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); } catch (e) { return k; } };
+    c.innerHTML = MSG + '<div class="box"><h2>' + I('chart') + 'Sites SoccaQuiz</h2>' +
+      '<div class="chiffres">' + chiffre(S.enService, 'en service', 'déjà là + installés − supprimés') + chiffre(t.installation, 'installations') + chiffre(t.maj, 'mises à jour') + chiffre(t.suppression, 'suppressions') + '</div>' +
+      '<p class="petit">Compteurs anonymes envoyés par l\'installateur' + (S.debut ? ' depuis le ' + esc(new Date(S.debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '') + ' : un « +1 » par installation, mise à jour ou suppression, avec le numéro de version, sans rien sur les familles. Les sites installés avant les compteurs (' + t.existant + ' comptés pour l\'instant) le sont à leur première mise à jour ou suppression.</p></div>' +
+      '<div class="box"><h2>' + I('chart') + 'Par semaine</h2>' + (S.semaines.length ? '<table class="stats"><tr><th>Semaine du</th><th>Installations</th><th>Mises à jour</th><th>Suppressions</th></tr>' +
+        S.semaines.map(function (w) { return '<tr><td>' + esc(jour(w.semaine)) + '</td><td>' + w.installation + '</td><td>' + w.maj + '</td><td>' + w.suppression + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>' +
+      '<div class="box"><h2>' + I('tag') + 'Par version</h2>' + (S.versions.length ? '<table class="stats"><tr><th>Version</th><th>Installée</th><th>Mise à jour vers</th></tr>' +
+        S.versions.map(function (v) { return '<tr><td>' + esc(v.version) + '</td><td>' + v.installation + '</td><td>' + v.maj + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>';
   }
 
   /* ---------- Demandes d'aide des familles : réponse par mail depuis ce compte ---------- */
