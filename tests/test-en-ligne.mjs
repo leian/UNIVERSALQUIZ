@@ -190,7 +190,7 @@ let compte = 0;
 panne = (m, u) => m === 'PUT' && /deployments\//.test(u) && ++compte === 2 ? reponse(500, { error: { code: 500, message: 'Internal error' } }) : null;
 r = ctx.apiMettreAJour();
 panne = null;
-ok(/touche à nouveau « Mettre à jour »/.test(r.erreur), 'mise à jour arrêtée entre les deux espaces : il est dit de la relancer');
+ok(/clique à nouveau sur « Mettre à jour »/.test(r.erreur), 'mise à jour arrêtée entre les deux espaces : il est dit de la relancer');
 const t = ctx.traduire_(Object.assign(new Error('Script has reached the version limit of 200'), { scriptId: 'scriptX', n: 2 }));
 ok(t.erreur === 'versions' && t.n === 2 && /scriptX/.test(t.lienProjet), 'limite des versions : carte « ménage » sur le bon site, lien vers le bon projet');
 

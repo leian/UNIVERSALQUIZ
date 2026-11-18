@@ -461,8 +461,8 @@ function avecVerrou_(f) {
 /* messages de Google traduits ; le texte d'origine est gardé dans « detail » (affiché en petit) */
 function traduire_(e) {
   const m = String(e && e.message || e);
-  const suite = (e && e.relancer ? ' La mise à jour s\'est arrêtée en cours de route : touche à nouveau « Mettre à jour ».' : '') +
-    (e && e.commence ? ' Le site a été commencé : touche « Terminer l\'installation » sur sa carte (recharge la page si elle n\'apparaît pas).' : '');
+  const suite = (e && e.relancer ? ' La mise à jour s\'est arrêtée en cours de route : clique à nouveau sur « Mettre à jour ».' : '') +
+    (e && e.commence ? ' Le site a été commencé : clique sur « Terminer l\'installation » sur sa carte (recharge la page si elle n\'apparaît pas).' : '');
   const r = (texte, detail) => detail ? { erreur: texte + suite, detail } : { erreur: texte + suite };
   if (/User has not enabled the Apps Script API/i.test(m)) return { erreur: 'api', message: "L'interrupteur « API Google Apps Script » n'est pas encore activé dans ton compte." };
   if (/has not been used in project|SERVICE_DISABLED/i.test(m)) return r("L'installateur n'est pas complètement configuré par son éditeur (API Apps Script du projet Google Cloud). Préviens la personne qui t'a envoyé le lien.");
@@ -510,9 +510,9 @@ function pageHtml_(suppr, vue) {
 
   '<div id="nouveau" class="cache">' +
   '<section class="etape" id="e1"><h2><span class="num">1</span> Active l\'API Apps Script</h2>' +
-  '<div id="e1-alerte"></div><div id="e1-afaire"><p>Une seule fois : touche le bouton, puis mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>.</p>' +
+  '<div id="e1-alerte"></div><div id="e1-afaire"><p>Une seule fois : clique sur le bouton, puis mets l\'interrupteur <b>« API Google Apps Script »</b> sur <b>Activé</b>.</p>' +
   '<a class="btn" href="' + PAGE_API + '" target="_blank" rel="noopener">Ouvrir la page Google</a>' +
-  '<div class="retour"><b>↩️ Ensuite, tu vas revenir sur le mail : c\'est normal.</b> Une fois l\'interrupteur activé, la flèche retour ← te ramène au mail d\'invitation, pas ici. Dans le mail, fais l\'<b>étape 2</b> : touche à nouveau « Installer SoccaQuiz ».<br><span class="petit">Sur ordinateur, la page Google s\'ouvre dans un autre onglet : reviens simplement sur celui-ci.</span></div>' +
+  '<div class="retour"><b>↩️ Ensuite, tu vas revenir sur le mail : c\'est normal.</b> Une fois l\'interrupteur activé, la flèche retour ← te ramène au mail d\'invitation, pas ici. Dans le mail, fais l\'<b>étape 2</b> : clique à nouveau sur « Installer SoccaQuiz ».<br><span class="petit">Sur ordinateur, la page Google s\'ouvre dans un autre onglet : reviens simplement sur celui-ci.</span></div>' +
   '<p class="petit" style="margin:6px 0 0">Déjà fait ? Passe directement à l\'étape 2.</p>' +
   '<p class="petit" style="margin:6px 0 0">Plusieurs comptes Google sur cet appareil ? Vérifie en haut à droite de la page Google que c\'est bien le compte qui recevra le site.</p></div></section>' +
   '<section class="etape" id="e2"><h2><span class="num">2</span> Installe le site</h2>' +
@@ -558,9 +558,9 @@ function scriptPage_() {
     var h = function (s) { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;'); };
     var res = $('resultat');
     // première installation : l'autorisation à donner une seule fois, en ouvrant le site
-    var AUTORISER = '<div class="ok"><p><b>Dernière étape, une seule fois :</b> touche « ▶ Site de l\'enfant ». Google demande d\'autoriser « SoccaQuiz » :</p>' +
+    var AUTORISER = '<div class="ok"><p><b>Dernière étape, une seule fois :</b> clique sur « ▶ Site de l\'enfant ». Google demande d\'autoriser « SoccaQuiz » :</p>' +
       '<ol><li>« Examiner les autorisations », puis choisis ton compte ;</li>' +
-      '<li>« Google n\'a pas validé cette application » : touche <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
+      '<li>« Google n\'a pas validé cette application » : clique sur <b>Paramètres avancés</b>, puis <b>Accéder à SoccaQuiz (non sécurisé)</b> ;</li>' +
       '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
       '<p class="petit" style="margin:0">Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive. Google affiche un accès à tout le Drive, parce que le site doit lire les quiz que tu déposes toi-même dans son dossier : il ne lit que ce dossier. Une fois dessus, mets-le en favori.</p>' +
       '<p style="margin:8px 0 0">Ensuite, pour <b>ajouter des quiz et suivre les résultats</b>, utilise « 🔒 Espace parent » (mets-le aussi en favori). Ton enfant, lui, n\'utilise que le lien « Site de l\'enfant ».</p></div>';
@@ -599,7 +599,7 @@ function scriptPage_() {
     function erreur(r, n) {
       if (r && r.erreur === 'versions') { zoneMsg(r.n != null ? r.n : n || 0).innerHTML = carteMenage(r, true); return; }
       if (r && r.erreur === 'api') {
-        $('e1-alerte').innerHTML = '<div class="ko" style="margin-bottom:8px">' + h(r.message) + ' Fais cette étape, puis reviens et touche à nouveau « Installer mon site » (Google peut demander une minute).</div>';
+        $('e1-alerte').innerHTML = '<div class="ko" style="margin-bottom:8px">' + h(r.message) + ' Fais cette étape, puis reviens et clique à nouveau sur « Installer mon site » (Google peut demander une minute).</div>';
         afficherNouveau(true);
       } else {
         zoneMsg(n).innerHTML = '<div class="ko">😕 ' + h((r && (r.erreur || r.message)) || r) + (r && r.detail ? '<br><span class="petit">' + h(r.detail) + '</span>' : '') + '</div>';
@@ -636,7 +636,7 @@ function scriptPage_() {
     function carteMenage(e, bloque) {
       return '<div class="' + (bloque ? 'ko' : 'maj') + '" style="margin-bottom:10px"><p style="margin:0 0 6px"><b>🧹 Petit ménage à faire (2 minutes, plus simple sur ordinateur)</b></p>' +
         '<p style="margin:0 0 6px">Ce site garde une copie de chaque mise à jour : il en a <b>' + h(e.versions) + ' sur ' + h(e.maxVersions || 200) + '</b> au maximum autorisé par Google. ' +
-        (bloque ? 'Il n\'y a plus de place pour la mise à jour : fais ce ménage, puis touche à nouveau « Mettre à jour ».' : 'Au-delà, les mises à jour ne passeront plus.') + '</p>' +
+        (bloque ? 'Il n\'y a plus de place pour la mise à jour : fais ce ménage, puis clique à nouveau sur « Mettre à jour ».' : 'Au-delà, les mises à jour ne passeront plus.') + '</p>' +
         '<ol style="margin:0 0 6px;padding-left:20px"><li>Ouvre le programme du site : <a class="btn leger" href="' + h(e.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme SoccaQuiz</a></li>' +
         '<li>Dans la barre de gauche, clique sur l\'horloge <b>« Historique du projet »</b>.</li>' +
         '<li>En bas à droite, clique sur la corbeille <b>« Supprimer des versions en masse »</b>.</li>' +
@@ -659,7 +659,7 @@ function scriptPage_() {
     function carteSite(s, seul) {
       var adulte = s.classe === 'adulte';
       if (s.incomplet) return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">⚠️ ' + h(titreSite(s)) + ' : installation interrompue</span></h2>' +
-        '<div class="msg"></div><p style="margin:0">L\'installation de ce site s\'est arrêtée avant la fin. Touche le bouton pour la terminer : rien n\'est recréé en double.</p>' +
+        '<div class="msg"></div><p style="margin:0">L\'installation de ce site s\'est arrêtée avant la fin. Clique sur le bouton pour la terminer : rien n\'est recréé en double.</p>' +
         '<button class="btn" data-action="maj" type="button">✨ Terminer l\'installation</button>' +
         '<details class="avance"><summary>Options avancées</summary><p class="petit"><a href="#" data-action="recommencer">Abandonner ce site</a></p>' +
         '<div class="confirmer cache ko"><p>Ses publications éventuelles seront désactivées et l\'installateur l\'oubliera.</p><button class="btn" data-action="oui-recommencer" type="button">Oui, abandonner</button> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></div></details></section>';
@@ -705,7 +705,7 @@ function scriptPage_() {
         if (ok === false) rates.push(titreSite(l[i - 1]));
         if (i >= l.length) {
           MAJ_EN_COURS = false;
-          $('tout-maj').innerHTML = rates.length ? '<div class="ko" style="margin-bottom:12px">Mise à jour terminée, sauf pour : ' + h(rates.join(', ')) + '. Le message est dans la carte du site : touche à nouveau « Mettre à jour ce site ».</div>'
+          $('tout-maj').innerHTML = rates.length ? '<div class="ko" style="margin-bottom:12px">Mise à jour terminée, sauf pour : ' + h(rates.join(', ')) + '. Le message est dans la carte du site : clique à nouveau sur « Mettre à jour ce site ».</div>'
             : '<div class="ok" style="margin-bottom:12px">✅ <b>Tous les sites sont à jour.</b> Leurs adresses ne changent pas.</div>';
           return;
         }

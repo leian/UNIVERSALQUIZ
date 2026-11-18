@@ -190,7 +190,7 @@ dialog.boite.large{max-width:720px}
   <div class="panneau" id="p-bibliotheque" role="tabpanel" aria-labelledby="o-bibliotheque" hidden>
     <div class="box">
       <h2><i data-ic="book"></i>Bibliothèque SoccaQuiz</h2>
-      <p class="small" style="margin-top:0">Des quiz prêts à l'emploi, relus avant d'être publiés. « Ajouter à mon site » le met sur le site de {{PRENOM}} en un toucher.</p>
+      <p class="small" style="margin-top:0">Des quiz prêts à l'emploi, relus avant d'être publiés. « Ajouter à mon site » le met sur le site de {{PRENOM}} en un clic.</p>
       <div class="bib-filtres">
         <label class="small" for="bib-classe">Classe :</label><select id="bib-classe"></select>
         <label class="small" for="bib-mat">Matière :</label><select id="bib-mat"></select>
@@ -199,7 +199,7 @@ dialog.boite.large{max-width:720px}
     </div>
     <div class="box">
       <h2><i data-ic="send"></i>Partager un de tes quiz</h2>
-      <p class="small" style="margin:0">Un quiz réussi sur ton site peut aider d'autres familles : dans l'onglet <b>Quiz</b>, touche <b>Proposer</b> à côté du quiz. Il est relu avant d'être ajouté ici.</p>
+      <p class="small" style="margin:0">Un quiz réussi sur ton site peut aider d'autres familles : dans l'onglet <b>Quiz</b>, clique sur <b>Proposer</b> à côté du quiz. Il est relu avant d'être ajouté ici.</p>
     </div>
   </div>
   <div class="panneau" id="p-reglages" role="tabpanel" aria-labelledby="o-reglages" hidden>
@@ -682,7 +682,7 @@ document.getElementById("liste-quiz").addEventListener("click", e => {
         <p>Le quiz est envoyé à SoccaQuiz, relu, puis ajouté à la bibliothèque pour les autres familles. Seules les questions partent : ni photo, ni résultat, ni prénom, ni adresse.</p>
         <p class="small">Vérifie qu'aucune question ne contient le prénom de ton enfant ou un détail personnel.</p>
         <textarea readonly aria-label="Texte du quiz">${esc(r.texte)}</textarea>
-        ${direct ? `<p class="small" id="prop-etat" aria-live="polite">Un toucher sur « Envoyer à SoccaQuiz » suffit.</p>` : `<p class="small">${court ? "Le quiz est déjà écrit dans le mail : il n'y a plus qu'à l'envoyer." : "Le quiz est très long : il est copié quand tu touches « Envoyer par mail », colle-le dans le mail."}</p>`}
+        ${direct ? `<p class="small" id="prop-etat" aria-live="polite">Un clic sur « Envoyer à SoccaQuiz » suffit.</p>` : `<p class="small">${court ? "Le quiz est déjà écrit dans le mail : il n'y a plus qu'à l'envoyer." : "Le quiz est très long : il est copié quand tu cliques sur « Envoyer par mail », colle-le dans le mail."}</p>`}
         <div class="bts"><button class="btn" type="button" data-r="non">Fermer</button><button class="btn" type="button" data-copier>${I('copy')} Copier</button><a class="btn ${direct ? "" : "principal"}" href="${esc(mail)}" target="_blank" rel="noopener">${I('mail')} ${direct ? "Par mail" : "Envoyer par mail"}</a>${direct ? `<button class="btn principal" type="button" data-envoyer>${I('send')} Envoyer à SoccaQuiz</button>` : ""}</div>`);
       const d = document.querySelector("dialog.boite:last-of-type");
       if (d) d.querySelector("[data-copier]").addEventListener("click", ev => {
@@ -911,7 +911,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     if (!plusRecente(derniere, U.version)) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
     if (!U.installateur) return;
     // pastille ronde en haut à droite : on la voit même quand le bandeau est loin (onglets Quiz, Réglages)
-    const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : touche pour mettre à jour ton site depuis l'installateur";
+    const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : clique pour mettre à jour ton site depuis l'installateur";
     // l'installateur reçoit la version vue ici (?d=…) : il relit GitHub s'il ne la connaît pas encore, pour dire la même chose
     const lienMaj = U.installateur + (String(U.installateur).indexOf("?") < 0 ? "?" : "&") + "d=" + encodeURIComponent(derniere);
     p.innerHTML = I("refresh"); p.href = lienMaj; p.target = "_top";
@@ -955,7 +955,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   const mail = email => {
     const corps = "Bonjour,\n\nJe t'ai donné accès à l'espace parent SoccaQuiz, pour suivre les révisions et créer des quiz.\n\n" +
       liens.map(x => (x.prenom ? x.prenom + " : " : "") + x.parent).join("\n") +
-      "\n\nOuvre ce lien avec ton compte Google " + email + ". La première fois, Google affiche « Google n'a pas validé cette application » : touche « Paramètres avancés », puis « Accéder à SoccaQuiz », et autorise (une fois par enfant).\n";
+      "\n\nOuvre ce lien avec ton compte Google " + email + ". La première fois, Google affiche « Google n'a pas validé cette application » : clique sur « Paramètres avancés », puis « Accéder à SoccaQuiz », et autorise (une fois par enfant).\n";
     return "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent("Espace parent SoccaQuiz") + "&body=" + encodeURIComponent(corps);
   };
   function rendre(msg) {
@@ -1219,7 +1219,7 @@ var Sig = (() => {
       const fait = `${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}${r.programme ? ", programme du site mis à la corbeille" : ""}, site retiré de la famille`;
       const bouton = r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`;
       // secours : l'installateur n'a pas pu finir dans le cadre invisible (connexion Google refusée dans le cadre, plusieurs comptes…)
-      const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : touche le bouton, l'installateur termine tout seul.</p>` + bouton; };
+      const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : clique sur le bouton, l'installateur termine tout seul.</p>` + bouton; };
       if (!r.retour || !r.programme) return secours();
       // l'installateur finit ici, dans un cadre invisible : pas de changement de page, donc pas de toucher en plus
       msg.innerHTML = `<p class="small" style="margin:8px 0 0">✅ Fait : ${fait}.<br>Dernière étape en cours : l'installateur désactive son site… (quelques secondes)</p>`;

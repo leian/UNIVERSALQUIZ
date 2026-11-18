@@ -84,7 +84,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <ol class="pas">
         <li><a class="btn leger" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Ouvrir Google AI Studio</a></li>
         <li>Connecte-toi avec ton compte Google et accepte les conditions.</li>
-        <li>Touche <b>« Create API key »</b> (Créer une clé). S'il te demande un projet, choisis <b>« Default Gemini Project »</b> (ou « Créer un projet »). Copie ensuite la clé : elle commence par <b>AQ.</b> (ou AIza pour les anciennes).</li>
+        <li>Clique sur <b>« Create API key »</b> (Créer une clé). S'il te demande un projet, choisis <b>« Default Gemini Project »</b> (ou « Créer un projet »). Copie ensuite la clé : elle commence par <b>AQ.</b> (ou AIza pour les anciennes).</li>
         <li>Colle-la ici :<br><input type="text" id="g-cle" placeholder="AQ.…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
           <button class="btn" id="g-enregistrer" type="button">Enregistrer la clé</button></li>
       </ol>
@@ -110,14 +110,14 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
     </div>
     <p class="petit" id="copie-ok"></p>
-    <p>L'IA répond par un bloc de texte : c'est le quiz, écrit pour le site. <b>Pas besoin de le lire</b>, touche simplement son bouton <b>Copier</b> :</p>
+    <p>L'IA répond par un bloc de texte : c'est le quiz, écrit pour le site. <b>Pas besoin de le lire</b>, clique simplement sur son bouton <b>Copier</b> :</p>
     <div class="apercu" aria-hidden="true"><b>Copier</b><i></i><i></i><i></i><i></i></div>
-    <p>Puis reviens ici et touche :</p>
+    <p>Puis reviens ici et clique sur :</p>
     <button class="btn" id="coller-creer" type="button">📥 Coller et créer le quiz</button>
     <details id="secours">
       <summary>Un souci ?</summary>
       <p class="petit">L'IA répond « 📋 Colle-moi les consignes » : <button class="btn leger" id="copier" type="button">📋 Copier les consignes</button> puis colle-les dans l'IA.</p>
-      <p class="petit">Le bouton « Coller et créer » ne marche pas : colle la réponse de l'IA ici (appui long ou Ctrl+V), puis touche « Créer ».</p>
+      <p class="petit">Le bouton « Coller et créer » ne marche pas : colle la réponse de l'IA ici (appui long ou Ctrl+V), puis clique sur « Créer ».</p>
       <textarea id="reponse" rows="6" placeholder="Colle ici la réponse de l'IA…"></textarea>
       <button class="btn leger" id="creer" type="button">✨ Créer le quiz</button>
     </details>
@@ -201,11 +201,11 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   /* ---------- création du quiz à partir d'un texte (réponse d'une IA) ---------- */
   function creer(texte, res, bouton) {
-    if (!String(texte || '').trim()) { res.innerHTML = '<div class="ko">Rien à coller : touche d\'abord « Copier » sous la réponse de l\'IA.</div>'; return Promise.resolve(); }
+    if (!String(texte || '').trim()) { res.innerHTML = '<div class="ko">Rien à coller : clique d\'abord sur « Copier » sous la réponse de l\'IA.</div>'; return Promise.resolve(); }
     // le presse-papiers contient encore notre demande (mise là au clic sur Claude, ChatGPT ou Grok), pas la réponse de l'IA
     const t = String(texte).trim();
     if (t === messageCourt().trim() || t === messageComplet().trim() || /^Crée un quiz de révision/.test(t)) {
-      res.innerHTML = '<div class="ko">C\'est encore la demande, pas la réponse de l\'IA : touche « Copier » sous sa réponse, puis reviens ici.</div>';
+      res.innerHTML = '<div class="ko">C\'est encore la demande, pas la réponse de l\'IA : clique sur « Copier » sous sa réponse, puis reviens ici.</div>';
       return Promise.resolve();
     }
     if (!(window.google && google.script && google.script.run)) { res.innerHTML = '<div class="ko">Connexion à Google indisponible : recharge la page.</div>'; return Promise.resolve(); }
@@ -249,7 +249,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     try { texte = await navigator.clipboard.readText(); } catch (e) {}
     if (!texte.trim()) {
       $('secours').open = true; $('reponse').focus();
-      $('resultat').innerHTML = '<p class="petit">Ce navigateur ne me laisse pas lire le presse-papiers : colle la réponse dans le cadre ci-dessus (appui long ou Ctrl+V), puis touche « Créer le quiz ».</p>';
+      $('resultat').innerHTML = '<p class="petit">Ce navigateur ne me laisse pas lire le presse-papiers : colle la réponse dans le cadre ci-dessus (appui long ou Ctrl+V), puis clique sur « Créer le quiz ».</p>';
       return;
     }
     creer(texte, $('resultat'), $('coller-creer'));
