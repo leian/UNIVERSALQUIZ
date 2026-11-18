@@ -1208,7 +1208,7 @@ var Sig = (() => {
     google.script.run.withSuccessHandler(r => {
       if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
       champ.disabled = true; document.getElementById("suppr-garder").disabled = true;
-      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ ${r.garde ? "Quiz et résultats gardés dans le Drive" : "Quiz et résultats mis à la corbeille du Drive"}, {{PRENOM}} retiré de la famille.<br><b>Dernière étape</b> : l'installateur désactive le site.</p>` +
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ ${r.garde ? "Quiz et résultats gardés dans le Drive" : "Quiz et résultats mis à la corbeille du Drive"}${r.programme ? ", programme du site mis à la corbeille" : ""}, {{PRENOM}} retiré de la famille.<br><b>Dernière étape</b> : touche le bouton, l'installateur termine tout seul.</p>` +
         (r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`);
     }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
       .apiSupprimerSite({ confirmation: champ.value, garder: document.getElementById("suppr-garder").checked });

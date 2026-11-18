@@ -1594,8 +1594,13 @@ function apiSupprimerSite(d) {
   if (!d.garder) inst.dossier.setTrashed(true);                    // quiz et tableau des résultats : corbeille du Drive (30 jours)
   props.deleteAllProperties();
   try { const c = CacheService.getScriptCache(); c.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst', 'famille', 'famille-inscrit']); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
-  const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';
-  return { ok: true, garde: !!d.garder, retour };
+  // désinstallation complète : le programme du site (un fichier du Drive) part lui aussi à la corbeille,
+  // ce qui arrête ses deux adresses, puis le site retire l'autorisation que le parent lui avait donnée
+  let programme = false;
+  try { DriveApp.getFileById(ScriptApp.getScriptId()).setTrashed(true); programme = true; } catch (e) { console.error(e); }
+  const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) + (programme ? '&corbeille=1' : '') : '';
+  try { ScriptApp.invalidateAuth(); } catch (e) {}
+  return { ok: true, garde: !!d.garder, retour, programme };
 }
 
 // adresses à envoyer à l'autre parent : l'espace parent de chaque enfant

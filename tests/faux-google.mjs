@@ -86,14 +86,14 @@ const ctx = {
   Session: { getActiveUser: () => ({ getEmail: () => '' }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },
   MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
-  ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script' },
+  ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script', invalidateAuth: () => { FAUX.authRetiree = true; } },
   FAUX, editeurs,
   DriveApp: {
     Access: { ANYONE_WITH_LINK: 'ANYONE_WITH_LINK', ANYONE: 'ANYONE' }, Permission: { VIEW: 'VIEW' },
     getRootFolder: () => dossier(DRIVE),
     createFolder: (n) => { mkdirSync(join(DRIVE, n)); return dossier(join(DRIVE, n)); },
     getFolderById: (id) => { if (FAUX.etranger) throw new Error('Accès refusé'); const p = id.slice(2); if (!existsSync(p)) throw new Error('introuvable'); return dossier(p); },
-    getFileById: (id) => id === 'projet-script' ? (FAUX.proprio ? { getId: () => id } : (() => { throw new Error('Accès refusé'); })()) : FAUX.etranger ? (() => { throw new Error('Accès refusé'); })() : sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); }, setName: (n) => { sheets[id].name = n; }, getId: () => id } : fichier(id.slice(2))
+    getFileById: (id) => id === 'projet-script' ? (FAUX.proprio ? { getId: () => id, setTrashed: (v) => { FAUX.programmeCorbeille = !!v; } } : (() => { throw new Error('Accès refusé'); })()) : FAUX.etranger ? (() => { throw new Error('Accès refusé'); })() : sheets[id] ? { isTrashed: () => corbeille.has(id), moveTo: (d) => { sheets[id].dossier = d.getId().slice(2); }, setName: (n) => { sheets[id].name = n; }, getId: () => id } : fichier(id.slice(2))
   },
   SpreadsheetApp: {
     create: (n) => { const id = 'ss' + (++compteur); sheets[id] = { name: n, rows: [] }; return classeur(id); },

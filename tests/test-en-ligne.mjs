@@ -70,7 +70,7 @@ const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
   UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE) : reponse(503, 'indisponible')) : fausseApi(url, o) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
-  ScriptApp: { getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
+  ScriptApp: { invalidateAuth: () => { global.__authRetiree = (global.__authRetiree || 0) + 1; }, getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
   PropertiesService: { getUserProperties: () => ({
     getProperty: k => userProps[k] ?? null, setProperty: (k, v) => { userProps[k] = String(v); },
     getProperties: () => ({ ...userProps }), setProperties: o => { for (const k in o) userProps[k] = String(o[k]); },
@@ -280,6 +280,24 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
     'suppression du site principal : le site de Caroline prend sa place (même adresse, même dossier), adresses restantes renvoyées pour la famille — ' + JSON.stringify({ n: etat.sites.length, dossier: userProps.dossier }));
   ctx.apiRecommencer({ id: etat.sites[0].id });
   ok(!Object.keys(userProps).length, 'dernier site supprimé : plus rien de gardé');
+}
+
+// 9 ter. désinstallation complète par l'espace parent : programme à la corbeille, fin automatique, accès retiré au dernier site
+{
+  const r1 = ctx.apiInstaller('Tom', 'CE1'); const r2 = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
+  const html = ctx.doGet({ parameter: { supprime: r2.id, corbeille: '1' } }).html;
+  ok(/"corbeille":true/.test(html) && /"corbeille":false/.test(ctx.doGet({ parameter: { supprime: r2.id } }).html) && !/id="suppr-fin"/.test(html),
+    'retour de l\'espace parent : programme signalé à la corbeille, suppression terminée sans bouton');
+  const avant = global.__authRetiree || 0;
+  panne = m => m === 'DELETE' ? reponse(404, { error: { code: 404, message: 'Requested entity was not found.' } }) : null;
+  let r = ctx.apiRecommencer({ id: r2.id, corbeille: true });
+  ok(r.ok && r.corbeille && !r.desinstalle && (global.__authRetiree || 0) === avant && ctx.apiEtat().sites.length === 1, 'programme à la corbeille : site oublié ; un autre site reste, l\'accès de l\'installateur est gardé');
+  panne = m => m === 'DELETE' ? reponse(403, { error: { code: 403, message: 'The caller does not have permission' } }) : null;
+  r = ctx.apiRecommencer({ id: r1.id });
+  ok(r.erreur && ctx.apiEtat().sites.length === 1, 'sans corbeille, une désactivation refusée garde le site (rien n\'est oublié à tort)');
+  r = ctx.apiRecommencer({ id: r1.id, corbeille: true });
+  panne = null;
+  ok(r.ok && r.desinstalle && (global.__authRetiree || 0) === avant + 1 && !Object.keys(userProps).length, 'dernier site supprimé : l\'installateur retire son propre accès (désinstallation complète)');
 }
 
 // 10. la page : HTML complet et script valide ; pas de journal d'erreur chez l'éditeur

@@ -24,7 +24,7 @@ function doGet(e) {
   // …?supprime=<scriptId> : retour de l'espace parent après « Supprimer » (ménage du Drive fait) → dernière étape ici
   const id = String((e && e.parameter && e.parameter.supprime) || '');
   let suppr = null;
-  if (/^[\w-]{6,120}$/.test(id)) { const s = [lireSite_(0)].concat(autres_()).find(x => x && x.scriptId === id); if (s) suppr = { id, prenom: s.prenom || '', classe: s.classe || '' }; }
+  if (/^[\w-]{6,120}$/.test(id)) { const s = [lireSite_(0)].concat(autres_()).find(x => x && x.scriptId === id); if (s) suppr = { id, prenom: s.prenom || '', classe: s.classe || '', corbeille: String((e && e.parameter && e.parameter.corbeille) || '') === '1' }; }
   // …?d=v2.75 : dernière version vue par l'espace parent (voir apiEtat)
   const d = String((e && e.parameter && e.parameter.d) || '');
   return HtmlService.createHtmlOutput(pageHtml_(suppr, /^v?\d+(\.\d+){0,3}$/.test(d) ? d : ''))
@@ -202,16 +202,23 @@ function apiAjouterSite(d) {
 /* Désactiver un site : ses deux publications sont supprimées (ses adresses ne répondent plus), puis l'installateur l'oublie,
    seulement si les deux suppressions ont réussi (ou n'avaient plus rien à supprimer). Sinon le site est gardé.
    Les quiz et les résultats (dossier Drive et Sheets) ne sont pas touchés : un nouveau site les reprend.
-   Le projet Apps Script reste dans le Drive (l'API ne permet pas de le supprimer). */
+   Le projet Apps Script reste dans le Drive (l'API ne permet pas de le supprimer), sauf quand la suppression passe
+   par l'espace parent du site : il s'y est mis lui-même à la corbeille (ref.corbeille), ce qui arrête aussi ses adresses.
+   Plus aucun site : l'installateur retire l'autorisation que la personne lui avait donnée (désinstallation complète). */
 function apiRecommencer(ref) {
   return avecVerrou_(() => {
     const n = trouverSite_(ref), s = lireSite_(n) || {};
     const r = desactiver_(s);
-    if (!r.ok) { const t = traduire_(r.erreur); return { erreur: "Ce site n'a pas pu être désactivé : il est gardé, rien n'a changé. " + (t.message || t.erreur), detail: t.detail, n }; }
+    const corbeille = !!(ref && typeof ref === 'object' && ref.corbeille);
+    // programme à la corbeille : ses publications ne répondent plus, même si Google refuse de les supprimer
+    if (!r.ok && !corbeille) { const t = traduire_(r.erreur); return { erreur: "Ce site n'a pas pu être désactivé : il est gardé, rien n'a changé. " + (t.message || t.erreur), detail: t.detail, n }; }
     oublierSite_(n);
     // adresses pour le ménage de la famille quand la suppression n'est pas passée par l'espace parent du site
     const restants = [lireSite_(0)].concat(autres_()).filter(x => x && x.urlParent).map(x => x.urlParent);
-    return { ok: true, desactive: r.desactive, n, prenom: s.prenom || '', urlParent: s.urlParent || '', restants };
+    const plusRien = ![lireSite_(0)].concat(autres_()).some(x => x && x.scriptId);
+    let desinstalle = false;
+    if (plusRien) try { ScriptApp.invalidateAuth(); desinstalle = true; } catch (e) {}
+    return { ok: true, desactive: r.desactive, n, prenom: s.prenom || '', urlParent: s.urlParent || '', restants, corbeille, desinstalle };
   });
 }
 function desactiver_(s) {
@@ -677,23 +684,24 @@ function scriptPage_() {
       if (b) b.disabled = true;
       google.script.run.withSuccessHandler(function (r) {
         if (b) b.disabled = false;
-        if (!r || r.erreur) return erreur(r, n);           // non désactivé : le site est gardé, rien n'a changé
-        $('suppression').innerHTML = '';
+        if (!r || r.erreur) { if (parSite) { $('suppression').innerHTML = ''; charger(); } return erreur(r, n); }   // non désactivé : le site est gardé, rien n'a changé
+        $('suppression').innerHTML = ''; $('chargement').style.display = 'none';
         var qui = r.prenom || 'Le site';
         var famille = !parSite && r.urlParent && (r.restants || []).length
           ? '<p style="margin:6px 0 0">Il apparaît peut-être encore dans la famille de tes autres sites : <a class="btn leger" href="' + h(r.restants[0]) + '?oublier=' + encodeURIComponent(r.urlParent) + '" target="_top">Le retirer de la famille</a></p>' : '';
-        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>✅ ' + h(qui) + ' est supprimé</b> : son site et son espace parent sont désactivés, l\'installateur ne garde plus rien sur lui.' + (parSite ? '' : ' Ses quiz et ses résultats restent dans ton Drive.') + '</p>' + famille +
-          '<p class="petit" style="margin:6px 0 0">Il reste son programme « SoccaQuiz » sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus.</p></div>';
+        res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>✅ ' + h(qui) + ' est supprimé</b> : son site et son espace parent sont désactivés' + (r.corbeille ? ', son programme est dans la corbeille du Drive' : '') + ', l\'installateur ne garde plus rien sur lui.' + (parSite ? '' : ' Ses quiz et ses résultats restent dans ton Drive.') + '</p>' + famille +
+          (r.corbeille ? '' : '<p class="petit" style="margin:6px 0 0">Il reste son programme « SoccaQuiz » sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus.</p>') +
+          (r.desinstalle ? '<p style="margin:8px 0 0"><b>SoccaQuiz est entièrement désinstallé</b> : il n\'a plus aucun accès à ton compte Google.</p><p class="petit" style="margin:6px 0 0">Facultatif : tu peux remettre l\'interrupteur « API Google Apps Script » sur Désactivé (<a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).</p>' : '') + '</div>';
+        if (r.desinstalle) { $('deja').classList.add('cache'); $('nouveau').classList.add('cache'); return; }   // accès retiré : plus d'appel possible
         charger();                                         // liste relue : les autres sites restent tels quels
-      }).withFailureHandler(function (e) { if (b) b.disabled = false; erreur(echec(e), n); }).apiRecommencer(cible);
+      }).withFailureHandler(function (e) { if (b) b.disabled = false; if (parSite) { $('suppression').innerHTML = ''; charger(); } erreur(echec(e), n); }).apiRecommencer(cible);
     }
     if (window.__SUPPR) {
       var S = window.__SUPPR;
-      $('suppression').innerHTML = '<section class="etape active"><h2>🗑️ Dernière étape : supprimer ' + h(S.prenom || 'ce site') + '</h2>' +
-        '<p style="margin:0 0 8px">Le ménage du Drive est fait. Il reste à désactiver son site et son espace parent, et à effacer ce que l\'installateur garde sur lui. Les autres sites ne sont pas touchés.</p>' +
-        '<button class="btn" id="suppr-fin" type="button">Terminer la suppression</button> <a class="btn leger" href="#" id="suppr-annuler">Pas maintenant</a></section>';
-      $('suppr-fin').onclick = function () { supprimer({ id: S.id }, $('suppr-fin'), null, true); };
-      $('suppr-annuler').onclick = function (ev) { ev.preventDefault(); $('suppression').innerHTML = ''; };
+      // retour de l'espace parent : la suppression a été confirmée là-bas, on termine tout de suite, sans autre bouton
+      $('suppression').innerHTML = '<section class="etape active"><h2>🗑️ Suppression de ' + h(S.prenom || 'ce site') + '</h2>' +
+        '<p class="petit" style="margin:0">Dernière étape en cours : désactivation de son site et de son espace parent… (quelques secondes)</p></section>';
+      supprimer({ id: S.id, corbeille: !!S.corbeille }, null, null, true);
     }
     function charger() {
       google.script.run
@@ -708,6 +716,6 @@ function scriptPage_() {
         .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(echec(e)); })
         .apiEtat({ d: window.__VUE || '' });
     }
-    charger();
+    if (!window.__SUPPR) charger();                    // retour de suppression : la liste est lue une fois la suppression finie
   }) + ')();';
 }
