@@ -24,10 +24,15 @@ function doGet(e) {
   // …?supprime=<scriptId> : retour de l'espace parent après « Supprimer » (ménage du Drive fait) → dernière étape ici
   const id = String((e && e.parameter && e.parameter.supprime) || '');
   let suppr = null;
-  if (/^[\w-]{6,120}$/.test(id)) { const s = [lireSite_(0)].concat(autres_()).find(x => x && x.scriptId === id); if (s) suppr = { id, prenom: s.prenom || '', classe: s.classe || '', corbeille: String((e && e.parameter && e.parameter.corbeille) || '') === '1' }; }
+  const cadre = String((e && e.parameter && e.parameter.cadre) || '') === '1';
+  if (/^[\w-]{6,120}$/.test(id)) { const s = [lireSite_(0)].concat(autres_()).find(x => x && x.scriptId === id); if (s) suppr = { id, prenom: s.prenom || '', classe: s.classe || '', cadre }; }
   // …?d=v2.75 : dernière version vue par l'espace parent (voir apiEtat)
   const d = String((e && e.parameter && e.parameter.d) || '');
-  return HtmlService.createHtmlOutput(pageHtml_(suppr, /^v?\d+(\.\d+){0,3}$/.test(d) ? d : ''))
+  const page = HtmlService.createHtmlOutput(pageHtml_(suppr, /^v?\d+(\.\d+){0,3}$/.test(d) ? d : ''));
+  // suppression lancée depuis l'espace parent : il charge cette page dans un cadre invisible pour finir sans changer de page.
+  // Sans danger : la fin automatique n'agit que sur un site qui ne répond déjà plus (voir apiRecommencer)
+  if (suppr && cadre) page.setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+  return page
     .setTitle('Installer SoccaQuiz')
     .setFaviconUrl('https://leian.github.io/UNIVERSALQUIZ/icone.png')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1');
@@ -203,13 +208,22 @@ function apiAjouterSite(d) {
    seulement si les deux suppressions ont réussi (ou n'avaient plus rien à supprimer). Sinon le site est gardé.
    Les quiz et les résultats (dossier Drive et Sheets) ne sont pas touchés : un nouveau site les reprend.
    Le projet Apps Script reste dans le Drive (l'API ne permet pas de le supprimer), sauf quand la suppression passe
-   par l'espace parent du site : il s'y est mis lui-même à la corbeille (ref.corbeille), ce qui arrête aussi ses adresses.
+   par l'espace parent du site : il s'y met lui-même à la corbeille, ce qui arrête aussi ses adresses.
+   ref.auto : fin automatique au retour de l'espace parent (page ou cadre invisible, sans bouton). Garde-fou : elle n'agit
+   que si le site ne répond plus (programme à la corbeille, donc supprimé par son parent) ; sinon { vivant } et la page
+   demande une confirmation. Un lien piégé « ?supprime=… » ne peut donc rien supprimer.
    Plus aucun site : l'installateur retire l'autorisation que la personne lui avait donnée (désinstallation complète). */
 function apiRecommencer(ref) {
   return avecVerrou_(() => {
     const n = trouverSite_(ref), s = lireSite_(n) || {};
+    const auto = !!(ref && typeof ref === 'object' && ref.auto);
+    if (auto) {
+      let rep = siteRepond_(s);
+      for (let k = 0; rep !== false && k < 3; k++) { Utilities.sleep(3000); rep = siteRepond_(s); }   // la corbeille peut mettre quelques secondes à couper le site
+      if (rep !== false) return { vivant: true, n, prenom: s.prenom || '' };
+    }
     const r = desactiver_(s);
-    const corbeille = !!(ref && typeof ref === 'object' && ref.corbeille);
+    const corbeille = auto;              // vérifié : le site ne répond plus
     // programme à la corbeille : ses publications ne répondent plus, même si Google refuse de les supprimer
     if (!r.ok && !corbeille) { const t = traduire_(r.erreur); return { erreur: "Ce site n'a pas pu être désactivé : il est gardé, rien n'a changé. " + (t.message || t.erreur), detail: t.detail, n }; }
     oublierSite_(n);
@@ -220,6 +234,16 @@ function apiRecommencer(ref) {
     if (plusRien) try { ScriptApp.invalidateAuth(); desinstalle = true; } catch (e) {}
     return { ok: true, desactive: r.desactive, n, prenom: s.prenom || '', urlParent: s.urlParent || '', restants, corbeille, desinstalle };
   });
+}
+/* le site de l'enfant répond-il encore ? true : oui ; false : non (programme à la corbeille ou supprimé) ; null : on ne sait pas */
+function siteRepond_(s) {
+  if (!s || !s.url) return false;
+  try {
+    const r = UrlFetchApp.fetch(s.url + (s.url.indexOf('?') < 0 ? '?' : '&') + 'api=etat', { muteHttpExceptions: true, followRedirects: true });
+    const c = r.getResponseCode();
+    if (c === 200 && /SoccaQuiz|"v"\s*:\s*\d/.test(r.getContentText())) return true;
+    return c === 200 || c >= 400 ? false : null;
+  } catch (e) { return null; }
 }
 function desactiver_(s) {
   let ok = true, nb = 0, erreur = null;
@@ -684,7 +708,9 @@ function scriptPage_() {
       if (b) b.disabled = true;
       google.script.run.withSuccessHandler(function (r) {
         if (b) b.disabled = false;
-        if (!r || r.erreur) { if (parSite) { $('suppression').innerHTML = ''; charger(); } return erreur(r, n); }   // non désactivé : le site est gardé, rien n'a changé
+        if (r && r.vivant) { prevenir({ etat: 'vivant' }); return confirmerFin(); }   // le site répond encore : on demande confirmation
+        if (!r || r.erreur) { prevenir({ etat: 'erreur' }); if (parSite) { $('suppression').innerHTML = ''; charger(); } return erreur(r, n); }   // non désactivé : le site est gardé, rien n'a changé
+        prevenir({ etat: 'ok', desinstalle: !!r.desinstalle });
         $('suppression').innerHTML = ''; $('chargement').style.display = 'none';
         var qui = r.prenom || 'Le site';
         var famille = !parSite && r.urlParent && (r.restants || []).length
@@ -694,14 +720,29 @@ function scriptPage_() {
           (r.desinstalle ? '<p style="margin:8px 0 0"><b>SoccaQuiz est entièrement désinstallé</b> : il n\'a plus aucun accès à ton compte Google.</p><p class="petit" style="margin:6px 0 0">Facultatif : tu peux remettre l\'interrupteur « API Google Apps Script » sur Désactivé (<a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).</p>' : '') + '</div>';
         if (r.desinstalle) { $('deja').classList.add('cache'); $('nouveau').classList.add('cache'); return; }   // accès retiré : plus d'appel possible
         charger();                                         // liste relue : les autres sites restent tels quels
-      }).withFailureHandler(function (e) { if (b) b.disabled = false; if (parSite) { $('suppression').innerHTML = ''; charger(); } erreur(echec(e), n); }).apiRecommencer(cible);
+      }).withFailureHandler(function (e) { if (b) b.disabled = false; prevenir({ etat: 'erreur' }); if (parSite) { $('suppression').innerHTML = ''; charger(); } erreur(echec(e), n); }).apiRecommencer(cible);
     }
-    if (window.__SUPPR) {
-      var S = window.__SUPPR;
+    var S = window.__SUPPR;
+    // page chargée dans le cadre invisible de l'espace parent : on lui dit comment ça s'est terminé (rien de confidentiel)
+    function prevenir(m) {
+      if (!S || !S.cadre) return;
+      m.uq = 'suppr'; m.id = S.id;
+      try { var w = window; while (w !== w.parent) { w = w.parent; w.postMessage(m, '*'); } } catch (e) {}
+    }
+    // le site répond encore (suppression pas passée par son espace parent, ou lien venu d'ailleurs) : confirmation demandée
+    function confirmerFin() {
+      $('chargement').style.display = 'none';
+      $('suppression').innerHTML = '<section class="etape active"><h2>🗑️ Supprimer ' + h(S.prenom || 'ce site') + ' ?</h2>' +
+        '<p style="margin:0 0 8px">Son site répond encore. Pour le désactiver et effacer ce que l\'installateur garde sur lui, confirme. Les autres sites ne sont pas touchés.</p>' +
+        '<button class="btn" id="suppr-fin" type="button">Terminer la suppression</button> <a class="btn leger" href="#" id="suppr-annuler">Pas maintenant</a></section>';
+      $('suppr-fin').onclick = function () { supprimer({ id: S.id }, $('suppr-fin'), null, true); };
+      $('suppr-annuler').onclick = function (ev) { ev.preventDefault(); $('suppression').innerHTML = ''; charger(); };
+    }
+    if (S) {
       // retour de l'espace parent : la suppression a été confirmée là-bas, on termine tout de suite, sans autre bouton
       $('suppression').innerHTML = '<section class="etape active"><h2>🗑️ Suppression de ' + h(S.prenom || 'ce site') + '</h2>' +
         '<p class="petit" style="margin:0">Dernière étape en cours : désactivation de son site et de son espace parent… (quelques secondes)</p></section>';
-      supprimer({ id: S.id, corbeille: !!S.corbeille }, null, null, true);
+      supprimer({ id: S.id, auto: true }, null, null, true);
     }
     function charger() {
       google.script.run

@@ -1598,7 +1598,7 @@ function apiSupprimerSite(d) {
   // ce qui arrête ses deux adresses, puis le site retire l'autorisation que le parent lui avait donnée
   let programme = false;
   try { DriveApp.getFileById(ScriptApp.getScriptId()).setTrashed(true); programme = true; } catch (e) { console.error(e); }
-  const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) + (programme ? '&corbeille=1' : '') : '';
+  const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';
   try { ScriptApp.invalidateAuth(); } catch (e) {}
   return { ok: true, garde: !!d.garder, retour, programme };
 }

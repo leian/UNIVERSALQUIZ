@@ -65,10 +65,20 @@ function fausseApi(url, o) {
   return reponse(400, { error: { message: 'requête inattendue ' + methode + ' ' + url } });
 }
 
+// le site de l'enfant répond-il ? (sa publication existe et son programme n'est pas « à la corbeille »)
+const corbeilleSites = new Set(); let attentes = 0;
+function siteEnLigne(url) {
+  const did = (url.match(/\/s\/([^/]+)\/exec/) || [])[1];
+  const p = Object.entries(projets).find(([, x]) => did in x.deploiements);
+  return p && !corbeilleSites.has(p[0]) ? reponse(200, { v: 1, version: 'v-test' }) : reponse(404, '<html>Page introuvable</html>');
+}
+
 const cache = {};
 const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
-  UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE) : reponse(503, 'indisponible')) : fausseApi(url, o) },
+  UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE) : reponse(503, 'indisponible'))
+    : /\/exec\?api=etat$/.test(url) ? siteEnLigne(url) : fausseApi(url, o) },
+  Utilities: { sleep: () => { attentes++; } },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
   ScriptApp: { invalidateAuth: () => { global.__authRetiree = (global.__authRetiree || 0) + 1; }, getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
   PropertiesService: { getUserProperties: () => ({
@@ -78,7 +88,7 @@ const ctx = {
     deleteAllProperties: () => { for (const k in userProps) delete userProps[k]; }
   }) },
   LockService: { getUserLock: () => ({ tryLock: () => true, releaseLock() {} }) },
-  HtmlService: { createHtmlOutput: html => { const o = { html, setTitle: () => o, setFaviconUrl: () => o, addMetaTag: () => o }; return o; } }
+  HtmlService: { XFrameOptionsMode: { ALLOWALL: 'ALLOWALL' }, createHtmlOutput: html => { const o = { html, cadre: '', setTitle: () => o, setFaviconUrl: () => o, addMetaTag: () => o, setXFrameOptionsMode: m => { o.cadre = m; return o; } }; return o; } }
 };
 vm.createContext(ctx);
 vm.runInContext(readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8'), ctx, { filename: 'en-ligne/Code.gs' });
@@ -282,20 +292,28 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   ok(!Object.keys(userProps).length, 'dernier site supprimé : plus rien de gardé');
 }
 
-// 9 ter. désinstallation complète par l'espace parent : programme à la corbeille, fin automatique, accès retiré au dernier site
+// 9 ter. désinstallation complète par l'espace parent : fin automatique (page ou cadre invisible), garde-fou, accès retiré au dernier site
 {
   const r1 = ctx.apiInstaller('Tom', 'CE1'); const r2 = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
-  const html = ctx.doGet({ parameter: { supprime: r2.id, corbeille: '1' } }).html;
-  ok(/"corbeille":true/.test(html) && /"corbeille":false/.test(ctx.doGet({ parameter: { supprime: r2.id } }).html) && !/id="suppr-fin"/.test(html),
-    'retour de l\'espace parent : programme signalé à la corbeille, suppression terminée sans bouton');
+  const page = ctx.doGet({ parameter: { supprime: r2.id, cadre: '1' } });
+  const sansCadre = ctx.doGet({ parameter: { supprime: r2.id } }), ordinaire = ctx.doGet({ parameter: { cadre: '1' } });
+  ok(page.cadre === 'ALLOWALL' && /"cadre":true/.test(page.html) && !sansCadre.cadre && !ordinaire.cadre && /auto: true/.test(page.html),
+    'retour de suppression : page chargeable dans le cadre invisible de l\'espace parent (et seulement dans ce cas), fin sans bouton');
+  // garde-fou : un lien « ?supprime=… » vers un site qui répond encore ne supprime rien
+  attentes = 0;
+  let r = ctx.apiRecommencer({ id: r2.id, auto: true });
+  ok(r.vivant && !r.ok && attentes === 3 && ctx.apiEtat().sites.length === 2 && Object.keys(projets[r2.id].deploiements).length === 2,
+    'fin automatique refusée tant que le site répond (lien piégé) : rien n\'est supprimé, confirmation demandée');
+  // programme à la corbeille (supprimé par son espace parent) : Google refuse même de supprimer ses publications → oublié quand même
+  corbeilleSites.add(r2.id);
   const avant = global.__authRetiree || 0;
-  panne = m => m === 'DELETE' ? reponse(404, { error: { code: 404, message: 'Requested entity was not found.' } }) : null;
-  let r = ctx.apiRecommencer({ id: r2.id, corbeille: true });
-  ok(r.ok && r.corbeille && !r.desinstalle && (global.__authRetiree || 0) === avant && ctx.apiEtat().sites.length === 1, 'programme à la corbeille : site oublié ; un autre site reste, l\'accès de l\'installateur est gardé');
   panne = m => m === 'DELETE' ? reponse(403, { error: { code: 403, message: 'The caller does not have permission' } }) : null;
+  r = ctx.apiRecommencer({ id: r2.id, auto: true });
+  ok(r.ok && r.corbeille && !r.desinstalle && (global.__authRetiree || 0) === avant && ctx.apiEtat().sites.length === 1, 'site qui ne répond plus : oublié automatiquement ; un autre site reste, l\'accès de l\'installateur est gardé');
   r = ctx.apiRecommencer({ id: r1.id });
-  ok(r.erreur && ctx.apiEtat().sites.length === 1, 'sans corbeille, une désactivation refusée garde le site (rien n\'est oublié à tort)');
-  r = ctx.apiRecommencer({ id: r1.id, corbeille: true });
+  ok(r.erreur && ctx.apiEtat().sites.length === 1, 'suppression ordinaire refusée par Google : le site est gardé (rien n\'est oublié à tort)');
+  corbeilleSites.add(r1.id);
+  r = ctx.apiRecommencer({ id: r1.id, auto: true });
   panne = null;
   ok(r.ok && r.desinstalle && (global.__authRetiree || 0) === avant + 1 && !Object.keys(userProps).length, 'dernier site supprimé : l\'installateur retire son propre accès (désinstallation complète)');
 }

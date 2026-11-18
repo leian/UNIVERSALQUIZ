@@ -1162,15 +1162,20 @@ try {
     ok(await page.locator('#box-suppr').isVisible() && await page.locator('#p-reglages').isVisible(), 'supprimer : ouvert depuis l\'installateur, Réglages et encadré « Supprimer » affichés directement');
     const avantS = (await ev('({ dossier: installer_().dossier.getId(), famille: lireFamille_().sites.map(x => x.prenom).join() })')).r;
     ok(await page.locator('#suppr-go').isDisabled(), 'supprimer : bouton grisé tant que le prénom n\'est pas tapé');
+    // l'installateur, chargé dans un cadre invisible, finit la suppression et prévient la page (faux installateur ici)
+    let lien = '';
+    await page.route('**/macros/s/INSTALL/exec**', route => { lien = route.request().url(); route.fulfill({ contentType: 'text/html',
+      body: '<script>parent.postMessage({ uq: "suppr", etat: "ok", desinstalle: false, id: "projet-script" }, "*")</script>' }); });
     await page.fill('#suppr-confirmation', 'Lana');
     await page.locator('#suppr-go').click();
     await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
-    const lien = await page.locator('#suppr-msg a').getAttribute('href').catch(() => '');
+    const fin = await page.locator('#suppr-msg').innerText().catch(() => '');
+    await page.unroute('**/macros/s/INSTALL/exec**');
     const apresS = (await ev(`({ dossierVivant: !!ouvrirDossier_(${JSON.stringify(avantS.dossier)}), famille: lireFamille_().sites.map(x => x.prenom).join(), props: PropertiesService.getScriptProperties().getKeys ? PropertiesService.getScriptProperties().getKeys().length : -1, hugo: !!ouvrirDossier_(lireFamille_().sites[0] && lireFamille_().sites[0].dossier), programme: !!FAUX.programmeCorbeille, auth: !!FAUX.authRetiree })`)).r;
     ok(/Lana/.test(avantS.famille) && !apresS.dossierVivant && apresS.famille === 'Hugo' && apresS.hugo && /supprime=projet-script/.test(lien || ''),
       'supprimer : dossier de Lana à la corbeille, Lana retirée de la famille, Hugo intact, lien « Terminer dans l\'installateur » — ' + JSON.stringify({ avantS, apresS, lien }));
-    ok(apresS.programme && apresS.auth && /corbeille=1/.test(lien || '') && /programme du site mis à la corbeille/.test(await page.locator('#suppr-msg').innerText()),
-      'supprimer : désinstallation complète — programme du site à la corbeille, autorisation retirée, l\'installateur en est prévenu (corbeille=1)');
+    ok(apresS.programme && apresS.auth && /cadre=1/.test(lien) && /Le site de Lana est entièrement supprimé/.test(fin) && /programme du site mis à la corbeille/.test(fin) && !(await page.locator('#suppr-msg a').count()) && !(await page.locator('iframe[title="Installateur"]').count()),
+      'supprimer : tout se termine sur la même page — programme à la corbeille, autorisation retirée, installateur fini dans un cadre invisible, sans bouton — ' + fin);
   }
 
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));
