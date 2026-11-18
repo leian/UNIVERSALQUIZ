@@ -91,8 +91,15 @@ ok(!e.installe && e.derniere === 'v-test' && !e.sites.length, 'état initial : r
 let r = ctx.apiInstaller('Zoé');
 ok(r.erreur === 'api' && !Object.keys(projets).length, 'API Apps Script non activée → message « active l\'interrupteur », rien de créé');
 
-// 3. installation
+ok(e.api === false, 'état initial, interrupteur coupé : l\'étape 1 « Active l\'API » reste affichée');
 apiActivee = true;
+{ const nb = Object.keys(projets).length, ea = ctx.apiEtat();
+  ok(ea.api === true && Object.keys(projets).length === nb, 'interrupteur déjà activé (depuis le mail) : détecté sans rien créer, l\'étape 1 est cachée'); }
+panne = () => { throw new Error('réseau'); };
+ok(ctx.apiEtat().api === null, 'vérification impossible (pas de réponse) : l\'étape 1 reste affichée par prudence');
+panne = null;
+
+// 3. installation
 journal.length = 0;
 r = ctx.apiInstaller("Zoé l'aînée");
 const p1 = projets.script1;
@@ -330,6 +337,22 @@ ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) &
   v = await voir('off', true, deux);
   const w = await voir(null, true, [site(0, 'Lana', 'CM1', 'v2.78')]);
   ok(v.vu[0].lien === U && w.vu[0].lien === A && /Site de Lana\s*: les quiz, sans compte/.test(w.vu[0].texte), '"appli": "off" : lien habituel ; réglage absent : l\'appli ; un seul site : l\'explication reprend « Site de Lana »');
+  // première installation : étape 1 cachée si l'interrupteur est déjà activé, montrée sinon (ou si on ne sait pas)
+  const premiere = async (api) => {
+    const page = await browser.newPage();
+    await page.route('**/*', r => r.request().url() === 'https://installateur.test/' ? r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html }) : r.fulfill({ status: 200, body: '' }));
+    await page.addInitScript(etat => {
+      const run = (ok) => new Proxy({}, { get: (_, nom) => nom === 'withSuccessHandler' ? f => run(f) : nom === 'withFailureHandler' ? () => run(ok) : () => setTimeout(() => ok && ok(nom === 'apiEtat' ? etat : {}), 0) });
+      window.google = { script: { run: run(null) } };
+    }, { installe: false, sites: [], classes: ctx.CLASSES || [], erreurGithub: '', api });
+    await page.goto('https://installateur.test/');
+    await page.locator('#installer').waitFor({ state: 'visible', timeout: 5000 });
+    const r = await page.evaluate(() => ({ e1: getComputedStyle(document.getElementById('e1')).display !== 'none', num: getComputedStyle(document.querySelector('#e2 .num')).display !== 'none' }));
+    await page.close();
+    return r;
+  };
+  const [pa, pb, pc] = [await premiere(true), await premiere(false), await premiere(null)];
+  ok(!pa.e1 && !pa.num && pb.e1 && pb.num && pc.e1, 'page : carte « Active l\'API » cachée quand l\'interrupteur est déjà activé (une seule étape, sans numéro), affichée sinon — ' + JSON.stringify([pa, pb, pc]));
   await browser.close();
 }
 

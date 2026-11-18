@@ -114,9 +114,23 @@ function apiEtat(indice) {
       versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(s.scriptId) };
   }).filter(Boolean);
   const p = sites.find(x => x.n === 0) || {};
+  // aucun site encore : l'interrupteur « API Google Apps Script » est-il déjà activé (étape 1 du mail) ?
+  // true → la page cache l'étape 1 ; false ou null (on ne sait pas) → elle la montre
+  const api = sites.length ? true : apiActivee_();
   // champs du site principal à plat (pages et tests d'avant les sites multiples)
   return Object.assign({ installe: !!p.id, url: p.url || '', urlParent: p.urlParent || '', prenom: p.prenom || '', version: p.version || '', derniere,
-    versions: p.versions || 0, alerteVersions: !!p.alerteVersions, maxVersions: MAX_VERSIONS, lienProjet: p.lienProjet || '' }, { sites, classes: CLASSES, erreurGithub });
+    versions: p.versions || 0, alerteVersions: !!p.alerteVersions, maxVersions: MAX_VERSIONS, lienProjet: p.lienProjet || '' }, { sites, classes: CLASSES, erreurGithub, api });
+}
+
+/* Google ne donne pas l'état de l'interrupteur : on fait une lecture sans effet (projet qui n'existe pas).
+   Interrupteur coupé → 403 « User has not enabled the Apps Script API » ; activé → 404 (ou autre erreur banale). */
+function apiActivee_() {
+  try { appel_('get', '/verification-interrupteur'); return true; }
+  catch (e) {
+    const m = String(e && e.message || e);
+    if (/User has not enabled the Apps Script API/i.test(m)) return false;
+    return e && e.code ? true : null;      // réponse de Google sans rapport avec l'interrupteur → activé ; pas de réponse → on ne sait pas
+  }
 }
 
 /* Versions : Google en garde 200 au plus par projet, et son API ne sait pas en supprimer (seulement l'éditeur,
@@ -633,8 +647,12 @@ function scriptPage_() {
       })();
     }
     // apiKo : l'installation vient d'échouer parce que l'interrupteur n'est pas activé → l'étape 1 est mise en avant
-    function afficherNouveau(apiKo) {
+    // apiOk : l'interrupteur est déjà activé (fait depuis le mail) → l'étape 1 est cachée, il ne reste qu'une étape
+    function afficherNouveau(apiKo, apiOk) {
+      var sansE1 = !!apiOk && !apiKo;
       $('nouveau').style.display = 'block';
+      $('e1').style.display = sansE1 ? 'none' : '';
+      $('e2').querySelector('.num').style.display = sansE1 ? 'none' : '';
       $('e1').className = 'etape' + (apiKo ? ' active' : '');
       $('e2').className = 'etape' + (apiKo ? '' : ' active');
       if (apiKo) $('e1').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -684,7 +702,7 @@ function scriptPage_() {
           if (!e || e.erreur) { afficherNouveau(false); return erreur(e); }
           ETAT.sites = e.sites || [];
           if (ETAT.sites.length) afficherSites();
-          if (!e.installe) afficherNouveau(false);
+          if (!e.installe) afficherNouveau(false, e.api === true);
           if (e.erreurGithub) res.innerHTML = '<div class="ko">GitHub ne répond pas : impossible de vérifier ou d\'installer une nouvelle version pour l\'instant. Tes sites fonctionnent normalement ; réessaie dans quelques minutes.<br><span class="petit">' + h(e.erreurGithub) + '</span></div>';
         })
         .withFailureHandler(function (e) { $('chargement').style.display = 'none'; erreur(echec(e)); })
