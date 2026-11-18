@@ -1259,11 +1259,13 @@ var Sig = (() => {
       <p style="margin:0 0 6px">Les réponses aux questions les plus fréquentes : installer, créer un quiz, partager le site, mettre à jour, supprimer…</p>
       <p style="margin:0"><a class="btn" href="${AIDE}" target="_blank" rel="noopener">${I("book")} Lire l'aide</a></p>
       <h3 style="margin-top:18px">Poser une question à SoccaQuiz</h3>
+      <div id="aide-form">
       <label for="aide-msg">Ta question</label>
       <textarea id="aide-msg" maxlength="3000" placeholder="Décris ce que tu voulais faire et ce qui se passe."></textarea>
       <label for="aide-mail">La réponse arrivera par mail à</label>
       <input type="email" id="aide-mail" autocomplete="email" placeholder="ton adresse mail">
       <p class="small" style="margin:6px 0 0">Seuls ton adresse et ton message sont envoyés à SoccaQuiz, pour te répondre (avec le prénom, la classe et la version du site, pour comprendre le problème).</p>
+      </div>
       <p id="aide-etat" aria-live="polite" style="margin:8px 0 0"></p>
       <div class="bts"><button class="btn" type="button" data-aide="fermer">Fermer</button><button class="btn principal" type="button" data-aide="envoyer">${I("send")} Envoyer</button></div>`;
     document.body.appendChild(d);
@@ -1292,8 +1294,9 @@ var Sig = (() => {
       }
       try {
         await fetch(direct, { method: "POST", mode: "no-cors", headers: { "Content-Type": "text/plain;charset=utf-8" }, body: JSON.stringify(corps) });
+        // plus de champ ni de bouton après l'envoi : une seule demande par ouverture (pas d'envois en rafale)
+        d.querySelector("#aide-form").hidden = true; envoyer.hidden = true;
         etat.className = "ok"; etat.textContent = "✅ Envoyé. SoccaQuiz te répondra par mail à " + email + ".";
-        champMsg.value = ""; champMsg.disabled = true; champMail.disabled = true;
       } catch (err) {
         envoyer.disabled = false; etat.className = "ko"; etat.textContent = "L'envoi n'a pas marché. Réessaie, ou écris à soccaquiz@gmail.com.";
       }

@@ -855,7 +855,7 @@ try {
     await page.locator('#boite-aide [data-aide="envoyer"]').click();
     await page.locator('#aide-etat', { hasText: 'Envoyé' }).waitFor({ timeout: 5000 }).catch(() => {});
     const a = JSON.parse(recu || '{}');
-    ok(lien === 'https://soccaquiz.fr/aide.html' && /10 caractères/.test(trop) && a.type === 'aide' && a.email === 'parent@gmail.com' && a.origine === 'parent' && /tablette/.test(a.message) && a.classe === 'CM1' && /parent@gmail\.com/.test(await page.locator('#aide-etat').innerText()),
+    ok(lien === 'https://soccaquiz.fr/aide.html' && /10 caractères/.test(trop) && a.type === 'aide' && a.email === 'parent@gmail.com' && a.origine === 'parent' && /tablette/.test(a.message) && a.classe === 'CM1' && /parent@gmail\.com/.test(await page.locator('#aide-etat').innerText()) && await page.locator('#aide-form').isHidden() && await page.locator('#boite-aide [data-aide="envoyer"]').isHidden(),
       'aide : « ? » en haut à droite, lien vers la page d\'aide, question envoyée à la console avec l\'adresse du compte du parent — ' + JSON.stringify(a));
     await page.keyboard.press('Escape');
     await ev('Session.getActiveUser = globalThis.__sessionAvant;');
