@@ -58,6 +58,7 @@ const envoyes = [];
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const ctx = {
   console,
+  ScriptApp: { getScriptId: () => 'ID-CONSOLE-0123456789abcdef' },
   Session: { getActiveUser: () => ({ getEmail: () => actif }), getEffectiveUser: () => ({ getEmail: () => 'soccaquiz@gmail.com' }) },
   PropertiesService: {
     getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }),
@@ -264,6 +265,17 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/script\.google\.com\/macros\/
   ok(S.totaux.installation === 2 && S.totaux.maj === 2 && S.totaux.suppression === 1 && S.totaux.existant === 23 && S.enService === 24 && S.semaines.length === 1 && S.semaines[0].installation === 2
     && S.versions[0].version === 'v2.93' && S.versions[0].installation === 2 && S.versions[0].maj === 1, 'statistiques : en service = déjà là + installés − supprimés, par semaine et par version — ' + JSON.stringify(S.totaux));
   ok(/data-o="stats"/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Statistiques »');
+}
+// onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements
+{
+  const e = ctx.apiEtat();
+  ok(e.projetConsole === 'https://script.google.com/home/projects/ID-CONSOLE-0123456789abcdef/edit' && e.projetInstallateur === '', 'liens : programme de la console connu, celui de l\'installateur à coller une fois');
+  ok(ctx.apiProjetInstallateur('https://exemple.fr/x').erreur && ctx.apiProjetInstallateur('https://script.google.com/home/projects/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit').ok
+    && ctx.apiEtat().projetInstallateur === 'https://script.google.com/home/projects/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit', 'liens : adresse du projet de l\'installateur vérifiée puis retenue');
+  actif = 'intrus@gmail.com'; let refus = ''; try { ctx.apiProjetInstallateur(''); } catch (err) { refus = err.message; } actif = 'soccaquiz@gmail.com';
+  const page = ctx.doGet({ parameter: {} }).h;
+  ok(/Réservé/.test(refus) && /Copier le code/.test(page) && /« <b>Propositions<\/b> »/.test(page) && /raw\.githubusercontent\.com/.test(page) && /Réception « Propositions »/.test(page) && /soccaquiz\.fr\/aide\.html/.test(page.replace(/\\\//g, '/'))
+    && !/\balert\(/.test((page.match(/<script>([\s\S]*)<\/script>/) || [])[1].replace(/else alert\(m\)/, '')), 'liens : raccourcis « Copier le code », rappel « Console et Propositions », nouveaux liens');
 }
 console.log(echecs ? '[console] ' + echecs + ' échec(s)' : '[console] tout est vert');
 process.exit(echecs ? 1 : 0);
