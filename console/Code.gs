@@ -687,6 +687,7 @@ table.stats td+td,table.stats th+th{text-align:right}
 .badge{font:700 .78rem Nunito,sans-serif;background:var(--rouge-c);color:var(--rouge);border-radius:999px;padding:2px 10px}
 .onglets{display:flex;gap:2px;max-width:900px;margin:8px auto 0;padding:0 12px;position:sticky;top:0;z-index:5;background:var(--bg);box-shadow:inset 0 -2px 0 var(--line);overflow-x:auto;scrollbar-width:none}
 .onglets::-webkit-scrollbar{display:none}
+@media (min-width:700px){.onglets{flex-wrap:wrap;overflow-x:visible}}
 .onglet{flex:0 0 auto;white-space:nowrap;display:inline-flex;align-items:center;gap:6px;border:none;background:none;color:var(--soft);padding:12px 12px 10px;font:600 1rem Fredoka,system-ui,sans-serif;cursor:pointer;border-bottom:3px solid transparent}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
 .nb{font-size:.75rem;background:var(--rouge);color:#fff;border-radius:999px;padding:0 7px}
