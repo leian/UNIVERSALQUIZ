@@ -925,6 +925,15 @@ function apiSupprimerQuiz(nom) {
 
 /* Texte d'un quiz du site, au format en lignes : pour le proposer à la bibliothèque de la communauté.
    Seuls les quiz créés depuis le site (configuration en JSON) peuvent être relus ainsi. */
+/* demande d'aide (bouton « ? » de l'espace parent) : adresse du compte Google du parent, pour que SoccaQuiz lui réponde.
+   Elle n'est donnée qu'à la page ; c'est le parent qui l'envoie (et peut la changer) avec sa question. */
+function apiEmailParent() {
+  if (interdit_()) return refusEnfant_();
+  let email = '';
+  try { email = Session.getActiveUser().getEmail() || ''; } catch (e) {}
+  if (!email) try { email = DriveApp.getRootFolder().getOwner().getEmail() || ''; } catch (e) {}
+  return { email, prenom: CONFIG.prenom || '', classe: classe_(), version: CONFIG.version || '' };
+}
 function apiTexteQuiz(nom) {
   if (interdit_()) return refusEnfant_();
   nom = String(nom || '').split('/').pop();

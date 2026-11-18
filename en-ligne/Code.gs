@@ -451,7 +451,9 @@ function pageHtml_(suppr, vue) {
   '<style>' +
   ':root{--bg:#fff8ef;--card:#fff;--ink:#2a1f1a;--soft:#7a6658;--line:#eadfce;--accent:#c8102e;--ok:#15803d;--ko:#b91c1c}' +
   '*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:17px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
-  'main{max-width:560px;margin:0 auto;padding:20px 16px 40px}h1{font-size:1.6rem;text-align:center;margin:.2em 0}' +
+  'main{max-width:560px;margin:0 auto;padding:20px 16px 40px;position:relative}' +
+  '.lien-aide{position:absolute;top:16px;right:12px;display:grid;place-items:center;width:40px;height:40px;border-radius:50%;border:2px solid var(--line);background:var(--card);color:var(--accent);font:700 1.2rem system-ui,sans-serif;text-decoration:none}.lien-aide:hover{border-color:var(--accent)}' +
+  'h1{font-size:1.6rem;text-align:center;margin:.2em 0}' +
   '.intro{text-align:center;color:var(--soft);margin:0 0 16px}' +
   '.etape{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px 16px;margin:12px 0}' +
   '.etape.active{border-color:var(--accent)}.etape h2{font-size:1.05rem;margin:0 0 6px;display:flex;gap:10px;align-items:center}' +
@@ -468,6 +470,7 @@ function pageHtml_(suppr, vue) {
   '.btn:active:not(:disabled),button:active:not(:disabled),.appuye{scale:.95;filter:brightness(.92);transition-duration:.04s}' +
   '@media (prefers-reduced-motion:reduce){.btn:active:not(:disabled),button:active:not(:disabled),.appuye{scale:none;filter:brightness(.85)}}' +
   '</style></head><body><main>' +
+  '<a class="lien-aide" href="https://soccaquiz.fr/aide.html#installer" target="_blank" rel="noopener" title="Aide" aria-label="Aide">?</a>' +
   '<h1 class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="56" height="56" alt=""><span>Socca<em>Quiz</em></span></h1><p class="intro" id="intro">Crée le site de quiz de ton enfant, dans ton propre compte Google. Gratuit, environ 5 minutes.</p>' +
   '<div id="chargement" class="petit" style="text-align:center">Chargement…</div>' +
 

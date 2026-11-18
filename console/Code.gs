@@ -55,6 +55,7 @@ function doPost(e) {
 }
 function recevoir_(d) {
   if (d && d.type === 'erreur') return recevoirErreur_(d);
+  if (d && d.type === 'aide') return recevoirAide_(d);
   if (!d || d.type !== 'proposition') return { erreur: 'Requête inconnue.' };
   const texte = String(d.texte || '').replace(/\r/g, '').trim();
   if (texte.length < 40 || texte.length > 30000) return { erreur: 'Quiz vide ou trop long.' };
@@ -114,6 +115,81 @@ function recevoirErreur_(d) {
     sh.appendRow([id, new Date(), 'nouveau', code, t(d.titre, 100), classe, biblio, t(d.question, 400), t(d.attendu, 300), motif, t(d.remarque, 300), cellule_(texte), t(d.version, 12), '', '', '']);
     return { ok: true };
   } finally { verrou.releaseLock(); }
+}
+/* ---------------- demandes d'aide des familles (onglet Aide) ----------------
+   Corps : JSON { type: 'aide', email, message, origine, prenom, classe, version } envoyé par l'espace parent
+   (adresse du compte Google du parent, modifiable) ou par la page d'aide de soccaquiz.fr (adresse tapée).
+   Gardés : l'adresse, seulement pour répondre, et le message. La réponse part par mail depuis ce compte. */
+const COL_AIDE_ = ['id', 'date', 'statut', 'email', 'origine', 'prenom', 'classe', 'version', 'message', 'reponse', 'maj'];
+const EMAIL_ = /^[^\s@<>"',;:()\[\]\\]{1,64}@[a-z0-9.-]{1,190}\.[a-z]{2,24}$/i;
+function feuilleAide_() {
+  const ss = feuille_().getParent();
+  let sh = ss.getSheetByName('Aide');
+  if (!sh) { sh = ss.insertSheet('Aide'); sh.appendRow(COL_AIDE_); }
+  return sh;
+}
+function recevoirAide_(d) {
+  if (d.piege) return { ok: true };                    // champ caché rempli : un robot, on ne garde rien
+  const email = String(d.email || '').trim().toLowerCase();
+  if (email.length > 254 || !EMAIL_.test(email)) return { erreur: 'Adresse mail invalide.' };
+  const message = String(d.message || '').replace(/\r/g, '').trim();
+  if (message.length < 10) return { erreur: 'Message trop court : décris ce qui se passe.' };
+  if (message.length > 3000) return { erreur: 'Message trop long (3 000 caractères au plus).' };
+  // garde-fous : 20 envois par tranche de 10 minutes pour tout le monde, 5 demandes par adresse en 6 heures
+  const cache = CacheService.getScriptCache(), cle = 'envois-' + Math.floor(Date.now() / 6e5), n = +(cache.get(cle) || 0);
+  if (n >= 20) return { erreur: 'Trop d\'envois en ce moment : réessaie dans quelques minutes.' };
+  const cleMail = 'aide-' + Utilities.base64EncodeWebSafe(email).slice(0, 200), nm = +(cache.get(cleMail) || 0);
+  if (nm >= 5) return { erreur: 'Tu as déjà envoyé plusieurs demandes : SoccaQuiz te répond dès que possible.' };
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try {
+    const sh = feuilleAide_(), v = sh.getDataRange().getValues();
+    if (v.some(r => nonCellule_(r[3]) === email && nonCellule_(r[8]) === message)) return { ok: true, deja: true };   // renvoi : pas compté
+    if (v.filter(r => r[2] === 'nouveau').length >= 300) return { erreur: 'Trop de demandes en attente : réessaie plus tard, ou écris à soccaquiz@gmail.com.' };
+    cache.put(cle, String(n + 1), 900); cache.put(cleMail, String(nm + 1), 21600);
+    const origine = ['parent', 'installateur', 'aide'].indexOf(d.origine) >= 0 ? d.origine : 'aide';
+    const classe = CLASSES_.indexOf(String(d.classe || '')) >= 0 ? String(d.classe) : '';
+    const id = Utilities.getUuid().slice(0, 8), t = (x, m) => cellule_(texteCourt_(x, m));
+    sh.appendRow([id, new Date(), 'nouveau', cellule_(email), origine, t(d.prenom, 40), classe, t(d.version, 12), cellule_(message), '', '']);
+    return { ok: true };
+  } finally { verrou.releaseLock(); }
+}
+function trouverAide_(id) {
+  const sh = feuilleAide_(), v = sh.getDataRange().getValues();
+  const i = v.findIndex((r, k) => k > 0 && String(r[0]) === String(id));
+  if (i < 1) throw new Error('Demande introuvable : recharge la page.');
+  return { sh, ligne: i + 1, r: v[i] };
+}
+/* répondre : mail envoyé depuis ce compte (nom de l'onglet Invitations), la demande citée en dessous */
+function apiRepondreAide(id, texte) {
+  exiger_();
+  texte = String(texte || '').replace(/\r/g, '').trim();
+  if (texte.length < 2) return { erreur: 'Écris d\'abord ta réponse.' };
+  if (texte.length > 5000) return { erreur: 'Réponse trop longue (5 000 caractères au plus).' };
+  const a = trouverAide_(id), email = nonCellule_(a.r[3]);
+  if (!EMAIL_.test(email)) return { erreur: 'Adresse de la famille invalide : réponds-lui à la main.' };
+  if (MailApp.getRemainingDailyQuota() < 1) return { erreur: 'Gmail ne permet plus d\'envoi aujourd\'hui : réessaie demain.' };
+  const quand = a.r[1] instanceof Date ? Utilities.formatDate(a.r[1], 'Europe/Paris', 'dd/MM/yyyy') : '';
+  const cite = nonCellule_(a.r[8]).split('\n').map(l => '> ' + l).join('\n');
+  const nom = PropertiesService.getUserProperties().getProperty('NOM') || 'SoccaQuiz';
+  MailApp.sendEmail({ to: email, subject: 'SoccaQuiz : réponse à ta demande d\'aide', name: nom,
+    body: texte + '\n\n—\nTa demande' + (quand ? ' du ' + quand : '') + ' :\n' + cite + '\n\nAide de SoccaQuiz : https://soccaquiz.fr/aide.html' });
+  a.sh.getRange(a.ligne, 3).setValue('repondu');
+  a.sh.getRange(a.ligne, 10, 1, 2).setValues([[cellule_(texte), new Date()]]);
+  return { ok: true, email };
+}
+function apiAideStatut(id, statut) {
+  exiger_();
+  if (['nouveau', 'classe'].indexOf(statut) < 0) return { erreur: 'Statut inconnu.' };
+  const a = trouverAide_(id);
+  a.sh.getRange(a.ligne, 3).setValue(statut);
+  return { ok: true };
+}
+function apiSupprimerAide(id) {
+  exiger_();
+  const a = trouverAide_(id);
+  a.sh.deleteRow(a.ligne);
+  return { ok: true };
 }
 function cellule_(v) { v = String(v == null ? '' : v); return /^[=+\-@]/.test(v) && !/^-?\d/.test(v) ? "'" + v : v; }
 const nonCellule_ = v => String(v == null ? '' : v).replace(/^'(?=[=+\-@])/, '');
@@ -212,8 +288,14 @@ function apiEtat() {
     if (sh && sh.getLastRow() > 1) erreurs = sh.getRange(2, 1, sh.getLastRow() - 1, COL_ERR_.length).getValues().filter(r => r[0]).map(r => COL_ERR_.reduce((o, c, i) => {
       o[c] = r[i] instanceof Date ? r[i].toISOString() : nonCellule_(r[i]); return o; }, {})).sort((a, b) => b.date.localeCompare(a.date));
   } catch (e) {}
+  let aide = [];
+  try {
+    const sh = feuille_().getParent().getSheetByName('Aide');
+    if (sh && sh.getLastRow() > 1) aide = sh.getRange(2, 1, sh.getLastRow() - 1, COL_AIDE_.length).getValues().filter(r => r[0]).map(r => COL_AIDE_.reduce((o, c, i) => {
+      o[c] = r[i] instanceof Date ? r[i].toISOString() : nonCellule_(r[i]); return o; }, {})).sort((a, b) => b.date.localeCompare(a.date));
+  } catch (e) {}
   return {
-    propositions: props, retires, erreurs,
+    propositions: props, retires, erreurs, aide,
     jeton: !!p.getProperty('GITHUB_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
@@ -462,8 +544,9 @@ const LIENS_ = [
     ['Installateur SoccaQuiz', 'https:\/\/script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec', 'Déploiement « Install officielle » : le lien à donner aux parents, avec « Mettre à jour mon site ».'],
     ['Lien court de l\'installateur', PAGES + 'installer.html', 'Celui du mail d\'invitation (redirige vers l\'installateur).'],
     ['Mail d\'invitation (aperçu)', PAGES + 'invitation.html', 'Lu aussi par l\'onglet Invitations.'],
-    ['Page d\'accueil publique', PAGES, 'Celle que vérifie Google.'],
-    ['Règles de confidentialité', PAGES + 'confidentialite.html', ''],
+    ['Page d\'accueil publique', 'https:\/\/soccaquiz.fr/', 'Celle que vérifie Google (dépôt leian/soccaquiz.fr).'],
+    ['Règles de confidentialité', 'https:\/\/soccaquiz.fr/confidentialite.html', 'Copie aussi dans docs/ : modifier les deux.'],
+    ['Page d\'aide', 'https:\/\/soccaquiz.fr/aide.html', 'Ouverte par le bouton « ? » de l\'installateur et de l\'espace parent ; son formulaire arrive dans l\'onglet Aide.'],
     ['Créer une clé Gemini gratuite', 'https:\/\/aistudio.google.com/apikey', 'Projet « Default Gemini Project ».']
   ]],
   ['Bibliothèque', [
@@ -506,8 +589,8 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
-      .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : '') + '</button>').join('') +
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
+      .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : o[0] === 'aide' ? ' <span class="nb" id="nb-aide" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
 }
@@ -568,6 +651,7 @@ function client_() {
     check: '<path d="M20 6 9 17l-5-5"/>', x: '<path d="M18 6 6 18M6 6l12 12"/>', eye: '<path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
     upload: '<path d="M12 3v12M7 8l5-5 5 5"/><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>', trash: '<path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/>',
     undo: '<path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-15-6.7L3 13"/>', plus: '<path d="M12 5v14M5 12h14"/>', ext: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+    aide: '<circle cx="12" cy="12" r="10"/><path d="M9.1 9a3 3 0 0 1 5.8 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
     send: '<path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/>', flag: '<path d="M4 22V4"/><path d="M4 4h12l-2 4 2 4H4"/>', key: '<circle cx="7.5" cy="15.5" r="5.5"/><path d="m21 2-9.6 9.6M15.5 7.5l3 3L22 7l-3-3"/>'
   };
   var I = function (n) { return '<svg class="ic" viewBox="0 0 24 24" aria-hidden="true">' + (ICONES[n] || '') + '</svg>'; };
@@ -598,7 +682,7 @@ function client_() {
   }
   function slug(s) { return String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60); }
 
-  function charger(apres) { appel('apiEtat', [], function (e) { ETAT = e; var n = e.propositions.filter(function (p) { return p.statut === 'nouveau'; }).length; $('nb-prop').textContent = n; $('nb-prop').hidden = !n; var ne = (e.erreurs || []).filter(function (x) { return x.statut === 'nouveau'; }).length; $('nb-err').textContent = ne; $('nb-err').hidden = !ne; if (apres) apres(); else afficher(); }); }
+  function charger(apres) { appel('apiEtat', [], function (e) { ETAT = e; var n = e.propositions.filter(function (p) { return p.statut === 'nouveau'; }).length; $('nb-prop').textContent = n; $('nb-prop').hidden = !n; var ne = (e.erreurs || []).filter(function (x) { return x.statut === 'nouveau'; }).length; $('nb-err').textContent = ne; $('nb-err').hidden = !ne; var na = (e.aide || []).filter(function (x) { return x.statut === 'nouveau'; }).length; $('nb-aide').textContent = na; $('nb-aide').hidden = !na; if (apres) apres(); else afficher(); }); }
 
   function ouvrir(o) {
     onglet = o; edition = null;
@@ -612,8 +696,42 @@ function client_() {
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
     if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, erreurs: vueErreurs, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
   }
+
+  /* ---------- Demandes d'aide des familles : réponse par mail depuis ce compte ---------- */
+  var ORIGINES = { parent: 'Espace parent', installateur: 'Installateur', aide: 'Page d\'aide' };
+  function carteAide(x) {
+    var lib = { nouveau: 'À répondre', repondu: 'Répondu', classe: 'Classé' }[x.statut] || x.statut;
+    return '<div class="carte" data-aide="' + esc(x.id) + '"><h3>' + esc(x.email) + ' <span class="etiq ' + (x.statut === 'nouveau' ? 'nouveau' : x.statut === 'repondu' ? 'publie' : 'refuse') + '">' + esc(lib) + '</span></h3>' +
+      '<div class="meta">' + esc(date(x.date)) + ' · ' + esc(ORIGINES[x.origine] || x.origine) + (x.prenom ? ' · ' + esc(x.prenom) : '') + (x.classe ? ' · ' + esc(x.classe) : '') + (x.version ? ' · site ' + esc(x.version) : '') + '</div>' +
+      '<p style="margin:6px 0;white-space:pre-wrap">' + esc(x.message) + '</p>' +
+      (x.reponse ? '<p class="petit" style="margin:4px 0;white-space:pre-wrap">Ta réponse' + (x.maj ? ' (' + esc(date(x.maj)) + ')' : '') + ' : ' + esc(x.reponse) + '</p>' : '') +
+      (x.statut === 'nouveau'
+        ? '<label for="r-' + esc(x.id) + '">Ta réponse (envoyée par mail à ' + esc(x.email) + ')</label><textarea id="r-' + esc(x.id) + '" rows="5" maxlength="5000" placeholder="Bonjour, …"></textarea>' +
+          '<div class="actions"><button class="btn principal" data-h="repondre">' + I('send') + ' Envoyer la réponse</button><button class="btn" data-h="classer">' + I('check') + ' Classer sans répondre</button></div>'
+        : '<div class="actions"><button class="btn" data-h="rouvrir">' + I('undo') + ' Remettre à répondre</button><button class="btn danger" data-h="supprimer">' + I('trash') + ' Supprimer</button></div>') + '</div>';
+  }
+  function vueAide(c) {
+    var A = ETAT.aide || [], nouv = A.filter(function (x) { return x.statut === 'nouveau'; }), autres = A.filter(function (x) { return x.statut !== 'nouveau'; });
+    c.innerHTML = MSG + '<div class="box"><h2>' + I('aide') + 'Demandes d\'aide</h2><p class="petit">Envoyées depuis l\'espace parent (adresse du compte Google du parent) ou depuis la page d\'aide de soccaquiz.fr. Ta réponse part par mail depuis ce compte ; la famille peut y répondre directement.' + (ETAT.quota != null ? ' Envois restants aujourd\'hui : ' + ETAT.quota + '.' : '') + '</p>' +
+      (nouv.length ? nouv.map(carteAide).join('') : '<p class="vide">Aucune demande en attente.</p>') + '</div>' +
+      (autres.length ? '<div class="box"><details><summary>Déjà traitées (' + autres.length + ')</summary>' + autres.map(carteAide).join('') + '</details></div>' : '');
+  }
+  $('contenu').addEventListener('click', function (e) {
+    var b = e.target.closest('[data-h]'); if (!b || onglet !== 'aide') return;
+    var carte = e.target.closest('.carte'), id = carte && carte.dataset.aide; if (!id) return;
+    var fini = function (m) { charger(function () { ouvrir('aide'); if (m) info(m); }); };
+    if (b.dataset.h === 'repondre') {
+      var ta = carte.querySelector('textarea');
+      if (!ta || !ta.value.trim()) { erreur('Écris d\'abord ta réponse.'); if (ta) ta.focus(); return; }
+      b.disabled = true;
+      appel('apiRepondreAide', [id, ta.value], function (r) { fini('Réponse envoyée à ' + r.email + '.'); }, function (m) { b.disabled = false; erreur(m); });
+    }
+    else if (b.dataset.h === 'classer') { b.disabled = true; appel('apiAideStatut', [id, 'classe'], function () { fini(); }); }
+    else if (b.dataset.h === 'rouvrir') { b.disabled = true; appel('apiAideStatut', [id, 'nouveau'], function () { fini(); }); }
+    else if (b.dataset.h === 'supprimer') confirmer(b, 'Toucher encore pour supprimer', function () { appel('apiSupprimerAide', [id], function () { fini(); }); });
+  });
 
   /* ---------- Erreurs signalées par les familles ---------- */
   var MOTIFS = { reponse: 'Bonne réponse fausse', question: 'Question mal écrite ou incomprise', rappel: 'Rappel de la leçon faux', autre: '' };

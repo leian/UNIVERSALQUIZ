@@ -28,8 +28,18 @@ const feuilleE = {
   deleteRow: l => lignesE.splice(l - 1, 1)
 };
 let ongletE = false;
-ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : null;
-ss.insertSheet = n => { ongletE = true; return feuilleE; };
+// onglet « Aide » (demandes d'aide des familles)
+const lignesA = [];
+const feuilleA = {
+  appendRow: r => lignesA.push(r.slice()),
+  getDataRange: () => ({ getValues: () => lignesA.map(r => r.slice()) }),
+  getLastRow: () => lignesA.length,
+  getRange: (l, c, nl, nc) => ({ setValue: v => { lignesA[l - 1][c - 1] = v; }, setValues: vs => { vs[0].forEach((v, i) => { lignesA[l - 1][c - 1 + i] = v; }); }, getValues: () => lignesA.slice(l - 1, l - 1 + nl).map(r => r.slice(c - 1, c - 1 + nc)) }),
+  deleteRow: l => lignesA.splice(l - 1, 1)
+};
+let ongletA = false;
+ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : n === 'Aide' && ongletA ? feuilleA : null;
+ss.insertSheet = n => { if (n === 'Aide') { ongletA = true; return feuilleA; } ongletE = true; return feuilleE; };
 // faux GitHub (API contents)
 const depot = { 'docs/bibliotheque/index.json': JSON.stringify({ version: 1, quiz: [{ id: 'anglais-x', titre: 'X', matiere: 'anglais', classes: ['CM1'], nb: 5, ajoute: '2026-11-01' }] }), 'docs/bibliotheque/anglais-x.txt': 'T|X\nQ|a|b|c\n', 'docs/soccaquiz.json': '{}' };
 const commits = [];
@@ -50,7 +60,7 @@ const ctx = {
   LockService: { getScriptLock: () => ({ waitLock: () => {}, releaseLock: () => {} }) },
   Utilities: {
     getUuid: () => Math.random().toString(16).slice(2) + 'abcdef12',
-    base64Encode: s => b64(s), base64Decode: s => Buffer.from(s, 'base64'),
+    base64Encode: s => b64(s), base64EncodeWebSafe: s => b64(s).replace(/\+/g, '-').replace(/\//g, '_'), base64Decode: s => Buffer.from(s, 'base64'),
     newBlob: bytes => ({ getDataAsString: () => Buffer.from(bytes).toString('utf8') }),
     Charset: { UTF_8: 'UTF-8' },
     formatDate: () => '2026-11-15'
@@ -204,6 +214,35 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/script\.google\.com\/macros\/
   ctx.apiPublier({ id: BID, titre: 'X', matiere: 'anglais', classes: ['CM1'], texte: corrige, remplacer: true });
   ok(JSON.parse(depot['docs/bibliotheque/index.json']).quiz.find(q => q.id === BID).v === vA + 1, 'quiz de la bibliothèque remplacé : nouvelle version proposée aux familles');
   ok(/data-o="erreurs"/.test(ctx.doGet({ parameter: {} }).h) && /nb-err/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Erreurs » avec son compteur');
+}
+// demandes d'aide : réception publique (espace parent, page d'aide), réponse par mail depuis la console
+{
+  const envoi = d => ctx.recevoir_(d);
+  ok(envoi({ type: 'aide', email: 'pas-une-adresse', message: 'Bonjour, je ne trouve pas le lien.' }).erreur && envoi({ type: 'aide', email: 'a@b.fr', message: 'court' }).erreur
+    && envoi({ type: 'aide', email: 'a@b.fr', message: 'x'.repeat(3001) }).erreur, 'demande d\'aide : adresse invalide, message trop court ou trop long refusés');
+  ok(envoi({ type: 'aide', email: 'robot@spam.fr', message: 'Message de robot assez long', piege: 'x' }).ok && !lignesA.length, 'champ piège rempli (robot) : rien n\'est gardé');
+  const r = envoi({ type: 'aide', email: 'Parent@Gmail.com ', message: '=Bonjour, le site de Tom ne s\'ouvre plus.', origine: 'parent', prenom: 'Tom', classe: 'CE1', version: 'v2.92' });
+  ok(r.ok && lignesA.length === 2 && lignesA[1][3] === 'parent@gmail.com' && lignesA[1][8] === "'=Bonjour, le site de Tom ne s'ouvre plus." && lignesA[1][4] === 'parent',
+    'demande reçue : adresse mise en minuscules, texte protégé contre les formules du tableur');
+  ok(envoi({ type: 'aide', email: 'parent@gmail.com', message: '=Bonjour, le site de Tom ne s\'ouvre plus.' }).deja && lignesA.length === 2, 'même demande envoyée deux fois : gardée une fois');
+  for (let k = 0; k < 4; k++) envoi({ type: 'aide', email: 'parent@gmail.com', message: 'Autre question numéro ' + k });
+  ok(/plusieurs demandes/.test(envoi({ type: 'aide', email: 'parent@gmail.com', message: 'Encore une autre question' }).erreur || ''), 'plus de 5 demandes par adresse en 6 heures : refusé');
+  actif = 'intrus@gmail.com';
+  let refus = ''; try { ctx.apiRepondreAide('x', 'y'); } catch (err) { refus = err.message; }
+  ok(/Réservé/.test(refus), 'répondre : réservé à l\'éditeur');
+  actif = 'soccaquiz@gmail.com';
+  const a = ctx.apiEtat().aide.find(x => x.prenom === 'Tom');
+  const avant = envoyes.length;
+  ok(a && a.message === '=Bonjour, le site de Tom ne s\'ouvre plus.' && ctx.apiEtat().aide.filter(x => x.statut === 'nouveau').length === 5, 'onglet Aide : demandes listées, texte d\'origine rendu');
+  ok(ctx.apiRepondreAide(a.id, '').erreur && envoyes.length === avant, 'réponse vide : rien n\'est envoyé');
+  const rr = ctx.apiRepondreAide(a.id, 'Bonjour, mets le site à jour depuis l\'installateur.');
+  const m = envoyes[envoyes.length - 1];
+  ok(rr.ok && m.to === 'parent@gmail.com' && /réponse à ta demande d'aide/.test(m.subject) && /mets le site à jour/.test(m.body) && /> =Bonjour, le site de Tom/.test(m.body)
+    && ctx.apiEtat().aide.find(x => x.id === a.id).statut === 'repondu', 'réponse envoyée par mail à l\'adresse du parent, demande citée, statut « Répondu »');
+  ok(ctx.apiAideStatut(a.id, 'nouveau').ok && ctx.apiAideStatut(a.id, 'classe').ok && ctx.apiAideStatut(a.id, 'nimporte').erreur && ctx.apiSupprimerAide(a.id).ok && !ctx.apiEtat().aide.find(x => x.id === a.id),
+    'demande remise à répondre, classée, puis supprimée');
+  const page = ctx.doGet({ parameter: {} }).h;
+  ok(/data-o="aide"/.test(page) && /nb-aide/.test(page) && !/[^:]\/\/(?!\s)/.test((page.match(/<script>([\s\S]*)<\/script>/) || [])[1].replace(/https?:\\\/\\\//g, '')), 'console : onglet « Aide » avec son compteur');
 }
 console.log(echecs ? '[console] ' + echecs + ' échec(s)' : '[console] tout est vert');
 process.exit(echecs ? 1 : 0);

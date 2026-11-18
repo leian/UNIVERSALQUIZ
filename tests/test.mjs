@@ -838,6 +838,29 @@ try {
   ok(env.type === 'proposition' && /^T\|Listen and repeat/.test(env.texte) && env.classe === 'CM1' && !/@/.test(recu), 'proposer un quiz : envoi direct à la console SoccaQuiz (texte et classe seulement)');
   await page.keyboard.press('Escape');
 
+  // ---- aide : bouton « ? » de l'espace parent → page d'aide, ou question à SoccaQuiz (réponse par mail au parent) ----
+  {
+    await ev('globalThis.__sessionAvant = Session.getActiveUser; Session.getActiveUser = () => ({ getEmail: () => "parent@gmail.com" });');
+    const refus = (await ev('(() => { const e = CONFIG.espace; CONFIG.espace = "enfant"; const r = apiEmailParent(); CONFIG.espace = e; return r; })()')).r;
+    ok(refus && refus.__status === 403 && !refus.email, 'aide : l\'adresse du parent n\'est jamais donnée au site de l\'enfant');
+    recu = null;
+    await page.reload();
+    await page.locator('#bouton-aide').click();
+    await page.locator('#boite-aide').waitFor({ timeout: 5000 });
+    await page.waitForFunction(() => document.getElementById('aide-mail').value === 'parent@gmail.com', null, { timeout: 5000 }).catch(() => {});
+    const lien = await page.locator('#boite-aide a.btn').getAttribute('href');
+    await page.locator('#boite-aide [data-aide="envoyer"]').click();
+    const trop = await page.locator('#aide-etat').innerText();
+    await page.fill('#aide-msg', 'Le site de mon enfant ne s\'ouvre plus sur la tablette.');
+    await page.locator('#boite-aide [data-aide="envoyer"]').click();
+    await page.locator('#aide-etat', { hasText: 'Envoyé' }).waitFor({ timeout: 5000 }).catch(() => {});
+    const a = JSON.parse(recu || '{}');
+    ok(lien === 'https://soccaquiz.fr/aide.html' && /10 caractères/.test(trop) && a.type === 'aide' && a.email === 'parent@gmail.com' && a.origine === 'parent' && /tablette/.test(a.message) && a.classe === 'CM1' && /parent@gmail\.com/.test(await page.locator('#aide-etat').innerText()),
+      'aide : « ? » en haut à droite, lien vers la page d\'aide, question envoyée à la console avec l\'adresse du compte du parent — ' + JSON.stringify(a));
+    await page.keyboard.press('Escape');
+    await ev('Session.getActiveUser = globalThis.__sessionAvant;');
+  }
+
   // ---- signaler une erreur : l'enfant (questions à réviser, « À retenir »), le parent (résultats), la console ----
   {
     const espaceAvant = (await ev('CONFIG.espace')).r;
