@@ -25,6 +25,15 @@
    (ou en lançant la fonction installer() depuis l'éditeur).
    ===================================================================== */
 
+/* Première fonction du fichier, donc déjà choisie dans l'éditeur : l'installateur l'ouvre ici, le parent clique
+   sur « ▷ Exécuter » et accepte les autorisations (écrans bleus de Google, une seule fois). Elle prépare aussi le
+   dossier et les tableaux, et note l'adresse du parent qui a installé. */
+function autoriser() {
+  proprio_();
+  installer_();
+  console.log("C'est fait : SoccaQuiz peut maintenant fonctionner. Tu peux fermer cet onglet et revenir à l'installateur.");
+}
+
 /* ---------------- RÉGLAGES (à adapter) ---------------- */
 const CONFIG = {
   prenom: '',                     // prénom de l'enfant (tableau de bord, encouragements) ; vide = « mon enfant »
@@ -105,8 +114,18 @@ function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espac
    est le parent qui a installé le site (il peut ouvrir le programme dans son Drive) ou qu'il a accès au dossier. */
 let PROPRIO_ = null, ACCES_ = null, DEMANDE_SUPPR_ = false;
 function estProprietaire_() {
-  if (PROPRIO_ === null) try { DriveApp.getFileById(ScriptApp.getScriptId()); PROPRIO_ = true; } catch (e) { PROPRIO_ = false; }
+  if (PROPRIO_ === null) try {
+    const moi = String(Session.getActiveUser().getEmail() || '').toLowerCase(), proprio = proprio_();
+    PROPRIO_ = CONFIG.espace !== 'parent' || (!!moi && moi === proprio);
+  } catch (e) { PROPRIO_ = false; }
   return PROPRIO_;
+}
+/* adresse du parent qui a installé : notée quand le programme s'exécute avec son compte (éditeur, site de l'enfant) */
+function proprio_() {
+  const props = PropertiesService.getScriptProperties();
+  let p = props.getProperty('PROPRIO');
+  if (!p && CONFIG.espace !== 'parent') try { p = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); if (p) props.setProperty('PROPRIO', p); } catch (e) {}
+  return p || '';
 }
 function accesParent_() {
   if (ACCES_ === null) ACCES_ = CONFIG.espace !== 'parent' || estProprietaire_() || !!ouvrirDossier_(PropertiesService.getScriptProperties().getProperty('DOSSIER'));
@@ -275,8 +294,8 @@ function installer_() {
     // vérifiés il y a moins de 10 minutes : ouverts seulement si la page en a besoin (souvent, tout vient du cache)
     let d = null, s = null;
     r = {
-      get dossier() { return d || (d = DriveApp.getFolderById(idD)); },
-      get ss() { return s || (s = SpreadsheetApp.openById(idS)); }
+      get dossier() { return d || (d = DRV_.getFolderById(idD)); },
+      get ss() { return s || (s = TAB_.openById(idS)); }
     };
   } else {
     r = installer0_();
@@ -301,19 +320,21 @@ function installer0_() {
     if (!dossier) {
       const premier = it => { while (it.hasNext()) { const x = it.next(); if (!x.isTrashed()) return x; } return null; };   // jamais un dossier de la corbeille
       // l'ancien dossier « Universal Quiz » n'est repris que par le site principal (les autres sites ont leur propre dossier)
-      dossier = premier(DriveApp.getRootFolder().getFoldersByName(CONFIG.nomDossier))
-        || (CONFIG.nomDossier === 'SoccaQuiz' && premier(DriveApp.getRootFolder().getFoldersByName(ANCIEN_DOSSIER)))
-        || DriveApp.createFolder(CONFIG.nomDossier);
+      dossier = premier(DRV_.getRootFolder().getFoldersByName(CONFIG.nomDossier))
+        || (CONFIG.nomDossier === 'SoccaQuiz' && premier(DRV_.getRootFolder().getFoldersByName(ANCIEN_DOSSIER)))
+        || DRV_.createFolder(CONFIG.nomDossier);
       props.setProperty('DOSSIER', dossier.getId());
-      if (!contientHtml_(dossier)) {
-        dossier.createFile('quiz_exemple_capitales.html', lib_('lib/exemple-quiz', false), MimeType.HTML);
-      }
     }
     ss = ouvrirSheets_(props.getProperty('RESULTATS'));
     if (!ss) {
       const f = trouverFichier_(dossier, NOM_SHEETS) || trouverFichier_(dossier, ANCIEN_SHEETS);
-      ss = f ? SpreadsheetApp.open(f) : creerSheets_(dossier);
+      ss = f ? TAB_.open(f) : creerSheets_(dossier);
       props.setProperty('RESULTATS', ss.getId());
+    }
+    // un quiz d'exemple dans un dossier tout neuf (après le tableau des résultats : celui des quiz est créé à cette occasion)
+    if (!props.getProperty('EXEMPLE')) {
+      if (!contientHtml_(dossier)) dossier.createFile('quiz_exemple_capitales.html', lib_('lib/exemple-quiz', false), MimeType.HTML);
+      props.setProperty('EXEMPLE', '1');
     }
   } finally {
     verrou.releaseLock();
@@ -323,11 +344,11 @@ function installer0_() {
 
 function ouvrirDossier_(id) {
   if (!id) return null;
-  try { const d = DriveApp.getFolderById(id); return d.isTrashed() ? null : d; } catch (e) { return null; }
+  try { const d = DRV_.getFolderById(id); return d.isTrashed() ? null : d; } catch (e) { return null; }
 }
 function ouvrirSheets_(id) {
   if (!id) return null;
-  try { if (DriveApp.getFileById(id).isTrashed()) return null; return SpreadsheetApp.openById(id); } catch (e) { return null; }
+  try { if (DRV_.getFileById(id).isTrashed()) return null; return TAB_.openById(id); } catch (e) { return null; }
 }
 function contientHtml_(dossier) {
   const it = dossier.getFiles();
@@ -335,8 +356,7 @@ function contientHtml_(dossier) {
   return false;
 }
 function creerSheets_(dossier) {
-  const ss = SpreadsheetApp.create(NOM_SHEETS);
-  DriveApp.getFileById(ss.getId()).moveTo(dossier);
+  const ss = TAB_.create(NOM_SHEETS, dossier.getId());
   const sh = ss.getSheets()[0];
   sh.setName('Parties');
   sh.getRange(1, 1, 1, COLONNES.length).setValues([COLONNES]).setFontWeight('bold');
@@ -931,7 +951,7 @@ function apiEmailParent() {
   if (interdit_()) return refusEnfant_();
   let email = '';
   try { email = Session.getActiveUser().getEmail() || ''; } catch (e) {}
-  if (!email) try { email = DriveApp.getRootFolder().getOwner().getEmail() || ''; } catch (e) {}
+  if (!email) email = proprio_();
   return { email, prenom: CONFIG.prenom || '', classe: classe_(), version: CONFIG.version || '' };
 }
 function apiTexteQuiz(nom) {
@@ -1263,11 +1283,11 @@ const URL_SITE_ = /^https:\/\/script\.google\.com\/(a\/macros\/[\w.\-]+|macros)\
 function fichierFamille_(creer) {
   const p = PropertiesService.getScriptProperties(), id = p.getProperty('FAMILLE');
   let f = null;
-  if (id) try { f = DriveApp.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; }
-  if (!f && (CONFIG.espace !== 'parent' || estProprietaire_())) { const it = DriveApp.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
+  if (id) try { f = DRV_.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; }
+  if (!f && (CONFIG.espace !== 'parent' || estProprietaire_())) { const it = DRV_.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
   const proprio = CONFIG.espace !== 'parent' || estProprietaire_();     // l'autre parent ne voit que le fichier partagé (par son id)
   if (!proprio) return f;
-  if (!f && creer) f = DriveApp.getRootFolder().createFile(NOM_FAMILLE, '{"sites":[]}', MimeType.PLAIN_TEXT);
+  if (!f && creer) f = DRV_.getRootFolder().createFile(NOM_FAMILLE, '{"sites":[]}', MimeType.PLAIN_TEXT);
   if (f && f.getId() !== id) p.setProperty('FAMILLE', f.getId());
   return f;
 }
@@ -1319,7 +1339,7 @@ function familleListe_() {
   if (enCache) try { l = JSON.parse(enCache); } catch (e) { l = null; }
   if (!l) {
     l = lireFamille_().sites.filter(x => URL_SITE_.test(String(x.parent || '')) && (x.parent === CONFIG.urlParent || (() => {
-      try { return !DriveApp.getFolderById(String(x.dossier)).isTrashed(); } catch (e) { return false; }
+      try { return !DRV_.getFolderById(String(x.dossier)).isTrashed(); } catch (e) { return false; }
     })())).map(x => ({ prenom: String(x.prenom || '').slice(0, 40), classe: String(x.classe || '').slice(0, 10), parent: x.parent, dossier: String(x.dossier || '') }));
     try { cache.put('famille', JSON.stringify(l), 60); } catch (e) {}      // court : une classe changée chez un autre enfant apparaît vite
   }
@@ -1562,7 +1582,7 @@ function apiRemettreAZero(d) {
   const inst = installer_(), props = PropertiesService.getScriptProperties(), cache = CacheService.getScriptCache(), fait = [];
   if (d.resultats) {
     const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Paris', 'dd/MM/yyyy');
-    DriveApp.getFileById(inst.ss.getId()).setName(NOM_SHEETS + ' (archive du ' + date + ')');
+    DRV_.getFileById(inst.ss.getId()).setName(NOM_SHEETS + ' (archive du ' + date + ')');
     const ss = creerSheets_(inst.dossier);
     props.setProperty('RESULTATS', ss.getId());
     INST_ = null; LIGNES_ = null;
@@ -1606,7 +1626,7 @@ function apiSupprimerSite(d) {
   // désinstallation complète : le programme du site (un fichier du Drive) part lui aussi à la corbeille,
   // ce qui arrête ses deux adresses, puis le site retire l'autorisation que le parent lui avait donnée
   let programme = false;
-  try { DriveApp.getFileById(ScriptApp.getScriptId()).setTrashed(true); programme = true; } catch (e) { console.error(e); }
+  // le programme ne peut pas se mettre lui-même à la corbeille (drive.file) : l'installateur retire ses publications et vide son code
   const retour = CONFIG.installateur ? CONFIG.installateur + (CONFIG.installateur.indexOf('?') < 0 ? '?' : '&') + 'supprime=' + encodeURIComponent(ScriptApp.getScriptId()) : '';
   try { ScriptApp.invalidateAuth(); } catch (e) {}
   return { ok: true, garde: !!d.garder, retour, programme };
@@ -1635,7 +1655,7 @@ function copierAussi_(aussi, titre, html) {
   const faits = [];
   familleListe_().forEach(x => {
     if (x.ici || aussi.indexOf(x.parent) < 0) return;
-    try { const d = DriveApp.getFolderById(x.dossier); d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML); faits.push(x.prenom || 'un autre enfant'); }
+    try { const d = DRV_.getFolderById(x.dossier); d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML); faits.push(x.prenom || 'un autre enfant'); }
     catch (e) { console.error(e); }
   });
   return faits;
@@ -1879,3 +1899,265 @@ function dateDepuisNom_(nom) {
 function jour_(d) {
   try { return Utilities.formatDate(d, Session.getScriptTimeZone(), 'yyyy-MM-dd'); } catch (e) { return ''; }
 }
+
+/* =====================================================================
+   ACCÈS AU DRIVE ET AUX TABLEAUX — autorisation « fichiers créés par SoccaQuiz » seulement
+   Le programme ne demande à Google que drive.file (+ l'adresse e-mail) : aucun écran « application non validée ».
+   DriveApp et SpreadsheetApp exigent l'accès à tout le Drive / à tous les tableaux : ils sont remplacés par
+   DRV_ et TAB_, qui imitent les seules méthodes utilisées ici, au-dessus des services avancés Drive v3 et Sheets v4.
+   Google ne sait pas relire le contenu d'un fichier avec drive.file (Drive.Files.get alt=media : contenu coupé
+   à ~780 caractères) : les fichiers texte (quiz, fichier de la famille) sont donc « virtuels », rangés dans
+   l'onglet « Fichiers » du tableau « SoccaQuiz – Quiz » de leur dossier (morceaux de 40 000 caractères), ou dans
+   les propriétés du script pour ceux de la racine du Drive. Essais réels du 20 nov. 2026 : voir le projet claude.ai,
+   « etude-installation-sans-alerte ».
+   ===================================================================== */
+const NOM_QUIZ = 'SoccaQuiz – Quiz';
+const MIME_DOSSIER_ = 'application/vnd.google-apps.folder', MIME_TABLEUR_ = 'application/vnd.google-apps.spreadsheet';
+const MORCEAU_ = 40000, ONGLET_FICHIERS_ = 'Fichiers', CHAMPS_ = 'id,name,mimeType,trashed,createdTime,modifiedTime,parents';
+const iter_ = l => { let i = 0; return { hasNext: () => i < l.length, next: () => l[i++] }; };
+const guillemets_ = s => "'" + String(s).replace(/\\/g, '\\\\').replace(/'/g, "\\'") + "'";
+function listerDrive_(q) {
+  const r = []; let page;
+  do {
+    const x = Drive.Files.list({ q: q, pageSize: 200, pageToken: page, fields: 'nextPageToken,files(' + CHAMPS_ + ')' });
+    (x.files || []).forEach(f => r.push(f)); page = x.nextPageToken;
+  } while (page);
+  return r;
+}
+function editeursDrive_(id) {
+  return {
+    getEditors: () => (Drive.Permissions.list(id, { fields: 'permissions(id,emailAddress,role)' }).permissions || [])
+      .filter(p => p.role === 'writer' && p.emailAddress).map(p => ({ getEmail: () => p.emailAddress })),
+    addEditor: m => { Drive.Permissions.create({ role: 'writer', type: 'user', emailAddress: m }, id, { sendNotificationEmail: false }); },
+    removeEditor: m => {
+      (Drive.Permissions.list(id, { fields: 'permissions(id,emailAddress)' }).permissions || [])
+        .filter(p => String(p.emailAddress || '').toLowerCase() === String(m).toLowerCase()).forEach(p => Drive.Permissions.remove(id, p.id));
+    }
+  };
+}
+
+/* ---------- fichiers virtuels ---------- */
+const STOCKS_ = {};               // id du tableau → lignes de l'onglet « Fichiers » (gardées le temps d'une exécution)
+function stock_(sid) {
+  if (!STOCKS_[sid]) STOCKS_[sid] = (Sheets.Spreadsheets.Values.get(sid, ONGLET_FICHIERS_ + '!A1:Z').values || []).map(l => l.map(String));
+  return STOCKS_[sid];
+}
+function contenuLigne_(l) { return l.slice(4).join(''); }
+function ligneStock_(id, nom, cree, maj, contenu) {
+  const m = String(contenu).match(new RegExp('[\\s\\S]{1,' + MORCEAU_ + '}', 'g')) || [''];
+  if (m.length > 22) throw new Error('Fichier trop volumineux (' + nom + ').');
+  const l = [id, nom, cree, maj].concat(m);
+  while (l.length < 26) l.push('');
+  return l;
+}
+function ecrireLigneStock_(sid, i, l) {
+  Sheets.Spreadsheets.Values.update({ values: [l] }, sid, ONGLET_FICHIERS_ + '!A' + (i + 1) + ':Z' + (i + 1), { valueInputOption: 'RAW' });
+  stock_(sid)[i] = l.slice();
+}
+function fichierVirtuel_(sid, rid) {
+  const trouver = () => stock_(sid).findIndex(l => l[0] === rid);
+  const ligne = () => { const i = trouver(); if (i < 0) throw new Error('Fichier introuvable.'); return stock_(sid)[i]; };
+  const o = {
+    virtuel: true,
+    getId: () => 'v:' + sid + ':' + rid,
+    getName: () => ligne()[1],
+    getUrl: () => '',
+    isTrashed: () => trouver() < 0,
+    getDateCreated: () => new Date(ligne()[2]),
+    getLastUpdated: () => new Date(ligne()[3]),
+    getBlob: () => ({ getDataAsString: () => contenuLigne_(ligne()) }),
+    setContent: c => { const i = trouver(), l = stock_(sid)[i]; ecrireLigneStock_(sid, i, ligneStock_(rid, l[1], l[2], new Date().toISOString(), c)); return o; },
+    setName: n => { const i = trouver(), l = stock_(sid)[i]; ecrireLigneStock_(sid, i, ligneStock_(rid, String(n), l[2], new Date().toISOString(), contenuLigne_(l))); return o; },
+    setTrashed: t => {
+      if (!t) return o;
+      const i = trouver(); if (i < 0) return o;
+      Sheets.Spreadsheets.Values.clear({}, sid, ONGLET_FICHIERS_ + '!A' + (i + 1) + ':Z' + (i + 1));
+      stock_(sid)[i] = [];
+      return o;
+    },
+    getEditors: () => [], addEditor: () => {}, removeEditor: () => {}
+  };
+  return o;
+}
+function fichiersVirtuels_(sid) {
+  return stock_(sid).filter((l, i) => i > 0 && l[0]).map(l => fichierVirtuel_(sid, l[0]));
+}
+function creerFichierVirtuel_(sid, nom, contenu) {
+  const rid = Utilities.getUuid().replace(/-/g, '').slice(0, 16), maintenant = new Date().toISOString();
+  const l = ligneStock_(rid, String(nom), maintenant, maintenant, contenu), lignes = stock_(sid);   // lu avant l'ajout
+  Sheets.Spreadsheets.Values.append({ values: [l] }, sid, ONGLET_FICHIERS_ + '!A1', { valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' });
+  lignes.push(l);
+  return fichierVirtuel_(sid, rid);
+}
+/* tableau des quiz d'un dossier (créé à la demande, avec son onglet « Fichiers ») */
+const TABLEUR_QUIZ_ = {};
+/* Google repart de zéro à chaque exécution ; la simulation des tests, non : elle appelle ceci avant chaque demande */
+function reinitStockage_() { [STOCKS_, TABLEUR_QUIZ_].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); }
+function tableurQuiz_(dossierId, creer) {
+  if (TABLEUR_QUIZ_[dossierId]) return TABLEUR_QUIZ_[dossierId];
+  const props = PropertiesService.getScriptProperties(), cle = 'QUIZ:' + dossierId;
+  let sid = props.getProperty(cle);
+  if (sid) try { if (Drive.Files.get(sid, { fields: 'trashed' }).trashed) sid = null; } catch (e) { sid = null; }
+  if (!sid) {
+    const l = listerDrive_(guillemets_(dossierId) + ' in parents and name = ' + guillemets_(NOM_QUIZ) + " and mimeType = '" + MIME_TABLEUR_ + "' and trashed = false");
+    sid = l.length ? l[0].id : null;
+    if (!sid && creer) {
+      sid = TAB_.create(NOM_QUIZ, dossierId).getId();
+      const f = TAB_.openById(sid).getSheets()[0];
+      f.setName(ONGLET_FICHIERS_);
+      f.appendRow(['id', 'nom', 'créé', 'modifié', 'contenu (suite dans les colonnes suivantes)']);
+    }
+    if (sid) props.setProperty(cle, sid);
+  }
+  if (sid) TABLEUR_QUIZ_[dossierId] = sid;
+  return sid;
+}
+/* fichiers de la racine du Drive (fichier de la famille) : propriétés du script */
+function racineVirtuelle_() {
+  const props = PropertiesService.getScriptProperties();
+  const lire = () => { try { return JSON.parse(props.getProperty('RACINE') || '{}'); } catch (e) { return {}; } };
+  const fichier = nom => {
+    const o = {
+      virtuel: true,
+      getId: () => 'r:' + nom, getName: () => nom, getUrl: () => '',
+      isTrashed: () => !lire()[nom],
+      getDateCreated: () => new Date((lire()[nom] || {}).cree || 0), getLastUpdated: () => new Date((lire()[nom] || {}).maj || 0),
+      getBlob: () => ({ getDataAsString: () => String((lire()[nom] || {}).c || '') }),
+      setContent: c => { const t = lire(), x = t[nom] || { cree: new Date().toISOString() }; x.c = String(c); x.maj = new Date().toISOString(); t[nom] = x; props.setProperty('RACINE', JSON.stringify(t)); return o; },
+      setTrashed: v => { if (v) { const t = lire(); delete t[nom]; props.setProperty('RACINE', JSON.stringify(t)); } return o; },
+      getEditors: () => [], addEditor: () => {}, removeEditor: () => {}
+    };
+    return o;
+  };
+  return {
+    getId: () => 'root', getName: () => 'Mon Drive', getUrl: () => 'https://drive.google.com/drive/my-drive', isTrashed: () => false,
+    getOwner: () => ({ getEmail: () => Session.getEffectiveUser().getEmail() }),
+    getFilesByName: n => iter_(lire()[n] ? [fichier(n)] : []),
+    getFoldersByName: n => iter_(listerDrive_("'root' in parents and name = " + guillemets_(n) + " and mimeType = '" + MIME_DOSSIER_ + "' and trashed = false").map(dossierDrive_)),
+    createFile: (n, c) => fichier(n).setContent(c)
+  };
+}
+
+/* ---------- vrais fichiers et dossiers du Drive ---------- */
+function fichierDrive_(m) {
+  const o = Object.assign(editeursDrive_(m.id), {
+    getId: () => m.id,
+    getName: () => m.name,
+    getUrl: () => m.mimeType === MIME_TABLEUR_ ? 'https://docs.google.com/spreadsheets/d/' + m.id : 'https://drive.google.com/file/d/' + m.id,
+    isTrashed: () => !!m.trashed,
+    getDateCreated: () => new Date(m.createdTime),
+    getLastUpdated: () => new Date(m.modifiedTime),
+    getBlob: () => { throw new Error('Contenu illisible avec l\'autorisation « fichiers créés par SoccaQuiz ».'); },
+    setContent: () => { throw new Error('Contenu non modifiable avec l\'autorisation « fichiers créés par SoccaQuiz ».'); },
+    setName: n => { Drive.Files.update({ name: String(n) }, m.id); m.name = String(n); return o; },
+    setTrashed: t => { Drive.Files.update({ trashed: !!t }, m.id); m.trashed = !!t; return o; },
+    moveTo: d => { Drive.Files.update({}, m.id, null, { addParents: d.getId(), removeParents: (m.parents || []).join(',') }); m.parents = [d.getId()]; return o; }
+  });
+  return o;
+}
+function dossierDrive_(m) {
+  const dans = (q) => listerDrive_(guillemets_(m.id) + ' in parents and trashed = false' + (q ? ' and ' + q : ''));
+  const quiz = () => { const sid = tableurQuiz_(m.id, false); return sid ? fichiersVirtuels_(sid) : []; };
+  const o = Object.assign(editeursDrive_(m.id), {
+    getId: () => m.id,
+    getName: () => m.name,
+    getUrl: () => 'https://drive.google.com/drive/folders/' + m.id,
+    isTrashed: () => !!m.trashed,
+    setTrashed: t => { Drive.Files.update({ trashed: !!t }, m.id); m.trashed = !!t; return o; },
+    setName: n => { Drive.Files.update({ name: String(n) }, m.id); m.name = String(n); return o; },
+    // les vrais fichiers ne sont que des tableaux (résultats, quiz) : un fichier texte du Drive serait illisible
+    getFiles: () => iter_(dans("mimeType = '" + MIME_TABLEUR_ + "'").map(fichierDrive_).concat(quiz())),
+    getFilesByName: n => iter_(dans('name = ' + guillemets_(n) + " and mimeType = '" + MIME_TABLEUR_ + "'").map(fichierDrive_).concat(quiz().filter(f => f.getName() === n))),
+    getFoldersByName: n => iter_(dans('name = ' + guillemets_(n) + " and mimeType = '" + MIME_DOSSIER_ + "'").map(dossierDrive_)),
+    createFile: (n, c) => creerFichierVirtuel_(tableurQuiz_(m.id, true), n, c),
+    removeFile: f => { if (f.virtuel) f.setTrashed(true); else Drive.Files.update({}, f.getId(), null, { removeParents: m.id }); }
+  });
+  return o;
+}
+
+const DRV_ = {
+  getRootFolder: () => racineVirtuelle_(),
+  createFolder: n => dossierDrive_(Drive.Files.create({ name: String(n), mimeType: MIME_DOSSIER_ })),
+  getFolderById: id => {
+    const m = Drive.Files.get(String(id), { fields: CHAMPS_ });
+    if (m.mimeType !== MIME_DOSSIER_) throw new Error('Ce n\'est pas un dossier.');
+    return dossierDrive_(m);
+  },
+  getFileById: id => {
+    id = String(id);
+    const v = id.match(/^v:([\w-]+):(\w+)$/);
+    if (v) { const f = fichierVirtuel_(v[1], v[2]); if (f.isTrashed()) throw new Error('Fichier introuvable.'); return f; }
+    if (/^r:/.test(id)) return racineVirtuelle_().getFilesByName(id.slice(2)).next();
+    return fichierDrive_(Drive.Files.get(id, { fields: CHAMPS_ }));
+  }
+};
+
+/* ---------- tableaux (Sheets v4) ---------- */
+const lettreCol_ = n => { let s = ''; for (; n > 0; n = Math.floor((n - 1) / 26)) s = String.fromCharCode(65 + (n - 1) % 26) + s; return s; };
+const ongletA1_ = t => "'" + String(t).replace(/'/g, "''") + "'";
+function feuilleTab_(sid, p) {
+  let lignes = null;
+  const charger = () => lignes || (lignes = (Sheets.Spreadsheets.Values.get(sid, ongletA1_(p.title)).values || []).map(l => l.map(String)));
+  const zone = (r, c, nr, nc) => ongletA1_(p.title) + '!' + lettreCol_(c) + r + ':' + lettreCol_(c + nc - 1) + (r + nr - 1);
+  const proprietes = (props, champs) => Sheets.Spreadsheets.batchUpdate({ requests: [{ updateSheetProperties: { properties: Object.assign({ sheetId: p.sheetId }, props), fields: champs } }] }, sid);
+  const f = {
+    getName: () => p.title,
+    setName: n => { proprietes({ title: String(n) }, 'title'); p.title = String(n); return f; },
+    setFrozenRows: n => { proprietes({ gridProperties: { frozenRowCount: n } }, 'gridProperties.frozenRowCount'); return f; },
+    getMaxRows: () => Math.max(1, charger().length),
+    getLastRow: () => { const l = charger(); let n = l.length; while (n && !l[n - 1].some(x => x !== '')) n--; return n; },
+    appendRow: r => {
+      Sheets.Spreadsheets.Values.append({ values: [r.map(x => x == null ? '' : x)] }, sid, ongletA1_(p.title) + '!A1', { valueInputOption: 'RAW', insertDataOption: 'INSERT_ROWS' });
+      if (lignes) lignes.splice(f.getLastRow(), 0, r.map(x => String(x == null ? '' : x)));
+      return f;
+    },
+    deleteRow: i => {
+      Sheets.Spreadsheets.batchUpdate({ requests: [{ deleteDimension: { range: { sheetId: p.sheetId, dimension: 'ROWS', startIndex: i - 1, endIndex: i } } }] }, sid);
+      if (lignes) lignes.splice(i - 1, 1);
+      return f;
+    },
+    getDataRange: () => {
+      const l = charger(), larg = l.reduce((m, x) => Math.max(m, x.length), 0);
+      return { getValues: () => l.slice(0, f.getLastRow()).map(x => Array.from({ length: larg }, (_, j) => x[j] == null ? '' : x[j])) };
+    },
+    getRange: (r, c, nr, nc) => {
+      nr = nr || 1; nc = nc || 1;
+      const g = {
+        getValues: () => charger().slice(r - 1, r - 1 + nr).concat(Array(Math.max(0, r - 1 + nr - charger().length)).fill([]))
+          .slice(0, nr).map(x => Array.from({ length: nc }, (_, j) => x[c - 1 + j] == null ? '' : x[c - 1 + j])),
+        getValue: () => g.getValues()[0][0],
+        setValues: v => {
+          Sheets.Spreadsheets.Values.update({ values: v }, sid, zone(r, c, nr, nc), { valueInputOption: 'RAW' });
+          if (lignes) v.forEach((x, i) => { const l = lignes[r - 1 + i] || (lignes[r - 1 + i] = []); x.forEach((y, j) => { l[c - 1 + j] = String(y == null ? '' : y); }); });
+          return g;
+        },
+        setValue: v => g.setValues([[v]]),
+        setFontWeight: () => g, setNumberFormat: () => g
+      };
+      return g;
+    }
+  };
+  return f;
+}
+function classeurTab_(sid) {
+  let meta = null;
+  const lire = () => meta || (meta = Sheets.Spreadsheets.get(sid, { fields: 'properties.title,sheets.properties(sheetId,title,index)' }));
+  const c = {
+    getId: () => sid,
+    getUrl: () => 'https://docs.google.com/spreadsheets/d/' + sid,
+    getName: () => lire().properties.title,
+    getSheets: () => (lire().sheets || []).map(s => feuilleTab_(sid, s.properties)),
+    getSheetByName: n => { const s = (lire().sheets || []).find(x => x.properties.title === n); return s ? feuilleTab_(sid, s.properties) : null; },
+    insertSheet: n => {
+      const r = Sheets.Spreadsheets.batchUpdate({ requests: [{ addSheet: { properties: { title: String(n) } } }] }, sid);
+      meta = null;
+      return feuilleTab_(sid, r.replies[0].addSheet.properties);
+    }
+  };
+  return c;
+}
+const TAB_ = {
+  create: (n, dossierId) => classeurTab_(Drive.Files.create(Object.assign({ name: String(n), mimeType: MIME_TABLEUR_ }, dossierId ? { parents: [dossierId] } : {})).id),
+  openById: id => { const m = Drive.Files.get(String(id), { fields: 'id,trashed,mimeType' }); if (m.mimeType !== MIME_TABLEUR_) throw new Error('Ce n\'est pas un tableau.'); return classeurTab_(m.id); },
+  open: f => TAB_.openById(f.getId())
+};

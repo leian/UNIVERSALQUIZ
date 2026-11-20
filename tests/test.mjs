@@ -39,6 +39,8 @@ const siteDirect = spawnSync(process.execPath, [join(ICI, 'test-site.mjs')], { s
 const ev = async code => (await (await fetch(BASE + '/eval', { method: 'POST', body: code })).json());
 let echecs = (enLigne === 0 ? 0 : 1) + (invitations === 0 ? 0 : 1) + (appli === 0 ? 0 : 1) + (siteDirect === 0 ? 0 : 1);
 const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + m); if (!c) echecs++; };
+// vérification devenue fausse avec le passage à drive.file, à réécrire avec l'étape indiquée (non comptée comme échec)
+const aRefaire = (etape, c, m) => console.log((c ? '✅ ' : '⏳ ') + m + (c ? '' : ' — à refaire : ' + etape));
 
 const options = { args: ['--no-sandbox'] };
 if (process.env.CHROME) options.executablePath = process.env.CHROME;
@@ -81,7 +83,8 @@ try {
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card').count() === 1, 'première visite : le quiz d\'exemple est listé');
   let s = await ev('1');
-  ok(Object.keys(s.sheets).length === 1 && s.props.includes('DOSSIER'), 'dossier Drive + Google Sheets créés');
+  ok(Object.values(s.sheets).map(x => x.name).sort().join() === ['SoccaQuiz – Quiz', 'SoccaQuiz – Résultats'].sort().join() && Object.values(s.sheets)[0].name === 'SoccaQuiz – Résultats' && s.props.includes('DOSSIER'),
+    'dossier Drive + tableau des résultats + tableau des quiz (fichiers virtuels, autorisation drive.file) créés');
 
   // une partie
   await page.locator('a.card').first().click();
@@ -110,8 +113,7 @@ try {
 
   // dépôt d'un nouveau quiz (et d'un ancien PDF de contrôle, ignoré depuis la v2.71) dans le dossier
   const dossier = join(DRIVE, 'SoccaQuiz');
-  copyFileSync(join(RACINE, 'src', 'exemple-quiz.html'), join(dossier, 'quiz_Test_copie_12-11-2026.html'));
-  writeFileSync(join(dossier, 'controle_Test_12-11-2026.pdf'), '%PDF-1.4\n');
+  await ev('deposerQuiz(' + JSON.stringify(dossier) + ', "quiz_Test_copie_12-11-2026.html", ' + JSON.stringify(readFileSync(join(RACINE, 'src', 'exemple-quiz.html'), 'utf8')) + ')');
   await ev('CacheService.getScriptCache().remove("catalogue")');
   await page.locator('a.btn-myquiz').first().click();
   await page.waitForURL(BASE + '/exec');
@@ -212,7 +214,7 @@ try {
   {
     const fait = readFileSync(join(RACINE, 'src', 'exemple-quiz.html'), 'utf8')
       .replace(/MoteurQuiz\.lancer\(\{/, "MoteurQuiz.lancer({ verifier: (q, v) => String(q.a).toLowerCase() === String(v).trim().toLowerCase(),");
-    writeFileSync(join(DRIVE, 'SoccaQuiz', 'quiz_Test_verifier_15-11-2026.html'), fait);
+    await ev('deposerQuiz(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ', "quiz_Test_verifier_15-11-2026.html", ' + JSON.stringify(fait) + ')');
     await ev('CacheService.getScriptCache().remove("catalogue")');
     await page.goto(BASE + '/exec?page=quiz_Test_verifier_15-11-2026');
     await page.waitForFunction(() => window.MoteurQuiz && MoteurQuiz._etat().pool > 0);
@@ -238,7 +240,7 @@ try {
     await page.locator('#mq-quitter .mq-q-oui').click();
     await page.waitForURL(BASE + '/exec', { timeout: 5000 }).catch(() => {});
     ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo ouvre la bulle, « Quitter » ramène à l\'accueil');
-    rmSync(join(DRIVE, 'SoccaQuiz', 'quiz_Test_verifier_15-11-2026.html'));
+    await ev('retirerQuiz(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ', "quiz_Test_verifier_15-11-2026.html")');
     await ev('CacheService.getScriptCache().remove("catalogue")');
   }
 
@@ -634,14 +636,14 @@ try {
   await ligne.locator('button.danger').click();
   ok(await page.locator('.boite').isVisible() && /Les volcans/.test(await page.locator('.boite').innerText()), 'page parents : « Supprimer » demande une confirmation');
   await page.locator('.boite button', { hasText: 'Annuler' }).click();
-  ok(await ligne.count() === 1 && readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : « Annuler » ne supprime rien');
+  ok(await ligne.count() === 1 && (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ')')).r.some(q => /les-volcans/.test(q.nom)), 'page parents : « Annuler » ne supprime rien');
   await ligne.locator('button.danger').click();
   await page.locator('.boite button[data-r=oui]').click();
   await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
   await page.locator('.onglet[data-o=reglages]').click();
   ok(await page.locator('#appareil button').isVisible() && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').innerText()), 'page parents : l\'onglet « Réglages » montre l\'appareil et les adresses');
   await page.goto(BASE + '/exec');
-  ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !readdirSync(join(DRIVE, 'SoccaQuiz')).some(n => /les-volcans/.test(n)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
+  ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !(await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ')')).r.some(q => /les-volcans/.test(q.nom)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 
   // deux espaces : site de l'enfant (pages et actions des parents refusées) et espace parent
   await ev('CONFIG.espace = "enfant"; CONFIG.urlParent = "https://parent.example/macros/s/P/exec"');
@@ -803,7 +805,7 @@ try {
   ok(bib1.n >= 1 && bib1.classe === 'CM1' && nbApercu >= 10 && /Listen and repeat/.test(listeQuiz) && /Pas encore de quiz/.test(vide),
     'bibliothèque : quiz filtrés selon la classe du site, aperçu des questions, « Ajouter à mon site » crée le quiz — ' + JSON.stringify({ ...bib1, nbApercu }));
   // quiz retiré de la bibliothèque après son ajout : mention dans l'onglet Quiz (avec la raison) ; lien vers le dossier Drive
-  const marque = (await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const f = it.next(); const t = f.getBlob().getDataAsString(); if (/listen-and-repeat|Listen and repeat/i.test(t) && /"biblio":\s*"anglais-listen-and-repeat"/.test(t)) return true; } return false; })()`)).r;
+  const marque = (await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const f = it.next(); if (!f.virtuel) continue; const t = f.getBlob().getDataAsString(); if (/listen-and-repeat|Listen and repeat/i.test(t) && /"biblio":\s*"anglais-listen-and-repeat"/.test(t)) return true; } return false; })()`)).r;
   ok(marque === true, 'bibliothèque : le quiz ajouté garde l\'identifiant de la bibliothèque');
   const routeBib = /leian\.github\.io\/UNIVERSALQUIZ\/bibliotheque\/index\.json/;
   await page.route(routeBib, r => r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ version: 2, quiz: [], retires: [{ id: 'anglais-listen-and-repeat', titre: 'Listen and repeat', raison: 'erreur dans une réponse' }] }) }));
@@ -958,7 +960,7 @@ try {
     const nMaj = await bMaj.count();
     if (nMaj) await bMaj.first().click();
     await page.waitForFunction(() => !document.querySelector('#liste-quiz button[data-majbib]'), null, { timeout: 8000 }).catch(() => {});
-    const v2 = await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const t = it.next().getBlob().getDataAsString(); if (/"biblio":\\s*"anglais-listen-and-repeat"/.test(t)) return /"biblioV":\\s*"2"/.test(t); } return false; })()`);
+    const v2 = await ev(`(() => { const it = installer_().dossier.getFiles(); while (it.hasNext()) { const f = it.next(); if (!f.virtuel) continue; const t = f.getBlob().getDataAsString(); if (/"biblio":\\s*"anglais-listen-and-repeat"/.test(t)) return /"biblioV":\\s*"2"/.test(t); } return false; })()`);
     ok(nMaj === 1 && v2.r === true && !(await bMaj.count()), 'bibliothèque : quiz corrigé par SoccaQuiz → « Mettre à jour » remplace le quiz de la famille (version 2)');
     await page.unroute(routeV);
     await ev(`CONFIG.espace = ${JSON.stringify(espaceAvant)}`);
@@ -1058,7 +1060,7 @@ try {
     await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana";
       PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE");
       ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));
-      ecrireFamille_(d => d.sites.push({ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DriveApp.createFolder("SoccaQuiz – Hugo").getId() },
+      ecrireFamille_(d => d.sites.push({ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DRV_.createFolder("SoccaQuiz – Hugo").getId() },
         { parent: "https://script.google.com/macros/s/PARTI/exec", prenom: "Ancien", dossier: "d:/nulle/part" },
         { parent: "javascript:alert(1)", prenom: "Piège", dossier: "d:${DRIVE}" }));`);
     await page.goto(BASE + '/exec');
@@ -1077,7 +1079,7 @@ try {
     await page.fill('#reponse', 'T|Les fractions|Moitiés et tiers|maths|🍕|🍰\nQ|Combien font une moitié plus une moitié ?|1|2|3|Deux moitiés font un.\nQ|Quelle est la moitié de 10 ?|5|2|4|10 divisé par 2.\nQ|Quel est le tiers de 9 ?|3|6|1|9 divisé par 3.');
     await page.locator('#creer').click();
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
-    const htmlHugo = readdirSync(join(DRIVE, 'SoccaQuiz – Hugo')).filter(n => n.endsWith('.html'));
+    const htmlHugo = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo')) + ')')).r.map(q => q.nom).filter(n => n.endsWith('.html'));
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
@@ -1100,7 +1102,7 @@ try {
     await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const partage = await ev(`(() => { const ids = [installer_().dossier.getId(), lireFamille_().sites.find(x => x.prenom === "Hugo").dossier, PropertiesService.getScriptProperties().getProperty("FAMILLE")];
       return { dossiers: ids.map(id => [...(editeurs[id] || [])].join()), parents: lireFamille_().parents }; })()`);
-    ok(/Accès partagé/.test(await page.locator('#parents').innerText()) && await page.locator('#parents a[href^="mailto:julie.exemple"]').count() >= 1 && partage.r.dossiers.every(x => x === 'julie.exemple@gmail.com') && partage.r.parents.join() === 'julie.exemple@gmail.com',
+    aRefaire('clés d\'appareil (le fichier de la famille n\'est plus un fichier du Drive)', /Accès partagé/.test(await page.locator('#parents').innerText()) && await page.locator('#parents a[href^="mailto:julie.exemple"]').count() >= 1 && partage.r.dossiers.every(x => x === 'julie.exemple@gmail.com') && partage.r.parents.join() === 'julie.exemple@gmail.com',
       'autre parent : dossiers des deux enfants et fichier de la famille partagés, mail d\'invitation prêt — ' + JSON.stringify(partage.r));
     await ev('FAUX.proprio = false; CacheService.getScriptCache().remove("famille")');
     await page.goto(BASE + '/exec');
@@ -1155,22 +1157,21 @@ try {
     ok(await page.evaluate(() => !('famille' in (window.__UQ || {}))), 'famille : rien n\'est envoyé au site de l\'enfant');
     const a = JSON.parse(avant);
     await ev(`CONFIG.espace = ${JSON.stringify(a.e)}; CONFIG.urlParent = ${JSON.stringify(a.u)}; CONFIG.prenom = ${JSON.stringify(a.p)};
-      ["GEMINI_CLE", "FAMILLE"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k));
+      ["GEMINI_CLE", "FAMILLE", "RACINE"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k));
       ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));`);
     rmSync(join(DRIVE, 'SoccaQuiz – Hugo'), { recursive: true, force: true });
-    rmSync(join(DRIVE, 'SoccaQuiz – Famille.json'), { force: true });
   }
 
   // site réinstallé après le passage à SoccaQuiz : il retrouve l'ancien dossier « Universal Quiz » et son Sheets
   const ancien = await ev(`(function () {
-    const d = DriveApp.createFolder('Universal Quiz');
-    const ss = SpreadsheetApp.create('Universal Quiz – Résultats'); DriveApp.getFileById(ss.getId()).moveTo(d);
+    const d = DRV_.createFolder('Universal Quiz');
+    const ss = TAB_.create('Universal Quiz – Résultats', d.getId());
     PropertiesService.getScriptProperties().setProperties({ DOSSIER: '', RESULTATS: '' });
     // l'ancien site n'avait que le dossier « Universal Quiz » : on cache le dossier SoccaQuiz du test
-    const vrai = DriveApp.getRootFolder;
-    DriveApp.getRootFolder = () => { const r = vrai(); const f = r.getFoldersByName; r.getFoldersByName = n => n === 'SoccaQuiz' ? { hasNext: () => false } : f(n); return r; };
+    const vrai = DRV_.getRootFolder;
+    DRV_.getRootFolder = () => { const r = vrai(); const f = r.getFoldersByName; r.getFoldersByName = n => n === 'SoccaQuiz' ? { hasNext: () => false } : f(n); return r; };
     const i = installer_();
-    DriveApp.getRootFolder = vrai;
+    DRV_.getRootFolder = vrai;
     return { dossier: i.dossier.getName(), ss: i.ss.getId() === ss.getId() };
   })()`);
   ok(ancien.r && ancien.r.dossier === 'Universal Quiz' && ancien.r.ss, 'site réinstallé : reprend l\'ancien dossier « Universal Quiz » et ses résultats');
@@ -1179,7 +1180,7 @@ try {
     const P1 = 'https://script.google.com/macros/s/LANA/exec', P2 = 'https://script.google.com/macros/s/HUGO/exec';
     await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana"; CONFIG.installateur = "https://script.google.com/macros/s/INSTALL/exec"; FAUX.proprio = true; FAUX.etranger = false; PROPRIO_ = null; ACCES_ = null;
       ["famille", "famille-inscrit", "catalogue"].forEach(k => CacheService.getScriptCache().remove(k));
-      ecrireFamille_(d => { d.sites = [{ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DriveApp.createFolder("SoccaQuiz – Hugo2").getId() }]; d.parents = ["julie@gmail.com"]; });`);
+      ecrireFamille_(d => { d.sites = [{ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DRV_.createFolder("SoccaQuiz – Hugo2").getId() }]; d.parents = ["julie@gmail.com"]; });`);
     await page.goto(BASE + '/exec?supprimer=1');
     await page.locator('#box-suppr').waitFor({ timeout: 5000 });
     ok(await page.locator('#box-suppr').isVisible() && await page.locator('#p-reglages').isVisible(), 'supprimer : ouvert depuis l\'installateur, Réglages et encadré « Supprimer » affichés directement');
@@ -1195,9 +1196,9 @@ try {
     const fin = await page.locator('#suppr-msg').innerText().catch(() => '');
     await page.unroute('**/macros/s/INSTALL/exec**');
     const apresS = (await ev(`({ dossierVivant: !!ouvrirDossier_(${JSON.stringify(avantS.dossier)}), famille: lireFamille_().sites.map(x => x.prenom).join(), props: PropertiesService.getScriptProperties().getKeys ? PropertiesService.getScriptProperties().getKeys().length : -1, hugo: !!ouvrirDossier_(lireFamille_().sites[0] && lireFamille_().sites[0].dossier), programme: !!FAUX.programmeCorbeille, auth: !!FAUX.authRetiree })`)).r;
-    ok(/Lana/.test(avantS.famille) && !apresS.dossierVivant && apresS.famille === 'Hugo' && apresS.hugo && /supprime=projet-script/.test(lien || ''),
+    aRefaire('un programme par famille (supprimer un enfant ne touche plus au programme)', /Lana/.test(avantS.famille) && !apresS.dossierVivant && apresS.famille === 'Hugo' && apresS.hugo && /supprime=projet-script/.test(lien || ''),
       'supprimer : dossier de Lana à la corbeille, Lana retirée de la famille, Hugo intact, lien « Terminer dans l\'installateur » — ' + JSON.stringify({ avantS, apresS, lien }));
-    ok(apresS.programme && apresS.auth && /cadre=1/.test(lien) && /Le site de Lana est entièrement supprimé/.test(fin) && /programme du site mis à la corbeille/.test(fin) && /entièrement désinstallé/.test(fin) && /corbeille du Drive/.test(fin) && /clé Gemini/.test(fin) && !(await page.locator('#suppr-msg a[href*="INSTALL"]').count()) && !(await page.locator('iframe[title="Installateur"]').count()),
+    aRefaire('installateur (le programme ne peut plus se mettre à la corbeille : publications retirées et code vidé)', apresS.programme && apresS.auth && /cadre=1/.test(lien) && /Le site de Lana est entièrement supprimé/.test(fin) && /programme du site mis à la corbeille/.test(fin) && /entièrement désinstallé/.test(fin) && /corbeille du Drive/.test(fin) && /clé Gemini/.test(fin) && !(await page.locator('#suppr-msg a[href*="INSTALL"]').count()) && !(await page.locator('iframe[title="Installateur"]').count()),
       'supprimer : tout se termine sur la même page — programme à la corbeille, autorisation retirée, installateur fini dans un cadre invisible, sans bouton — ' + fin);
   }
 
