@@ -393,7 +393,7 @@ function publier_(maj, n) {
    par des clés d'appareil : le premier appareil reçoit son lien d'invitation ici (code à usage unique, dont seule
    l'empreinte est écrite dans le programme, CONFIG.invitation). */
 const DUREE_INVIT_ = 24 * 3600 * 1000;
-const MIGRATION_ = 'Cette nouvelle version de SoccaQuiz change de fonctionnement (plus aucun écran d\'alerte de Google) : ton site doit être déplacé une fois. Le déplacement automatique arrive très bientôt ; en attendant, ton site continue de fonctionner tel quel.';
+const MIGRATION_ = 'Cette nouvelle version de SoccaQuiz change de fonctionnement (plus aucun écran d\'alerte de Google) : elle ne peut pas remplacer ce site. Supprime-le (Options avancées → Supprimer), puis installe la nouvelle version.';
 let MOTEUR_FAMILLE_ = false;
 function famille_(moteur) {
   const m = (moteur.fichiers || []).find(f => f.name === 'appsscript');
@@ -859,7 +859,7 @@ function scriptPage_() {
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
         (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a>') + '</div>' +
         (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>' + h(nomSite(s)) + '</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
-        (s.migration && s.nouvelle ? '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version ' + h(s.derniere) + '</b> : elle change de fonctionnement (plus aucun écran d\'alerte de Google) et ton site devra être déplacé une fois. Le déplacement automatique arrive très bientôt : ton site continue de fonctionner tel quel.</p></div>'
+        (s.migration && s.nouvelle ? '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version ' + h(s.derniere) + '</b> : elle change de fonctionnement (plus aucun écran d\'alerte de Google) et ne peut pas remplacer ce site. Pour l\'avoir : supprime ce site (Options avancées → Supprimer), puis installe la nouvelle version.</p></div>'
           : !s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
           : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +
             '<p class="petit" style="margin:6px 0 0">Son adresse, ses quiz et ses résultats ne changent pas.</p></div>') +

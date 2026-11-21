@@ -359,12 +359,12 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
 {
   for (const k in userProps) delete userProps[k];
   const sha = t => createHash('sha256').update(t, 'utf8').digest('hex');
-  // site installé avant : la nouvelle version demande un déplacement (à venir), rien n'est publié
+  // site installé avant : la nouvelle version ne peut pas le remplacer (le supprimer, puis installer), rien n'est publié
   const ancien = ctx.apiInstaller('Ancien', 'CM1');
   CHARGE_ACTUELLE = CHARGE; delete cache.derniere; delete cache.famille;
   const versionsAvant = projets[ancien.id].versions;
   let r = ctx.apiMettreAJour({ id: ancien.id });
-  ok(r.erreur && r.migration && projets[ancien.id].versions === versionsAvant && ctx.apiEtat().sites[0].migration, 'ancien site + programme de la famille : mise à jour refusée (déplacement à venir), rien n\'est publié, carte « déplacement » — ' + (r.erreur || '').slice(0, 60));
+  ok(r.erreur && r.migration && projets[ancien.id].versions === versionsAvant && ctx.apiEtat().sites[0].migration, 'ancien site + programme de la famille : mise à jour refusée : supprimer puis installer, rien n\'est publié — ' + (r.erreur || '').slice(0, 60));
   CHARGE_ACTUELLE = CHARGE_ANCIEN; delete cache.derniere; delete cache.famille;
   ctx.apiRecommencer({ id: ancien.id });
   CHARGE_ACTUELLE = CHARGE; delete cache.derniere; delete cache.famille;
