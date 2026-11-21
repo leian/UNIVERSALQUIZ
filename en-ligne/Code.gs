@@ -95,7 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
-const INSTALLATEUR_V = '21-11 D';   // repère affiché en bas de la page : changer à chaque modification à recoller
+const INSTALLATEUR_V = '21-11 E';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -891,7 +891,7 @@ function scriptPage_() {
         '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '" target="_blank" rel="noopener" data-action="parent">🔒 Espace parent</a>' : '') +
         '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a></div>' +
-        '<p class="petit" style="margin:4px 0 8px">Autres enfants : ajoute-les dans ton espace parent (Réglages → « Ajouter un enfant »), pas besoin d\'un autre site.</p>' +
+        '<p class="petit" style="margin:4px 0 8px">Un autre enfant ? : ajoute-le dans ton espace parent (Réglages → « Ajouter un enfant »)</p>' +
         bas +
         '<details class="avance"><summary>Options avancées</summary>' +
         '<p class="petit"><a href="#" data-action="appareil">📱 Ouvrir l\'espace parent sur un autre appareil</a> (nouveau téléphone, espace parent qui ne s\'ouvre plus…)</p>' +
