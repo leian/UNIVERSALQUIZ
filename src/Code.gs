@@ -49,7 +49,7 @@ const CONFIG = {
 };
 /* ---------------- ENFANTS : un seul programme pour toute la famille ----------------
    Un programme (une autorisation, une adresse) sert tous les enfants. L'enfant courant est choisi au début de
-   chaque demande : paramètre « e » de l'adresse (…/exec?e=<id>), corps de l'appel de l'appli, ou appel_() pour
+   chaque demande : paramètre « e » de l'adresse (…/exec?e=<id>), corps de l'appel de l'appli, ou apiPourEnfant() pour
    les pages servies par Google. Les réglages propres à un enfant (CLES_ENFANT_) et la mémoire du serveur (cache_)
    sont alors rangés sous « <id>| » ; le premier enfant garde les clés sans préfixe (sites d'avant, un seul
    enfant : rien ne change). CONFIG (prénom, dossier, adresses, classe) est ajusté à l'enfant courant. */
@@ -125,9 +125,10 @@ function cache_() {
 /* site publié par l'installateur (adresses connues), quel que soit l'enfant choisi */
 function siteInstalle_() { return URL_SITE_.test(cfgPremier_().urlParent || ''); }
 /* appels des pages servies par Google pour un autre enfant que le premier (pont.html) */
-function appel_(enfant, nom, args) {
+// (fonction publique : Google interdit aux pages d'appeler une fonction dont le nom finit par « _ »)
+function apiPourEnfant(enfant, nom, args) {
   nom = String(nom || '');
-  if (!/^api[A-Z]\w{1,40}$/.test(nom) || typeof globalThis[nom] !== 'function') return { __status: 400, erreur: 'Action inconnue.' };
+  if (!/^api[A-Z]\w{1,40}$/.test(nom) || nom === 'apiPourEnfant' || typeof globalThis[nom] !== 'function') return { __status: 400, erreur: 'Action inconnue.' };
   choisirEnfant_(enfant);
   return globalThis[nom].apply(null, Array.isArray(args) ? args : []);
 }

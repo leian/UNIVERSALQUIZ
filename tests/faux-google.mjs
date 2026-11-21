@@ -246,7 +246,8 @@ const serveur = http.createServer(async (req, res) => {
     if (url.pathname === '/rpc') {
       let corps = ''; for await (const c of req) corps += c;
       const { fn, arg, args } = JSON.parse(corps);
-      if (!/^api/.test(fn) && fn !== 'appel_') throw new Error('fonction non autorisée');
+      // comme Google : une page n'appelle jamais une fonction privée (nom finissant par « _ »)
+      if (!/^api/.test(fn) || /_$/.test(fn)) throw new Error('fonction non autorisée');
       const r = Array.isArray(args) ? ctx[fn](...args) : ctx[fn](arg);
       res.writeHead(200, { 'content-type': 'application/json' });
       return res.end(JSON.stringify({ r }));

@@ -1080,7 +1080,7 @@ try {
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const htmlHugo = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo')) + ')')).r.map(q => q.nom).filter(n => n.endsWith('.html'));
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.filter(n => /fractions/i.test(n)).length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
-    // espace parent de Hugo (…?e=<id>) : ses réglages, ses quiz ; les appels des pages passent par appel_() avec son id
+    // espace parent de Hugo (…?e=<id>) : ses réglages, ses quiz ; les appels des pages passent par apiPourEnfant() avec son id
     await page.goto(BASE + '/exec?e=' + H);
     ok(/Hugo/.test(await page.locator('#famille span.on').innerText().catch(() => '')) && await page.locator(`#famille a[href="${P1}"]`).count() === 1, 'famille : espace parent de Hugo (…?e=<id>), lien de retour vers Lana');
     const nLana = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ').length')).r;
@@ -1090,7 +1090,7 @@ try {
     await page.locator('#creer').click();
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const apres = (await ev(`[quizDuDossier(${JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo'))}).map(q => q.nom).join(), quizDuDossier(${JSON.stringify(join(DRIVE, 'SoccaQuiz'))}).length]`)).r;
-    ok(/volcans-de-hugo/i.test(apres[0]) && apres[1] === nLana, 'famille : depuis la page de Hugo, le quiz va dans son dossier à lui (appel_), rien chez Lana — ' + JSON.stringify(apres));
+    ok(/volcans-de-hugo/i.test(apres[0]) && apres[1] === nLana, 'famille : depuis la page de Hugo, le quiz va dans son dossier à lui (apiPourEnfant), rien chez Lana — ' + JSON.stringify(apres));
     const catHugo = (await ev(`pourEnfant_("${H}", () => catalogue_(installer_().dossier).QUIZ.map(q => q.titre).join())`)).r;
     ok(/Les fractions/.test(catHugo) && /Les volcans de Hugo/.test(catHugo), 'famille : liste des quiz de Hugo — ' + catHugo);
     await page.goto(BASE + '/exec');
