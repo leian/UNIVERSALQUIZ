@@ -1051,15 +1051,19 @@ function client_() {
   /* ---------- Liens ---------- */
   /* raccourcis : copier le code à recoller, ouvrir le programme Apps Script, rappel des déploiements */
   var CODES = { installateur: { fichier: 'en-ligne/Code.gs' }, console: { fichier: 'console/Code.gs' } };
-  function chargerCode(k) {
-    var x = CODES[k]; if (x.texte || x.charge) return;   /* déjà lu ou en cours */
+  function chargerCode(k, relire) {
+    var x = CODES[k]; if (x.charge || (x.texte && !relire)) return;   /* en cours, ou déjà lu (relu à chaque ouverture de l'onglet) */
     x.charge = true;
     fetch('https:\/\/raw.githubusercontent.com/leian/UNIVERSALQUIZ/main/' + x.fichier + '?t=' + Date.now(), { cache: 'no-store' })
       .then(function (r) { if (!r.ok) throw new Error(r.status); return r.text(); })
-      .then(function (t) { x.texte = t; var e = $('code-' + k); if (e) e.textContent = 'prêt (' + t.split('\n').length + ' lignes)'; })
+      .then(function (t) { x.texte = t; x.charge = false; var e = $('code-' + k); if (e) e.textContent = etatCode(k); })
       .catch(function () { x.charge = false; var e = $('code-' + k); if (e) e.textContent = 'GitHub ne répond pas : utilise « Voir sur GitHub ».'; });
   }
-  function etatCode(k) { var x = CODES[k]; return x.texte ? 'prêt (' + x.texte.split('\n').length + ' lignes)' : 'lecture sur GitHub…'; }
+  function etatCode(k) {
+    var x = CODES[k]; if (!x.texte) return 'lecture sur GitHub…';
+    var rep = (x.texte.match(/INSTALLATEUR_V = '([^']+)'/) || [])[1];   /* repère affiché en bas de la page de l'installateur */
+    return 'prêt (' + x.texte.split('\n').length + ' lignes' + (rep ? ', repère « ' + rep + ' » : à retrouver en bas de l\'installateur après Nouvelle version' : '') + ')';
+  }
   function copierCode(k) {
     var x = CODES[k], e = $('code-' + k);
     if (!x.texte) { if (e) e.textContent = 'Encore en lecture sur GitHub… réessaie dans une seconde.'; chargerCode(k); return; }
@@ -1093,7 +1097,7 @@ function client_() {
     else if (b.dataset.l === 'changer-projet') { ETAT.projetInstallateur = ''; afficher(); }
     else if (b.dataset.l === 'projet') { b.disabled = true; appel('apiProjetInstallateur', [$('projet-i').value], function (r) { ETAT.projetInstallateur = r.lien; afficher(); }, function (m) { b.disabled = false; erreur(m); }); }
   });
-  function vueLiensAvant() { chargerCode('installateur'); chargerCode('console'); }
+  function vueLiensAvant() { chargerCode('installateur', true); chargerCode('console', true); }   /* toujours la dernière version de GitHub */
   function vueLiens(c) {
     vueLiensAvant();
     c.innerHTML = MSG + raccourcis() + '<p class="petit">Ouvre les pages Google avec le compte soccaquiz, et GitHub avec le compte leian.</p>' + LIENS.map(function (s) {
