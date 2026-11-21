@@ -46,7 +46,7 @@ function doGet(e) {
    Sites suivants (autre enfant, révisions d'un parent) : tableau JSON dans la propriété « autres ».
    Chaque site a son propre projet, son dossier Drive (« SoccaQuiz – Prénom ») et son tableau des résultats.
    La page désigne un site par { n, id } : id (scriptId) fait foi, le rang n peut avoir changé entre-temps. */
-const CLES_SITE = ['scriptId', 'deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'prenom', 'classe', 'classeAnnee', 'dossier', 'modele', 'invit', 'invitExp', 'invitH'];
+const CLES_SITE = ['scriptId', 'deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'prenom', 'classe', 'classeAnnee', 'dossier', 'modele', 'invit', 'invitExp', 'invitH', 'cleInst'];
 const CLASSES = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle', 'adulte'];
 function autres_() { try { return JSON.parse(PropertiesService.getUserProperties().getProperty('autres') || '[]'); } catch (e) { return []; } }
 function lireSite_(n) {
@@ -439,6 +439,8 @@ function publierFamille_(maj, n, moteur, site, nouvelleInvit) {
       if (nb >= 0 && nb + 1 + (dep ? 0 : 1) > MAX_VERSIONS) return tropDeVersions_(id, nb, n);
     }
     // code du premier appareil du parent : à l'installation, ou sur demande (« Ouvrir l'espace parent sur cet appareil »)
+    // clé de l'installateur : il demandera lui-même au site un lien pour un nouvel appareil (sans nouvelle version)
+    if (!/^[0-9a-f]{40,80}$/.test(site.cleInst || '')) { site.cleInst = aleatoire_(); ecrireSite_(n, site); }
     if (nouvelleInvit || !site.invitH) {
       const code = aleatoire_();
       Object.assign(site, { modele: 'famille', invit: code, invitExp: String(Date.now() + DUREE_INVIT_), invitH: empreinte_(code) });
@@ -446,7 +448,7 @@ function publierFamille_(maj, n, moteur, site, nouvelleInvit) {
     }
     const description = 'SoccaQuiz ' + moteur.version;
     const deployer = (depId, urlEnfant) => {
-      appel_('put', '/' + id + '/content', { files: fichiers_(moteur, site.prenom || '', { espace: 'enfant', urlEnfant, urlParent: '', classe: site.classe, classeAnnee: site.classeAnnee, invitation: site.invitH }) });
+      appel_('put', '/' + id + '/content', { files: fichiers_(moteur, site.prenom || '', { espace: 'enfant', urlEnfant, urlParent: '', classe: site.classe, classeAnnee: site.classeAnnee, invitation: site.invitH, cleInstallateur: empreinte_(site.cleInst) }) });
       const version = appel_('post', '/' + id + '/versions', { description }).versionNumber;
       const config = { versionNumber: version, manifestFileName: 'appsscript', description };
       return depId ? appel_('put', '/' + id + '/deployments/' + depId, { deploymentConfig: Object.assign({ scriptId: id }, config) })
@@ -475,6 +477,23 @@ function apiAutorise(ref) {
     const pret = siteRepond_(s) === true;
     return { pret, n, invitation: pret ? lienInvitation_(s) : '', urlParent: lienParentFamille_(s), url: s.url || '', appli: appli_(s.url, s.version) };
   } catch (e) { return traduire_(e); }
+}
+/* « 🔒 Espace parent » dans l'installateur : le site fabrique un code à usage unique pour cet appareil (2 s, sans nouvelle
+   version) ; l'installateur prouve qu'il est celui de la famille par sa clé (seule son empreinte est dans le programme) */
+function apiLienParent(ref) {
+  try {
+    const n = trouverSite_(ref), s = lireSite_(n) || {};
+    if (s.modele !== 'famille') return { erreur: 'Ce site n\'utilise pas cette étape.' };
+    if (/^[0-9a-f]{40,80}$/.test(s.cleInst || '') && s.url) {
+      let d = null;
+      try {
+        const r = UrlFetchApp.fetch(s.url, { method: 'post', contentType: 'text/plain', payload: JSON.stringify({ api: 'inviter-installateur', cle: s.cleInst }), muteHttpExceptions: true, followRedirects: true });
+        d = JSON.parse(r.getContentText());
+      } catch (e) { d = null; }
+      if (d && d.ok && /^[0-9a-f]{40,80}$/.test(d.code || '')) return { ok: true, n, invitation: origineSite_() + '/parent/?s=' + idDeploiement_(s) + '#i=' + d.code, urlParent: lienParentFamille_(s) };
+    }
+  } catch (e) { return traduire_(e); }
+  return apiNouvelAppareil(ref);   // site d'avant la clé de l'installateur, ou qui ne répond pas : nouveau code écrit dans le programme
 }
 /* nouvel appareil du parent (téléphone changé, clé perdue…) : nouveau code, écrit dans le programme (une version de plus) */
 function apiNouvelAppareil(ref) {
@@ -519,6 +538,7 @@ function fichiers_(moteur, prenom, espace) {
       s = regler(s, /classe: '[^'\n]*'/, "classe: '" + nettoyerClasse_(espace.classe) + "'", 'classe');
       s = regler(s, /classeAnnee: \d+/, 'classeAnnee: ' + (parseInt(espace.classeAnnee, 10) || 0), 'classeAnnee');
       if ('invitation' in espace) s = regler(s, /invitation: '[^'\n]*'/, "invitation: '" + String(espace.invitation || '').replace(/[^0-9a-f]/g, '') + "'", 'invitation');
+      if ('cleInstallateur' in espace) s = regler(s, /cleInstallateur: '[^'\n]*'/, "cleInstallateur: '" + String(espace.cleInstallateur || '').replace(/[^0-9a-f]/g, '') + "'", 'cleInstallateur');
       s = regler(s, /nomDossier: '[^'\n]*'/, m => espace.dossier ? "nomDossier: '" + String(espace.dossier).replace(/['\\\n]/g, '') + "'" : m, 'nomDossier');
       if (esp && s.indexOf("espace: '" + esp + "'") < 0) throw erreurFr_('Réglage « espace » non écrit dans le site : rien n\'a été publié.');
       return { name: f.name, type: f.type, source: s };
@@ -835,7 +855,7 @@ function scriptPage_() {
       return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">' + h(s.prenom ? 'SoccaQuiz de ' + s.prenom : 'Ton SoccaQuiz') + '</span></h2>' +
         '<div class="msg">' + (s.aAutoriser ? carteAutoriser(s) : s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
         '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
-        (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '" target="_blank" rel="noopener">🔒 Espace parent</a>' : '') +
+        (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '" target="_blank" rel="noopener" data-action="parent">🔒 Espace parent</a>' : '') +
         '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a></div>' +
         '<p class="petit" style="margin:4px 0 8px">Autres enfants : ajoute-les dans ton espace parent (Réglages → « Ajouter un enfant »), pas besoin d\'un autre site.</p>' +
         bas +
@@ -932,6 +952,17 @@ function scriptPage_() {
       var c = b.closest('.site'), n = +c.dataset.n, a = b.dataset.action, cible = { n: n, id: c.dataset.id };
       ev.preventDefault();
       if (a === 'maj' || a === 'reinstaller') lancer('apiMettreAJour', cible, b, n);
+      else if (a === 'parent') {
+        // ouvrir l'espace parent sur CET appareil : un lien à usage unique, fabriqué à la demande (la fenêtre s'ouvre tout de suite,
+        // sinon le navigateur bloquerait l'ouverture qui arrive après la réponse du serveur)
+        var w = null; try { w = window.open('', '_blank'); } catch (er) {}
+        if (w) try { w.document.write('<p style="font:16px system-ui;padding:24px">Ouverture de ton espace parent…</p>'); } catch (er) {}
+        google.script.run.withSuccessHandler(function (r) {
+          if (!r || r.erreur || !r.invitation) { if (w) w.close(); return erreur(r || { erreur: 'Le lien n\'a pas pu être fabriqué.' }, n); }
+          if (w) w.location.href = r.invitation;
+          else zoneMsg(n).innerHTML = '<div class="ok"><a class="btn" href="' + h(r.invitation) + '" target="_blank" rel="noopener">🔒 Ouvrir mon espace parent</a></div>';
+        }).withFailureHandler(function (e) { if (w) w.close(); erreur(echec(e), n); }).apiLienParent(cible);
+      }
       else if (a === 'appareil') {
         var z = zoneMsg(n); z.innerHTML = '<p class="petit">Préparation du lien… (environ 15 secondes)</p>';
         google.script.run.withSuccessHandler(function (r) {
@@ -940,7 +971,7 @@ function scriptPage_() {
             '<p style="margin:0 0 6px"><a class="btn" href="' + h(r.invitation) + '" target="_blank" rel="noopener">🔒 Ouvrir sur cet appareil</a></p>' +
             '<p class="petit" style="margin:0">Pour un autre appareil, copie ce lien et ouvre-le dessus, dans son navigateur (Chrome, Safari) : <span style="word-break:break-all">' + h(r.invitation) + '</span></p></div>';
           c.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }).withFailureHandler(function (e) { z.innerHTML = ''; erreur(echec(e), n); }).apiNouvelAppareil(cible);
+        }).withFailureHandler(function (e) { z.innerHTML = ''; erreur(echec(e), n); }).apiLienParent(cible);
       }
       else if (a === 'recommencer') c.querySelector('.confirmer').style.display = 'block';
       else if (a === 'non-recommencer') c.querySelector('.confirmer').style.display = 'none';

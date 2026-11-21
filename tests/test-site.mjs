@@ -162,6 +162,11 @@ try {
     await autre.goto(ADR_P);
     await autre.waitForTimeout(1500);
     ok(/lien d'invitation/.test(await autre.locator('#msg').innerText()) && !(await autre.locator('iframe.page').count()) && await autre.locator('#coller').isVisible(), 'espace parent hors de Google : un appareil sans clé ne voit rien (champ « Colle ici le lien »)');
+    // lien demandé par l'installateur (clé de l'installateur, seule son empreinte dans le programme)
+    await ev(`CONFIG.cleInstallateur = empreinte_("${'f'.repeat(64)}"); CacheService.getScriptCache().remove('inviter-inst'); 0`);
+    const postInv = async cle => (await fetch(GOOGLE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'inviter-installateur', cle }) })).json();
+    const bon = await postInv('f'.repeat(64)), mauvais = await postInv('0'.repeat(64));
+    ok(bon.ok && /^[0-9a-f]{64}$/.test(bon.code) && !mauvais.ok && !mauvais.code, 'programme : lien d\'un nouvel appareil fabriqué pour l\'installateur seulement (clé prouvée), refusé sinon');
     // secours : lien coupé par une appli → le parent colle le lien sur la page ; puis conseil « écran d'accueil » sur téléphone
     const tel = await (await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36' })).newPage();
     tel.on('pageerror', e => erreurs.push('[parent tel] ' + e.message));

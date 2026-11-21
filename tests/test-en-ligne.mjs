@@ -83,13 +83,23 @@ function siteEnLigne(url) {
   return p && !corbeilleSites.has(p[0]) ? reponse(200, { v: 1, version: 'v-test' }) : reponse(404, '<html>Page introuvable</html>');
 }
 
+// le programme de la famille fabrique un code d'appareil quand l'installateur prouve sa clé (empreinte écrite dans son code)
+let sitePosts = 0;
+function sitePost(url, o) {
+  const did = (url.match(/\/s\/([^/]+)\/exec/) || [])[1];
+  const p = Object.values(projets).find(x => did in x.deploiements);
+  const corps = JSON.parse(o.payload || '{}'), code = p && (p.contenu || []).find(f => f.name === 'Code');
+  const h = code && (code.source.match(/cleInstallateur: '([0-9a-f]*)'/) || [])[1];
+  sitePosts++;
+  return corps.api === 'inviter-installateur' && h && createHash('sha256').update(String(corps.cle), 'utf8').digest('hex') === h ? reponse(200, { v: 1, ok: true, code: 'd'.repeat(64) }) : reponse(403, { erreur: 'Refusé.' });
+}
 const cache = {};
 const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
   UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE_ACTUELLE) : reponse(503, 'indisponible'))
     : /leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json$/.test(url) ? reponse(200, { propositions: 'https://script.google.com/macros/s/AKfyCONSOLE/exec' })
     : /\/AKfyCONSOLE\/exec$/.test(url) ? (consolePanne ? (() => { throw new Error('réseau'); })() : (statsRecues.push(JSON.parse(o.payload)), reponse(200, { ok: true })))
-    : /\/exec\?api=etat$/.test(url) ? siteEnLigne(url) : fausseApi(url, o) },
+    : /\/exec\?api=etat$/.test(url) ? siteEnLigne(url) : /\/exec$/.test(url) && o.method === 'post' ? sitePost(url, o) : fausseApi(url, o) },
   Utilities: { sleep: () => { attentes++; }, getUuid: () => randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
     computeDigest: (alg, t) => [...createHash('sha256').update(String(t), 'utf8').digest()].map(b => b > 127 ? b - 256 : b) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
@@ -389,6 +399,14 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   const h0 = userProps.invitH, v0 = p.versions;
   r = ctx.apiMettreAJour({ id: p === projets[userProps.scriptId] ? userProps.scriptId : '' });
   ok(r.ok && r.maj && r.pret && userProps.deploymentId === dep && p.versions === v0 + 1 && code().includes("invitation: '" + h0 + "'") && Object.keys(p.deploiements).length === 1, 'mise à jour : même publication, une version, empreinte gardée');
+  const v1 = p.versions;
+  r = ctx.apiLienParent({ id: userProps.scriptId });
+  ok(r.ok && r.invitation === 'https://app.soccaquiz.fr/parent/?s=' + dep + '#i=' + 'd'.repeat(64) && p.versions === v1 && code().includes("cleInstallateur: '" + sha(userProps.cleInst) + "'"),
+    '« 🔒 Espace parent » dans l\'installateur : le site fabrique le lien de cet appareil (clé de l\'installateur prouvée, seule son empreinte est dans le programme), sans nouvelle version');
+  const cleVraie = userProps.cleInst; userProps.cleInst = 'e'.repeat(64);
+  r = ctx.apiLienParent({ id: userProps.scriptId });
+  ok(r.ok && /#i=[0-9a-f]{64}$/.test(r.invitation) && !r.invitation.endsWith('d'.repeat(64)) && p.versions === v1 + 1, 'clé refusée par le site : nouveau code écrit dans le programme (secours)');
+  void cleVraie;
   const code0 = userProps.invit;
   r = ctx.apiNouvelAppareil({ id: userProps.scriptId });
   ok(r.ok && userProps.invit !== code0 && r.invitation.endsWith('#i=' + userProps.invit) && code().includes("invitation: '" + sha(userProps.invit) + "'"), 'nouvel appareil : nouveau code, écrit dans le programme, nouveau lien');
@@ -399,7 +417,7 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   const html12 = ctx.doGet({ parameter: {} }).html;
   ok((global.__toutes || 0) === avantT + 1 && /requireAllScopes\(ScriptApp\.AuthMode\.FULL\)/.test(readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8').split('function autoriser')[1].slice(0, 400)),
     'autorisation incomplète (case décochée) : l\'installateur et « autoriser » du programme redemandent tout à Google');
-  ok(/Ouvrir le programme/.test(html12) && /apiAutorise/.test(html12) && /apiNouvelAppareil/.test(html12), 'page : étape « autorise ton site » et lien d\'un nouvel appareil');
+  ok(/Ouvrir le programme/.test(html12) && /apiAutorise/.test(html12) && /apiLienParent/.test(html12), 'page : étape « autorise ton site » et lien d\'un nouvel appareil');
   // suppression : publications retirées, code vidé (le programme ne peut pas être mis à la corbeille), plus rien de gardé
   const sid = userProps.scriptId;
   r = ctx.apiRecommencer({ id: sid });

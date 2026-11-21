@@ -49,7 +49,8 @@ const CONFIG = {
   urlParent: '',                  // adresse de l'espace parent (rempli par l'installateur)
   classe: '',                     // classe de l'enfant à l'installation (PS … Tle, ou 'adulte') ; ensuite : Espace parent → Réglages
   classeAnnee: 0,                 // année scolaire de cette classe (2026 = année 2026-2027)
-  invitation: ''                  // empreinte (SHA-256) du code du premier appareil du parent, écrite par l'installateur
+  invitation: '',                 // empreinte (SHA-256) du code du premier appareil du parent, écrite par l'installateur
+  cleInstallateur: ''             // empreinte de la clé de l'installateur (lien d'un nouvel appareil demandé depuis l'installateur)
 };
 /* ---------------- ENFANTS : un seul programme pour toute la famille ----------------
    Un programme (une autorisation, une adresse) sert tous les enfants. L'enfant courant est choisi au début de
@@ -381,6 +382,7 @@ function doPost(e) {
   PARENT_ = null; PROPRIO_ = null; ACCES_ = null; INST_ = null; LIGNES_ = null;
   choisirEnfant_(o.e || (e && e.parameter && e.parameter.e));
   if (o.api === 'appairer') return reponseJson_(Object.assign({ v: API_V }, appairer_(o.code, o.nom)));
+  if (o.api === 'inviter-installateur') return reponseJson_(Object.assign({ v: API_V }, inviterParInstallateur_(o.cle)));
   if (o.api === 'parent') return reponseJson_(Object.assign({ v: API_V }, actionParent_(o)));
   try {
     if (o.api === 'enregistrer') return reponseJson_(Object.assign({ v: API_V }, apiEnregistrer(typeof o.d === 'string' ? o.d : JSON.stringify(o.d || {}))));
@@ -2056,6 +2058,16 @@ function creerInvitation_(role, nom) {
 function lienInvitation_(code) {
   const d = deploiement_();
   return d ? ORIGINE_SITE_ + '/parent/?s=' + d + '#i=' + code : '';
+}
+/* l'installateur (ouvert avec le compte Google du parent) demande un lien pour un nouvel appareil : il prouve qui il est
+   par la clé qu'il a écrite dans ce programme à l'installation (seule son empreinte est ici, CONFIG.cleInstallateur) */
+function inviterParInstallateur_(cle) {
+  const cache = CacheService.getScriptCache(), essais = Number(cache.get('inviter-inst') || 0);
+  if (essais >= 20) return { __status: 429, erreur: 'Trop d\'essais. Réessaie dans quelques minutes.' };
+  cache.put('inviter-inst', String(essais + 1), 600);
+  const h = String(CONFIG.cleInstallateur || '');
+  if (!/^[0-9a-f]{64}$/.test(h) || !/^[0-9a-f]{40,80}$/.test(String(cle || '')) || empreinte_(String(cle)) !== h) return { __status: 403, erreur: 'Refusé.' };
+  return { ok: true, code: creerInvitation_('proprio', '') };
 }
 function appairer_(code, nom) {
   code = String(code || '').trim().toLowerCase();
