@@ -9,6 +9,7 @@
 <meta name="theme-color" content="#a9010d">
 <link rel="icon" href="../icone-192.png">
 <link rel="apple-touch-icon" href="../icone-180.png">
+<link rel="manifest" href="manifest.webmanifest">   <!-- installable : vraie icône d'appli (pas un raccourci du navigateur) -->
 <style>
   html, body { margin: 0; height: 100%; background: #fff8ef; overflow: hidden; }
   iframe.page { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
@@ -48,6 +49,7 @@
 </div>
 <div id="astuce" role="status" hidden>
   <span id="astuce-texte"></span>
+  <button id="astuce-installer" type="button" hidden>Installer</button>
   <button id="astuce-ok" type="button">OK</button>
 </div>
 <div id="charge" aria-hidden="true"></div>
@@ -144,6 +146,9 @@
     demarrer(appairer(c.toLowerCase()));
   });
   // après la première ouverture : revenir toujours dans ce navigateur (celui qui garde la clé)
+  // Chrome / Brave sur Android : vraie installation (icône pleine, sans le petit logo du navigateur)
+  var installation = null;
+  window.addEventListener('beforeinstallprompt', function (ev) { ev.preventDefault(); installation = ev; var bi = document.getElementById('astuce-installer'); if (bi && !document.getElementById('astuce').hidden) { bi.hidden = false; conseillerEcranAccueil(); } });
   function conseillerEcranAccueil() {
     var u = navigator.userAgent || '';
     var ios = /iPhone|iPad/.test(u), android = /Android/.test(u);
@@ -151,9 +156,15 @@
     var standalone = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
     if (standalone) return;
     document.getElementById('astuce-texte').textContent = ios
-      ? 'Pour revenir facilement : touche Partager, puis « Sur l\'écran d\'accueil ». Cet appareil est reconnu dans ce navigateur seulement.'
-      : 'Pour revenir facilement : menu ⋮, puis « Ajouter à l\'écran d\'accueil ». Cet appareil est reconnu dans ce navigateur seulement.';
+      ? 'Pour revenir facilement : touche Partager, puis « Sur l\'écran d\'accueil ». Sur iPhone, l\'icône a sa propre mémoire : ouvre-la, puis colle un nouveau lien (installateur → « 🔒 Espace parent »).'
+      : installation ? 'Installe l\'espace parent comme une appli, pour le retrouver sur ton écran d\'accueil.'
+      : 'Pour revenir facilement : menu ⋮, puis « Installer l\'application » (ou « Ajouter à l\'écran d\'accueil »). Cet appareil est reconnu dans ce navigateur seulement.';
     var a = document.getElementById('astuce'); a.hidden = false;
+    var bi = document.getElementById('astuce-installer');
+    if (installation && !ios) {
+      bi.hidden = false;
+      bi.onclick = function () { var ev = installation; installation = null; bi.hidden = true; a.hidden = true; try { ev.prompt(); } catch (e) {} };
+    }
     document.getElementById('astuce-ok').addEventListener('click', function () { a.hidden = true; });
   }
 
@@ -239,6 +250,8 @@
 
   /* ---------- démarrage ---------- */
   var libs = chargerLibs();
+  // installable comme une appli (icône pleine sur Android) : il faut un service worker ; celui du site, portée « / »
+  if ('serviceWorker' in navigator && !local) navigator.serviceWorker.register('/sw.js').catch(function () {});
   demarrer(appairerSiBesoin());
   function demarrer(attente) {
    return attente.then(function () {
