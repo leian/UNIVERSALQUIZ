@@ -95,7 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
-const INSTALLATEUR_V = '21-11 E';   // repère affiché en bas de la page : changer à chaque modification à recoller
+const INSTALLATEUR_V = '21-11 F';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -760,11 +760,11 @@ function scriptPage_() {
         '<p style="margin:0">Ensuite, envoie son lien à ' + h((s && s.prenom) || 'ton enfant') + ' (bouton ✉️) : son site s\'ouvre sans compte.</p></div>';
     }
     // onglet ouvert au clic sur « 🔒 Espace parent », le temps que le lien arrive : même allure que l'écran de chargement de l'espace parent
-    var PAGE_OUVERTURE = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SoccaQuiz</title>' +
-      '<style>html,body{margin:0;height:100%;background:#fff8ef;color:#2b2350;font:500 17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
-      'body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;box-sizing:border-box}' +
-      'img{width:96px;height:96px;animation:b 1.4s ease-in-out infinite}@keyframes b{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}</style></head>' +
-      '<body><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone.png" alt=""><div>Ouverture de ton espace parent…</div></body></html>';
+    var PAGE_OUVERTURE = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SoccaQuiz – Espace parent</title>' +
+      '<style>html,body{margin:0;height:100%;background:#fff8ef;overflow:hidden}' +
+      'body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;padding:24px;box-sizing:border-box;text-align:center;color:#2b2350;font:600 18px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+      'img{width:120px;height:120px;border-radius:26px;animation:battre 1.4s ease-in-out infinite}@keyframes battre{50%{transform:scale(1.06)}}</style></head>' +
+      '<body><img src="https:\/\/app.soccaquiz.fr/icone-192.png" alt=""><span>Chargement de l\'espace parent</span></body></html>';
     var ATTENTES = {};
     function attendreAutorisation(s) {
       if (ATTENTES[s.id]) return;

@@ -38,7 +38,7 @@
 <body>
 <div id="demarrage" class="attente">
   <img src="../icone-192.png" alt="">
-  <span id="msg" role="status">Chargement…</span>
+  <span id="msg" role="status">Chargement de l'espace parent</span>
   <small id="detail" hidden></small>
   <button id="reessayer" type="button" hidden>Réessayer</button>
   <form id="coller" hidden>
@@ -122,7 +122,7 @@
   var vientDAppairer = false;
   function appairer(code) {
     dem.classList.add('attente'); formCode.hidden = true; detail.hidden = true;
-    msg.textContent = 'Ouverture de l\'espace parent sur cet appareil…';
+    msg.textContent = 'Chargement de l\'espace parent';   // même texte et même allure que l'onglet ouvert par l'installateur
     return poster({ api: 'appairer', code: code, nom: nomAppareil() }).then(function (d) {
       if (!d || !d.ok || !d.cle) throw Object.assign(new Error(d && d.erreur || 'Lien refusé'), { lien: true });
       cle = d.cle; vientDAppairer = true;
