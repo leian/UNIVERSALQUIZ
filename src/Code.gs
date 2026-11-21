@@ -45,7 +45,8 @@ const CONFIG = {
   urlEnfant: '',                  // adresse du site de l'enfant (rempli par l'installateur)
   urlParent: '',                  // adresse de l'espace parent (rempli par l'installateur)
   classe: '',                     // classe de l'enfant à l'installation (PS … Tle, ou 'adulte') ; ensuite : Espace parent → Réglages
-  classeAnnee: 0                  // année scolaire de cette classe (2026 = année 2026-2027)
+  classeAnnee: 0,                 // année scolaire de cette classe (2026 = année 2026-2027)
+  invitation: ''                  // empreinte (SHA-256) du code du premier appareil du parent, écrite par l'installateur
 };
 /* ---------------- ENFANTS : un seul programme pour toute la famille ----------------
    Un programme (une autorisation, une adresse) sert tous les enfants. L'enfant courant est choisi au début de
@@ -230,7 +231,8 @@ const COLONNES = ['id', 'date', 'joueur', 'quiz', 'titre', 'matiere', 'score', '
 const PAGES = { 'index': 'lib/page-index', 'tableau-de-bord': 'lib/page-tableau-de-bord', 'ajouter': 'lib/page-ajouter' };
 // pages et actions réservées à l'espace parent
 const PAGES_PARENT = ['tableau-de-bord', 'ajouter'];
-function estEnfant_() { return CONFIG.espace === 'enfant'; }
+// un appareil de parent reconnu par sa clé (PARENT_) agit comme l'espace parent, même sur l'adresse de l'enfant
+function estEnfant_() { return CONFIG.espace === 'enfant' && !PARENT_; }
 function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espace parent.' }; }
 /* Deux parents : l'espace parent s'exécute avec le compte de la personne qui l'ouvre (installateur : USER_ACCESSING,
    tout compte Google). Ce qui donne accès, c'est le partage Drive du dossier de l'enfant. Les propriétés du script
@@ -238,6 +240,7 @@ function refusEnfant_() { return { __status: 403, erreur: 'Réservé à l\'espac
    est le parent qui a installé le site (il peut ouvrir le programme dans son Drive) ou qu'il a accès au dossier. */
 let PROPRIO_ = null, ACCES_ = null, DEMANDE_SUPPR_ = false;
 function estProprietaire_() {
+  if (PARENT_) return PARENT_.role === 'proprio';
   if (PROPRIO_ === null) try {
     const moi = String(Session.getActiveUser().getEmail() || '').toLowerCase(), proprio = proprio_();
     PROPRIO_ = CONFIG.espace !== 'parent' || (!!moi && moi === proprio);
@@ -252,6 +255,7 @@ function proprio_() {
   return p || '';
 }
 function accesParent_() {
+  if (PARENT_) return true;
   if (ACCES_ === null) ACCES_ = CONFIG.espace !== 'parent' || estProprietaire_() || !!ouvrirDossier_(props_().getProperty('DOSSIER'));
   return ACCES_;
 }
@@ -290,7 +294,7 @@ function doGet(e) {
   CHRONO_DEMANDE_ = p.chrono === '1' || p.chrono === '0' ? p.chrono : '';
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
-  INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
+  INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false; PARENT_ = null;
   choisirEnfant_(p.e);
   CADRE_ = p.cadre === '1' && CONFIG.espace !== 'parent';
   CLASSIQUE_ = p.classique === '1';
@@ -367,11 +371,14 @@ function apiGet_(p) {
   }
 }
 function doPost(e) {
-  if (CONFIG.espace === 'parent') return reponseJson_({ v: API_V, erreur: 'Réservé au site de l\'enfant.' });
   let o = null;
   try { o = JSON.parse(e && e.postData && e.postData.contents || 'null'); } catch (err) {}
   if (!o || typeof o !== 'object') return reponseJson_({ v: API_V, __status: 400, erreur: 'Demande illisible.' });
+  if (CONFIG.espace === 'parent' && o.api !== 'appairer' && o.api !== 'parent') return reponseJson_({ v: API_V, erreur: 'Réservé au site de l\'enfant.' });
+  PARENT_ = null; PROPRIO_ = null; ACCES_ = null; INST_ = null; LIGNES_ = null;
   choisirEnfant_(o.e || (e && e.parameter && e.parameter.e));
+  if (o.api === 'appairer') return reponseJson_(Object.assign({ v: API_V }, appairer_(o.code, o.nom)));
+  if (o.api === 'parent') return reponseJson_(Object.assign({ v: API_V }, actionParent_(o)));
   try {
     if (o.api === 'enregistrer') return reponseJson_(Object.assign({ v: API_V }, apiEnregistrer(typeof o.d === 'string' ? o.d : JSON.stringify(o.d || {}))));
     if (o.api === 'signaler') return reponseJson_(Object.assign({ v: API_V }, apiSignaler(o.d && typeof o.d === 'object' ? o.d : {})));
@@ -2014,6 +2021,123 @@ function jour_(d) {
 }
 
 /* =====================================================================
+   CLÉS D'APPAREIL : l'espace parent sans compte Google (chantier « sans alerte », étape 1c)
+   Le programme s'exécute toujours avec le compte du parent qui a installé ; il ne peut donc pas savoir qui
+   l'appelle. Un appareil de parent est reconnu par une clé tirée au hasard, gardée dans son navigateur :
+   - une invitation (code à usage unique, 24 h) est créée depuis l'espace parent, ou par l'installateur pour le
+     premier appareil (CONFIG.invitation = empreinte du code), ou dans l'éditeur (nouveauLienParent) ;
+   - à l'ouverture du lien, l'appli envoie {api:'appairer', code, nom} : le code est échangé contre une clé ;
+   - chaque action des parents arrive en {api:'parent', cle, action, args, e} ; le programme vérifie la clé.
+   Seules les empreintes (SHA-256) des codes et des clés sont gardées (propriétés INVITS et CLES). Rôle « proprio »
+   (parent qui a installé : inviter, remettre à zéro, supprimer, ajouter un enfant) ou « parent » (autre parent).
+   ===================================================================== */
+let PARENT_ = null;                       // appareil reconnu pour cette demande : { h, role, nom }
+const DUREE_INVITATION_ = 24 * 3600 * 1000, ORIGINE_SITE_ = 'https://app.soccaquiz.fr';
+function empreinte_(t) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t), Utilities.Charset.UTF_8)
+    .map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+function aleatoire_() { return (Utilities.getUuid() + Utilities.getUuid()).replace(/[^0-9a-f]/gi, '').toLowerCase(); }
+function lireListe_(cle) {
+  try { const l = JSON.parse(PropertiesService.getScriptProperties().getProperty(cle) || '[]'); return Array.isArray(l) ? l.filter(x => x && typeof x === 'object') : []; } catch (e) { return []; }
+}
+function ecrireListe_(cle, l) { PropertiesService.getScriptProperties().setProperty(cle, JSON.stringify(l)); }
+function nomAppareil_(n) { return String(n || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Appareil'; }
+function creerInvitation_(role, nom) {
+  const code = aleatoire_(), l = lireListe_('INVITS').filter(x => x.exp > Date.now());
+  l.push({ h: empreinte_(code), role: role === 'proprio' ? 'proprio' : 'parent', nom: nomAppareil_(nom), exp: Date.now() + DUREE_INVITATION_ });
+  ecrireListe_('INVITS', l.slice(-20));
+  return code;
+}
+// lien de l'espace parent servi hors de Google (le code est après « # » : jamais envoyé à un serveur)
+function lienInvitation_(code) {
+  const m = String(cfgPremier_().urlEnfant || '').match(/\/macros\/s\/([\w-]{20,200})\/exec$/);
+  return m ? ORIGINE_SITE_ + '/parent/?s=' + m[1] + '#i=' + code : '';
+}
+function appairer_(code, nom) {
+  code = String(code || '').trim().toLowerCase();
+  const cache = CacheService.getScriptCache(), essais = Number(cache.get('appairer') || 0);
+  if (essais >= 20) return { __status: 429, erreur: 'Trop d\'essais. Réessaie dans quelques minutes.' };
+  cache.put('appairer', String(essais + 1), 600);
+  if (!/^[0-9a-f]{40,80}$/.test(code)) return { __status: 400, erreur: 'Lien d\'invitation incomplet.' };
+  const verrou = LockService.getScriptLock(); verrou.waitLock(15000);
+  try {
+    const h = empreinte_(code), props = PropertiesService.getScriptProperties();
+    let inv = null;
+    const invits = lireListe_('INVITS').filter(x => x.exp > Date.now() && !(x.h === h && (inv = x)));
+    // premier appareil : code donné par l'installateur (son empreinte est écrite dans CONFIG.invitation), une seule fois
+    if (!inv && CONFIG.invitation && h === CONFIG.invitation && props.getProperty('INVIT_INSTALL') !== h) {
+      inv = { role: 'proprio', nom: nomAppareil_(nom) || 'Mon appareil' };
+      props.setProperty('INVIT_INSTALL', h);
+    }
+    if (!inv) return { __status: 403, erreur: 'Ce lien a déjà servi ou a expiré. Demande un nouveau lien.' };
+    ecrireListe_('INVITS', invits);
+    const cle = aleatoire_(), l = lireListe_('CLES');
+    l.push({ h: empreinte_(cle), role: inv.role, nom: nomAppareil_(nom || inv.nom), cree: Date.now(), vu: Date.now() });
+    ecrireListe_('CLES', l.slice(-20));
+    return { ok: true, cle, role: inv.role };
+  } finally { verrou.releaseLock(); }
+}
+function reconnaitre_(cle) {
+  cle = String(cle || '').trim().toLowerCase();
+  if (!/^[0-9a-f]{40,80}$/.test(cle)) return false;
+  const h = empreinte_(cle), l = lireListe_('CLES'), x = l.find(y => y.h === h);
+  if (!x) return false;
+  if (Date.now() - (x.vu || 0) > 3600 * 1000) { x.vu = Date.now(); try { ecrireListe_('CLES', l); } catch (e) {} }   // au plus une écriture par heure
+  PARENT_ = { h, role: x.role === 'proprio' ? 'proprio' : 'parent', nom: x.nom };
+  return true;
+}
+/* action d'un parent, depuis un appareil reconnu : les mêmes fonctions api… que les pages servies par Google */
+function actionParent_(o) {
+  if (!reconnaitre_(o.cle)) return { __status: 401, erreur: 'Cet appareil n\'est plus reconnu. Demande un nouveau lien au parent qui a installé SoccaQuiz.' };
+  try {
+    if (o.action === 'page') {
+      const page = nettoyerNom_(o.page || 'tableau-de-bord');
+      if (PAGES_PARENT.indexOf(page) < 0) return { erreur: 'Page inconnue.' };
+      const inst = installer_();
+      return { page, html: lib_(PAGES[page], true), reglages: reglagesPage_(page, inst, catalogue_(inst.dossier)), prenom: CONFIG.prenom || '' };
+    }
+    const nom = String(o.action || '');
+    if (!/^api[A-Z]\w{1,40}$/.test(nom) || nom === 'apiPourEnfant' || typeof globalThis[nom] !== 'function') return { __status: 400, erreur: 'Action inconnue.' };
+    return { r: globalThis[nom].apply(null, Array.isArray(o.args) ? o.args : []) };
+  } catch (e) {
+    console.error(e);
+    return { __status: 500, erreur: String(e && e.message || e) };
+  }
+}
+/* Réglages → Appareils : liste, invitation, retrait */
+function apiAppareils() {
+  if (interdit_()) return refusEnfant_();
+  return {
+    appareils: lireListe_('CLES').map(x => ({ id: x.h.slice(0, 12), nom: x.nom, role: x.role, cree: x.cree, vu: x.vu, moi: !!PARENT_ && PARENT_.h === x.h })),
+    invitations: lireListe_('INVITS').filter(x => x.exp > Date.now()).length,
+    peutInviter: estProprietaire_()
+  };
+}
+function apiInviterAppareil(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut inviter quelqu\'un.' };
+  d = d || {};
+  const code = creerInvitation_(d.role === 'proprio' ? 'proprio' : 'parent', d.nom);
+  return { ok: true, code, lien: lienInvitation_(code), expire: Date.now() + DUREE_INVITATION_ };
+}
+function apiRetirerAppareil(d) {
+  if (interdit_()) return refusEnfant_();
+  const id = String((d && d.id) || '');
+  const soi = !!PARENT_ && PARENT_.h.slice(0, 12) === id;
+  if (!estProprietaire_() && !soi) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut retirer un appareil.' };
+  const l = lireListe_('CLES'), reste = l.filter(x => x.h.slice(0, 12) !== id);
+  if (reste.length === l.length) return { erreur: 'Appareil introuvable.' };
+  ecrireListe_('CLES', reste);
+  return { ok: true };
+}
+/* depuis l'éditeur (parent qui a installé) : un lien pour un nouvel appareil, si l'ancien est perdu */
+function nouveauLienParent() {
+  const code = creerInvitation_('proprio', 'Nouvel appareil');
+  console.log("Lien pour ouvrir l'espace parent sur un nouvel appareil (valable 24 h, une seule fois) :\n" + (lienInvitation_(code) || 'code : ' + code));
+}
+
+/* =====================================================================
    ACCÈS AU DRIVE ET AUX TABLEAUX — autorisation « fichiers créés par SoccaQuiz » seulement
    Le programme ne demande à Google que drive.file (+ l'adresse e-mail) : aucun écran « application non validée ».
    DriveApp et SpreadsheetApp exigent l'accès à tout le Drive / à tous les tableaux : ils sont remplacés par
@@ -2105,7 +2229,7 @@ function creerFichierVirtuel_(sid, nom, contenu) {
 /* tableau des quiz d'un dossier (créé à la demande, avec son onglet « Fichiers ») */
 const TABLEUR_QUIZ_ = {};
 /* Google repart de zéro à chaque exécution ; la simulation des tests, non : elle appelle ceci avant chaque demande */
-function reinitStockage_() { [STOCKS_, TABLEUR_QUIZ_].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); INST_ = null; LIGNES_ = null; choisirEnfant_(''); }
+function reinitStockage_() { [STOCKS_, TABLEUR_QUIZ_].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); INST_ = null; LIGNES_ = null; PARENT_ = null; PROPRIO_ = null; ACCES_ = null; choisirEnfant_(''); }
 function tableurQuiz_(dossierId, creer) {
   if (TABLEUR_QUIZ_[dossierId]) return TABLEUR_QUIZ_[dossierId];
   const props = PropertiesService.getScriptProperties(), cle = 'QUIZ:' + dossierId;

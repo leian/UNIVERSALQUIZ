@@ -2,6 +2,7 @@
 import { readFileSync, writeFileSync, readdirSync, statSync, mkdirSync, existsSync, renameSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import vm from 'node:vm';
+import { createHash } from 'node:crypto';
 import http from 'node:http';
 
 const BUILD = process.argv[2];
@@ -201,7 +202,7 @@ const ctx = {
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; }, remove: k => { delete cache[k]; }, removeAll: ks => ks.forEach(k => { delete cache[k]; }), putAll: o => Object.assign(cache, o), getAll: ks => Object.fromEntries(ks.filter(k => k in cache).map(k => [k, cache[k]])) }) },
   LockService: { getScriptLock: () => ({ waitLock() {}, releaseLock() {} }) },
   Session: { getActiveUser: () => ({ getEmail: () => FAUX.proprio === false ? 'autre@exemple.fr' : PARENT }), getEffectiveUser: () => ({ getEmail: () => PARENT }), getScriptTimeZone: () => 'Europe/Paris' },
-  Utilities: { formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },
+  Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, computeDigest: (a, t) => [...createHash('sha256').update(String(t), 'utf8').digest()].map(b => b > 127 ? b - 256 : b), formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },
   MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
   ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script', invalidateAuth: () => { FAUX.authRetiree = true; } },
   FAUX, editeurs, Drive, Sheets, quizDuDossier, deposerQuiz, retirerQuiz, feuilles, corbeille,

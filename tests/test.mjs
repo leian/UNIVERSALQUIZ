@@ -1224,6 +1224,44 @@ try {
       'supprimer : tout se termine sur la même page, installateur fini dans un cadre invisible — ' + fin);
   }
 
+  // clés d'appareil (étape 1c) : l'espace parent sans compte Google, par l'adresse unique du programme
+  {
+    const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlEnfant, i: CONFIG.invitation })')).r;
+    const poste = async o => (await fetch(BASE + '/exec', { method: 'POST', headers: { 'content-type': 'text/plain' }, body: JSON.stringify(o) })).json();
+    const code1 = 'a'.repeat(64);
+    await ev(`CONFIG.espace = "enfant"; CONFIG.urlEnfant = "https://script.google.com/macros/s/AKfyTEST1234567890abcdefghij/exec"; CONFIG.invitation = empreinte_("${code1}");
+      ["CLES", "INVITS", "INVIT_INSTALL"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); CacheService.getScriptCache().remove("appairer");`);
+    const p1 = await poste({ api: 'appairer', code: code1, nom: 'Téléphone de Yan' });
+    const p1bis = await poste({ api: 'appairer', code: code1, nom: 'Autre' });
+    ok(p1.ok && /^[0-9a-f]{64}$/.test(p1.cle) && p1.role === 'proprio' && !p1bis.ok && /déjà servi/.test(p1bis.erreur || ''),
+      'clés d\'appareil : le lien de l\'installateur donne la clé du premier appareil (parent qui a installé), une seule fois');
+    const garde = (await ev('JSON.stringify(PropertiesService.getScriptProperties().getProperty("CLES"))')).r;
+    ok(!garde.includes(p1.cle), 'clés d\'appareil : seule l\'empreinte de la clé est gardée');
+    const page = await poste({ api: 'parent', cle: p1.cle, action: 'page', page: 'tableau-de-bord' });
+    ok(/Suivi/.test(page.html || '') && page.reglages && Array.isArray(page.reglages.famille) && page.reglages.proprio !== false, 'clés d\'appareil : page des parents (tableau de bord et ses réglages) pour un appareil reconnu');
+    const inv = await poste({ api: 'parent', cle: p1.cle, action: 'apiInviterAppareil', args: [{ nom: 'Julie' }] });
+    ok(inv.r && inv.r.ok && /^https:\/\/app\.soccaquiz\.fr\/parent\/\?s=AKfyTEST1234567890abcdefghij#i=[0-9a-f]{64}$/.test(inv.r.lien), 'clés d\'appareil : « Inviter l\'autre parent » donne un lien app.soccaquiz.fr/parent (code après #) — ' + (inv.r && inv.r.lien));
+    const p2 = await poste({ api: 'appairer', code: inv.r.code, nom: 'Téléphone de Julie' });
+    const actions2 = await Promise.all([
+      poste({ api: 'parent', cle: p2.cle, action: 'apiInviterAppareil', args: [{}] }),
+      poste({ api: 'parent', cle: p2.cle, action: 'apiClasse', args: [{ classe: 'CM1' }] }),
+      poste({ api: 'parent', cle: 'f'.repeat(64), action: 'apiClasse', args: [{ classe: 'CP' }] }),
+      poste({ api: 'parent', cle: p2.cle, action: 'apiPourEnfant', args: [] })
+    ]);
+    ok(p2.role === 'parent' && actions2[0].r && !!actions2[0].r.erreur && actions2[1].r && actions2[1].r.ok && actions2[2].__status === 401 && actions2[3].__status === 400,
+      'clés d\'appareil : l\'autre parent gère (classe…) sans pouvoir inviter ; clé inconnue refusée — ' + JSON.stringify(actions2.map(x => x.r || x.__status)));
+    const liste = await poste({ api: 'parent', cle: p1.cle, action: 'apiAppareils' });
+    const julie = liste.r.appareils.find(x => x.nom === 'Téléphone de Julie');
+    ok(liste.r.appareils.length === 2 && liste.r.appareils.find(x => x.moi).nom === 'Téléphone de Yan' && julie && julie.role === 'parent', 'clés d\'appareil : Réglages → liste des appareils (celui-ci repéré)');
+    const ret = await poste({ api: 'parent', cle: p1.cle, action: 'apiRetirerAppareil', args: [{ id: julie.id }] });
+    const apres = await poste({ api: 'parent', cle: p2.cle, action: 'apiAppareils' });
+    ok(ret.r && ret.r.ok && apres.__status === 401, 'clés d\'appareil : « Retirer » coupe l\'accès de cet appareil tout de suite');
+    const enfant = (await ev('[apiClasse({ classe: "CP" }).__status, apiAppareils().__status]')).r;
+    ok(enfant.join() === '403,403', 'clés d\'appareil : sans clé, l\'adresse de l\'enfant reste fermée aux actions des parents');
+    const a = JSON.parse(avant);
+    await ev(`CONFIG.espace = ${JSON.stringify(a.e)}; CONFIG.urlEnfant = ${JSON.stringify(a.u)}; CONFIG.invitation = ${JSON.stringify(a.i)};`);
+  }
+
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));
 } finally {
   await browser.close();
