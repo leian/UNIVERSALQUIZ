@@ -1053,25 +1053,24 @@ try {
     await ev(`CONFIG.espace = ${JSON.stringify(avantM)}`);
   }
 
-  // famille : un seul espace parent pour plusieurs enfants (sites du même compte Google)
+  // famille : un seul programme pour tous les enfants (étape 1b du chantier « sans alerte »)
   {
     const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;
-    const P1 = 'https://script.google.com/macros/s/LANA/exec', P2 = 'https://script.google.com/macros/s/HUGO/exec';
+    const P1 = 'https://script.google.com/macros/s/LANA/exec';
     await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana";
-      PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE");
-      ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));
-      ecrireFamille_(d => d.sites.push({ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DRV_.createFolder("SoccaQuiz – Hugo").getId() },
-        { parent: "https://script.google.com/macros/s/PARTI/exec", prenom: "Ancien", dossier: "d:/nulle/part" },
-        { parent: "javascript:alert(1)", prenom: "Piège", dossier: "d:${DRIVE}" }));`);
+      ["GEMINI_CLE", "ENFANTS"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); choisirEnfant_("");`);
+    const ajout = (await ev('[apiAjouterEnfant({ prenom: "Hugo", classe: "CE1" }), apiAjouterEnfant({ prenom: "hugo" }).erreur, apiAjouterEnfant({ prenom: "  " }).erreur]')).r;
+    const H = ajout[0].id, P2 = P1 + '?e=' + H;
+    ok(ajout[0].ok && /^[a-z0-9]{6}$/.test(H) && ajout[0].parent === P2 && !!ajout[1] && !!ajout[2], 'famille : « Ajouter un enfant » (même programme, adresse …?e=<id>), doublon et prénom vide refusés — ' + JSON.stringify(ajout));
+    const sep = (await ev(`({ lana: [installer_().dossier.getName(), classe_()], hugo: pourEnfant_("${H}", () => [installer_().dossier.getName(), classe_(), CONFIG.prenom]), apres: [installer_().dossier.getName(), CONFIG.prenom] })`)).r;
+    ok(sep.hugo[0] === 'SoccaQuiz – Hugo' && sep.hugo[1] === 'CE1' && sep.hugo[2] === 'Hugo' && sep.lana[0] !== sep.hugo[0] && sep.lana[1] !== 'CE1' && sep.apres[0] === sep.lana[0] && sep.apres[1] === 'Lana',
+      'famille : chaque enfant a son dossier, sa classe et son prénom ; on revient bien au premier — ' + JSON.stringify(sep));
     await page.goto(BASE + '/exec');
     const fam = await page.locator('#famille').innerText().catch(() => '');
-    ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').innerText()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1 && !/Ancien|Piège/.test(fam),
-      'famille : sélecteur en haut de l\'espace parent (enfant actuel, lien vers l\'autre ; site supprimé et adresse douteuse écartés) — ' + fam.replace(/\s+/g, ' '));
-    ok(/Lana/.test((await ev('lireFamille_().sites.map(s => s.prenom).join(",")')).r), 'famille : le site s\'inscrit tout seul dans le fichier de la famille');
-    const ancienne = await ev('(() => { const k = "AIza" + "y".repeat(35); PropertiesService.getScriptProperties().setProperty("GEMINI_CLE", k); ecrireFamille_(d => { delete d.gemini; }); CacheService.getScriptCache().remove("famille-inscrit"); inscrireFamille_(installer_()); return lireFamille_().gemini === k; })()');
-    ok(ancienne.r === true, 'famille : une clé Gemini enregistrée avant le partage en famille est recopiée pour les autres enfants');
-    const g = await ev('(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); PropertiesService.getScriptProperties().deleteProperty("GEMINI_CLE"); return cleGemini_() === k; })()');
-    ok(g.r === true, 'famille : clé Gemini saisie une fois, reprise par les autres enfants');
+    ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').innerText()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1,
+      'famille : sélecteur en haut de l\'espace parent (enfant affiché, lien vers l\'autre) — ' + fam.replace(/\s+/g, ' '));
+    const g = await ev(`(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); return pourEnfant_("${H}", cleGemini_) === k; })()`);
+    ok(g.r === true, 'famille : clé Gemini saisie une fois, la même pour tous les enfants');
     await page.goto(BASE + '/exec?page=ajouter');
     ok(await page.locator(`#pour-qui input[data-parent="${P2}"]`).count() === 1 && /Hugo/.test(await page.locator('#pour-qui').innerText()), 'famille : « Ajouter aussi pour Hugo » sur la page de création');
     await page.locator(`#pour-qui input[data-parent="${P2}"]`).check();
@@ -1080,19 +1079,32 @@ try {
     await page.locator('#creer').click();
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const htmlHugo = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo')) + ')')).r.map(q => q.nom).filter(n => n.endsWith('.html'));
-    ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.filter(n => /fractions/i.test(n)).length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    // espace parent de Hugo (…?e=<id>) : ses réglages, ses quiz ; les appels des pages passent par appel_() avec son id
+    await page.goto(BASE + '/exec?e=' + H);
+    ok(/Hugo/.test(await page.locator('#famille span.on').innerText().catch(() => '')) && await page.locator(`#famille a[href="${P1}"]`).count() === 1, 'famille : espace parent de Hugo (…?e=<id>), lien de retour vers Lana');
+    const nLana = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ').length')).r;
+    await page.goto(BASE + '/exec?e=' + H + '&page=ajouter');
+    await page.locator('#secours').evaluate(d => { d.open = true; });
+    await page.fill('#reponse', 'T|Les volcans de Hugo|Essai|sciences|🌋|🌋\nQ|Un volcan crache ?|de la lave|de l\'eau|du sable|Lave.\nQ|Le cratère est ?|en haut|en bas|à côté|En haut.\nQ|L\'Etna est en ?|Italie|France|Espagne|Sicile.');
+    await page.locator('#creer').click();
+    await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const apres = (await ev(`[quizDuDossier(${JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo'))}).map(q => q.nom).join(), quizDuDossier(${JSON.stringify(join(DRIVE, 'SoccaQuiz'))}).length]`)).r;
+    ok(/volcans-de-hugo/i.test(apres[0]) && apres[1] === nLana, 'famille : depuis la page de Hugo, le quiz va dans son dossier à lui (appel_), rien chez Lana — ' + JSON.stringify(apres));
+    const catHugo = (await ev(`pourEnfant_("${H}", () => catalogue_(installer_().dossier).QUIZ.map(q => q.titre).join())`)).r;
+    ok(/Les fractions/.test(catHugo) && /Les volcans de Hugo/.test(catHugo), 'famille : liste des quiz de Hugo — ' + catHugo);
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(await page.locator('#box-famille').isVisible() && await page.locator(`#famille-reglages [data-retirer="${P2}"]`).count() === 1, 'famille : Réglages → « Retirer de la liste » pour un site supprimé');
-    const ret = await ev(`[apiFamilleRetirer({ parent: "${P1}" }).erreur, (() => { ecrireFamille_(d => d.sites.push({ parent: "https://script.google.com/macros/s/VIEUX/exec", prenom: "Vieux", dossier: "d:${DRIVE}" })); return apiFamilleRetirer({ parent: "https://script.google.com/macros/s/VIEUX/exec" }).ok && !lireFamille_().sites.some(x => x.prenom === "Vieux"); })()]`);
-    ok(!!ret.r[0] && ret.r[1] === true, 'famille : un site retiré disparaît du fichier (le site actuel ne peut pas se retirer)');
+    ok(await page.locator('#box-famille').isVisible() && await page.locator('#ajouter-enfant').isVisible() && /Hugo/.test(await page.locator('#famille-reglages').innerText()), 'famille : Réglages → enfants de la famille et « Ajouter un enfant »');
+    const ret = await ev(`apiFamilleRetirer({ parent: "${P1}" }).erreur`);
+    ok(!!ret.r, 'famille : le premier enfant ne peut pas être retiré de la liste d\'ici');
     const classeAvant = (await ev('classe_()')).r;
     await ev('apiClasse({ classe: "CM2" })');
     await page.goto(BASE + '/exec?page=ajouter');
     ok(/Classe : CM2/.test(await page.locator('#classe-info').innerText()) && !(await page.locator('#classe').isVisible()) && await page.locator('#classe').inputValue() === 'CM2', 'page Ajouter : classe reprise des Réglages, plus de champ à remplir');
     await ev(`apiClasse({ classe: ${JSON.stringify(classeAvant)} })`);
     const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
-    ok(intrus.r === 0, 'famille : un enfant absent du fichier de la famille est refusé');
+    ok(intrus.r === 0, 'famille : un enfant qui n\'est pas dans la famille est refusé');
     // deux parents : invitation (partage Drive), autre parent, inconnu
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
@@ -1100,14 +1112,14 @@ try {
     await page.fill('#email-parent', 'Julie.Exemple@gmail.com');
     await page.locator('#inviter-parent').click();
     await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
-    const partage = await ev(`(() => { const ids = [installer_().dossier.getId(), lireFamille_().sites.find(x => x.prenom === "Hugo").dossier, PropertiesService.getScriptProperties().getProperty("FAMILLE")];
+    const partage = await ev(`(() => { const ids = familleListe_().map(x => x.dossier).concat(PropertiesService.getScriptProperties().getProperty("FAMILLE"));
       return { dossiers: ids.map(id => [...(editeurs[id] || [])].join()), parents: lireFamille_().parents }; })()`);
     aRefaire('clés d\'appareil (le fichier de la famille n\'est plus un fichier du Drive)', /Accès partagé/.test(await page.locator('#parents').innerText()) && await page.locator('#parents a[href^="mailto:julie.exemple"]').count() >= 1 && partage.r.dossiers.every(x => x === 'julie.exemple@gmail.com') && partage.r.parents.join() === 'julie.exemple@gmail.com',
       'autre parent : dossiers des deux enfants et fichier de la famille partagés, mail d\'invitation prêt — ' + JSON.stringify(partage.r));
     await ev('FAUX.proprio = false; CacheService.getScriptCache().remove("famille")');
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(await page.locator('#onglets').isVisible() && !(await page.locator('#box-parents').isVisible()) && await page.locator('#famille-reglages [data-retirer]').count() === 0, 'autre parent : espace parent ouvert avec son compte, sans le droit d\'inviter ni de retirer');
+    ok(await page.locator('#onglets').isVisible() && !(await page.locator('#box-parents').isVisible()) && !(await page.locator('#ajouter-enfant').count()), 'autre parent : espace parent ouvert avec son compte, sans le droit d\'inviter ni d\'ajouter un enfant');
     const autre = await ev('[apiInviterParent({ email: "x@gmail.com" }).erreur, apiFamilleRetirer({ parent: "' + P2 + '" }).erreur, apiClasse({ classe: "CM1" }).ok, !!PropertiesService.getScriptProperties().getProperty("FAMILLE")]');
     ok(!!autre.r[0] && !!autre.r[1] && autre.r[2] === true && autre.r[3], 'autre parent : peut gérer (classe…), pas inviter ; ne crée ni ne remplace jamais le fichier de la famille');
     await ev('FAUX.etranger = true');
@@ -1146,10 +1158,11 @@ try {
     const razRefus = await ev('(() => { FAUX.proprio = false; PROPRIO_ = null; ACCES_ = null; const r = apiRemettreAZero({ resultats: true, confirmation: "Lana" }).erreur; FAUX.proprio = true; PROPRIO_ = null; ACCES_ = null; return [r, apiRemettreAZero({ resultats: true, confirmation: "Paul" }).erreur]; })()');
     ok(razRefus.r && razRefus.r.every(Boolean), 'remise à zéro : refusée à l\'autre parent et sans le bon prénom — ' + JSON.stringify(razRefus));
 
-    await ev(`apiFamilleRetirer({ parent: "${P2}" }); CacheService.getScriptCache().remove("famille")`);
+    const retire2 = (await ev(`[apiFamilleRetirer({ parent: "${P2}" }).ok, enfants_().map(x => x.prenom).join(), PropertiesService.getScriptProperties().getKeys().filter(k => k.indexOf("${H}|") === 0).length]`)).r;
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(!(await page.locator('#famille').isVisible()) && /seul ce site est inscrit/.test(await page.locator('#famille-reglages').innerText()), 'famille : un seul site inscrit → pas de sélecteur, Réglages explique comment l\'autre site apparaît');
+    ok(retire2[0] === true && retire2[1] === 'Lana' && retire2[2] === 0 && !(await page.locator('#famille').isVisible()) && /Un autre enfant/.test(await page.locator('#famille-reglages').innerText()),
+      'famille : enfant retiré (ses réglages effacés) → un seul enfant, pas de sélecteur, Réglages propose d\'en ajouter un — ' + JSON.stringify(retire2));
     const urls = await ev('[URL_SITE_.test("https://script.google.com/macros/s/AKfy-1_x/exec"), URL_SITE_.test("https://script.google.com/a/macros/ecole.fr/s/AKfy-1/exec"), URL_SITE_.test("https://script.google.com/macros/s/AKfy/exec?x=1")]');
     ok(urls.r.join() === 'true,true,false', 'famille : adresses des comptes Gmail et Google Workspace reconnues');
     await ev('CONFIG.espace = "enfant"');
@@ -1157,8 +1170,7 @@ try {
     ok(await page.evaluate(() => !('famille' in (window.__UQ || {}))), 'famille : rien n\'est envoyé au site de l\'enfant');
     const a = JSON.parse(avant);
     await ev(`CONFIG.espace = ${JSON.stringify(a.e)}; CONFIG.urlParent = ${JSON.stringify(a.u)}; CONFIG.prenom = ${JSON.stringify(a.p)};
-      ["GEMINI_CLE", "FAMILLE", "RACINE"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k));
-      ["famille", "famille-inscrit"].forEach(k => CacheService.getScriptCache().remove(k));`);
+      ["GEMINI_CLE", "FAMILLE", "RACINE", "ENFANTS"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); choisirEnfant_("");`);
     rmSync(join(DRIVE, 'SoccaQuiz – Hugo'), { recursive: true, force: true });
   }
 
@@ -1175,31 +1187,41 @@ try {
     return { dossier: i.dossier.getName(), ss: i.ss.getId() === ss.getId() };
   })()`);
   ok(ancien.r && ancien.r.dossier === 'Universal Quiz' && ancien.r.ss, 'site réinstallé : reprend l\'ancien dossier « Universal Quiz » et ses résultats');
-  // supprimer un enfant (Réglages) : ménage du Drive ici, puis retour à l'installateur ; les autres enfants ne sont pas touchés
+  // supprimer un enfant (Réglages) : un enfant parmi d'autres → seuls son dossier et ses réglages partent, le programme
+  // continue ; le dernier enfant → ménage du Drive ici, puis l'installateur retire les publications du programme
   {
-    const P1 = 'https://script.google.com/macros/s/LANA/exec', P2 = 'https://script.google.com/macros/s/HUGO/exec';
+    const P1 = 'https://script.google.com/macros/s/LANA/exec';
     await ev(`CONFIG.espace = "parent"; CONFIG.urlParent = "${P1}"; CONFIG.prenom = "Lana"; CONFIG.installateur = "https://script.google.com/macros/s/INSTALL/exec"; FAUX.proprio = true; FAUX.etranger = false; PROPRIO_ = null; ACCES_ = null;
-      ["famille", "famille-inscrit", "catalogue"].forEach(k => CacheService.getScriptCache().remove(k));
-      ecrireFamille_(d => { d.sites = [{ parent: "${P2}", prenom: "Hugo", classe: "CE1", dossier: DRV_.createFolder("SoccaQuiz – Hugo2").getId() }]; d.parents = ["julie@gmail.com"]; });`);
+      PropertiesService.getScriptProperties().deleteProperty("ENFANTS"); choisirEnfant_(""); CacheService.getScriptCache().remove("catalogue");`);
+    const H = (await ev('apiAjouterEnfant({ prenom: "Hugo", classe: "CE1" }).id')).r;
+    const avantS = (await ev(`({ lana: installer_().dossier.getId(), hugo: pourEnfant_("${H}", () => installer_().dossier.getId()) })`)).r;
     await page.goto(BASE + '/exec?supprimer=1');
     await page.locator('#box-suppr').waitFor({ timeout: 5000 });
     ok(await page.locator('#box-suppr').isVisible() && await page.locator('#p-reglages').isVisible(), 'supprimer : ouvert depuis l\'installateur, Réglages et encadré « Supprimer » affichés directement');
-    const avantS = (await ev('({ dossier: installer_().dossier.getId(), famille: lireFamille_().sites.map(x => x.prenom).join() })')).r;
     ok(await page.locator('#suppr-go').isDisabled(), 'supprimer : bouton grisé tant que le prénom n\'est pas tapé');
-    // l'installateur, chargé dans un cadre invisible, finit la suppression et prévient la page (faux installateur ici)
     let lien = '';
     await page.route('**/macros/s/INSTALL/exec**', route => { lien = route.request().url(); route.fulfill({ contentType: 'text/html',
       body: '<script>parent.postMessage({ uq: "suppr", etat: "ok", desinstalle: true, id: "projet-script" }, "*")</script>' }); });
     await page.fill('#suppr-confirmation', 'Lana');
     await page.locator('#suppr-go').click();
     await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const fin1 = await page.locator('#suppr-msg').innerText().catch(() => '');
+    const apres1 = (await ev(`({ lana: !!ouvrirDossier_(${JSON.stringify(avantS.lana)}), enfants: enfants_().map(x => x.prenom).join(), premier: [installer_().dossier.getId() === ${JSON.stringify(avantS.hugo)}, CONFIG.prenom, classe_()], prefixes: PropertiesService.getScriptProperties().getKeys().filter(k => /\\|/.test(k)).length })`)).r;
+    ok(!apres1.lana && apres1.enfants === 'Hugo' && apres1.premier.join() === 'true,Hugo,CE1' && apres1.prefixes === 0 && !lien && /n'est plus dans SoccaQuiz/.test(fin1) && /Rien ne change pour Hugo/.test(fin1) && await page.locator('#suppr-msg a', { hasText: 'Continuer avec Hugo' }).count() === 1,
+      'supprimer un enfant parmi d\'autres : son dossier à la corbeille, Hugo prend la première place (adresse sans « e »), programme gardé, pas d\'installateur — ' + JSON.stringify({ apres1, fin1 }));
+    // dernier enfant : comme avant, l'installateur termine (publications retirées : à refaire avec l'étape installateur)
+    await page.goto(BASE + '/exec?supprimer=1');
+    await page.locator('#box-suppr').waitFor({ timeout: 5000 });
+    await page.fill('#suppr-confirmation', 'Hugo');
+    await page.locator('#suppr-go').click();
+    await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const fin = await page.locator('#suppr-msg').innerText().catch(() => '');
     await page.unroute('**/macros/s/INSTALL/exec**');
-    const apresS = (await ev(`({ dossierVivant: !!ouvrirDossier_(${JSON.stringify(avantS.dossier)}), famille: lireFamille_().sites.map(x => x.prenom).join(), props: PropertiesService.getScriptProperties().getKeys ? PropertiesService.getScriptProperties().getKeys().length : -1, hugo: !!ouvrirDossier_(lireFamille_().sites[0] && lireFamille_().sites[0].dossier), programme: !!FAUX.programmeCorbeille, auth: !!FAUX.authRetiree })`)).r;
-    aRefaire('un programme par famille (supprimer un enfant ne touche plus au programme)', /Lana/.test(avantS.famille) && !apresS.dossierVivant && apresS.famille === 'Hugo' && apresS.hugo && /supprime=projet-script/.test(lien || ''),
-      'supprimer : dossier de Lana à la corbeille, Lana retirée de la famille, Hugo intact, lien « Terminer dans l\'installateur » — ' + JSON.stringify({ avantS, apresS, lien }));
-    aRefaire('installateur (le programme ne peut plus se mettre à la corbeille : publications retirées et code vidé)', apresS.programme && apresS.auth && /cadre=1/.test(lien) && /Le site de Lana est entièrement supprimé/.test(fin) && /programme du site mis à la corbeille/.test(fin) && /entièrement désinstallé/.test(fin) && /corbeille du Drive/.test(fin) && /clé Gemini/.test(fin) && !(await page.locator('#suppr-msg a[href*="INSTALL"]').count()) && !(await page.locator('iframe[title="Installateur"]').count()),
-      'supprimer : tout se termine sur la même page — programme à la corbeille, autorisation retirée, installateur fini dans un cadre invisible, sans bouton — ' + fin);
+    const apresS = (await ev(`({ hugo: !!ouvrirDossier_(${JSON.stringify(avantS.hugo)}), props: PropertiesService.getScriptProperties().getKeys().length, auth: !!FAUX.authRetiree })`)).r;
+    const versInstallateur = await page.locator('#suppr-msg a[href*="supprime="]').count();
+    ok(!apresS.hugo && apresS.auth && versInstallateur === 1, 'supprimer le dernier enfant : dossier à la corbeille, autorisation retirée, renvoi vers l\'installateur — ' + JSON.stringify({ apresS, versInstallateur }));
+    aRefaire('installateur (le programme ne peut plus se mettre à la corbeille : publications retirées et code vidé)', /programme du site mis à la corbeille/.test(fin) && /entièrement désinstallé/.test(fin),
+      'supprimer : tout se termine sur la même page, installateur fini dans un cadre invisible — ' + fin);
   }
 
   ok(erreursJs.length === 0, 'aucune erreur JavaScript' + (erreursJs.length ? ' :\n   ' + erreursJs.join('\n   ') : ''));

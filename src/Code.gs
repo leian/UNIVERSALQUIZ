@@ -47,6 +47,124 @@ const CONFIG = {
   classe: '',                     // classe de l'enfant à l'installation (PS … Tle, ou 'adulte') ; ensuite : Espace parent → Réglages
   classeAnnee: 0                  // année scolaire de cette classe (2026 = année 2026-2027)
 };
+/* ---------------- ENFANTS : un seul programme pour toute la famille ----------------
+   Un programme (une autorisation, une adresse) sert tous les enfants. L'enfant courant est choisi au début de
+   chaque demande : paramètre « e » de l'adresse (…/exec?e=<id>), corps de l'appel de l'appli, ou appel_() pour
+   les pages servies par Google. Les réglages propres à un enfant (CLES_ENFANT_) et la mémoire du serveur (cache_)
+   sont alors rangés sous « <id>| » ; le premier enfant garde les clés sans préfixe (sites d'avant, un seul
+   enfant : rien ne change). CONFIG (prénom, dossier, adresses, classe) est ajusté à l'enfant courant. */
+const CLES_ENFANT_ = ['DOSSIER', 'RESULTATS', 'EXEMPLE', 'CLASSE', 'CLASSE_ANNEE', 'GENRE', 'MASCOTTE', 'RAZ', 'SAISON_OFF'];
+const CHAMPS_ENFANT_ = ['prenom', 'nomDossier', 'urlEnfant', 'urlParent', 'classe', 'classeAnnee'];
+let ENFANT_ = null, PREMIER_CFG_ = null;
+function enfants_() {
+  const p = PropertiesService.getScriptProperties();
+  let l = null;
+  try { l = JSON.parse(p.getProperty('ENFANTS') || 'null'); } catch (e) { l = null; }
+  if (!Array.isArray(l) || !l.length || !l.every(x => x && /^[a-z0-9]{1,12}$/.test(String(x.id)))) {
+    l = [{ id: 'a', prenom: String((PREMIER_CFG_ || CONFIG).prenom || '') }];
+    p.setProperty('ENFANTS', JSON.stringify(l));
+  }
+  return l;
+}
+function ecrireEnfants_(l) { PropertiesService.getScriptProperties().setProperty('ENFANTS', JSON.stringify(l)); }
+function enfantId_() { return ENFANT_ || choisirEnfant_(''); }
+function estPremier_() { return enfantId_() === enfants_()[0].id; }
+const avecE_ = (url, id) => url ? url + (url.indexOf('?') < 0 ? '?' : '&') + 'e=' + encodeURIComponent(id) : '';
+/* réglages du premier enfant (ceux écrits dans CONFIG par l'installateur), même pendant qu'un autre est choisi */
+function cfgPremier_() { return PREMIER_CFG_ || CONFIG; }
+function choisirEnfant_(id) {
+  const l = enfants_(), x = l.find(y => y.id === String(id || '')) || l[0];
+  if (ENFANT_ !== x.id) { INST_ = null; LIGNES_ = null; }
+  ENFANT_ = x.id;
+  if (x.id === l[0].id) {
+    if (PREMIER_CFG_) { Object.assign(CONFIG, PREMIER_CFG_); PREMIER_CFG_ = null; }
+    if (x.force || (!CONFIG.prenom && x.prenom)) CONFIG.prenom = x.prenom;     // force : premier enfant remplacé par le suivant
+  } else {
+    if (!PREMIER_CFG_) { PREMIER_CFG_ = {}; CHAMPS_ENFANT_.forEach(k => { PREMIER_CFG_[k] = CONFIG[k]; }); }
+    Object.assign(CONFIG, {
+      prenom: x.prenom, nomDossier: 'SoccaQuiz – ' + x.prenom,
+      urlEnfant: avecE_(PREMIER_CFG_.urlEnfant, x.id), urlParent: avecE_(PREMIER_CFG_.urlParent, x.id),
+      classe: '', classeAnnee: 0
+    });
+  }
+  return ENFANT_;
+}
+/* fait quelque chose pour un autre enfant, puis revient à l'enfant courant */
+function pourEnfant_(id, fn) {
+  const avant = enfantId_(), inst = INST_, lignes = LIGNES_;
+  choisirEnfant_(id);
+  try { return fn(); } finally { choisirEnfant_(avant); INST_ = inst; LIGNES_ = lignes; }
+}
+function cleEnfant_(k) { return CLES_ENFANT_.indexOf(k) >= 0 && !estPremier_() ? enfantId_() + '|' + k : k; }
+/* propriétés du script vues depuis l'enfant courant */
+function props_() {
+  const p = PropertiesService.getScriptProperties();
+  const o = {
+    getProperty: k => p.getProperty(cleEnfant_(k)),
+    setProperty: (k, v) => { p.setProperty(cleEnfant_(k), v); return o; },
+    deleteProperty: k => { p.deleteProperty(cleEnfant_(k)); return o; },
+    setProperties: t => { const x = {}; Object.keys(t).forEach(k => { x[cleEnfant_(k)] = t[k]; }); p.setProperties(x); return o; },
+    getProperties: () => p.getProperties(),
+    deleteAllProperties: () => { p.deleteAllProperties(); return o; }
+  };
+  return o;
+}
+/* mémoire du serveur (CacheService) de l'enfant courant */
+function cache_() {
+  const c = CacheService.getScriptCache(), pre = estPremier_() ? '' : enfantId_() + '|';
+  const avec = k => pre + k, liste = l => (l || []).map(avec);
+  return {
+    get: k => c.get(avec(k)),
+    put: (k, v, d) => c.put(avec(k), v, d),
+    remove: k => c.remove(avec(k)),
+    removeAll: l => c.removeAll(liste(l)),
+    getAll: l => { const r = c.getAll(liste(l)) || {}, o = {}; (l || []).forEach(k => { if (r[avec(k)] != null) o[k] = r[avec(k)]; }); return o; },
+    putAll: (t, d) => { const x = {}; Object.keys(t).forEach(k => { x[avec(k)] = t[k]; }); c.putAll(x, d); }
+  };
+}
+/* site publié par l'installateur (adresses connues), quel que soit l'enfant choisi */
+function siteInstalle_() { return URL_SITE_.test(cfgPremier_().urlParent || ''); }
+/* appels des pages servies par Google pour un autre enfant que le premier (pont.html) */
+function appel_(enfant, nom, args) {
+  nom = String(nom || '');
+  if (!/^api[A-Z]\w{1,40}$/.test(nom) || typeof globalThis[nom] !== 'function') return { __status: 400, erreur: 'Action inconnue.' };
+  choisirEnfant_(enfant);
+  return globalThis[nom].apply(null, Array.isArray(args) ? args : []);
+}
+/* retirer un enfant du programme : ses réglages sont effacés (son dossier, lui, n'est pas touché ici).
+   Le premier enfant retiré, le suivant prend sa place (ses réglages passent sans préfixe) : l'adresse sans « e » reste valable. */
+function retirerEnfant_(id) {
+  const p = PropertiesService.getScriptProperties(), l = enfants_(), i = l.findIndex(x => x.id === id);
+  if (i < 0 || l.length < 2) return false;
+  if (i === 0) {
+    const n = l[1];
+    CLES_ENFANT_.forEach(k => { const v = p.getProperty(n.id + '|' + k); if (v != null) p.setProperty(k, v); else p.deleteProperty(k); p.deleteProperty(n.id + '|' + k); });
+    n.force = 1;
+  } else CLES_ENFANT_.forEach(k => p.deleteProperty(id + '|' + k));
+  l.splice(i, 1);
+  ecrireEnfants_(l);
+  return true;
+}
+/* ajouter un enfant (espace parent, parent qui a installé) : même programme, nouveau dossier et nouveaux tableaux */
+function apiAjouterEnfant(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut ajouter un enfant.' };
+  d = d || {};
+  const prenom = String(d.prenom || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  if (!prenom) return { erreur: 'Écris le prénom de l\'enfant.' };
+  const l = enfants_();
+  if (l.length >= 12) return { erreur: 'Douze enfants au plus.' };
+  if (l.some(x => String(x.prenom).toLowerCase() === prenom.toLowerCase())) return { erreur: prenom + ' est déjà dans la liste.' };
+  let id;
+  do { id = Utilities.getUuid().replace(/[^a-z0-9]/g, '').slice(0, 6); } while (!id || l.some(x => x.id === id));
+  l.push({ id, prenom });
+  ecrireEnfants_(l);
+  return pourEnfant_(id, () => {
+    if (d.classe) apiClasse({ classe: d.classe });
+    installer_();
+    return { ok: true, id, prenom, parent: CONFIG.urlParent, enfant: urlAppli_() || CONFIG.urlEnfant };
+  });
+}
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
 // Appli installable (dossier appli/, publiée sur leian.github.io/app/) : elle affiche le site de l'enfant dans un cadre
@@ -56,9 +174,14 @@ const ORIGINE_APPLI = 'https://leian.github.io';
 let CADRE_ = false;                    // remis à zéro dans doGet
 let CLASSIQUE_ = false;                // …?classique=1 : site affiché hors de l'appli (secours, interrupteur "off")
 /* adresse de l'appli pour le site de l'enfant : …/app/?s=<identifiant de son déploiement> ('' si inconnue) */
-function urlAppli_() {
-  const m = String(CONFIG.urlEnfant || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
+function urlAppliBase_() {
+  const m = String(cfgPremier_().urlEnfant || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
   return m ? ORIGINE_APPLI + '/app/?s=' + m[1] : '';
+}
+// pour un autre enfant que le premier, l'appli ouvre le site avec …?e=<id> (paramètre q de l'appli)
+function urlAppli_() {
+  const b = urlAppliBase_();
+  return b && !estPremier_() ? b + '&q=' + encodeURIComponent('e=' + enfantId_()) : b;
 }
 /* Le bandeau « Cette application a été créée par un utilisateur de Google Apps Script » n'est affiché par Google
    que lorsque l'adresse script.google.com du site est ouverte directement ; dans le cadre de l'appli, il n'y est pas.
@@ -73,7 +196,7 @@ function requete_(p) {
     .map(k => encodeURIComponent(k) + '=' + encodeURIComponent(p[k])).join('&');
 }
 function versAppli_(p) {
-  const appli = urlAppli_();
+  const appli = urlAppliBase_();      // le paramètre e de l'enfant est déjà dans la requête
   if (!estEnfant_() || CADRE_ || CLASSIQUE_ || !appli) return null;
   const q = requete_(p);
   const cible = appli + (q ? '&q=' + encodeURIComponent(q) : '');
@@ -122,19 +245,19 @@ function estProprietaire_() {
 }
 /* adresse du parent qui a installé : notée quand le programme s'exécute avec son compte (éditeur, site de l'enfant) */
 function proprio_() {
-  const props = PropertiesService.getScriptProperties();
+  const props = props_();
   let p = props.getProperty('PROPRIO');
   if (!p && CONFIG.espace !== 'parent') try { p = String(Session.getEffectiveUser().getEmail() || '').toLowerCase(); if (p) props.setProperty('PROPRIO', p); } catch (e) {}
   return p || '';
 }
 function accesParent_() {
-  if (ACCES_ === null) ACCES_ = CONFIG.espace !== 'parent' || estProprietaire_() || !!ouvrirDossier_(PropertiesService.getScriptProperties().getProperty('DOSSIER'));
+  if (ACCES_ === null) ACCES_ = CONFIG.espace !== 'parent' || estProprietaire_() || !!ouvrirDossier_(props_().getProperty('DOSSIER'));
   return ACCES_;
 }
 function interdit_() { return estEnfant_() || !accesParent_(); }
 const PAS_PARTAGE = 'Cet espace parent ne t\'est pas partagé. Demande au parent qui a installé SoccaQuiz de t\'inviter (Espace parent → Réglages → Autre parent), puis ouvre le lien avec le compte Google invité.';
 function urlIci_() {
-  return (estEnfant_() ? CONFIG.urlEnfant : CONFIG.espace === 'parent' ? CONFIG.urlParent : '') || ScriptApp.getService().getUrl() || '';
+  return (estEnfant_() ? CONFIG.urlEnfant : CONFIG.espace === 'parent' ? CONFIG.urlParent : '') || (estPremier_() ? ScriptApp.getService().getUrl() : avecE_(ScriptApp.getService().getUrl(), enfantId_())) || '';
 }
 const COMMUN = {
   'moteur-quiz.css': 'lib/moteur-quiz-css',
@@ -167,6 +290,7 @@ function doGet(e) {
   SAISON_FORCEE = SAISONS.indexOf(p.saison) >= 0 ? p.saison : '';
   CLES_PAGE_ = null;     // …/exec?saison=noel : aperçu d'une saison
   INST_ = null; LIGNES_ = null; PROPRIO_ = null; ACCES_ = null; DEMANDE_SUPPR_ = false;
+  choisirEnfant_(p.e);
   CADRE_ = p.cadre === '1' && CONFIG.espace !== 'parent';
   CLASSIQUE_ = p.classique === '1';
   REQUETE_ = requete_(p);
@@ -179,6 +303,7 @@ function doGet(e) {
     if (!accesParent_()) return pageErreur_('Espace non partagé', PAS_PARTAGE);
     // …?oublier=<espace parent d'un site supprimé> : lien donné par l'installateur après une suppression faite sans passer par ce site
     if (p.oublier && !estEnfant_() && estProprietaire_() && URL_SITE_.test(String(p.oublier)) && p.oublier !== CONFIG.urlParent) try { ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== p.oublier); }); } catch (e) {}
+    else if (p.oublier && !estEnfant_() && estProprietaire_()) try { apiFamilleRetirer({ parent: String(p.oublier) }); } catch (e) {}
     DEMANDE_SUPPR_ = !!p.supprimer;
     const inst = installer_();
     chrono_('ouverture');
@@ -245,6 +370,7 @@ function doPost(e) {
   let o = null;
   try { o = JSON.parse(e && e.postData && e.postData.contents || 'null'); } catch (err) {}
   if (!o || typeof o !== 'object') return reponseJson_({ v: API_V, __status: 400, erreur: 'Demande illisible.' });
+  choisirEnfant_(o.e || (e && e.parameter && e.parameter.e));
   try {
     if (o.api === 'enregistrer') return reponseJson_(Object.assign({ v: API_V }, apiEnregistrer(typeof o.d === 'string' ? o.d : JSON.stringify(o.d || {}))));
     if (o.api === 'signaler') return reponseJson_(Object.assign({ v: API_V }, apiSignaler(o.d && typeof o.d === 'object' ? o.d : {})));
@@ -284,11 +410,11 @@ function diagnostic() {
    ===================================================================== */
 let INST_ = null, LIGNES_ = null;      // gardés le temps d'une exécution (remis à zéro dans doGet)
 function installer_() {
-  const props = PropertiesService.getScriptProperties(), idD = props.getProperty('DOSSIER'), idS = props.getProperty('RESULTATS'), cle = idD + '|' + idS;
+  const props = props_(), idD = props.getProperty('DOSSIER'), idS = props.getProperty('RESULTATS'), cle = idD + '|' + idS;
   if (INST_ && INST_.cle === cle) return INST_.r;
   // espace parent : seul un visiteur qui a accès au dossier passe (les données en cache ne passent pas par Drive)
   if (CONFIG.espace === 'parent' && !accesParent_()) throw new Error(PAS_PARTAGE);
-  const cache = CacheService.getScriptCache();
+  const cache = cache_();
   let r;
   if (idD && idS && cache.get('inst') === cle) {
     // vérifiés il y a moins de 10 minutes : ouverts seulement si la page en a besoin (souvent, tout vient du cache)
@@ -306,7 +432,7 @@ function installer_() {
   return r;
 }
 function installer0_() {
-  const props = PropertiesService.getScriptProperties();
+  const props = props_();
   let dossier = ouvrirDossier_(props.getProperty('DOSSIER'));
   let ss = ouvrirSheets_(props.getProperty('RESULTATS'));
   if (dossier && ss) return { dossier, ss };
@@ -383,6 +509,9 @@ function reglagesPage_(page, inst, cat) {
     espace: CONFIG.espace,
     urlEnfant: CONFIG.urlEnfant,
     urlParent: CONFIG.urlParent,
+    urlEnfantBase: cfgPremier_().urlEnfant,      // adresse Google du site, sans l'enfant (liens vers l'appli)
+    appliBase: urlAppliBase_(),
+    enfant: estPremier_() ? '' : enfantId_(),
     page: page,
     chemin: '/' + page + '.html',
     liens: cat.liens,
@@ -395,7 +524,7 @@ function reglagesPage_(page, inst, cat) {
     maitrise: page === 'ajouter' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
     saison: saison_(),
     saisonDuJour: saisonDe_(),
-    saisonActive: PropertiesService.getScriptProperties().getProperty('SAISON_OFF') !== '1',
+    saisonActive: props_().getProperty('SAISON_OFF') !== '1',
     mascotte: mascotte_(),
     mascottes: MASCOTTES_LYCEE,
     genre: genreReglage_(),                 // réglage du parent : auto, f, m, n
@@ -403,7 +532,7 @@ function reglagesPage_(page, inst, cat) {
     genreEffectif: genre_(),
     genresDessines: GENRES_DESSINES,
     genresSaisons: GENRES_SAISONS,
-    raz: PropertiesService.getScriptProperties().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
+    raz: props_().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
   if (resultats) cfg.resultats = resultats;
@@ -417,7 +546,7 @@ function reglagesPage_(page, inst, cat) {
   if (CONFIG.espace === 'parent' || !CONFIG.espace && page === 'tableau-de-bord') cfg.geminiOk = !!cleGemini_();
   if (page === 'ajouter' && !estEnfant_()) cfg.gemini = cleGemini_();
   // espace parent : les autres enfants de la famille (sélecteur en haut, « ajouter aussi pour… »)
-  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0 && URL_SITE_.test(CONFIG.urlParent || '')) {
+  if (!estEnfant_() && ['index', 'tableau-de-bord'].indexOf(page) >= 0 && siteInstalle_()) {
     cfg.proprio = estProprietaire_();
     if (DEMANDE_SUPPR_) cfg.demandeSuppression = true;    // ouvert par l'installateur (« Supprimer … ») : Réglages → Supprimer
     if (cfg.proprio) try { cfg.parents = parentsDe_(lireFamille_()); cfg.liensParent = liensParent_(); } catch (e) { cfg.parents = []; }
@@ -522,11 +651,11 @@ function lib_(nom, avecPrenom) {
    dossier, s'il existe, fournit les descriptions et badges exacts.
    ===================================================================== */
 function catalogue_(dossier) {
-  const cache = CacheService.getScriptCache();
+  const cache = cache_();
   const enCache = cache.get('catalogue');
   if (enCache) return JSON.parse(enCache);
 
-  const props = PropertiesService.getScriptProperties();
+  const props = props_();
   const toutes = props.getProperties();
   const aEcrire = {};
   const QUIZ = [];
@@ -684,7 +813,7 @@ function apiEnregistrer(brut) {
   // identifiant envoyé par l'appareil : une partie renvoyée (page fermée pendant l'envoi, deux onglets) n'est pas comptée deux fois
   const idApp = String(r._id || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 24);
   const id = 'r:' + date + ':' + (idApp || Math.random().toString(36).slice(2, 8));
-  const cache = CacheService.getScriptCache();
+  const cache = cache_();
   // pas plus de 40 parties par minute depuis le lien de l'enfant (le Sheets ne doit pas pouvoir être rempli sans fin)
   const minute = 'n' + Math.floor(Date.now() / 60000), nb = +(cache.get(minute) || 0);
   if (nb >= 40) return { __status: 429, erreur: 'Trop de parties en même temps : réessaie dans une minute.' };
@@ -768,7 +897,7 @@ function questionRatee_(o) {
 const DELAIS_REVISION = [1, 3, 7, 21];
 const MOIS_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
 function revisions_(maintenant) {
-  const cache = CacheService.getScriptCache();
+  const cache = cache_();
   if (!maintenant) { const c = lireCache_('revisions'); if (c) return c; }
   const gen = cache.get('gen') || '';
   const now = maintenant || new Date(), JOUR = 864e5;
@@ -804,7 +933,7 @@ function revisions_(maintenant) {
    Les réponses données dans « Mes révisions » et le défi comptent pour le quiz d'origine. */
 const NIVEAUX = ['Découverte', 'En progrès', 'Acquis', 'Maîtrisé'];
 function maitrise_() {
-  const cache = CacheService.getScriptCache();
+  const cache = cache_();
   const c = lireCache_('maitrise'); if (c) return c;
   const gen = cache.get('gen') || '';
   const origine = dict_(), notions = dict_(), questions = dict_(), titres = dict_();
@@ -897,7 +1026,7 @@ function apiLister(q) {
 function listeResumee_() {
   const enCache = lireCache_('liste');
   if (enCache) return enCache;
-  const gen = CacheService.getScriptCache().get('gen') || '';
+  const gen = cache_().get('gen') || '';
   const liste = lireLignes_().map(l => ({
     id: l.id, date: l.date, quiz: l.quiz, titre: l.titre, matiere: l.matiere,
     score: +l.score || 0, total: +l.total || 0, duree: l.duree === '' ? null : +l.duree,
@@ -922,7 +1051,7 @@ function apiSupprimer(id) {
       if (ids[i][0] === id) {
         sh.deleteRow(i + 2);
         LIGNES_ = null;
-        try { CacheService.getScriptCache().removeAll(['revisions', 'maitrise', 'liste']); } catch (e) {}
+        try { cache_().removeAll(['revisions', 'maitrise', 'liste']); } catch (e) {}
         return { ok: true };
       }
     }
@@ -1020,7 +1149,7 @@ function apiSignaler(d) {
   if (!page || !question) return { erreur: 'Signalement incomplet.' };
   const motif = ['reponse', 'question', 'rappel', 'autre'].indexOf(d.motif) >= 0 ? d.motif : 'autre';
   // lien de l'enfant (accès sans compte) : 10 signalements par tranche de 10 minutes, 100 en attente au plus
-  const cache = CacheService.getScriptCache(), cle = 'signal-' + Math.floor(Date.now() / 6e5);
+  const cache = cache_(), cle = 'signal-' + Math.floor(Date.now() / 6e5);
   const n = +(cache.get(cle) || 0);
   if (enfant && n >= 10) return { erreur: 'Beaucoup de signalements en ce moment : réessaie plus tard.' };
   cache.put(cle, String(n + 1), 900);
@@ -1126,7 +1255,7 @@ const COULEURS_ = { francais: '#2563eb', maths: '#c2410c', sciences: '#15803d', 
 const CLASSES = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle'];
 function anneeScolaire_(d) { d = d || new Date(); return d.getMonth() >= 8 ? d.getFullYear() : d.getFullYear() - 1; }
 function classe_() {
-  const p = PropertiesService.getScriptProperties();
+  const p = props_();
   const c = p.getProperty('CLASSE') || CONFIG.classe || '';
   if (c === 'adulte') return c;
   const i = CLASSES.indexOf(c);
@@ -1143,11 +1272,11 @@ function apiClasse(d) {
   if (interdit_()) return refusEnfant_();
   const c = String((d && d.classe) || '');
   if (c && c !== 'adulte' && CLASSES.indexOf(c) < 0) return { erreur: 'Classe inconnue.' };
-  const p = PropertiesService.getScriptProperties();
+  const p = props_();
   if (c) p.setProperties({ CLASSE: c, CLASSE_ANNEE: String(anneeScolaire_()) });
   else { p.deleteProperty('CLASSE'); p.deleteProperty('CLASSE_ANNEE'); }
   const classe = classe_();
-  try { CacheService.getScriptCache().remove('famille-inscrit'); inscrireFamille_(installer_()); } catch (e) {}
+  try { cache_().remove('famille-inscrit'); inscrireFamille_(installer_()); } catch (e) {}
   return { ok: true, classe, theme: themeDe_(classe) };
 }
 
@@ -1156,14 +1285,14 @@ function apiClasse(d) {
    Images : docs/themes/lycee-<mascotte>/ ; la première de la liste sert par défaut. */
 const MASCOTTES_LYCEE = ['gothique', 'rap'];
 function mascotte_() {
-  const m = PropertiesService.getScriptProperties().getProperty('MASCOTTE');
+  const m = props_().getProperty('MASCOTTE');
   return MASCOTTES_LYCEE.indexOf(m) >= 0 ? m : MASCOTTES_LYCEE[0];
 }
 function apiMascotte(d) {
   if (interdit_()) return refusEnfant_();
   const m = String((d && d.mascotte) || '');
   if (MASCOTTES_LYCEE.indexOf(m) < 0) return { erreur: 'Mascotte inconnue.' };
-  PropertiesService.getScriptProperties().setProperty('MASCOTTE', m);
+  props_().setProperty('MASCOTTE', m);
   return { ok: true, mascotte: m };
 }
 
@@ -1197,7 +1326,7 @@ function genreDuPrenom_(prenom) {
   return 'n';
 }
 function genreReglage_() {
-  const g = PropertiesService.getScriptProperties().getProperty('GENRE');
+  const g = props_().getProperty('GENRE');
   return GENRES.indexOf(g) >= 0 ? g : 'auto';
 }
 function genre_() {                    // allure effective : 'f', 'm' ou 'n'
@@ -1208,7 +1337,7 @@ function apiGenre(d) {
   if (interdit_()) return refusEnfant_();
   const g = String((d && d.genre) || '');
   if (GENRES.indexOf(g) < 0) return { erreur: 'Choix inconnu.' };
-  const p = PropertiesService.getScriptProperties();
+  const p = props_();
   if (g === 'auto') p.deleteProperty('GENRE'); else p.setProperty('GENRE', g);
   return { ok: true, genre: g, effectif: genre_() };
 }
@@ -1240,11 +1369,11 @@ function saisonDe_(d) {
 }
 function saison_() {
   if (SAISON_FORCEE) return SAISON_FORCEE;
-  return PropertiesService.getScriptProperties().getProperty('SAISON_OFF') === '1' ? '' : saisonDe_();
+  return props_().getProperty('SAISON_OFF') === '1' ? '' : saisonDe_();
 }
 function apiSaison(d) {
   if (interdit_()) return refusEnfant_();
-  const p = PropertiesService.getScriptProperties();
+  const p = props_();
   if (d && d.active === false) p.setProperty('SAISON_OFF', '1'); else p.deleteProperty('SAISON_OFF');
   return { ok: true, saison: saison_(), active: !(d && d.active === false) };
 }
@@ -1252,12 +1381,10 @@ function apiSaison(d) {
 function apiGeminiCle(d) {
   if (interdit_()) return refusEnfant_();
   const cle = String((d && d.cle) || '').trim();
-  const props = PropertiesService.getScriptProperties();
+  const props = props_();
   if (cle && !CLE_GEMINI_.test(cle)) return { erreur: "Ce n'est pas une clé Gemini." };
   if (cle) props.setProperty('GEMINI_CLE', cle); else props.deleteProperty('GEMINI_CLE');
-  // la même clé sert à tous les enfants de la famille
-  if (CONFIG.urlParent) try { ecrireFamille_(f => { if (cle) f.gemini = cle; else delete f.gemini; }); } catch (e) {}
-  return { ok: true };
+  return { ok: true };      // propriété commune du programme : la même clé sert à tous les enfants
 }
 // nom d'un dessin du catalogue du moteur (moteur/commun/dessins.js) : img=labo:becher, propositions « danger:corrosif »…
 const DESSIN_ = /^(?:(?:labo|danger|protection|etat):[a-z]{2,20}|heure:\d{1,2}h\d{2}(?:,\d{1,2}h\d{2}){0,3}|nombre:\d{1,12})$/;
@@ -1265,11 +1392,7 @@ const DESSIN_ = /^(?:(?:labo|danger|protection|etat):[a-z]{2,20}|heure:\d{1,2}h\
 const NOTE_ = /^([A-Ga-g]|do|ut|r[eé]|mi|fa|sol|la|si)[#b♯♭]?\d?(\*\d*\.?\d+)?[\^_]?$/i;
 const CLE_GEMINI_ = /^(AIza|AQ\.)[\w.\-]{25,200}$/;
 // clé du site, sinon celle de la famille (saisie dans l'espace parent d'un autre enfant)
-function cleGemini_() {
-  const propre = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
-  if (propre || !CONFIG.urlParent) return propre || '';
-  try { const g = lireFamille_().gemini; return CLE_GEMINI_.test(g || '') ? g : ''; } catch (e) { return ''; }
-}
+function cleGemini_() { return props_().getProperty('GEMINI_CLE') || ''; }
 
 /* ---------------- famille : un seul espace parent pour plusieurs enfants ----------------
    Chaque site (un par enfant, même compte Google) s'inscrit dans le fichier « SoccaQuiz – Famille.json »
@@ -1281,7 +1404,7 @@ const NOM_FAMILLE = 'SoccaQuiz – Famille.json';
 // comptes Gmail : …/macros/s/ID/exec ; comptes Google Workspace : …/a/macros/domaine/s/ID/exec
 const URL_SITE_ = /^https:\/\/script\.google\.com\/(a\/macros\/[\w.\-]+|macros)\/s\/[\w\-]+\/exec$/;
 function fichierFamille_(creer) {
-  const p = PropertiesService.getScriptProperties(), id = p.getProperty('FAMILLE');
+  const p = props_(), id = p.getProperty('FAMILLE');
   let f = null;
   if (id) try { f = DRV_.getFileById(id); if (f.isTrashed()) f = null; } catch (e) { f = null; }
   if (!f && (CONFIG.espace !== 'parent' || estProprietaire_())) { const it = DRV_.getRootFolder().getFilesByName(NOM_FAMILLE); while (!f && it.hasNext()) { const x = it.next(); if (!x.isTrashed()) f = x; } }
@@ -1309,41 +1432,18 @@ function ecrireFamille_(modifier) {
     modifier(d);
     f.setContent(JSON.stringify(d, null, 1));
   } finally { verrou.releaseLock(); }
-  CacheService.getScriptCache().remove('famille');
+  cache_().remove('famille');
 }
-// le site se (ré)inscrit au plus toutes les 6 heures, et tout de suite après un changement de classe
-function inscrireFamille_(inst) {
-  if (!URL_SITE_.test(CONFIG.urlParent || '')) return;      // site installé à la main : pas de famille
-  if (CONFIG.espace === 'parent' && !estProprietaire_()) return;   // l'autre parent n'inscrit rien
-  const cache = CacheService.getScriptCache();
-  if (cache.get('famille-inscrit')) return;
-  const moi = { parent: CONFIG.urlParent, enfant: CONFIG.urlEnfant || '', prenom: CONFIG.prenom || '', classe: classe_(), dossier: inst.dossier.getId() };
-  let parents = [];
-  ecrireFamille_(d => {
-    const i = d.sites.findIndex(x => x.parent === moi.parent || x.dossier === moi.dossier);   // site réinstallé : même dossier
-    if (i >= 0) d.sites[i] = moi; else d.sites.push(moi);
-    parents = parentsDe_(d);
-    // clé Gemini enregistrée avant le partage en famille (v2.60) : elle est recopiée pour les autres enfants
-    const propre = PropertiesService.getScriptProperties().getProperty('GEMINI_CLE');
-    if (propre && !CLE_GEMINI_.test(d.gemini || '')) d.gemini = propre;
-  });
-  // nouvel enfant ajouté après l'invitation : son dossier est partagé lui aussi avec l'autre parent
-  if (parents.length) partager_(inst.dossier, parents, true);
-  cache.put('famille-inscrit', '1', 21600);
-}
-// enfants de la famille dont le dossier existe encore (site supprimé : il disparaît de la liste)
+// les enfants sont tous dans ce programme : plus d'inscription dans un fichier de la famille
+function inscrireFamille_() {}
+// enfants de la famille (ce programme) : prénom, classe, espace parent de chacun, dossier de ses quiz
 function familleListe_() {
-  if (!URL_SITE_.test(CONFIG.urlParent || '')) return [];
-  const cache = CacheService.getScriptCache(), enCache = cache.get('famille');
-  let l = null;
-  if (enCache) try { l = JSON.parse(enCache); } catch (e) { l = null; }
-  if (!l) {
-    l = lireFamille_().sites.filter(x => URL_SITE_.test(String(x.parent || '')) && (x.parent === CONFIG.urlParent || (() => {
-      try { return !DRV_.getFolderById(String(x.dossier)).isTrashed(); } catch (e) { return false; }
-    })())).map(x => ({ prenom: String(x.prenom || '').slice(0, 40), classe: String(x.classe || '').slice(0, 10), parent: x.parent, dossier: String(x.dossier || '') }));
-    try { cache.put('famille', JSON.stringify(l), 60); } catch (e) {}      // court : une classe changée chez un autre enfant apparaît vite
-  }
-  return l.map(x => Object.assign(x, { ici: x.parent === CONFIG.urlParent }));
+  const ici = enfantId_();
+  return enfants_().map(x => pourEnfant_(x.id, () => {
+    let dossier = '';
+    try { dossier = String(props_().getProperty('DOSSIER') || ''); } catch (e) {}
+    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: CONFIG.urlParent || urlIci_(), dossier, ici: x.id === ici };
+  }));
 }
 
 /* une question du quiz (format JSON interne), vérifiée et nettoyée ; null si elle est inutilisable.
@@ -1550,7 +1650,7 @@ function dossiersFamille_() {
 function apiInviterParent(d) {
   if (interdit_()) return refusEnfant_();
   if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut inviter quelqu\'un.' };
-  if (!URL_SITE_.test(CONFIG.urlParent || '')) return { erreur: 'Mets d\'abord ton site à jour depuis l\'installateur.' };
+  if (!siteInstalle_()) return { erreur: 'Mets d\'abord ton site à jour depuis l\'installateur.' };
   const email = String((d && d.email) || '').trim().toLowerCase();
   if (!EMAIL_.test(email)) return { erreur: 'Adresse e-mail invalide.' };
   dossiersFamille_().forEach(x => partager_(x, [email], true));
@@ -1579,7 +1679,7 @@ function apiRemettreAZero(d) {
   const attendu = String(CONFIG.prenom || 'zéro').trim().toLowerCase(), donne = String(d.confirmation || '').trim().toLowerCase();
   if (!donne || donne !== attendu) return { erreur: 'Pour confirmer, tape « ' + (CONFIG.prenom || 'zéro') + ' ».' };
   if (!d.resultats && !d.quiz) return { erreur: 'Coche au moins une case.' };
-  const inst = installer_(), props = PropertiesService.getScriptProperties(), cache = CacheService.getScriptCache(), fait = [];
+  const inst = installer_(), props = props_(), cache = cache_(), fait = [];
   if (d.resultats) {
     const date = Utilities.formatDate(new Date(), Session.getScriptTimeZone() || 'Europe/Paris', 'dd/MM/yyyy');
     DRV_.getFileById(inst.ss.getId()).setName(NOM_SHEETS + ' (archive du ' + date + ')');
@@ -1610,7 +1710,16 @@ function apiSupprimerSite(d) {
   d = d || {};
   const attendu = String(CONFIG.prenom || 'supprimer').trim().toLowerCase();
   if (String(d.confirmation || '').trim().toLowerCase() !== attendu) return { erreur: 'Pour confirmer, tape « ' + (CONFIG.prenom || 'supprimer') + ' ».' };
-  const inst = installer_(), props = PropertiesService.getScriptProperties();
+  const inst = installer_(), props = props_();
+  // un enfant parmi d'autres : seuls son dossier et ses réglages partent ; le programme continue pour les autres
+  if (enfants_().length > 1) {
+    if (!d.garder) inst.dossier.setTrashed(true);
+    try { const c = cache_(); c.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst']); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
+    const id = enfantId_(), prenom = CONFIG.prenom;
+    retirerEnfant_(id);
+    choisirEnfant_('');
+    return { ok: true, garde: !!d.garder, retour: '', enfant: prenom, reste: enfants_().map(x => x.prenom), parent: CONFIG.urlParent };
+  }
   let parents = [], reste = 0;
   try {
     const fam = fichierFamille_(false);
@@ -1622,7 +1731,7 @@ function apiSupprimerSite(d) {
   if (parents.length) partager_(inst.dossier, parents, false);
   if (!d.garder) inst.dossier.setTrashed(true);                    // quiz et tableau des résultats : corbeille du Drive (30 jours)
   props.deleteAllProperties();
-  try { const c = CacheService.getScriptCache(); c.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst', 'famille', 'famille-inscrit']); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
+  try { const c = cache_(); c.removeAll(['catalogue', 'revisions', 'maitrise', 'liste', 'inst', 'famille', 'famille-inscrit']); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
   // désinstallation complète : le programme du site (un fichier du Drive) part lui aussi à la corbeille,
   // ce qui arrête ses deux adresses, puis le site retire l'autorisation que le parent lui avait donnée
   let programme = false;
@@ -1642,9 +1751,10 @@ function liensParent_() {
 function apiFamilleRetirer(d) {
   if (interdit_()) return refusEnfant_();
   if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut modifier la liste.' };
-  const url = String((d && d.parent) || '');
-  if (!url || url === CONFIG.urlParent) return { erreur: 'Ce site ne peut pas être retiré d\'ici.' };
-  ecrireFamille_(f => { f.sites = f.sites.filter(x => x.parent !== url); });
+  const url = String((d && d.parent) || ''), l = enfants_();
+  const x = familleListe_().find(y => y.parent === url || y.id === url);
+  if (!x || x.ici || x.id === l[0].id) return { erreur: 'Ce site ne peut pas être retiré d\'ici.' };
+  retirerEnfant_(x.id);
   return { ok: true };
 }
 
@@ -1655,8 +1765,10 @@ function copierAussi_(aussi, titre, html) {
   const faits = [];
   familleListe_().forEach(x => {
     if (x.ici || aussi.indexOf(x.parent) < 0) return;
-    try { const d = DRV_.getFolderById(x.dossier); d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML); faits.push(x.prenom || 'un autre enfant'); }
-    catch (e) { console.error(e); }
+    try {
+      pourEnfant_(x.id, () => { const d = installer_().dossier; d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML); viderCatalogue_(); });
+      faits.push(x.prenom || 'un autre enfant');
+    } catch (e) { console.error(e); }
   });
   return faits;
 }
@@ -1815,7 +1927,7 @@ function dict_() { return Object.create(null); }      // objet sans prototype : 
    (90 Ko au plus en UTF-8), la clé principale ne gardant que « #<nombre de morceaux> ». 20 morceaux au plus. */
 function mettreEnCache_(cle, valeur, gen, duree) {
   try {
-    const t = JSON.stringify(valeur), c = CacheService.getScriptCache(), d = duree || 600;
+    const t = JSON.stringify(valeur), c = cache_(), d = duree || 600;
     if (gen !== undefined && (c.get('gen') || '') !== gen) return;      // une partie a été enregistrée pendant le calcul
     if (t.length <= 30000) { c.put(cle, t, d); return; }
     const n = Math.ceil(t.length / 30000);
@@ -1828,7 +1940,7 @@ function mettreEnCache_(cle, valeur, gen, duree) {
 }
 function lireCache_(cle) {
   try {
-    const c = CacheService.getScriptCache(), v = c.get(cle);
+    const c = cache_(), v = c.get(cle);
     if (!v) return null;
     if (v.charAt(0) !== '#') return JSON.parse(v);
     const n = +v.slice(1), cles = [];
@@ -1841,11 +1953,11 @@ function lireCache_(cle) {
 }
 /* liste des quiz modifiée : catalogue et pages de quiz gardés en cache sont oubliés (le numéro qgen change) */
 function viderCatalogue_() {
-  try { const c = CacheService.getScriptCache(); c.remove('catalogue'); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
+  try { const c = cache_(); c.remove('catalogue'); c.put('qgen', String(Date.now()), 21600); } catch (e) {}
 }
 /* contenu d'un quiz du dossier, gardé 5 minutes (une recherche dans Drive coûte souvent plus d'une demi-seconde) */
 function quizEnCache_(inst, page) {
-  const cle = 'qz:' + (CacheService.getScriptCache().get('qgen') || '') + ':' + page;
+  const cle = 'qz:' + (cache_().get('qgen') || '') + ':' + page;
   const v = lireCache_(cle);
   if (typeof v === 'string') return v;
   const f = trouverQuiz_(inst.dossier, page);
@@ -1992,7 +2104,7 @@ function creerFichierVirtuel_(sid, nom, contenu) {
 /* tableau des quiz d'un dossier (créé à la demande, avec son onglet « Fichiers ») */
 const TABLEUR_QUIZ_ = {};
 /* Google repart de zéro à chaque exécution ; la simulation des tests, non : elle appelle ceci avant chaque demande */
-function reinitStockage_() { [STOCKS_, TABLEUR_QUIZ_].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); }
+function reinitStockage_() { [STOCKS_, TABLEUR_QUIZ_].forEach(o => Object.keys(o).forEach(k => { delete o[k]; })); INST_ = null; LIGNES_ = null; choisirEnfant_(''); }
 function tableurQuiz_(dossierId, creer) {
   if (TABLEUR_QUIZ_[dossierId]) return TABLEUR_QUIZ_[dossierId];
   const props = PropertiesService.getScriptProperties(), cle = 'QUIZ:' + dossierId;

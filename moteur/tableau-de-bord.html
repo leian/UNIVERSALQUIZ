@@ -920,9 +920,9 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   })();
 })();
 
-/* famille : passer à l'espace parent d'un autre enfant (même compte Google) */
+/* famille : tous les enfants sont dans le même programme ; passer de l'un à l'autre, en ajouter un */
 (() => {
-  const l = (window.__UQ && window.__UQ.famille) || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
+  const U = window.__UQ || {}, l = U.famille || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
   if (!el || !r || !l.length) return;
   const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
   if (l.length > 1) {
@@ -930,19 +930,24 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
     el.hidden = false;
   }
-  // Réglages : qui est inscrit dans la famille ; retirer un site supprimé depuis l'installateur (son lien ne marche plus)
   r.innerHTML = (l.length > 1
-      ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe d'un espace parent à l'autre. Un site supprimé depuis l'installateur peut rester dans la liste : retire-le ici.</p>"
-      : "<p style=\"margin:0 0 8px\">Pour l'instant, seul ce site est inscrit. Un autre site de ton compte apparaît ici, et dans le sélecteur « Enfant : » en haut de page, dès qu'il a été <b>mis à jour</b> (version 2.60 ou plus) puis <b>ouvert une fois</b> (son espace parent ou le lien de l'enfant).</p>") +
-    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(ce site)</small>" : (window.__UQ || {}).proprio === false ? "" : ` <button type="button" class="btn" data-retirer="${esc(x.parent)}">Retirer de la liste</button>`}</p>`).join("");
+      ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe de l'un à l'autre. Chaque enfant a ses quiz, ses résultats, sa classe et son lien.</p>"
+      : "<p style=\"margin:0 0 8px\">Un autre enfant ? Ajoute-le ici : il aura ses propres quiz, ses résultats, sa classe et son lien, sans rien réinstaller.</p>") +
+    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(affiché)</small>" : ""}</p>`).join("") +
+    (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>`);
   document.getElementById("box-famille").hidden = false;
-  r.addEventListener("click", ev => {
-    const b = ev.target.closest("[data-retirer]"); if (!b) return;
-    b.disabled = true;
+  const bt = document.getElementById("ajouter-enfant");
+  if (bt) bt.addEventListener("click", () => {
+    const champ = document.getElementById("nouvel-enfant"), msg = document.getElementById("enfant-msg");
+    if (!champ.value.trim()) { champ.focus(); return; }
+    bt.disabled = true; msg.innerHTML = "<p class=\"small\">Création de son dossier et de ses tableaux…</p>";
     google.script.run.withSuccessHandler(res => {
-      if (!res || res.erreur) { b.disabled = false; b.insertAdjacentText("afterend", " " + ((res && res.erreur) || "Erreur")); return; }
-      b.parentNode.textContent = "Retiré. Il disparaîtra du sélecteur au prochain chargement de la page.";
-    }).withFailureHandler(() => { b.disabled = false; }).apiFamilleRetirer({ parent: b.getAttribute("data-retirer") });
+      bt.disabled = false;
+      if (!res || res.erreur) { msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((res && res.erreur) || "Erreur")}</p>`; return; }
+      champ.value = "";
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(res.prenom)} a sa place dans SoccaQuiz.</p><p style="margin:6px 0 0"><a class="btn principal" href="${esc(res.parent)}" target="_top">Ouvrir l'espace parent de ${esc(res.prenom)}</a></p><p class="small" style="margin:6px 0 0">Choisis sa classe dans ses Réglages, puis envoie-lui son lien.</p>`;
+    }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
+      .apiAjouterEnfant({ prenom: champ.value });
   });
 })();
 
@@ -1216,6 +1221,11 @@ var Sig = (() => {
     google.script.run.withSuccessHandler(r => {
       if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
       champ.disabled = true; document.getElementById("suppr-garder").disabled = true;
+      if (r.reste && r.reste.length) {
+        msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>Fait : {{PRENOM}} n'est plus dans SoccaQuiz</b> (${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}, son lien ne marche plus). Rien ne change pour ${esc(r.reste.join(", "))}.</p>` +
+          (r.parent ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.parent)}" target="_top">Continuer avec ${esc(r.reste[0])}</a></p>` : "");
+        return;
+      }
       const fait = `${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}${r.programme ? ", programme du site mis à la corbeille" : ""}, site retiré de la famille`;
       const bouton = r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`;
       // secours : l'installateur n'a pas pu finir dans le cadre invisible (connexion Google refusée dans le cadre, plusieurs comptes…)
