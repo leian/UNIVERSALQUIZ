@@ -436,7 +436,7 @@ const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
 let syntaxe = true; try { new vm.Script(script); } catch (err) { syntaxe = false; console.log(err); }
 ok(/Installer mon site/.test(html) && /usersettings/.test(html) && syntaxe && !/<\/script/i.test(script), 'page de l\'installateur : contenu et script valides');
-ok(!/apiEffacerTout|Effacer toutes mes données/.test(html) && /supprime chaque site/.test(html) && /ne le partage qu\\?'avec lui/.test(html), 'page : plus de bouton « Effacer tout » (doublon), le pied de page explique comment tout effacer');
+ok(!/apiEffacerTout|Effacer toutes mes données/.test(html) && /confidentialite\.html/.test(html), 'page : plus de bouton « Effacer tout » (doublon), lien vers les règles de confidentialité en pied de page');
 const source = readFileSync(join(RACINE, 'en-ligne', 'Code.gs'), 'utf8');
 ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) && JSON.parse(readFileSync(join(RACINE, 'en-ligne', 'appsscript.json'), 'utf8')).exceptionLogging === 'NONE', 'aucun journal d\'erreur envoyé à l\'éditeur (exceptionLogging NONE, pas de console)');
 

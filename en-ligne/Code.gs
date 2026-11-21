@@ -710,7 +710,7 @@ function pageHtml_(suppr, vue) {
   '<button class="btn" id="ajouter-site" type="button">✨ Créer ce site</button></details></section></div>' +
 
   '<div id="resultat" aria-live="polite"></div>' +
-  '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui. L\'installateur compte les installations, mises à jour et suppressions de façon anonyme, sans rien savoir de toi.<br>' +
+  '<p class="petit" style="text-align:center;margin-top:24px">' +
   '<a href="https://soccaquiz.fr/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit. <span style="opacity:.6">Installateur ' + INSTALLATEUR_V + '</span></p>' +
   '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\nwindow.__VUE = ' + JSON.stringify(vue || '') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }
