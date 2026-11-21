@@ -5,16 +5,25 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
 <!-- Lien stable de l'installateur, utilisé dans le mail d'invitation : si l'adresse du déploiement Apps Script change un jour,
-     on la corrige ici (deux endroits) sans renvoyer les mails. -->
+     on la corrige ici (deux endroits) sans renvoyer les mails. Simple écran de chargement : le logo, puis l'installateur. -->
 <meta http-equiv="refresh" content="0; url=https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec">
-<title>Installer SoccaQuiz</title>
+<title>SoccaQuiz</title>
 <link rel="icon" href="icone.png">
-<link rel="stylesheet" href="style.css">
+<style>
+  html, body { margin: 0; height: 100%; background: #fff8ef; color: #2b2350; font: 500 17px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; padding: 24px; box-sizing: border-box; text-align: center; }
+  img { width: 96px; height: 96px; animation: battre 1.4s ease-in-out infinite; }
+  @keyframes battre { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+  #secours { visibility: hidden; font-size: 15px; }
+  #secours a { color: #a9010d; }
+  @media (prefers-reduced-motion: reduce) { img { animation: none; } }
+</style>
 </head>
-<body><main>
-<h1><img src="icone-96.png" width="44" height="44" alt="" style="vertical-align:middle;border-radius:10px"> Installer SoccaQuiz</h1>
-<p>Ouverture de l'installateur…</p>
-<p>Rien ne se passe ? <a href="https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec">Touche ici pour ouvrir l'installateur</a>.</p>
-<p class="petit"><a href="index.html">Présentation de SoccaQuiz</a> · <a href="confidentialite.html">Confidentialité</a></p>
-</main></body>
+<body>
+<img src="icone.png" alt="SoccaQuiz">
+<!-- n'apparaît que si la page est toujours là au bout de 4 secondes (renvoi bloqué par le navigateur) -->
+<p id="secours">Rien ne se passe ? <a href="https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec">Ouvrir l'installateur</a></p>
+<script>setTimeout(function () { document.getElementById('secours').style.visibility = 'visible'; }, 4000);</script>
+<noscript><style>#secours { visibility: visible; }</style></noscript>
+</body>
 </html>
