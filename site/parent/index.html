@@ -247,7 +247,9 @@
    }).catch(function (e) {
     if (e && e.lien) return arreter(e.message, false, 'Demande un nouveau lien au parent qui a installé SoccaQuiz, puis colle-le ici.', true);
     if (e && e.nonReconnu) return;
-    arreter('SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, String(e && e.message || ''));
+    var m = String(e && e.message || '');
+    if (/permission|drive\.files|autoris/i.test(m)) return arreter('Il manque une autorisation à ton site.', true, 'Ouvre l\'installateur SoccaQuiz : sur la carte de ton site, clique sur « Ouvrir le programme », puis ▷ Exécuter, et coche « Tout sélectionner » dans l\'écran de Google. (' + m + ')');
+    arreter('SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, m);
    });
   }
 })();

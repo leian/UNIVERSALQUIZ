@@ -23,7 +23,7 @@ if (process.env.UQ_CHARGE) CHARGE = JSON.stringify(Object.assign(JSON.parse(CHAR
 const CHARGE_ANCIEN = (() => { const c = JSON.parse(CHARGE); const m = c.fichiers.find(f => f.name === 'appsscript');
   m.source = JSON.stringify(Object.assign(JSON.parse(m.source), { oauthScopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'] }), null, 2); return JSON.stringify(c); })();
 let CHARGE_ACTUELLE = CHARGE_ANCIEN;
-const nonAutorises = new Set();  // programmes de la famille pas encore autorisés dans l'éditeur (le site ne répond pas)
+const nonAutorises = new Set(), casesDecochees = new Set();  // programmes de la famille pas encore autorisés dans l'éditeur (le site ne répond pas)
 const scriptProps = {};
 
 let echecs = 0;
@@ -80,6 +80,7 @@ function siteEnLigne(url) {
   const did = (url.match(/\/s\/([^/]+)\/exec/) || [])[1];
   const p = Object.entries(projets).find(([, x]) => did in x.deploiements);
   if (p && nonAutorises.has(p[0])) return reponse(200, '<html>Autorisation requise</html>');
+  if (p && casesDecochees.has(p[0])) return reponse(200, { v: 1, erreur: 'You do not have permission to call drive.files.list' });
   return p && !corbeilleSites.has(p[0]) ? reponse(200, { v: 1, version: 'v-test' }) : reponse(404, '<html>Page introuvable</html>');
 }
 
@@ -390,7 +391,10 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   ok(e.sites.length === 1 && e.sites[0].famille && e.sites[0].aAutoriser && e.sites[0].urlParent === 'https://app.soccaquiz.fr/parent/?s=' + dep, 'état : carte « autorise ton site » (le site ne répond pas encore), espace parent sur app.soccaquiz.fr');
   let a = ctx.apiAutorise({ id: r.id });
   ok(!a.pret && !a.invitation, 'attente : pas encore autorisé');
-  nonAutorises.delete(r.id);
+  nonAutorises.delete(r.id); casesDecochees.add(r.id);
+  a = ctx.apiAutorise({ id: r.id });
+  ok(!a.pret && ctx.apiEtat().sites[0].aAutoriser, 'autorisé avec une case décochée (le site répond « drive.files.list ») : pas prêt, la carte « autorise ton site » reste');
+  casesDecochees.delete(r.id);
   a = ctx.apiAutorise({ id: r.id });
   ok(a.pret && a.invitation === 'https://app.soccaquiz.fr/parent/?s=' + dep + '#i=' + userProps.invit && !ctx.apiEtat().sites[0].aAutoriser, 'autorisation donnée dans l\'éditeur : détectée, lien du premier appareil (#i=<code>)');
   const nb = Object.keys(projets).length;

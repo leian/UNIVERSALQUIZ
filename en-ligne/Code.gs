@@ -95,7 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
-const INSTALLATEUR_V = '21-11 B';   // repère affiché en bas de la page : changer à chaque modification à recoller
+const INSTALLATEUR_V = '21-11 C';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -119,7 +119,7 @@ function apiEtat(indice) {
     // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
     let versions = 0; try { versions = nbVersions_(s.scriptId); } catch (e) {}
     // programme de la famille (chantier « sans alerte ») : autorisé dans l'éditeur ? (le site répond seulement une fois autorisé)
-    const fam = s.modele === 'famille', aAutoriser = fam && !!s.version && siteRepond_(s) === false;
+    const fam = s.modele === 'famille', aAutoriser = fam && !!s.version && !siteAutorise_(s);
     return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: fam ? lienParentFamille_(s) : s.urlParent || '', version: s.version || '', derniere, appli: appli_(s.url, s.version),
       famille: fam, aAutoriser, migration: !fam && !!s.version && !!MOTEUR_FAMILLE_,
       nouvelle: !!s.version && plusRecente_(derniere, s.version), incomplet: !s.version,
@@ -284,6 +284,17 @@ function siteRepond_(s) {
     if (c === 200 && /SoccaQuiz|"v"\s*:\s*\d/.test(r.getContentText())) return true;
     return c === 200 || c >= 400 ? false : null;
   } catch (e) { return null; }
+}
+/* programme de la famille prêt = autorisé ET avec toutes ses autorisations : une case décochée (écran « granulaire »
+   de Google) laisse le site répondre, mais avec l'erreur « drive.files.list » ; il faut alors refaire « autoriser » */
+function siteAutorise_(s) {
+  if (!s || !s.url) return false;
+  try {
+    const r = UrlFetchApp.fetch(s.url + (s.url.indexOf('?') < 0 ? '?' : '&') + 'api=etat', { muteHttpExceptions: true, followRedirects: true });
+    if (r.getResponseCode() !== 200) return false;
+    const d = JSON.parse(r.getContentText());
+    return !!(d && d.v && !d.erreur);
+  } catch (e) { return false; }
 }
 function desactiver_(s) {
   let ok = true, nb = 0, erreur = null;
@@ -461,7 +472,7 @@ function publierFamille_(maj, n, moteur, site, nouvelleInvit) {
     Object.assign(site, { deploymentId: dep, url: urlSite_(d), version: moteur.version });
     ecrireSite_(n, site);
     compter_(versionAvant ? 'maj' : 'installation', moteur.version, avant);
-    const pret = siteRepond_(site) === true;       // pas encore autorisé dans l'éditeur : le site ne répond pas
+    const pret = siteAutorise_(site);              // pas encore autorisé dans l'éditeur (ou une case décochée) : le site ne répond pas normalement
     return { ok: true, famille: true, n, id, prenom: site.prenom || '', classe: site.classe || '', url: site.url, version: moteur.version, appli: appli_(site.url, moteur.version),
       maj: !!maj && dejaPublie && !nouveauSite, nouveauSite, adresseChangee: adresseChangee && !nouveauSite,
       pret, lienProjet: lienProjet_(id), urlParent: lienParentFamille_(site), invitation: pret && nouvelleInvit ? lienInvitation_(site) : '' };
@@ -475,7 +486,7 @@ function apiAutorise(ref) {
   try {
     const n = trouverSite_(ref), s = lireSite_(n) || {};
     if (s.modele !== 'famille') return { erreur: 'Ce site n\'utilise pas cette étape.' };
-    const pret = siteRepond_(s) === true;
+    const pret = siteAutorise_(s);
     return { pret, n, invitation: pret ? lienInvitation_(s) : '', urlParent: lienParentFamille_(s), url: s.url || '', appli: appli_(s.url, s.version) };
   } catch (e) { return traduire_(e); }
 }
@@ -737,7 +748,7 @@ function scriptPage_() {
       return '<div class="ok autoriser"><p style="margin:0 0 6px"><b>Dernière étape, une seule fois : autorise ton site</b> (1 minute).</p>' +
         '<ol style="margin:0 0 8px;padding-left:20px"><li>Clique sur le bouton : le programme « SoccaQuiz » s\'ouvre dans un nouvel onglet.<br><a class="btn" href="' + h(r.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme</a></li>' +
         '<li>En haut, clique sur <b>▷ Exécuter</b> (la fonction « autoriser » est déjà choisie).</li>' +
-        '<li>Clique sur <b>Examiner les autorisations</b>, choisis ton compte, puis sur <b>Continuer</b> (deux fois si Google le redemande).</li>' +
+        '<li>Clique sur <b>Examiner les autorisations</b>, choisis ton compte, coche <b>Tout sélectionner</b>, puis clique sur <b>Continuer</b>.</li>' +
         '<li>Reviens sur cet onglet : il se met à jour tout seul.</li></ol>' +
         '<p class="petit" style="margin:0 0 6px">SoccaQuiz ne demande que l\'accès aux fichiers qu\'il crée lui-même dans ton Drive (son dossier et ses tableaux) et ton adresse e-mail : Google n\'affiche aucune alerte. Ne modifie rien dans le programme.</p>' +
         '<p class="petit attente" style="margin:0">⏳ En attente de l\'autorisation…</p></div>';
