@@ -2051,8 +2051,8 @@ function creerInvitation_(role, nom) {
 }
 // lien de l'espace parent servi hors de Google (le code est après « # » : jamais envoyé à un serveur)
 function lienInvitation_(code) {
-  const m = String(cfgPremier_().urlEnfant || '').match(/\/macros\/s\/([\w-]{20,200})\/exec$/);
-  return m ? ORIGINE_SITE_ + '/parent/?s=' + m[1] + '#i=' + code : '';
+  const d = deploiement_();
+  return d ? ORIGINE_SITE_ + '/parent/?s=' + d + '#i=' + code : '';
 }
 function appairer_(code, nom) {
   code = String(code || '').trim().toLowerCase();
@@ -2106,8 +2106,10 @@ function actionParent_(o) {
   }
 }
 // identifiant du déploiement (adresse du site de l'enfant) ; sert aux adresses de app.soccaquiz.fr
-function deploiement_() {
-  const m = String(cfgPremier_().urlEnfant || '').match(/\/macros\/s\/([\w-]{20,200})\/exec$/);
+function deploiement_() {   // identifiant de la publication : écrit par l'installateur, sinon celui que Google donne au programme
+  let u = String(cfgPremier_().urlEnfant || '');
+  if (!/\/exec$/.test(u)) { try { u = String(ScriptApp.getService().getUrl() || ''); } catch (e) { u = ''; } }
+  const m = u.match(/\/macros\/s\/([\w-]{20,200})\/exec$/);
   return m ? m[1] : '';
 }
 function lienParentDirect_(id) {

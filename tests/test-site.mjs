@@ -159,7 +159,22 @@ try {
     const autre = await (await browser.newContext()).newPage();
     await autre.goto(ADR_P);
     await autre.waitForTimeout(1500);
-    ok(/lien d'invitation/.test(await autre.locator('#msg').innerText()) && !(await autre.locator('iframe.page').count()), 'espace parent hors de Google : un appareil sans clé ne voit rien');
+    ok(/lien d'invitation/.test(await autre.locator('#msg').innerText()) && !(await autre.locator('iframe.page').count()) && await autre.locator('#coller').isVisible(), 'espace parent hors de Google : un appareil sans clé ne voit rien (champ « Colle ici le lien »)');
+    // secours : lien coupé par une appli → le parent colle le lien sur la page ; puis conseil « écran d'accueil » sur téléphone
+    const tel = await (await browser.newContext({ userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0 Mobile Safari/537.36' })).newPage();
+    tel.on('pageerror', e => erreurs.push('[parent tel] ' + e.message));
+    await tel.goto(ADR_P);
+    await tel.locator('#coller').waitFor({ timeout: 5000 });
+    await tel.fill('#code-invit', 'abc');
+    await tel.locator('#coller button').click();
+    const incomplet = /incomplet/.test(await tel.locator('#msg').innerText());
+    const code2 = (await ev(`creerInvitation_('parent', 'x')`)).r;
+    await tel.fill('#code-invit', 'Voici le lien : https://app.soccaquiz.fr/parent/?s=AKfycbXXXXXXXXXXXXXXXXXXXXXXXX#i=' + code2);
+    await tel.locator('#coller button').click();
+    await tel.locator('iframe.page').waitFor({ timeout: 15000 }).catch(() => {});
+    await tel.waitForTimeout(500);
+    ok(incomplet && await tel.locator('iframe.page').count() === 1 && await tel.evaluate(() => Object.keys(localStorage).some(k => /^sq-cle:/.test(k))), 'espace parent hors de Google : lien collé sur la page → appareil reconnu (lien incomplet refusé avec un message)');
+    ok(await tel.locator('#astuce').isVisible() && /écran d'accueil/.test(await tel.locator('#astuce').innerText()), 'espace parent hors de Google : conseil « Ajouter à l\'écran d\'accueil » après la première ouverture sur téléphone');
     await ctxP.close();
   }
 
