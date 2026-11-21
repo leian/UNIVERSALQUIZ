@@ -13,11 +13,18 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
+import { createHash, randomUUID } from 'node:crypto';
 
 const RACINE = join(dirname(fileURLToPath(import.meta.url)), '..');
 if (!process.env.UQ_CHARGE && spawnSync(process.execPath, [join(RACINE, 'outils', 'fabriquer-charge.mjs')], { stdio: 'inherit', env: { ...process.env, TAG: 'v-test' } }).status !== 0) process.exit(1);
 let CHARGE = readFileSync(process.env.UQ_CHARGE || join(RACINE, 'dist', 'universal-quiz.json'), 'utf8');
 if (process.env.UQ_CHARGE) CHARGE = JSON.stringify(Object.assign(JSON.parse(CHARGE), { version: 'v-test' }));
+// sections 1 à 11 : ancien moteur (accès à tout le Drive, deux publications par site) ; section 12 : programme de la famille
+const CHARGE_ANCIEN = (() => { const c = JSON.parse(CHARGE); const m = c.fichiers.find(f => f.name === 'appsscript');
+  m.source = JSON.stringify(Object.assign(JSON.parse(m.source), { oauthScopes: ['https://www.googleapis.com/auth/drive', 'https://www.googleapis.com/auth/spreadsheets'] }), null, 2); return JSON.stringify(c); })();
+let CHARGE_ACTUELLE = CHARGE_ANCIEN;
+const nonAutorises = new Set();  // programmes de la famille pas encore autorisés dans l'éditeur (le site ne répond pas)
+const scriptProps = {};
 
 let echecs = 0;
 const ok = (c, m) => { console.log((c ? '✅ ' : '❌ ') + '[en ligne] ' + m); if (!c) echecs++; };
@@ -40,7 +47,7 @@ function fausseApi(url, o) {
   if (!apiActivee) return reponse(403, { error: { code: 403, message: 'User has not enabled the Apps Script API. Enable it by visiting https://script.google.com/home/usersettings then retry.' } });
   const m = url.replace(/\?.*$/, '').match(/projects(?:\/([^/]+))?(?:\/(content|versions|deployments))?(?:\/([^/]+))?$/);
   const [, id, quoi, sous] = m;
-  if (!id && methode === 'POST') { const sid = 'script' + (++n); projets[sid] = { titre: corps.title, versions: 0, deploiements: {} }; return reponse(200, { scriptId: sid }); }
+  if (!id && methode === 'POST') { const sid = 'script' + (++n); projets[sid] = { titre: corps.title, versions: 0, deploiements: {} }; if (CHARGE_ACTUELLE === CHARGE) nonAutorises.add(sid); return reponse(200, { scriptId: sid }); }
   const p = projets[id];
   if (!p) return reponse(404, { error: { code: 404, message: 'Requested entity was not found.' } });
   if (!quoi && methode === 'GET') return reponse(200, { scriptId: id, title: p.titre });
@@ -72,20 +79,22 @@ let consolePanne = false;
 function siteEnLigne(url) {
   const did = (url.match(/\/s\/([^/]+)\/exec/) || [])[1];
   const p = Object.entries(projets).find(([, x]) => did in x.deploiements);
+  if (p && nonAutorises.has(p[0])) return reponse(200, '<html>Autorisation requise</html>');
   return p && !corbeilleSites.has(p[0]) ? reponse(200, { v: 1, version: 'v-test' }) : reponse(404, '<html>Page introuvable</html>');
 }
 
 const cache = {};
 const ctx = {
   console: { log: console.log, warn: console.warn, error: () => {} },   // les erreurs attendues ne polluent pas la sortie
-  UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE) : reponse(503, 'indisponible'))
+  UrlFetchApp: { fetch: (url, o = {}) => /github\.com/.test(url) ? (github ? reponse(200, CHARGE_ACTUELLE) : reponse(503, 'indisponible'))
     : /leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json$/.test(url) ? reponse(200, { propositions: 'https://script.google.com/macros/s/AKfyCONSOLE/exec' })
     : /\/AKfyCONSOLE\/exec$/.test(url) ? (consolePanne ? (() => { throw new Error('réseau'); })() : (statsRecues.push(JSON.parse(o.payload)), reponse(200, { ok: true })))
     : /\/exec\?api=etat$/.test(url) ? siteEnLigne(url) : fausseApi(url, o) },
-  Utilities: { sleep: () => { attentes++; } },
+  Utilities: { sleep: () => { attentes++; }, getUuid: () => randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
+    computeDigest: (alg, t) => [...createHash('sha256').update(String(t), 'utf8').digest()].map(b => b > 127 ? b - 256 : b) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
   ScriptApp: { invalidateAuth: () => { global.__authRetiree = (global.__authRetiree || 0) + 1; }, getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
-  PropertiesService: { getUserProperties: () => ({
+  PropertiesService: { getScriptProperties: () => ({ getProperty: k => scriptProps[k] ?? null }), getUserProperties: () => ({
     getProperty: k => userProps[k] ?? null, setProperty: (k, v) => { userProps[k] = String(v); },
     getProperties: () => ({ ...userProps }), setProperties: o => { for (const k in o) userProps[k] = String(o[k]); },
     deleteProperty: k => { delete userProps[k]; },
@@ -237,11 +246,11 @@ github = true; ctx.apiEtat();
 ok(cache.derniere === 'v-test', 'version de GitHub gardée en cache (10 min)');
 
 // 6 ter. réglage absent du moteur publié : rien n'est publié
-const bonneCharge = CHARGE, versionsAvant = projets[userProps.scriptId].versions;
-CHARGE = JSON.stringify(Object.assign(JSON.parse(bonneCharge), { fichiers: JSON.parse(bonneCharge).fichiers.map(f => f.name === 'Code' ? Object.assign({}, f, { source: f.source.replace(/espace: '[^'\n]*'/, 'zone: \'\'') }) : f) }));
+const bonneCharge = CHARGE_ACTUELLE, versionsAvant = projets[userProps.scriptId].versions;
+CHARGE_ACTUELLE = JSON.stringify(Object.assign(JSON.parse(bonneCharge), { fichiers: JSON.parse(bonneCharge).fichiers.map(f => f.name === 'Code' ? Object.assign({}, f, { source: f.source.replace(/espace: '[^'\n]*'/, 'zone: \'\'') }) : f) }));
 journal.length = 0;
 r = ctx.apiMettreAJour();
-CHARGE = bonneCharge;
+CHARGE_ACTUELLE = bonneCharge;
 ok(r.erreur && /« espace »/.test(r.erreur) && !/content/.test(journal.join(' | ')) && projets[userProps.scriptId].versions === versionsAvant, 'réglage « espace » introuvable : refus, aucun code envoyé');
 
 // 7. bouton « Repartir de zéro »
@@ -345,6 +354,57 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   consolePanne = false; ctx.apiRecommencer({ id: r3.id });
 }
 
+// 12. programme de la famille (chantier « sans alerte ») : un programme pour tous les enfants, une publication,
+//     autorisation dans l'éditeur (la page attend que le site réponde), lien du premier appareil du parent
+{
+  for (const k in userProps) delete userProps[k];
+  const sha = t => createHash('sha256').update(t, 'utf8').digest('hex');
+  // site installé avant : la nouvelle version demande un déplacement (à venir), rien n'est publié
+  const ancien = ctx.apiInstaller('Ancien', 'CM1');
+  CHARGE_ACTUELLE = CHARGE; delete cache.derniere; delete cache.famille;
+  const versionsAvant = projets[ancien.id].versions;
+  let r = ctx.apiMettreAJour({ id: ancien.id });
+  ok(r.erreur && r.migration && projets[ancien.id].versions === versionsAvant && ctx.apiEtat().sites[0].migration, 'ancien site + programme de la famille : mise à jour refusée (déplacement à venir), rien n\'est publié, carte « déplacement » — ' + (r.erreur || '').slice(0, 60));
+  CHARGE_ACTUELLE = CHARGE_ANCIEN; delete cache.derniere; delete cache.famille;
+  ctx.apiRecommencer({ id: ancien.id });
+  CHARGE_ACTUELLE = CHARGE; delete cache.derniere; delete cache.famille;
+  r = ctx.apiInstaller('Tom', 'CE1');
+  const p = projets[r.id], dep = userProps.deploymentId, code = () => p.contenu.find(f => f.name === 'Code').source, man = JSON.parse(p.contenu.find(f => f.name === 'appsscript').source);
+  ok(r.ok && r.famille && !r.pret && !r.invitation && Object.keys(p.deploiements).length === 1 && p.versions === 2 && userProps.modele === 'famille' && !userProps.deploymentIdParent && /projects\/script\d+\/edit$/.test(r.lienProjet),
+    'famille : un programme, une seule publication (2 versions : création puis adresse connue) ; pas encore autorisé → lien vers l\'éditeur, pas encore de lien parent');
+  ok(/espace: 'enfant'/.test(code()) && code().includes("urlEnfant: '" + r.url + "'") && /invitation: '[0-9a-f]{64}'/.test(code()) && code().includes("invitation: '" + sha(userProps.invit) + "'") && userProps.invitH === sha(userProps.invit),
+    'famille : le programme connaît son adresse et l\'empreinte du code du premier appareil (seule l\'empreinte est écrite)');
+  ok(man.oauthScopes.join() === 'https://www.googleapis.com/auth/drive.file,https://www.googleapis.com/auth/userinfo.email' && man.webapp.executeAs === 'USER_DEPLOYING' && man.webapp.access === 'ANYONE_ANONYMOUS',
+    'famille : manifeste du moteur gardé (fichiers créés par SoccaQuiz + adresse e-mail ; exécuté par le parent, ouvert sans compte)');
+  let e = ctx.apiEtat();
+  ok(e.sites.length === 1 && e.sites[0].famille && e.sites[0].aAutoriser && e.sites[0].urlParent === 'https://app.soccaquiz.fr/parent/?s=' + dep, 'état : carte « autorise ton site » (le site ne répond pas encore), espace parent sur app.soccaquiz.fr');
+  let a = ctx.apiAutorise({ id: r.id });
+  ok(!a.pret && !a.invitation, 'attente : pas encore autorisé');
+  nonAutorises.delete(r.id);
+  a = ctx.apiAutorise({ id: r.id });
+  ok(a.pret && a.invitation === 'https://app.soccaquiz.fr/parent/?s=' + dep + '#i=' + userProps.invit && !ctx.apiEtat().sites[0].aAutoriser, 'autorisation donnée dans l\'éditeur : détectée, lien du premier appareil (#i=<code>)');
+  const nb = Object.keys(projets).length;
+  r = ctx.apiAjouterSite({ prenom: 'Léa', classe: '6e' });
+  ok(r.erreur && /Ajouter un enfant/.test(r.erreur) && Object.keys(projets).length === nb, 'autre enfant : pas de nouveau programme, il s\'ajoute dans l\'espace parent');
+  const h0 = userProps.invitH, v0 = p.versions;
+  r = ctx.apiMettreAJour({ id: p === projets[userProps.scriptId] ? userProps.scriptId : '' });
+  ok(r.ok && r.maj && r.pret && userProps.deploymentId === dep && p.versions === v0 + 1 && code().includes("invitation: '" + h0 + "'") && Object.keys(p.deploiements).length === 1, 'mise à jour : même publication, une version, empreinte gardée');
+  const code0 = userProps.invit;
+  r = ctx.apiNouvelAppareil({ id: userProps.scriptId });
+  ok(r.ok && userProps.invit !== code0 && r.invitation.endsWith('#i=' + userProps.invit) && code().includes("invitation: '" + sha(userProps.invit) + "'"), 'nouvel appareil : nouveau code, écrit dans le programme, nouveau lien');
+  scriptProps.ORIGINE = 'https://essai.soccaquiz.pages.dev';
+  ok(ctx.apiAutorise({ id: userProps.scriptId }).invitation.startsWith('https://essai.soccaquiz.pages.dev/parent/?s='), 'essai : adresse de l\'appli réglable (propriété ORIGINE de l\'installateur)');
+  delete scriptProps.ORIGINE;
+  const html12 = ctx.doGet({ parameter: {} }).html;
+  ok(/Ouvrir le programme/.test(html12) && /apiAutorise/.test(html12) && /apiNouvelAppareil/.test(html12), 'page : étape « autorise ton site » et lien d\'un nouvel appareil');
+  // suppression : publications retirées, code vidé (le programme ne peut pas être mis à la corbeille), plus rien de gardé
+  const sid = userProps.scriptId;
+  r = ctx.apiRecommencer({ id: sid });
+  ok(r.ok && !Object.keys(projets[sid].deploiements).length && /supprimé/.test(projets[sid].contenu.find(f => f.name === 'Code').source) && !/oauthScopes/.test(projets[sid].contenu.find(f => f.name === 'appsscript').source) && !Object.keys(userProps).length,
+    'suppression : publication retirée, code vidé (plus d\'autorisation demandée), l\'installateur ne garde plus rien');
+  CHARGE_ACTUELLE = CHARGE_ANCIEN; delete cache.derniere; delete cache.famille;
+}
+
 // 10. la page : HTML complet et script valide ; pas de journal d'erreur chez l'éditeur
 const html = ctx.doGet({ parameter: {} }).html;
 const script = (html.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
@@ -416,6 +476,27 @@ ok(!/console\.(error|log)/.test(source) && !/recommencer === '1'/.test(source) &
   };
   const [pa, pb, pc] = [await premiere(true), await premiere(false), await premiere(null)];
   ok(!pa.e1 && !pa.num && pb.e1 && pb.num && pc.e1, 'page : carte « Active l\'API » cachée quand l\'interrupteur est déjà activé (une seule étape, sans numéro), affichée sinon — ' + JSON.stringify([pa, pb, pc]));
+  // programme de la famille : carte « autorise ton site », attente, puis « C'est prêt » avec le lien du premier appareil
+  {
+    const page = await browser.newPage();
+    const erreurs = []; page.on('pageerror', e => erreurs.push(e.message));
+    await page.route('**/*', r => r.request().url() === 'https://installateur.test/' ? r.fulfill({ status: 200, contentType: 'text/html; charset=utf-8', body: html }) : r.fulfill({ status: 200, body: '' }));
+    const fam = Object.assign(site(0, 'Lana', 'CM1', 'v3.0'), { famille: true, aAutoriser: true, lienProjet: 'https://script.google.com/home/projects/script9/edit', urlParent: 'https://app.soccaquiz.fr/parent/?s=AKfyX' });
+    await page.addInitScript(etat => {
+      let n = 0;
+      const rep = nom => nom === 'apiEtat' ? etat : nom === 'apiAutorise' ? (++n < 2 ? { pret: false } : { pret: true, invitation: 'https://app.soccaquiz.fr/parent/?s=AKfyX#i=' + 'c'.repeat(64), urlParent: 'https://app.soccaquiz.fr/parent/?s=AKfyX' }) : {};
+      const run = (ok) => new Proxy({}, { get: (_, nom) => nom === 'withSuccessHandler' ? f => run(f) : nom === 'withFailureHandler' ? () => run(ok) : () => setTimeout(() => ok && ok(rep(nom)), 0) });
+      window.google = { script: { run: run(null) } };
+    }, { installe: true, sites: [fam], classes: ctx.CLASSES || [], erreurGithub: '' });
+    await page.goto('https://installateur.test/');
+    await page.locator('.autoriser').waitFor({ timeout: 5000 });
+    const avant = await page.evaluate(() => ({ lien: (document.querySelector('.autoriser a.btn') || {}).href, ajout: getComputedStyle(document.getElementById('ajout')).display }));
+    await page.getByText("C'est prêt").waitFor({ timeout: 15000 }).catch(() => {});
+    const apres = await page.evaluate(() => ({ prete: /C'est prêt/.test(document.body.textContent), invit: [].some.call(document.querySelectorAll('a.btn'), a => /#i=c{64}$/.test(a.href)), autoriser: !!document.querySelector('.autoriser') }));
+    ok(avant.lien === fam.lienProjet && avant.ajout === 'none' && apres.prete && apres.invit && !apres.autoriser && !erreurs.length,
+      'page, programme de la famille : « Ouvrir le programme » (éditeur), attente, puis « C\'est prêt » avec le lien de l\'espace parent ; pas de « Un autre site » — ' + JSON.stringify([avant, apres]) + erreurs.join(' | '));
+    await page.close();
+  }
   await browser.close();
 }
 

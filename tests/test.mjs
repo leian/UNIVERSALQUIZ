@@ -1228,9 +1228,9 @@ try {
     await page.unroute('**/macros/s/INSTALL/exec**');
     const apresS = (await ev(`({ hugo: !!ouvrirDossier_(${JSON.stringify(avantS.hugo)}), props: PropertiesService.getScriptProperties().getKeys().length, auth: !!FAUX.authRetiree })`)).r;
     const versInstallateur = await page.locator('#suppr-msg a[href*="supprime="]').count();
-    ok(!apresS.hugo && apresS.auth && versInstallateur === 1, 'supprimer le dernier enfant : dossier à la corbeille, autorisation retirée, renvoi vers l\'installateur — ' + JSON.stringify({ apresS, versInstallateur }));
-    aRefaire('installateur (le programme ne peut plus se mettre à la corbeille : publications retirées et code vidé)', /programme du site mis à la corbeille/.test(fin) && /entièrement désinstallé/.test(fin),
-      'supprimer : tout se termine sur la même page, installateur fini dans un cadre invisible — ' + fin);
+    ok(!apresS.hugo && apresS.auth && (versInstallateur === 1 || /supprime=/.test(lien)), 'supprimer le dernier enfant : dossier à la corbeille, autorisation retirée, renvoi vers l\'installateur — ' + JSON.stringify({ apresS, versInstallateur }));
+    ok(/entièrement supprimé/.test(fin) && /entièrement désinstallé/.test(fin) && /supprime=projet-script&cadre=1/.test(lien),
+      'supprimer : tout se termine sur la même page, l\'installateur retire la publication et vide le programme dans un cadre invisible — ' + fin);
   }
 
   // clés d'appareil (étape 1c) : l'espace parent sans compte Google, par l'adresse unique du programme

@@ -208,7 +208,7 @@
       if (!d || !d.html) throw new Error((d && d.erreur) || 'Page indisponible');
       var r = d.reglages || {};
       appli = r.appli || r.urlEnfant || '';
-      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '' });
+      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '' }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
       document.title = 'SoccaQuiz – Espace parent' + (d.prenom ? ' – ' + d.prenom : '');
       montrer(assembler(d, cfg));
       if (vientDAppairer) { vientDAppairer = false; conseillerEcranAccueil(); }

@@ -43,7 +43,7 @@ function doGet(e) {
    Sites suivants (autre enfant, révisions d'un parent) : tableau JSON dans la propriété « autres ».
    Chaque site a son propre projet, son dossier Drive (« SoccaQuiz – Prénom ») et son tableau des résultats.
    La page désigne un site par { n, id } : id (scriptId) fait foi, le rang n peut avoir changé entre-temps. */
-const CLES_SITE = ['scriptId', 'deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'prenom', 'classe', 'classeAnnee', 'dossier'];
+const CLES_SITE = ['scriptId', 'deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'prenom', 'classe', 'classeAnnee', 'dossier', 'modele', 'invit', 'invitExp', 'invitH'];
 const CLASSES = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle', 'adulte'];
 function autres_() { try { return JSON.parse(PropertiesService.getUserProperties().getProperty('autres') || '[]'); } catch (e) { return []; } }
 function lireSite_(n) {
@@ -114,7 +114,10 @@ function apiEtat(indice) {
     if (reelle && reelle !== s.version) { s.version = reelle; try { ecrireSite_(n, s); } catch (e) {} }
     // nombre de versions gardées par le site (200 au plus chez Google, impossibles à supprimer par l'API)
     let versions = 0; try { versions = nbVersions_(s.scriptId); } catch (e) {}
-    return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: s.urlParent || '', version: s.version || '', derniere, appli: appli_(s.url, s.version),
+    // programme de la famille (chantier « sans alerte ») : autorisé dans l'éditeur ? (le site répond seulement une fois autorisé)
+    const fam = s.modele === 'famille', aAutoriser = fam && !!s.version && siteRepond_(s) === false;
+    return { n, id: s.scriptId, prenom: s.prenom || '', classe: s.classe || '', url: s.url || '', urlParent: fam ? lienParentFamille_(s) : s.urlParent || '', version: s.version || '', derniere, appli: appli_(s.url, s.version),
+      famille: fam, aAutoriser, migration: !fam && !!s.version && !!MOTEUR_FAMILLE_,
       nouvelle: !!s.version && plusRecente_(derniere, s.version), incomplet: !s.version,
       versions, alerteVersions: versions >= ALERTE_VERSIONS, maxVersions: MAX_VERSIONS, lienProjet: lienProjet_(s.scriptId) };
   }).filter(Boolean);
@@ -183,6 +186,7 @@ function apiInstaller(prenom, classe) {
 function apiAjouterSite(d) {
   return avecVerrou_(() => {
     d = d || {};
+    if (lireSite_(0).modele === 'famille') return { erreur: 'Pas besoin d\'un autre site : ajoute ton autre enfant dans ton espace parent, Réglages → « Ajouter un enfant ». Il aura ses propres quiz et résultats.' };
     const classe = nettoyerClasse_(d.classe), prenom = nettoyerPrenom_(d.prenom);
     const tous = [lireSite_(0)].concat(autres_()).filter(Boolean);
     let nom = 'SoccaQuiz – ' + (prenom || (classe === 'adulte' ? 'Mes révisions' : 'Site ' + (tous.length + 1))), k = 2;
@@ -279,13 +283,26 @@ function siteRepond_(s) {
 }
 function desactiver_(s) {
   let ok = true, nb = 0, erreur = null;
-  [s.deploymentId, s.deploymentIdParent].forEach(dep => {
+  let deps = [s.deploymentId, s.deploymentIdParent];
+  if (s.modele === 'famille' && s.scriptId) {
+    // toutes les publications du programme (pas seulement celles que l'installateur connaît), sauf la version de travail
+    try { deps = (appel_('get', '/' + s.scriptId + '/deployments?pageSize=50').deployments || []).filter(d => d && d.deploymentConfig && d.deploymentConfig.versionNumber).map(d => d.deploymentId); }
+    catch (e) { if (e.code !== 404) { ok = false; erreur = e; } else deps = []; }
+  }
+  deps.forEach(dep => {
     if (!s.scriptId || !dep) return;
     try { appel_('delete', '/' + s.scriptId + '/deployments/' + dep); nb++; }
     catch (e) { if (e.code === 404) nb++; else { ok = false; erreur = e; } }   // 404 : déjà supprimé, même résultat
   });
-  return { ok, desactive: ok && nb > 0, erreur };
+  // programme de la famille : il ne peut pas être mis à la corbeille (ni par lui-même, ni par l'installateur) ;
+  // son code est vidé : il ne reste qu'un projet vide, sans adresse ni autorisation, que la famille peut jeter
+  if (ok && s.modele === 'famille' && s.scriptId) try { appel_('put', '/' + s.scriptId + '/content', { files: CODE_VIDE_ }); } catch (e) {}
+  return { ok, desactive: ok && nb > 0, erreur, vide: s.modele === 'famille' };
 }
+const CODE_VIDE_ = [
+  { name: 'Code', type: 'SERVER_JS', source: '// Ce programme SoccaQuiz a été supprimé : il ne sert plus. Tu peux le mettre à la corbeille (script.google.com → ⋮ → Supprimer).\n' },
+  { name: 'appsscript', type: 'JSON', source: '{\n  "timeZone": "Europe/Paris",\n  "runtimeVersion": "V8",\n  "exceptionLogging": "NONE"\n}' }
+];
 
 
 /* Mise à jour : même projet, mêmes adresses. */
@@ -302,6 +319,12 @@ function publier_(maj, n) {
   let id = site.scriptId;
   try {
     const moteur = moteur_();
+    if (famille_(moteur)) {
+      // site installé avant le programme de la famille : ses fichiers ont été créés par l'ancien programme, que le nouveau ne voit pas
+      if (site.modele !== 'famille' && site.version) return { erreur: MIGRATION_, migration: true, n };
+      if (n > 0 && !site.scriptId) throw erreurFr_('Ajoute ton autre enfant dans ton espace parent : Réglages → « Ajouter un enfant ».');
+      return publierFamille_(maj, n, moteur, site, false);
+    }
     const prenom = site.prenom || '';
     let dep = site.deploymentId;               // site de l'enfant
     let depP = site.deploymentIdParent;        // espace parent
@@ -362,6 +385,106 @@ function publier_(maj, n) {
   }
 }
 
+/* ---------------- programme de la famille (chantier « sans alerte ») ----------------
+   Un seul programme pour toute la famille (tous les enfants), une seule publication (exécutée avec le compte du
+   parent, ouverte sans compte) ; il ne demande que « fichiers créés par SoccaQuiz » + adresse e-mail : aucun écran
+   d'alerte. Il est autorisé dans l'ÉDITEUR (fonction « autoriser » déjà choisie, écrans bleus) : l'installateur
+   ouvre l'éditeur et attend que le site réponde. L'espace parent est servi par app.soccaquiz.fr/parent et protégé
+   par des clés d'appareil : le premier appareil reçoit son lien d'invitation ici (code à usage unique, dont seule
+   l'empreinte est écrite dans le programme, CONFIG.invitation). */
+const DUREE_INVIT_ = 24 * 3600 * 1000;
+const MIGRATION_ = 'Cette nouvelle version de SoccaQuiz change de fonctionnement (plus aucun écran d\'alerte de Google) : ton site doit être déplacé une fois. Le déplacement automatique arrive très bientôt ; en attendant, ton site continue de fonctionner tel quel.';
+let MOTEUR_FAMILLE_ = false;
+function famille_(moteur) {
+  const m = (moteur.fichiers || []).find(f => f.name === 'appsscript');
+  MOTEUR_FAMILLE_ = !!(m && /auth\/drive\.file/.test(m.source) && !/auth\/drive"/.test(m.source));
+  return MOTEUR_FAMILLE_;
+}
+function origineSite_() {          // app.soccaquiz.fr ; propriété ORIGINE du projet de l'installateur pour un essai (essai.soccaquiz.pages.dev)
+  try { const o = PropertiesService.getScriptProperties().getProperty('ORIGINE'); if (/^https:\/\/[\w.-]+$/.test(o || '')) return o; } catch (e) {}
+  return 'https://app.soccaquiz.fr';
+}
+function empreinte_(t) {
+  return Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(t), Utilities.Charset.UTF_8).map(b => ('0' + (b & 255).toString(16)).slice(-2)).join('');
+}
+function aleatoire_() { return (Utilities.getUuid() + Utilities.getUuid()).replace(/[^0-9a-f]/gi, '').toLowerCase(); }
+function idDeploiement_(s) { const m = String((s && s.url) || '').match(/\/macros\/s\/(AKfy[\w-]{1,200})\/exec$/); return m ? m[1] : ''; }
+function lienParentFamille_(s) { const d = idDeploiement_(s); return d ? origineSite_() + '/parent/?s=' + d : ''; }
+function lienInvitation_(s) {
+  const d = idDeploiement_(s);
+  return d && /^[0-9a-f]{40,80}$/.test(s.invit || '') && Date.now() < Number(s.invitExp || 0) ? origineSite_() + '/parent/?s=' + d + '#i=' + s.invit : '';
+}
+function publierFamille_(maj, n, moteur, site, nouvelleInvit) {
+  const avant = sitesInstalles_(), versionAvant = site.version || '';
+  let id = site.scriptId, dep = site.deploymentId, nouveauSite = false, adresseChangee = false;
+  const dejaPublie = !!site.version && !!dep;
+  try {
+    if (id) {
+      try { appel_('get', '/' + id); }
+      catch (e) { if (e.code === 404) id = null; else throw e; }
+      if (!id) nouveauSite = !!site.url;
+    }
+    if (!id) {
+      id = appel_('post', '', { title: 'SoccaQuiz' }).scriptId;
+      ['deploymentId', 'deploymentIdParent', 'url', 'urlParent', 'version', 'invitH'].forEach(k => delete site[k]);
+      Object.assign(site, { scriptId: id, modele: 'famille' });
+      ecrireSite_(n, site);
+      dep = null;
+    } else {
+      if (dep && !existe_(id, dep)) { dep = null; adresseChangee = dejaPublie; }
+      let nb = -1; try { nb = nbVersions_(id); } catch (e) {}
+      if (nb >= 0 && nb + 1 + (dep ? 0 : 1) > MAX_VERSIONS) return tropDeVersions_(id, nb, n);
+    }
+    // code du premier appareil du parent : à l'installation, ou sur demande (« Ouvrir l'espace parent sur cet appareil »)
+    if (nouvelleInvit || !site.invitH) {
+      const code = aleatoire_();
+      Object.assign(site, { modele: 'famille', invit: code, invitExp: String(Date.now() + DUREE_INVIT_), invitH: empreinte_(code) });
+      ecrireSite_(n, site);
+    }
+    const description = 'SoccaQuiz ' + moteur.version;
+    const deployer = (depId, urlEnfant) => {
+      appel_('put', '/' + id + '/content', { files: fichiers_(moteur, site.prenom || '', { espace: 'enfant', urlEnfant, urlParent: '', classe: site.classe, classeAnnee: site.classeAnnee, invitation: site.invitH }) });
+      const version = appel_('post', '/' + id + '/versions', { description }).versionNumber;
+      const config = { versionNumber: version, manifestFileName: 'appsscript', description };
+      return depId ? appel_('put', '/' + id + '/deployments/' + depId, { deploymentConfig: Object.assign({ scriptId: id }, config) })
+        : appel_('post', '/' + id + '/deployments', config);
+    };
+    // 1. la publication (son adresse n'est connue qu'une fois créée), enregistrée aussitôt ; 2. le code qui connaît son adresse
+    if (!dep) { const d = deployer(null, ''); dep = d.deploymentId; Object.assign(site, { deploymentId: dep, url: urlSite_(d) }); ecrireSite_(n, site); }
+    let d; try { d = deployer(dep, site.url); } catch (e) { e.relancer = true; throw e; }
+    Object.assign(site, { deploymentId: dep, url: urlSite_(d), version: moteur.version });
+    ecrireSite_(n, site);
+    compter_(versionAvant ? 'maj' : 'installation', moteur.version, avant);
+    const pret = siteRepond_(site) === true;       // pas encore autorisé dans l'éditeur : le site ne répond pas
+    return { ok: true, famille: true, n, id, prenom: site.prenom || '', classe: site.classe || '', url: site.url, version: moteur.version, appli: appli_(site.url, moteur.version),
+      maj: !!maj && dejaPublie && !nouveauSite, nouveauSite, adresseChangee: adresseChangee && !nouveauSite,
+      pret, lienProjet: lienProjet_(id), urlParent: lienParentFamille_(site), invitation: pret && nouvelleInvit ? lienInvitation_(site) : '' };
+  } catch (e) {
+    if (e && typeof e === 'object' && !e.scriptId) { e.scriptId = id; e.n = n; }
+    throw e;
+  }
+}
+/* la page attend l'autorisation donnée dans l'éditeur : le site répond-il ? Alors lien du premier appareil. */
+function apiAutorise(ref) {
+  try {
+    const n = trouverSite_(ref), s = lireSite_(n) || {};
+    if (s.modele !== 'famille') return { erreur: 'Ce site n\'utilise pas cette étape.' };
+    const pret = siteRepond_(s) === true;
+    return { pret, n, invitation: pret ? lienInvitation_(s) : '', urlParent: lienParentFamille_(s), url: s.url || '', appli: appli_(s.url, s.version) };
+  } catch (e) { return traduire_(e); }
+}
+/* nouvel appareil du parent (téléphone changé, clé perdue…) : nouveau code, écrit dans le programme (une version de plus) */
+function apiNouvelAppareil(ref) {
+  return avecVerrou_(() => {
+    const n = trouverSite_(ref), s = lireSite_(n) || {};
+    if (s.modele !== 'famille') return { erreur: 'Ce site n\'utilise pas cette étape.' };
+    const r = publierFamille_(false, n, moteur_(), s, true);
+    if (!r.ok) return r;
+    if (!r.pret) return { erreur: 'Le site ne répond pas encore : autorise-le d\'abord (bouton « Ouvrir le programme »).', aAutoriser: true, lienProjet: r.lienProjet, n };
+    return { ok: true, n, invitation: r.invitation, urlParent: r.urlParent };
+  });
+}
+
 function existe_(id, dep) {
   try { appel_('get', '/' + id + '/deployments/' + dep); return true; }
   catch (e) { if (e.code === 404) return false; throw e; }
@@ -392,11 +515,12 @@ function fichiers_(moteur, prenom, espace) {
       s = regler(s, /urlParent: '[^'\n]*'/, "urlParent: '" + propre(espace.urlParent) + "'", 'urlParent');
       s = regler(s, /classe: '[^'\n]*'/, "classe: '" + nettoyerClasse_(espace.classe) + "'", 'classe');
       s = regler(s, /classeAnnee: \d+/, 'classeAnnee: ' + (parseInt(espace.classeAnnee, 10) || 0), 'classeAnnee');
+      if ('invitation' in espace) s = regler(s, /invitation: '[^'\n]*'/, "invitation: '" + String(espace.invitation || '').replace(/[^0-9a-f]/g, '') + "'", 'invitation');
       s = regler(s, /nomDossier: '[^'\n]*'/, m => espace.dossier ? "nomDossier: '" + String(espace.dossier).replace(/['\\\n]/g, '') + "'" : m, 'nomDossier');
       if (esp && s.indexOf("espace: '" + esp + "'") < 0) throw erreurFr_('Réglage « espace » non écrit dans le site : rien n\'a été publié.');
       return { name: f.name, type: f.type, source: s };
     }
-    return f.name === 'appsscript' && espace.espace ? { name: f.name, type: f.type, source: manifeste_(f.source, espace.espace) } : f;
+    return f.name === 'appsscript' && espace.espace && !('invitation' in espace) ? { name: f.name, type: f.type, source: manifeste_(f.source, espace.espace) } : f;
   });
 }
 
@@ -410,16 +534,20 @@ function manifeste_(source, espace) {
 }
 
 /* dernière version du moteur : fichier universal-quiz.json de la Release GitHub (son numéro est gardé 10 min en cache) */
+function sourceMoteur_() {        // propriété SOURCE du projet de l'installateur : moteur d'une branche, pour un essai
+  try { const u = PropertiesService.getScriptProperties().getProperty('SOURCE'); if (/^https:\/\/raw\.githubusercontent\.com\/leian\/UNIVERSALQUIZ\/[\w.\/-]+\.json$/.test(u || '')) return u; } catch (e) {}
+  return SOURCE_MOTEUR;
+}
 function moteur_() {
-  const r = UrlFetchApp.fetch(SOURCE_MOTEUR, { muteHttpExceptions: true, followRedirects: true });
+  const r = UrlFetchApp.fetch(sourceMoteur_(), { muteHttpExceptions: true, followRedirects: true });
   if (r.getResponseCode() !== 200) throw erreurFr_('Impossible de récupérer le moteur sur GitHub (erreur ' + r.getResponseCode() + '). Réessaie dans quelques minutes.');
   let m = null; try { m = JSON.parse(r.getContentText('UTF-8')); } catch (e) {}
   if (!m || !Array.isArray(m.fichiers) || !m.fichiers.some(f => f.name === 'appsscript')) throw erreurFr_('Le moteur publié sur GitHub est incomplet.');
-  try { CacheService.getScriptCache().put('derniere', String(m.version || ''), 600); } catch (e) {}
+  try { CacheService.getScriptCache().put('derniere', String(m.version || ''), 600); CacheService.getScriptCache().put('famille', famille_(m) ? '1' : '0', 600); } catch (e) {}
   return m;
 }
 function derniereVersion_() {
-  let v = null; try { v = CacheService.getScriptCache().get('derniere'); } catch (e) {}
+  let v = null; try { v = CacheService.getScriptCache().get('derniere'); MOTEUR_FAMILLE_ = CacheService.getScriptCache().get('famille') === '1'; } catch (e) {}
   return v || moteur_().version;
 }
 
@@ -564,6 +692,38 @@ function scriptPage_() {
       '<li>coche <b>Tout sélectionner</b>, puis <b>Continuer</b>.</li></ol>' +
       '<p class="petit" style="margin:0">Ce site t\'appartient : il ne se sert que de son dossier « SoccaQuiz » et de son tableau des résultats, dans ton Drive. Google affiche un accès à tout le Drive, parce que le site doit lire les quiz que tu déposes toi-même dans son dossier : il ne lit que ce dossier. Une fois dessus, mets-le en favori.</p>' +
       '<p style="margin:8px 0 0">Ensuite, pour <b>ajouter des quiz et suivre les résultats</b>, utilise « 🔒 Espace parent » (mets-le aussi en favori). Ton enfant, lui, n\'utilise que le lien « Site de l\'enfant ».</p></div>';
+    // programme de la famille : autorisation dans l'éditeur (écrans bleus seulement), la page attend que le site réponde
+    function carteAutoriser(r) {
+      return '<div class="ok autoriser"><p style="margin:0 0 6px"><b>Dernière étape, une seule fois : autorise ton site</b> (1 minute).</p>' +
+        '<ol style="margin:0 0 8px;padding-left:20px"><li>Clique sur le bouton : le programme « SoccaQuiz » s\'ouvre dans un nouvel onglet.<br><a class="btn" href="' + h(r.lienProjet) + '" target="_blank" rel="noopener">Ouvrir le programme</a></li>' +
+        '<li>En haut, clique sur <b>▷ Exécuter</b> (la fonction « autoriser » est déjà choisie).</li>' +
+        '<li>Clique sur <b>Examiner les autorisations</b>, choisis ton compte, puis sur <b>Continuer</b> (deux fois si Google le redemande).</li>' +
+        '<li>Reviens sur cet onglet : il se met à jour tout seul.</li></ol>' +
+        '<p class="petit" style="margin:0 0 6px">SoccaQuiz ne demande que l\'accès aux fichiers qu\'il crée lui-même dans ton Drive (son dossier et ses tableaux) et ton adresse e-mail : Google n\'affiche aucune alerte. Ne modifie rien dans le programme.</p>' +
+        '<p class="petit attente" style="margin:0">⏳ En attente de l\'autorisation…</p></div>';
+    }
+    function cartePrete(r, s) {
+      return '<div class="ok"><p style="margin:0 0 8px"><b>🎉 C\'est prêt !</b></p>' +
+        (r.invitation ? '<p style="margin:0 0 6px"><a class="btn" href="' + h(r.invitation) + '" target="_blank" rel="noopener">🔒 Ouvrir mon espace parent</a></p>' +
+          '<p class="petit" style="margin:0 0 8px">Ajouter des quiz, suivre les résultats, ajouter un autre enfant. Ce bouton ouvre ton espace parent <b>sur cet appareil</b>, une seule fois, sans compte Google ensuite : ajoute-le à ton écran d\'accueil. Pour un autre appareil : « Ouvrir l\'espace parent sur un autre appareil », plus bas.</p>' : '') +
+        '<p style="margin:0">Ensuite, envoie son lien à ' + h((s && s.prenom) || 'ton enfant') + ' (bouton ✉️) : son site s\'ouvre sans compte.</p></div>';
+    }
+    var ATTENTES = {};
+    function attendreAutorisation(s) {
+      if (ATTENTES[s.id]) return;
+      var debut = Date.now();
+      ATTENTES[s.id] = setInterval(function () {
+        if (Date.now() - debut > 20 * 60 * 1000) { clearInterval(ATTENTES[s.id]); delete ATTENTES[s.id]; var a = document.querySelector('.site[data-id="' + s.id + '"] .attente'); if (a) a.innerHTML = 'Toujours rien ? Recharge cette page une fois l\'autorisation donnée.'; return; }
+        google.script.run.withSuccessHandler(function (r) {
+          if (!r || !r.pret || !ATTENTES[s.id]) return;
+          clearInterval(ATTENTES[s.id]); delete ATTENTES[s.id];
+          s.aAutoriser = false; s.urlParent = r.urlParent || s.urlParent;
+          afficherSites();
+          zoneMsg(s.n).innerHTML = cartePrete(r, s);
+          var c = carte(s.n); if (c) { c.querySelector('h2 .titre').textContent = '🎉 ' + titreSite(s) + ' : prêt !'; c.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+        }).apiAutorise({ n: s.n, id: s.id });
+      }, 5000);
+    }
     // le lien est mis dans le mail et copié en plus. La page est dans un cadre de Google : on ouvre la messagerie
     // dans une nouvelle fenêtre (un mailto: direct y est bloqué), et on propose Gmail en ligne si rien ne s'ouvre
     var OBJET_ENFANT = 'Ton site de quiz pour réviser';
@@ -617,11 +777,20 @@ function scriptPage_() {
           bouton.disabled = false;
           if (!r || r.erreur) { zone.innerHTML = ''; if (fn === 'apiAjouterSite' && r && /Terminer/.test(r.erreur || '')) charger(); erreur(r, enPlace ? n : null); if (fini) fini(false); return; }
           zone.innerHTML = ''; res.innerHTML = '';
-          var s = { n: r.n || 0, id: r.id, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version, nouvelle: false, appli: r.appli || '' };
+          var s = { n: r.n || 0, id: r.id, prenom: r.prenom || '', classe: r.classe || '', url: r.url, urlParent: r.urlParent, version: r.version, derniere: r.version, nouvelle: false, appli: r.appli || '',
+            famille: !!r.famille, aAutoriser: !!r.famille && !r.pret, lienProjet: r.lienProjet || '' };
           var i = -1; ETAT.sites.forEach(function (x, k) { if (x.n === s.n) i = k; });
           if (i >= 0) ETAT.sites[i] = s; else ETAT.sites.push(s);
           afficherSites();
           var NOUVEAU_LIEN = ' Renvoie le nouveau lien à ton enfant (bouton ✉️) et remplace vos favoris : l\'ancien ne fonctionne plus.';
+          if (s.famille) {
+            zoneMsg(s.n).innerHTML = (r.nouveauSite ? '<div class="ko" style="margin-bottom:10px"><b>Le programme de ce site avait disparu</b> : un <b>nouveau site</b> a été créé, à une nouvelle adresse.' + NOUVEAU_LIEN + '</div>' : '') +
+              (!r.pret ? carteAutoriser(r) : r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. ' + (r.adresseChangee ? '<b>La publication du site avait été supprimée : elle a été recréée, à une nouvelle adresse.</b>' + NOUVEAU_LIEN : 'L\'adresse du site ne change pas.') + '</p></div>' : cartePrete(r, s));
+            if (!r.pret) attendreAutorisation(s);
+            var c0 = carte(s.n); if (c0) { if (fn !== 'apiInstaller') c0.scrollIntoView({ behavior: 'smooth', block: 'start' }); c0.querySelector('h2 .titre').textContent = r.maj ? '🎉 ' + titreSite(s) + ' : à jour' : r.pret ? '🎉 ' + titreSite(s) + ' : prêt !' : titreSite(s) + ' : presque prêt'; }
+            if (fini) fini(true);
+            return;
+          }
           zoneMsg(s.n).innerHTML = r.nouveauSite ? '<div class="ko" style="margin-bottom:10px"><b>Le programme de ce site avait disparu</b> (mis à la corbeille ?) : un <b>nouveau site</b> a été créé, à de nouvelles adresses. Ses quiz et ses résultats sont repris.' + NOUVEAU_LIEN + '</div>' + AUTORISER
             : r.maj ? '<div class="ok"><p style="margin:0">Version ' + h(r.version || '') + ' installée. ' + (r.adresseChangee ? '<b>La publication du site de l\'enfant avait été supprimée : elle a été recréée, à une nouvelle adresse.</b>' + NOUVEAU_LIEN : 'L\'adresse du site ne change pas.') + '</p>' +
               (r.nouveauParent ? '<p style="margin:8px 0 0"><b>Nouveau : ton espace parent.</b> « Ajouter un quiz » et le suivi des résultats ne sont plus accessibles depuis le lien de ton enfant. Ils sont dans « 🔒 Espace parent », qui ne s\'ouvre qu\'avec ton compte Google : mets-le en favori.</p>' : '') + '</div>' : AUTORISER;
@@ -656,7 +825,28 @@ function scriptPage_() {
       MODE_APPLI = String((c && c.appli) || '');
       [].forEach.call(document.querySelectorAll('a.lien-enfant'), function (a) { a.href = lienEnfant(a.dataset.classique, a.dataset.appli); });
     }).catch(function () {});
+    function carteFamille(s) {
+      var bas = !s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
+        : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour</button>' +
+          '<p class="petit" style="margin:6px 0 0">Les adresses, les quiz et les résultats ne changent pas.</p></div>';
+      return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">' + h(s.prenom ? 'SoccaQuiz de ' + s.prenom : 'Ton SoccaQuiz') + '</span></h2>' +
+        '<div class="msg">' + (s.aAutoriser ? carteAutoriser(s) : s.alerteVersions ? carteMenage(s, false) : '') + '</div>' +
+        '<div class="actions"><a class="btn lien-enfant" href="' + h(lienEnfant(s.url, s.appli)) + '" data-classique="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">▶ ' + h(nomSite(s)) + '</a>' +
+        (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '" target="_blank" rel="noopener">🔒 Espace parent</a>' : '') +
+        '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a></div>' +
+        '<p class="petit" style="margin:4px 0 8px">Autres enfants : ajoute-les dans ton espace parent (Réglages → « Ajouter un enfant »), pas besoin d\'un autre site.</p>' +
+        bas +
+        '<details class="avance"><summary>Options avancées</summary>' +
+        '<p class="petit"><a href="#" data-action="appareil">📱 Ouvrir l\'espace parent sur un autre appareil</a> (nouveau téléphone, espace parent qui ne s\'ouvre plus…)</p>' +
+        '<p class="petit"><a href="#" data-action="reinstaller">Réinstaller la dernière version</a> (si le site fonctionne mal)</p>' +
+        '<p class="petit"><a href="#" data-action="recommencer">🗑️ Supprimer SoccaQuiz</a></p>' +
+        '<div class="confirmer cache ko"><p style="margin:0 0 6px"><b>Supprimer SoccaQuiz</b> : dans ton espace parent, Réglages → « Supprimer le site de … », pour chaque enfant ; le dernier termine ici tout seul (quiz et résultats à la corbeille du Drive, sauf si tu choisis de les garder).</p>' +
+        (s.urlParent ? '<p style="margin:0 0 8px"><a class="btn" href="' + h(s.urlParent) + '&supprimer=1" target="_blank" rel="noopener">Continuer dans l\'espace parent</a> <button class="btn leger" data-action="non-recommencer" type="button">Annuler</button></p>' : '') +
+        '<p class="petit" style="margin:0">L\'espace parent ne s\'ouvre plus ? <a href="#" data-action="oui-recommencer">Désactiver le site directement</a> (les quiz et les résultats restent alors dans ton Drive).</p></div>' +
+        '</details></section>';
+    }
     function carteSite(s, seul) {
+      if (s.famille) return carteFamille(s);
       var adulte = s.classe === 'adulte';
       if (s.incomplet) return '<section class="etape site" data-n="' + s.n + '" data-id="' + h(s.id) + '"><h2><span class="titre">⚠️ ' + h(titreSite(s)) + ' : installation interrompue</span></h2>' +
         '<div class="msg"></div><p style="margin:0">L\'installation de ce site s\'est arrêtée avant la fin. Clique sur le bouton pour la terminer : rien n\'est recréé en double.</p>' +
@@ -669,7 +859,8 @@ function scriptPage_() {
         (s.urlParent ? '<a class="btn leger" href="' + h(s.urlParent) + '">🔒 Espace parent</a>' : '') +
         (adulte ? '' : '<a class="btn leger mail-enfant" href="#" data-url="' + h(s.url) + '" data-appli="' + h(s.appli || '') + '">✉️ Envoyer le lien à ' + h(s.prenom || 'mon enfant') + '</a>') + '</div>' +
         (seul && s.urlParent ? '<p class="petit" style="margin:4px 0 8px"><b>' + h(nomSite(s)) + '</b> : les quiz, sans compte, c\'est le lien à lui envoyer. <b>Espace parent</b> : ajouter des quiz, suivre les résultats ; il ne s\'ouvre qu\'avec ton compte Google.</p>' : '') +
-        (!s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
+        (s.migration && s.nouvelle ? '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version ' + h(s.derniere) + '</b> : elle change de fonctionnement (plus aucun écran d\'alerte de Google) et ton site devra être déplacé une fois. Le déplacement automatique arrive très bientôt : ton site continue de fonctionner tel quel.</p></div>'
+          : !s.nouvelle ? '<p class="petit">Version ' + h(s.version || '?') + (s.derniere ? ' : c\'est la dernière.' : '.') + '</p>'
           : '<div class="maj"><p style="margin:0">🔄 <b>Nouvelle version disponible : ' + h(s.derniere) + '</b>' + (s.version ? ' (tu as la ' + h(s.version) + ')' : '') + '</p><button class="btn" data-action="maj" type="button">🔄 Mettre à jour ce site</button>' +
             '<p class="petit" style="margin:6px 0 0">Son adresse, ses quiz et ses résultats ne changent pas.</p></div>') +
         '<details class="avance"><summary>Options avancées</summary>' +
@@ -685,11 +876,13 @@ function scriptPage_() {
       $('nouveau').style.display = 'none'; $('deja').style.display = 'block';
       $('intro').textContent = ETAT.sites.length > 1 ? 'Tes sites de quiz, dans ton propre compte Google.' : 'Ton site de quiz, dans ton propre compte Google.';
       $('sites').innerHTML = ETAT.sites.map(function (s) { return carteSite(s, ETAT.sites.length === 1); }).join('');
+      ETAT.sites.forEach(function (s) { if (s.famille && s.aAutoriser) attendreAutorisation(s); });
+      $('ajout').style.display = ETAT.sites.some(function (s) { return s.famille; }) ? 'none' : '';
       afficherToutMaj();
     }
     // plusieurs sites à mettre à jour : un seul bouton, les sites passent l'un après l'autre
     var MAJ_EN_COURS = false;
-    function aMettreAJour() { return ETAT.sites.filter(function (s) { return s.nouvelle && !(s.versions >= s.maxVersions - 2); }); }
+    function aMettreAJour() { return ETAT.sites.filter(function (s) { return s.nouvelle && !s.migration && !(s.versions >= s.maxVersions - 2); }); }
     function afficherToutMaj() {
       if (MAJ_EN_COURS) return;
       var l = aMettreAJour();
@@ -736,6 +929,16 @@ function scriptPage_() {
       var c = b.closest('.site'), n = +c.dataset.n, a = b.dataset.action, cible = { n: n, id: c.dataset.id };
       ev.preventDefault();
       if (a === 'maj' || a === 'reinstaller') lancer('apiMettreAJour', cible, b, n);
+      else if (a === 'appareil') {
+        var z = zoneMsg(n); z.innerHTML = '<p class="petit">Préparation du lien… (environ 15 secondes)</p>';
+        google.script.run.withSuccessHandler(function (r) {
+          if (!r || r.erreur) { z.innerHTML = ''; return erreur(r, n); }
+          z.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>Lien pour ouvrir ton espace parent sur un appareil</b> (une seule fois, valable 24 h) :</p>' +
+            '<p style="margin:0 0 6px"><a class="btn" href="' + h(r.invitation) + '" target="_blank" rel="noopener">🔒 Ouvrir sur cet appareil</a></p>' +
+            '<p class="petit" style="margin:0">Pour un autre appareil, copie ce lien et ouvre-le dessus, dans son navigateur (Chrome, Safari) : <span style="word-break:break-all">' + h(r.invitation) + '</span></p></div>';
+          c.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }).withFailureHandler(function (e) { z.innerHTML = ''; erreur(echec(e), n); }).apiNouvelAppareil(cible);
+      }
       else if (a === 'recommencer') c.querySelector('.confirmer').style.display = 'block';
       else if (a === 'non-recommencer') c.querySelector('.confirmer').style.display = 'none';
       else if (a === 'oui-recommencer') supprimer(cible, b, n, false);

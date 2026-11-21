@@ -1247,7 +1247,7 @@ var Sig = (() => {
       const bouton = r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`;
       // secours : l'installateur n'a pas pu finir dans le cadre invisible (connexion Google refusée dans le cadre, plusieurs comptes…)
       const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : clique sur le bouton, l'installateur termine tout seul.</p>` + bouton; };
-      if (!r.retour || !r.programme) return secours();
+      if (!r.retour) return secours();
       // l'installateur finit ici, dans un cadre invisible : pas de changement de page, donc pas de toucher en plus
       msg.innerHTML = `<p class="small" style="margin:8px 0 0">✅ Fait : ${fait}.<br>Dernière étape en cours : l'installateur désactive son site… (quelques secondes)</p>`;
       let fini = false;
