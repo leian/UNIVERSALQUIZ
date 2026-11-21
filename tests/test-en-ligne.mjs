@@ -93,7 +93,7 @@ const ctx = {
   Utilities: { sleep: () => { attentes++; }, getUuid: () => randomUUID(), DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' },
     computeDigest: (alg, t) => [...createHash('sha256').update(String(t), 'utf8').digest()].map(b => b > 127 ? b - 256 : b) },
   CacheService: { getScriptCache: () => ({ get: k => cache[k] ?? null, put: (k, v) => { cache[k] = v; } }) },
-  ScriptApp: { invalidateAuth: () => { global.__authRetiree = (global.__authRetiree || 0) + 1; }, getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
+  ScriptApp: { AuthMode: { FULL: 'FULL' }, requireAllScopes: () => { global.__toutes = (global.__toutes || 0) + 1; }, invalidateAuth: () => { global.__authRetiree = (global.__authRetiree || 0) + 1; }, getOAuthToken: () => 'jeton-de-test', getService: () => ({ getUrl: () => 'https://script.google.com/macros/s/INSTALLATEUR/exec' }) },
   PropertiesService: { getScriptProperties: () => ({ getProperty: k => scriptProps[k] ?? null }), getUserProperties: () => ({
     getProperty: k => userProps[k] ?? null, setProperty: (k, v) => { userProps[k] = String(v); },
     getProperties: () => ({ ...userProps }), setProperties: o => { for (const k in o) userProps[k] = String(o[k]); },
@@ -395,7 +395,10 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   scriptProps.ORIGINE = 'https://essai.soccaquiz.pages.dev';
   ok(ctx.apiAutorise({ id: userProps.scriptId }).invitation.startsWith('https://essai.soccaquiz.pages.dev/parent/?s='), 'essai : adresse de l\'appli réglable (propriété ORIGINE de l\'installateur)');
   delete scriptProps.ORIGINE;
+  const avantT = global.__toutes || 0;
   const html12 = ctx.doGet({ parameter: {} }).html;
+  ok((global.__toutes || 0) === avantT + 1 && /requireAllScopes\(ScriptApp\.AuthMode\.FULL\)/.test(readFileSync(new URL('../src/Code.gs', import.meta.url), 'utf8').split('function autoriser')[1].slice(0, 400)),
+    'autorisation incomplète (case décochée) : l\'installateur et « autoriser » du programme redemandent tout à Google');
   ok(/Ouvrir le programme/.test(html12) && /apiAutorise/.test(html12) && /apiNouvelAppareil/.test(html12), 'page : étape « autorise ton site » et lien d\'un nouvel appareil');
   // suppression : publications retirées, code vidé (le programme ne peut pas être mis à la corbeille), plus rien de gardé
   const sid = userProps.scriptId;

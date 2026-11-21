@@ -21,6 +21,9 @@ const PAGE_API = 'https://script.google.com/home/usersettings';
 const PLUSIEURS_COMPTES = 'Plusieurs comptes Google sont peut-être ouverts dans ce navigateur : ouvre ce lien dans une fenêtre de navigation privée, ou déconnecte les autres comptes.';
 
 function doGet(e) {
+  // autorisation donnée en décochant une case (écran de Google « granulaire ») : Google la redemande tout de suite,
+  // au lieu de « Request had insufficient authentication scopes » au moment de publier ou de supprimer
+  if (ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   // …?supprime=<scriptId> : retour de l'espace parent après « Supprimer » (ménage du Drive fait) → dernière étape ici
   const id = String((e && e.parameter && e.parameter.supprime) || '');
   let suppr = null;

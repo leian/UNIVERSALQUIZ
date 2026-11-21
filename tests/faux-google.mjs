@@ -204,7 +204,7 @@ const ctx = {
   Session: { getActiveUser: () => ({ getEmail: () => FAUX.proprio === false ? 'autre@exemple.fr' : PARENT }), getEffectiveUser: () => ({ getEmail: () => PARENT }), getScriptTimeZone: () => 'Europe/Paris' },
   Utilities: { DigestAlgorithm: { SHA_256: 'sha256' }, Charset: { UTF_8: 'utf8' }, computeDigest: (a, t) => [...createHash('sha256').update(String(t), 'utf8').digest()].map(b => b > 127 ? b - 256 : b), formatDate: d => d.toISOString().slice(0, 10), newBlob: t => ({ getBytes: () => Buffer.from(String(t)) }), getUuid: () => crypto.randomUUID() },
   MimeType: { HTML: 'text/html', PLAIN_TEXT: 'text/plain' },
-  ScriptApp: { getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script', invalidateAuth: () => { FAUX.authRetiree = true; } },
+  ScriptApp: { AuthMode: { FULL: 'FULL' }, requireAllScopes: () => { FAUX.toutesAutorisations = (FAUX.toutesAutorisations || 0) + 1; }, getService: () => ({ getUrl: () => `http://localhost:${PORT}/exec` }), getScriptId: () => 'projet-script', invalidateAuth: () => { FAUX.authRetiree = true; } },
   FAUX, editeurs, Drive, Sheets, quizDuDossier, deposerQuiz, retirerQuiz, feuilles, corbeille,
   ContentService: { MimeType: { JSON: 'application/json' }, createTextOutput: (t) => { const o = { json: true, getContent: () => t, setMimeType() { return o; } }; return o; } },
   HtmlService: {

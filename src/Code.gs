@@ -29,6 +29,9 @@
    sur « ▷ Exécuter » et accepte les autorisations (écrans bleus de Google, une seule fois). Elle prépare aussi le
    dossier et les tableaux, et note l'adresse du parent qui a installé. */
 function autoriser() {
+  // Google laisse décocher chaque autorisation : s'il en manque une (souvent « fichiers créés par cette appli »),
+  // il réaffiche l'écran d'autorisation au lieu d'échouer plus loin (« You do not have permission to call drive.files.list »)
+  if (ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   proprio_();
   installer_();
   console.log("C'est fait : SoccaQuiz peut maintenant fonctionner. Tu peux fermer cet onglet et revenir à l'installateur.");
