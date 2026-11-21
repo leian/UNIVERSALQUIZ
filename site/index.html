@@ -75,7 +75,9 @@
     if (!id || !MOTIF.test(id)) { arreter('Ouvre le lien SoccaQuiz reçu par mail.'); return; }
     BASE = 'https:\/\/script.google.com/macros/s/' + id + '/exec';
   }
-  var K_ETAT = 'sq-etat:' + id, K_QUIZ = 'sq-quiz:' + id + ':';
+  // un autre enfant que le premier : ?e=<id> (le programme sert toute la famille)
+  var enfant = (p.get('e') || '').replace(/[^a-z0-9]/g, '').slice(0, 12);
+  var K_ETAT = 'sq-etat:' + id + (enfant ? '.' + enfant : ''), K_QUIZ = 'sq-quiz:' + id + (enfant ? '.' + enfant : '') + ':';
 
   function arreter(t, reessayer) {
     dem.classList.remove('attente', 'fini');
@@ -93,12 +95,14 @@
   function api(nom, params) {
     var q = new URLSearchParams(params || {});
     q.set('api', nom);
+    if (enfant) q.set('e', enfant);
     return fetch(BASE + '?' + q.toString(), { credentials: 'omit' }).then(lireJson).then(function (d) {
       if (!d || !d.v) { var e = new Error('Site pas à jour'); e.ancien = true; throw e; }
       return d;
     });
   }
   function poster(o) {      // texte simple : pas de requête préalable CORS
+    if (enfant) o.e = enfant;
     return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
   }
   // affichée dans l'appli installée (leian.github.io/app) : on lui parle par messages, jamais de renvoi

@@ -8,3 +8,6 @@
   Cache-Control: public, max-age=300
 /*.png
   Cache-Control: public, max-age=86400
+/parent/*
+  Cache-Control: no-cache
+  Referrer-Policy: no-referrer

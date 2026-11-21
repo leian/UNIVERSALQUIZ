@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>SoccaQuiz – Espace parent</title>
+<meta name="theme-color" content="#a9010d">
+<link rel="icon" href="../icone-192.png">
+<link rel="apple-touch-icon" href="../icone-180.png">
+<style>
+  html, body { margin: 0; height: 100%; background: #fff8ef; overflow: hidden; }
+  iframe.page { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; background: transparent; }
+  #demarrage { position: fixed; inset: 0; z-index: 99; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 18px; padding: 24px; text-align: center; background: #fff8ef; color: #2b2350;
+    font: 600 18px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; transition: opacity .25s; }
+  #demarrage.fini { opacity: 0; pointer-events: none; }
+  #demarrage img { width: 120px; height: 120px; border-radius: 26px; }
+  #demarrage.attente img { animation: battre 1.4s ease-in-out infinite; }
+  #demarrage button { font: inherit; color: #fff; background: #a9010d; border: 0; border-radius: 999px; padding: 10px 22px; }
+  #demarrage small { font-weight: 400; font-size: 15px; max-width: 34em; }
+  #charge { position: fixed; left: 0; top: 0; height: 3px; width: 0; z-index: 98; background: #c8102e; transition: width 2s ease-out, opacity .3s; opacity: 0; }
+  #charge.actif { width: 80%; opacity: 1; }
+  @keyframes battre { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { #demarrage.attente img { animation: none; } #charge { transition: none; } }
+</style>
+</head>
+<body>
+<div id="demarrage" class="attente">
+  <img src="../icone-192.png" alt="">
+  <span id="msg" role="status">Chargement…</span>
+  <small id="detail" hidden></small>
+  <button id="reessayer" type="button" hidden>Réessayer</button>
+</div>
+<div id="charge" aria-hidden="true"></div>
+<script>
+/* =====================================================================
+   ESPACE PARENT SoccaQuiz SERVI HORS DE GOOGLE (site statique, Cloudflare Pages) — chantier « sans alerte », étape 2
+   Aucun compte Google, aucun écran Google : l'appareil est reconnu par une clé gardée ici (localStorage), obtenue
+   une fois avec un lien d'invitation (…/parent/?s=<déploiement>#i=<code>, le code après « # » n'est jamais envoyé
+   à un serveur). Le programme de la famille vérifie la clé à chaque demande (Code.gs, « CLÉS D'APPAREIL ») :
+   - page : {api:'parent', cle, action:'page', page, e} → page des parents, ses réglages, la liste des quiz ;
+   - action : {api:'parent', cle, action:'apiXxx', args, e} → la même fonction que pour la page servie par Google.
+   Les pages sont assemblées ICI avec les mêmes fichiers que le site servi par Google (une seule interface).
+   ===================================================================== */
+(function () {
+  var COMMUN = __COMMUN__;
+  var MOTIF = /^AKfy[\w-]{20,200}$/;
+  var dem = document.getElementById('demarrage'), msg = document.getElementById('msg'), detail = document.getElementById('detail');
+  var bouton = document.getElementById('reessayer'), barre = document.getElementById('charge');
+  var p = new URLSearchParams(location.search);
+  var local = /^(localhost|127\.0\.0\.1)$/.test(location.hostname);
+  var id = p.get('s'), BASE = '';
+  if (local && p.get('exec')) { BASE = p.get('exec'); id = id || 'local'; }
+  else {
+    try {
+      if (id && MOTIF.test(id)) localStorage.setItem('sq-site', id);
+      else id = localStorage.getItem('sq-site');
+    } catch (e) {}
+    if (!id || !MOTIF.test(id)) { arreter('Ouvre le lien de l\'espace parent reçu par mail.'); return; }
+    BASE = 'https:\/\/script.google.com/macros/s/' + id + '/exec';
+  }
+  var enfant = (p.get('e') || '').replace(/[^a-z0-9]/g, '').slice(0, 12);
+  var K_CLE = 'sq-cle:' + id;
+  var lireCle = function () { try { return localStorage.getItem(K_CLE) || ''; } catch (e) { return ''; } };
+  var cle = lireCle();
+
+  function arreter(t, reessayer, plus) {
+    dem.classList.remove('attente', 'fini');
+    msg.textContent = t;
+    detail.textContent = plus || ''; detail.hidden = !plus;
+    bouton.hidden = !reessayer;
+  }
+  bouton.addEventListener('click', function () { location.reload(); });
+
+  function lireJson(r) { return r.text().then(function (t) { try { return JSON.parse(t); } catch (e) { throw new Error('Réponse illisible'); } }); }
+  function poster(o) {      // texte simple : pas de requête préalable CORS
+    if (enfant) o.e = enfant;
+    return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
+  }
+  function nonReconnu() {
+    try { localStorage.removeItem(K_CLE); } catch (e) {}
+    cle = '';
+    arreter('Cet appareil n\'est plus reconnu.', false, 'Demande un nouveau lien au parent qui a installé SoccaQuiz (Réglages → Appareils), ou à l\'installateur si c\'est toi.');
+    var e = new Error('non reconnu'); e.nonReconnu = true; return e;
+  }
+  function parent(o) {
+    if (!cle) return Promise.reject(nonReconnu());
+    o.api = 'parent'; o.cle = cle;
+    return poster(o).then(function (d) { if (d && d.__status === 401) throw nonReconnu(); return d; });
+  }
+
+  // nom de l'appareil, pour la liste des Réglages (modifiable plus tard)
+  function nomAppareil() {
+    var u = navigator.userAgent || '';
+    var type = /iPad|Tablet/i.test(u) ? 'Tablette' : /Mobi|Android|iPhone/i.test(u) ? 'Téléphone' : 'Ordinateur';
+    var os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : '';
+    return type + (os && os !== type ? ' ' + os : '');
+  }
+  // invitation : …#i=<code> → clé de cet appareil, puis le code disparaît de l'adresse
+  function appairerSiBesoin() {
+    var m = location.hash.match(/(?:^#|&)i=([0-9a-f]{40,80})/);
+    if (!m) return Promise.resolve();
+    try { history.replaceState(null, '', location.pathname + location.search); } catch (e) { location.hash = ''; }
+    msg.textContent = 'Ouverture de l\'espace parent sur cet appareil…';
+    return poster({ api: 'appairer', code: m[1], nom: nomAppareil() }).then(function (d) {
+      if (!d || !d.ok || !d.cle) throw Object.assign(new Error(d && d.erreur || 'Lien refusé'), { lien: true });
+      cle = d.cle;
+      try { localStorage.setItem(K_CLE, cle); } catch (e) {}
+    });
+  }
+
+  /* ---------- fichiers du moteur (mêmes fichiers que la version Google) ---------- */
+  var L = {};
+  function chargerLibs() {
+    var noms = ['pont'].concat(Object.keys(COMMUN).map(function (f) { return COMMUN[f]; }));
+    return Promise.all(noms.map(function (n) {
+      return fetch('../lib/' + n + '.html').then(function (r) { if (!r.ok) throw new Error('lib/' + n); return r.text(); }).then(function (t) { L[n] = t; });
+    }));
+  }
+  var jsonScript = function (v) { return JSON.stringify(v).replace(/</g, '\\u003c').replace(/[\u2028\u2029]/g, function (c) { return '\\u' + c.charCodeAt(0).toString(16); }); };
+  /* même travail que assembler_() de Code.gs, fait sur l'appareil (la page arrive déjà avec le prénom) */
+  function assembler(d, cfg) {
+    var html = d.html;
+    html = html.replace(/<link\b[^>]*href=["']commun\/([\w.-]+\.css)["'][^>]*>/gi, function (m, f) { return COMMUN[f] ? L[COMMUN[f]] : ''; });
+    html = html.replace(/<script\b[^>]*src=["']commun\/([\w.-]+\.js)["'][^>]*>\s*<\/script>/gi, function (m, f) { return f === 'catalogue.js' || !COMMUN[f] ? '' : L[COMMUN[f]]; });
+    var tete = '\n<script>window.__UQ = ' + jsonScript(cfg) + ';<\/script>\n' + L.pont +
+      '\n<script>\nvar QUIZ = ' + jsonScript(d.quiz || []) + ';\nvar MATIERES = ' + jsonScript(d.matieres || {}) + ';\n<\/script>\n';
+    var styleTheme = '<link rel="stylesheet" href="' + (d.polices || '') + '">\n' + L[COMMUN['themes.css']];
+    html = html.replace(/<html\b/i, '<html data-theme="' + (cfg.theme || 'parent') + '"' + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+    html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
+    return /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, function (m) { return m + tete; }) : tete + html;
+  }
+
+  /* ---------- pages ---------- */
+  var PAGES = ['tableau-de-bord', 'ajouter'], pageCourante = null, numero = 0, appli = '';
+  var pageDeLAdresse = function () { var h = location.hash.slice(1).split('&')[0]; return PAGES.indexOf(h) >= 0 ? h : 'tableau-de-bord'; };
+  function montrer(html) {
+    var n = ++numero, f = document.createElement('iframe');
+    f.className = 'page'; f.title = 'SoccaQuiz – Espace parent';
+    f.setAttribute('allow', 'clipboard-read; clipboard-write');
+    f.style.zIndex = String(n); f.numero = n;
+    f.addEventListener('load', function () { prete(f); });
+    f.srcdoc = html;
+    document.body.appendChild(f);
+  }
+  function prete(f) {
+    if (!f || f.dejaPrete) return;
+    if (f.numero !== numero) { f.remove(); return; }
+    f.dejaPrete = true;
+    Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { if (x !== f) x.remove(); });
+    barre.classList.remove('actif');
+    dem.classList.add('fini');
+    try { f.contentWindow.focus(); } catch (e) {}
+  }
+  function afficher(page) {
+    pageCourante = page;
+    barre.classList.add('actif');
+    return parent({ action: 'page', page: page }).then(function (d) {
+      if (pageCourante !== page) return;
+      if (!d || !d.html) throw new Error((d && d.erreur) || 'Page indisponible');
+      var r = d.reglages || {};
+      appli = r.appli || r.urlEnfant || '';
+      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '' });
+      document.title = 'SoccaQuiz – Espace parent' + (d.prenom ? ' – ' + d.prenom : '');
+      montrer(assembler(d, cfg));
+    }).catch(function (e) {
+      if (e && e.nonReconnu) return;
+      barre.classList.remove('actif');
+      if (!document.querySelector('iframe.page')) arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, String(e && e.message || ''));
+    });
+  }
+
+  /* ---------- ce que les pages demandent à l'appli (pont.html, mode direct) ---------- */
+  window.SQ = {
+    pret: function (win) { Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { if (x.contentWindow === win) prete(x); }); },
+    aller: function (page) {
+      page = String(page || '');
+      if (page === '' || page === 'index') page = 'tableau-de-bord';
+      if (PAGES.indexOf(page) < 0) { if (appli) window.open(appli + (appli.indexOf('#') < 0 ? '#' + encodeURIComponent(page) : ''), '_blank', 'noopener'); return; }   // un quiz : dans le site de l'enfant
+      if (location.hash.slice(1) === page) afficher(page); else location.hash = page;
+    },
+    appel: function (fn, arg, args) {
+      return parent({ action: fn, args: Array.isArray(args) ? args : (arg === undefined ? [] : [arg]) }).then(function (d) {
+        if (d && 'r' in d) return d.r;
+        return { __status: (d && d.__status) || 500, erreur: (d && d.erreur) || 'Erreur' };
+      });
+    }
+  };
+  window.addEventListener('hashchange', function () { var pg = pageDeLAdresse(); if (pg !== pageCourante || location.hash.slice(1) === pg) afficher(pg); });
+
+  /* ---------- démarrage ---------- */
+  var libs = chargerLibs();
+  appairerSiBesoin().then(function () {
+    if (!cle) { arreter('Ouvre le lien d\'invitation reçu par mail.', false, 'L\'espace parent s\'ouvre sur chaque appareil avec un lien d\'invitation, une seule fois : ensuite, il suffit de revenir à cette adresse.'); return; }
+    return libs.then(function () { return afficher(pageDeLAdresse()); });
+  }).catch(function (e) {
+    if (e && e.lien) return arreter(e.message, false, 'Demande un nouveau lien au parent qui a installé SoccaQuiz.');
+    if (e && e.nonReconnu) return;
+    arreter('SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, String(e && e.message || ''));
+  });
+})();
+</script>
+</body>
+</html>

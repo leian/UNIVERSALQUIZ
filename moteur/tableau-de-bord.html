@@ -218,7 +218,7 @@ dialog.boite.large{max-width:720px}
       <div id="classe"></div>
     </div>
     <div class="box" id="box-parents" hidden>
-      <h2><i data-ic="mail"></i>Autre parent</h2>
+      <h2><i data-ic="mail"></i>Autre parent et appareils</h2>
       <div id="parents" class="small"></div>
     </div>
     <div class="box" id="box-raz" hidden>
@@ -951,36 +951,53 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   });
 })();
 
-/* autre parent : invitation par adresse Google (partage Drive des dossiers des enfants), seulement pour le parent qui a installé le site */
+/* autre parent et appareils : l'espace parent s'ouvre sans compte Google, sur chaque appareil, avec un lien d'invitation
+   à usage unique (24 h) ; la liste montre les appareils autorisés, « Retirer » coupe l'accès de l'un d'eux tout de suite */
 (() => {
   const U = window.__UQ || {}, z = document.getElementById("parents");
-  if (!z || !U.proprio) return;
+  if (!z || !(window.google && google.script && google.script.run)) return;
   document.getElementById("box-parents").hidden = false;
-  let parents = U.parents || [], liens = U.liensParent || [];
-  const mail = email => {
-    const corps = "Bonjour,\n\nJe t'ai donné accès à l'espace parent SoccaQuiz, pour suivre les révisions et créer des quiz.\n\n" +
-      liens.map(x => (x.prenom ? x.prenom + " : " : "") + x.parent).join("\n") +
-      "\n\nOuvre ce lien avec ton compte Google " + email + ". La première fois, Google affiche « Google n'a pas validé cette application » : clique sur « Paramètres avancés », puis « Accéder à SoccaQuiz », et autorise (une fois par enfant).\n";
-    return "mailto:" + encodeURIComponent(email) + "?subject=" + encodeURIComponent("Espace parent SoccaQuiz") + "&body=" + encodeURIComponent(corps);
-  };
-  function rendre(msg) {
-    z.innerHTML = "<p style=\"margin:0 0 8px\">Invite l'autre parent avec son adresse Google (Gmail) : il ouvrira cet espace avec son propre compte. Les dossiers des enfants (quiz et résultats) lui sont partagés dans Google Drive ; « Retirer » arrête ce partage.</p>" +
-      parents.map(m => `<p style="margin:4px 0"><b>${esc(m)}</b> <a class="btn" href="${esc(mail(m))}" target="_top">Renvoyer le lien</a> <button type="button" class="btn" data-retirer-parent="${esc(m)}">Retirer</button></p>`).join("") +
-      `<p style="margin:10px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="email" id="email-parent" placeholder="adresse@gmail.com" autocomplete="email" style="flex:1;min-width:180px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="inviter-parent">Inviter</button></p>` +
-      (msg || "");
+  const jour = t => t ? new Date(t).toLocaleDateString("fr-FR", { day: "numeric", month: "short" }) : "";
+  const mail = lien => "mailto:?subject=" + encodeURIComponent("Espace parent SoccaQuiz") + "&body=" + encodeURIComponent(
+    "Bonjour,\n\nVoici ton accès à l'espace parent SoccaQuiz, pour suivre les révisions et créer des quiz :\n" + lien +
+    "\n\nOuvre-le sur ton téléphone (ou ton ordinateur) : il s'ouvre directement, sans compte ni mot de passe. Ensuite, garde la page en favori.\nCe lien ne sert qu'une fois et pendant 24 heures.\n");
+  let liste = null, invit = null, msg = "";
+  function rendre() {
+    const l = (liste && liste.appareils) || [], peut = liste && liste.peutInviter;
+    z.innerHTML = `<p style="margin:0 0 8px">L'espace parent s'ouvre <b>sans compte Google</b>, sur chaque appareil, avec un lien d'invitation. ${peut ? "Invite l'autre parent, ou ouvre l'espace parent sur un autre de tes appareils." : ""}</p>` +
+      (liste ? l.map(x => `<p style="margin:4px 0"><b>${esc(x.nom)}</b> <small>${x.role === "proprio" ? "parent qui a installé" : "autre parent"}${x.vu ? " · vu le " + jour(x.vu) : ""}${x.moi ? " · cet appareil" : ""}</small>` +
+        (peut || x.moi ? ` <button type="button" class="btn" data-retirer-appareil="${esc(x.id)}">Retirer</button>` : "") + `</p>`).join("") || "<p class=\"small\" style=\"margin:4px 0\">Aucun appareil pour l'instant : l'espace parent est ouvert ici avec ton compte Google.</p>"
+        : "<p class=\"small\">Chargement…</p>") +
+      (peut ? `<p style="margin:10px 0 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn principal" data-inviter="parent">Inviter l'autre parent</button> <button type="button" class="btn" data-inviter="proprio">Ouvrir sur un autre de mes appareils</button></p>` : "") +
+      (invit ? `<div class="ok" style="margin:10px 0 0;padding:10px;border-radius:10px"><p style="margin:0 0 6px">✅ Lien prêt (une seule fois, pendant 24 h) :</p><p class="adr" style="margin:0 0 8px;word-break:break-all">${esc(invit)}</p>` +
+        `<p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn" id="copier-invit">Copier le lien</button> <a class="btn" href="${esc(mail(invit))}" target="_top">Envoyer par mail</a></p></div>` : "") +
+      msg;
   }
-  rendre();
+  function charger() {
+    google.script.run.withSuccessHandler(r => { liste = r && !r.erreur && r.appareils ? r : { appareils: [], peutInviter: !!U.proprio }; rendre(); })
+      .withFailureHandler(() => { liste = { appareils: [], peutInviter: !!U.proprio }; rendre(); }).apiAppareils();
+  }
+  rendre(); charger();
   z.addEventListener("click", ev => {
-    const inv = ev.target.closest("#inviter-parent"), ret = ev.target.closest("[data-retirer-parent]");
-    if (!inv && !ret) return;
-    const email = inv ? document.getElementById("email-parent").value.trim() : ret.getAttribute("data-retirer-parent");
-    (inv || ret).disabled = true;
-    google.script.run.withSuccessHandler(r => {
-      if (!r || r.erreur) { rendre(`<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`); return; }
-      parents = r.parents || parents; if (r.liens) liens = r.liens;
-      rendre(inv ? `<p class="ok" style="margin:8px 0 0">✅ Accès partagé avec <b>${esc(email.toLowerCase())}</b>. <a class="btn principal" href="${esc(mail(email.toLowerCase()))}" target="_top">Envoyer le lien par mail</a></p>`
-        : `<p class="ok" style="margin:8px 0 0">Accès retiré pour <b>${esc(email)}</b>.</p>`);
-    }).withFailureHandler(e => rendre(`<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`))[inv ? "apiInviterParent" : "apiRetirerParent"]({ email });
+    const inv = ev.target.closest("[data-inviter]"), ret = ev.target.closest("[data-retirer-appareil]"), cop = ev.target.closest("#copier-invit");
+    if (cop) { navigator.clipboard.writeText(invit).then(() => { cop.textContent = "Copié ✓"; }, () => { cop.textContent = "Copie impossible : sélectionne le lien"; }); return; }
+    if (inv) {
+      inv.disabled = true; msg = "";
+      google.script.run.withSuccessHandler(r => {
+        if (!r || r.erreur || !r.lien) { msg = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Lien indisponible : mets d'abord ton site à jour depuis l'installateur.")}</p>`; invit = null; }
+        else invit = r.lien;
+        rendre();
+      }).withFailureHandler(e => { msg = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; rendre(); })
+        .apiInviterAppareil({ role: inv.getAttribute("data-inviter"), nom: inv.getAttribute("data-inviter") === "proprio" ? "Mon autre appareil" : "Autre parent" });
+      return;
+    }
+    if (ret) {
+      ret.disabled = true;
+      google.script.run.withSuccessHandler(r => {
+        msg = r && r.ok ? "<p class=\"ok\" style=\"margin:8px 0 0\">Accès retiré pour cet appareil.</p>" : `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`;
+        charger();
+      }).withFailureHandler(e => { ret.disabled = false; }).apiRetirerAppareil({ id: ret.getAttribute("data-retirer-appareil") });
+    }
   });
 })();
 

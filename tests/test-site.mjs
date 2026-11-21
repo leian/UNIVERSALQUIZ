@@ -33,7 +33,7 @@ const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 const statique = http.createServer((req, res) => {
   const u = new URL(req.url, SITE);
   if (u.pathname === '/ancien') { res.writeHead(200, { 'content-type': 'text/html', 'access-control-allow-origin': '*' }); return res.end('<html><body>vieux site</body></html>'); }
-  const f = join(RACINE, 'build-site', u.pathname === '/' ? 'index.html' : decodeURIComponent(u.pathname));
+  const f = join(RACINE, 'build-site', u.pathname.endsWith('/') ? decodeURIComponent(u.pathname) + 'index.html' : decodeURIComponent(u.pathname));   // comme Cloudflare : dossier → index.html
   if (!f.startsWith(join(RACINE, 'build-site')) || !existsSync(f)) { res.writeHead(404); return res.end('404'); }
   res.writeHead(200, { 'content-type': TYPES[extname(f)] || 'application/octet-stream' });
   res.end(readFileSync(f));
@@ -123,6 +123,45 @@ try {
   await p3.goto(SITE + '/?exec=' + encodeURIComponent(SITE + '/ancien'));
   await p3.waitForTimeout(1500);
   ok(/pas encore l'API/.test(await p3.locator('#msg').innerText()), 'site sans API : reconnu (ancienne appli utilisée en vrai)');
+
+  // espace parent servi hors de Google (chantier « sans alerte », étape 2) : lien d'invitation → clé de l'appareil
+  {
+    const code = 'b'.repeat(64);
+    await ev(`CONFIG.invitation = empreinte_("${code}"); ["CLES", "INVITS", "INVIT_INSTALL"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); 0`);
+    const ctxP = await browser.newContext({ viewport: { width: 1100, height: 900 } });
+    await ctxP.route(/fonts\.(googleapis|gstatic)\.com|leian\.github\.io|jsdelivr|script\.google\.com/, r => r.fulfill({ status: 200, body: '' }));
+    const pp = await ctxP.newPage();
+    pp.on('pageerror', e => erreurs.push('[parent] ' + e.message));
+    const ADR_P = SITE + '/parent/?exec=' + encodeURIComponent(GOOGLE + '/exec');
+    await pp.goto(ADR_P + '#i=' + code);
+    const cadreP = async () => { for (let i = 0; i < 200; i++) { if (await pp.locator('iframe.page').count() === 1) break; await pp.waitForTimeout(50); } return pp.frameLocator('iframe.page').last(); };
+    let fp = await cadreP();
+    await fp.locator('#onglets').waitFor({ timeout: 15000 }).catch(() => {});
+    const cleGardee = await pp.evaluate(() => Object.keys(localStorage).some(k => /^sq-cle:/.test(k)));
+    ok(await fp.locator('#onglets').isVisible() && cleGardee && !/i=/.test(await pp.evaluate(() => location.hash)), 'espace parent hors de Google : le lien d\'invitation ouvre le tableau de bord, la clé est gardée, le code disparaît de l\'adresse');
+    await fp.locator('#o-reglages').click();
+    await fp.locator('#parents [data-retirer-appareil]').waitFor({ timeout: 10000 }).catch(() => {});
+    ok(/cet appareil/.test(await fp.locator('#parents').innerText()) && await fp.locator('#parents [data-inviter="parent"]').count() === 1, 'espace parent hors de Google : Réglages → cet appareil dans la liste, « Inviter l\'autre parent »');
+    await fp.locator('a[href="ajouter.html"]').first().click();
+    await pp.waitForFunction(() => location.hash === '#ajouter');
+    fp = await cadreP();
+    await fp.locator('#secours').waitFor({ timeout: 10000 });
+    await fp.locator('#secours').evaluate(d => { d.open = true; });
+    await fp.locator('#reponse').fill('T|Les planètes|Essai|sciences|🪐|🪐\nQ|La planète rouge ?|Mars|Vénus|Jupiter|Mars.\nQ|La plus grosse ?|Jupiter|Mars|Terre|Jupiter.\nQ|Notre planète ?|la Terre|Mars|la Lune|La Terre.');
+    await fp.locator('#creer').click();
+    await fp.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 15000 }).catch(() => {});
+    const titres = (await ev('viderCatalogue_(); catalogue_(installer_().dossier).QUIZ.map(q => q.titre).join()')).r;
+    ok(/prêt/.test(await fp.locator('#resultat').innerText()) && /Les planètes/.test(titres), 'espace parent hors de Google : quiz créé (actions par la clé de l\'appareil) — ' + titres);
+    await pp.goto(ADR_P);
+    fp = await cadreP();
+    await fp.locator('#onglets').waitFor({ timeout: 15000 }).catch(() => {});
+    ok(await fp.locator('#onglets').isVisible(), 'espace parent hors de Google : rouvert plus tard sans lien, grâce à la clé de l\'appareil');
+    const autre = await (await browser.newContext()).newPage();
+    await autre.goto(ADR_P);
+    await autre.waitForTimeout(1500);
+    ok(/lien d'invitation/.test(await autre.locator('#msg').innerText()) && !(await autre.locator('iframe.page').count()), 'espace parent hors de Google : un appareil sans clé ne voit rien');
+    await ctxP.close();
+  }
 
   ok(!erreurs.length, 'aucune erreur JavaScript' + (erreurs.length ? ' — ' + erreurs.slice(0, 3).join(' | ') : ''));
 } catch (e) {

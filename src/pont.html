@@ -104,7 +104,7 @@
       return new Proxy({}, { get: function (_, k) {
         if (k === 'withSuccessHandler') return function (h) { return chaine(h, ko); };
         if (k === 'withFailureHandler') return function (h) { return chaine(ok, h); };
-        return function (arg) { window.parent.SQ.appel(k, arg).then(function (d) { if (ok) ok(d); }, function (e) { if (ko) ko(e); }); };
+        return function (arg) { window.parent.SQ.appel(k, arg, Array.prototype.slice.call(arguments)).then(function (d) { if (ok) ok(d); }, function (e) { if (ko) ko(e); }); };
       } });
     };
     window.google = { script: { run: chaine(null, null) } };
@@ -237,6 +237,11 @@
       try { nom = decodeURIComponent(nom); } catch (x) {}
       if (/\.html?$/i.test(nom) || nom === '') {
         var page = nom.replace(/\.html?$/i, '') || 'index';
+        if (CFG.espaceDirect === 'parent') {        // espace parent servi hors de Google : la coquille décide (pages des parents, site de l'enfant à part)
+          e.preventDefault();
+          if (e.type === 'click' && !e.button && window.parent && window.parent.SQ) window.parent.SQ.aller(page);
+          return;
+        }
         if ((CFG.pagesParent || []).indexOf(page) >= 0 && CFG.urlParent) {
           a.setAttribute('href', versPage(CFG.urlParent, page));
         } else {
@@ -245,6 +250,12 @@
           return;
         }
       }
+    }
+    // espace parent servi hors de Google : l'espace parent d'un autre enfant s'ouvre à la place de celui-ci
+    if (CFG.espaceDirect === 'parent' && /\/parent\/\?/.test(brut)) {
+      e.preventDefault();
+      if (e.type === 'click' && !e.button) try { window.parent.location.href = a.href; } catch (x) {}
+      return;
     }
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener');

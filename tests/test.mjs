@@ -1105,35 +1105,44 @@ try {
     await ev(`apiClasse({ classe: ${JSON.stringify(classeAvant)} })`);
     const intrus = await ev(`apiAjouterQuiz("T|Essai|x|autre|⭐|⭐\\nQ|Un ?|a|b|c|d\\nQ|Deux ?|a|b|c|d\\nQ|Trois ?|a|b|c|d", ["https://script.google.com/macros/s/INCONNU/exec"]).aussi.length`);
     ok(intrus.r === 0, 'famille : un enfant qui n\'est pas dans la famille est refusé');
-    // deux parents : invitation (partage Drive), autre parent, inconnu
+    // deux parents : invitation par lien (clé d'appareil, sans compte Google), autre parent, inconnu
+    const urlEnfantAvant = (await ev('CONFIG.urlEnfant')).r;
+    await ev('CONFIG.urlEnfant = "https://script.google.com/macros/s/AKfyTEST1234567890abcdefghij/exec"; ["CLES", "INVITS"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k));');
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(await page.locator('#box-parents').isVisible(), 'autre parent : encadré « Autre parent » dans Réglages (parent qui a installé)');
-    await page.fill('#email-parent', 'Julie.Exemple@gmail.com');
-    await page.locator('#inviter-parent').click();
-    await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
-    const partage = await ev(`(() => { const ids = familleListe_().map(x => x.dossier).concat(PropertiesService.getScriptProperties().getProperty("FAMILLE"));
-      return { dossiers: ids.map(id => [...(editeurs[id] || [])].join()), parents: lireFamille_().parents }; })()`);
-    aRefaire('clés d\'appareil (le fichier de la famille n\'est plus un fichier du Drive)', /Accès partagé/.test(await page.locator('#parents').innerText()) && await page.locator('#parents a[href^="mailto:julie.exemple"]').count() >= 1 && partage.r.dossiers.every(x => x === 'julie.exemple@gmail.com') && partage.r.parents.join() === 'julie.exemple@gmail.com',
-      'autre parent : dossiers des deux enfants et fichier de la famille partagés, mail d\'invitation prêt — ' + JSON.stringify(partage.r));
-    await ev('FAUX.proprio = false; CacheService.getScriptCache().remove("famille")');
+    await page.locator('#parents [data-inviter="parent"]').waitFor({ timeout: 10000 }).catch(() => {});
+    ok(await page.locator('#box-parents').isVisible() && /Aucun appareil/.test(await page.locator('#parents').innerText()), 'autre parent : encadré « Autre parent et appareils » dans Réglages (parent qui a installé)');
+    await page.locator('#parents [data-inviter="parent"]').click();
+    await page.locator('#parents .adr, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    const lienInv = await page.locator('#parents .adr').innerText().catch(() => '');
+    ok(/^https:\/\/app\.soccaquiz\.fr\/parent\/\?s=AKfyTEST1234567890abcdefghij#i=[0-9a-f]{64}$/.test(lienInv) && await page.locator('#parents a[href^="mailto:"]').count() === 1 && await page.locator('#copier-invit').count() === 1,
+      'autre parent : « Inviter l\'autre parent » donne un lien à usage unique, à copier ou envoyer par mail — ' + lienInv);
+    const pJulie = await (await fetch(BASE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'appairer', code: lienInv.split('#i=')[1], nom: 'Téléphone de Julie' }) })).json();
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(await page.locator('#onglets').isVisible() && !(await page.locator('#box-parents').isVisible()) && !(await page.locator('#ajouter-enfant').count()), 'autre parent : espace parent ouvert avec son compte, sans le droit d\'inviter ni d\'ajouter un enfant');
-    const autre = await ev('[apiInviterParent({ email: "x@gmail.com" }).erreur, apiFamilleRetirer({ parent: "' + P2 + '" }).erreur, apiClasse({ classe: "CM1" }).ok, !!PropertiesService.getScriptProperties().getProperty("FAMILLE")]');
-    ok(!!autre.r[0] && !!autre.r[1] && autre.r[2] === true && autre.r[3], 'autre parent : peut gérer (classe…), pas inviter ; ne crée ni ne remplace jamais le fichier de la famille');
+    await page.locator('#parents [data-retirer-appareil]').waitFor({ timeout: 10000 }).catch(() => {});
+    ok(pJulie.ok && pJulie.role === 'parent' && /Téléphone de Julie/.test(await page.locator('#parents').innerText()) && /autre parent/.test(await page.locator('#parents').innerText()), 'autre parent : son appareil apparaît dans la liste, avec « Retirer »');
+    await ev('FAUX.proprio = false; PROPRIO_ = null; ACCES_ = null;');
+    await page.goto(BASE + '/exec');
+    await page.locator('#o-reglages').click();
+    ok(await page.locator('#onglets').isVisible() && !(await page.locator('[data-inviter]').count()) && !(await page.locator('#ajouter-enfant').count()), 'autre parent : espace parent ouvert, sans le droit d\'inviter ni d\'ajouter un enfant');
+    const autre = await ev('[apiInviterAppareil({}).erreur, apiFamilleRetirer({ parent: "' + P2 + '" }).erreur, apiClasse({ classe: "CM1" }).ok]');
+    ok(!!autre.r[0] && !!autre.r[1] && autre.r[2] === true, 'autre parent : peut gérer (classe…), pas inviter ni retirer un enfant');
     await ev('FAUX.etranger = true');
     await page.goto(BASE + '/exec');
-    const inconnu = await ev('[apiClasse({ classe: "CP" }).__status, apiGeminiCle({ cle: "" }).__status, apiInviterParent({ email: "y@gmail.com" }).__status, (() => { try { apiLister({}); return "lu"; } catch (e) { return "refusé"; } })(), classe_()]');
+    const inconnu = await ev('[apiClasse({ classe: "CP" }).__status, apiGeminiCle({ cle: "" }).__status, apiInviterAppareil({}).__status, (() => { try { apiLister({}); return "lu"; } catch (e) { return "refusé"; } })(), classe_()]');
     ok(/ne t'est pas partagé/.test(await page.locator('body').innerText()) && inconnu.r.slice(0, 3).every(x => x === 403) && inconnu.r[3] === 'refusé' && inconnu.r[4] === 'CM1',
       'inconnu avec un compte Google : page « espace non partagé », aucune action, rien de lu ni modifié — ' + JSON.stringify(inconnu.r));
-    await ev('FAUX.etranger = false; FAUX.proprio = true');
+    await ev('FAUX.etranger = false; FAUX.proprio = true; PROPRIO_ = null; ACCES_ = null;');
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    await page.locator('[data-retirer-parent="julie.exemple@gmail.com"]').click();
+    await page.locator('#parents [data-retirer-appareil]').waitFor({ timeout: 10000 }).catch(() => {});
+    await page.locator('#parents [data-retirer-appareil]').first().click();
     await page.locator('#parents .ok, #parents .ko').waitFor({ timeout: 10000 }).catch(() => {});
-    const retire = await ev(`[installer_().dossier.getId(), PropertiesService.getScriptProperties().getProperty("FAMILLE")].map(id => [...(editeurs[id] || [])].length).concat(lireFamille_().parents.length)`);
-    ok(/Accès retiré/.test(await page.locator('#parents').innerText()) && retire.r.every(x => x === 0), 'autre parent : « Retirer » arrête les partages Drive');
+    const retire = (await ev('lireListe_("CLES").length')).r;
+    const apresRetrait = await (await fetch(BASE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'parent', cle: pJulie.cle, action: 'apiAppareils' }) })).json();
+    ok(/Accès retiré/.test(await page.locator('#parents').innerText()) && retire === 0 && apresRetrait.__status === 401, 'autre parent : « Retirer » coupe l\'accès de son appareil tout de suite');
+    await ev(`CONFIG.urlEnfant = ${JSON.stringify(urlEnfantAvant)};`);
 
     // remise à zéro avec cases à cocher
     await page.goto(BASE + '/exec');

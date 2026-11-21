@@ -117,6 +117,9 @@ for (const n of libsSite) writeFileSync(join(SITE, 'lib', n + '.html'), lire(joi
 for (const f of readdirSync(join(ICI, 'appli'))) if (/\.(png|webmanifest)$/.test(f)) writeFileSync(join(SITE, f), readFileSync(join(ICI, 'appli', f)));
 writeFileSync(join(SITE, '_headers'), lire(join(ICI, 'site', '_headers')));
 writeFileSync(join(SITE, 'index.html'), remplacer(lire(join(ICI, 'site', 'index.html')), '__COMMUN__', () => JSON.stringify(communSite), 'site/index.html'));
+// espace parent servi hors de Google (clé d'appareil) : même liste de fichiers ; les pages arrivent du programme de la famille
+mkdirSync(join(SITE, 'parent'), { recursive: true });
+writeFileSync(join(SITE, 'parent', 'index.html'), remplacer(lire(join(ICI, 'site', 'parent', 'index.html')), '__COMMUN__', () => JSON.stringify(communSite), 'site/parent/index.html'));
 const fichiersSite = ['./', 'index.html', 'manifest.webmanifest', 'icone-192.png', ...libsSite.map(n => 'lib/' + n + '.html')];
 const versionSite = createHash('sha1').update(libsSite.map(n => lire(join(SITE, 'lib', n + '.html'))).join('') + lire(join(SITE, 'index.html'))).digest('hex').slice(0, 10);
 writeFileSync(join(SITE, 'sw.js'), lire(join(ICI, 'site', 'sw.js')).replace('__VERSION__', versionSite).replace('__FICHIERS__', JSON.stringify(fichiersSite)));

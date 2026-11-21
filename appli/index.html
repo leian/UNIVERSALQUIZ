@@ -160,7 +160,7 @@
   function modeVoulu() { return !ancien && (modeForce ? modeForce === 'direct' : modeGeneral === 'direct') ? 'direct' : 'cadre'; }
   function ouvrirDirect() {
     var p = new URLSearchParams(q.length < 2000 ? q : ''), page = p.get('page') || '';
-    var u = DIRECT + '/?s=' + encodeURIComponent(id) + (p.get('chrono') ? '&chrono=' + encodeURIComponent(p.get('chrono')) : '') +
+    var u = DIRECT + '/?s=' + encodeURIComponent(id) + (p.get('e') ? '&e=' + encodeURIComponent(p.get('e')) : '') + (p.get('chrono') ? '&chrono=' + encodeURIComponent(p.get('chrono')) : '') +
       (page && page !== 'index' ? '#' + encodeURIComponent(page) : '');
     dem.classList.add('attente');
     dem.classList.remove('fini');

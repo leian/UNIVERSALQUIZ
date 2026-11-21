@@ -164,7 +164,7 @@ function apiAjouterEnfant(d) {
   return pourEnfant_(id, () => {
     if (d.classe) apiClasse({ classe: d.classe });
     installer_();
-    return { ok: true, id, prenom, parent: CONFIG.urlParent, enfant: urlAppli_() || CONFIG.urlEnfant };
+    return { ok: true, id, prenom, parent: urlParentIci_(id), enfant: urlAppli_() || CONFIG.urlEnfant };
   });
 }
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
@@ -514,9 +514,9 @@ function reglagesPage_(page, inst, cat) {
   chrono_('resultats');
   const cfg = {
     url: urlIci_(),
-    espace: CONFIG.espace,
+    espace: PARENT_ ? 'parent' : CONFIG.espace,      // appareil de parent reconnu : pages des parents
     urlEnfant: CONFIG.urlEnfant,
-    urlParent: CONFIG.urlParent,
+    urlParent: urlParentIci_(),
     urlEnfantBase: cfgPremier_().urlEnfant,      // adresse Google du site, sans l'enfant (liens vers l'appli)
     appliBase: urlAppliBase_(),
     enfant: estPremier_() ? '' : enfantId_(),
@@ -1450,7 +1450,7 @@ function familleListe_() {
   return enfants_().map(x => pourEnfant_(x.id, () => {
     let dossier = '';
     try { dossier = String(props_().getProperty('DOSSIER') || ''); } catch (e) {}
-    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: CONFIG.urlParent || urlIci_(), dossier, ici: x.id === ici };
+    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: urlParentIci_(x.id) || urlIci_(), dossier, ici: x.id === ici };
   }));
 }
 
@@ -1726,7 +1726,7 @@ function apiSupprimerSite(d) {
     const id = enfantId_(), prenom = CONFIG.prenom;
     retirerEnfant_(id);
     choisirEnfant_('');
-    return { ok: true, garde: !!d.garder, retour: '', enfant: prenom, reste: enfants_().map(x => x.prenom), parent: CONFIG.urlParent };
+    return { ok: true, garde: !!d.garder, retour: '', enfant: prenom, reste: enfants_().map(x => x.prenom), parent: urlParentIci_() };
   }
   let parents = [], reste = 0;
   try {
@@ -2094,8 +2094,8 @@ function actionParent_(o) {
     if (o.action === 'page') {
       const page = nettoyerNom_(o.page || 'tableau-de-bord');
       if (PAGES_PARENT.indexOf(page) < 0) return { erreur: 'Page inconnue.' };
-      const inst = installer_();
-      return { page, html: lib_(PAGES[page], true), reglages: reglagesPage_(page, inst, catalogue_(inst.dossier)), prenom: CONFIG.prenom || '' };
+      const inst = installer_(), cat = catalogue_(inst.dossier);
+      return { page, html: lib_(PAGES[page], true), reglages: reglagesPage_(page, inst, cat), quiz: cat.QUIZ, matieres: MATIERES, polices: POLICES, prenom: CONFIG.prenom || '', enfant: enfantId_() };
     }
     const nom = String(o.action || '');
     if (!/^api[A-Z]\w{1,40}$/.test(nom) || nom === 'apiPourEnfant' || typeof globalThis[nom] !== 'function') return { __status: 400, erreur: 'Action inconnue.' };
@@ -2105,6 +2105,22 @@ function actionParent_(o) {
     return { __status: 500, erreur: String(e && e.message || e) };
   }
 }
+// identifiant du déploiement (adresse du site de l'enfant) ; sert aux adresses de app.soccaquiz.fr
+function deploiement_() {
+  const m = String(cfgPremier_().urlEnfant || '').match(/\/macros\/s\/([\w-]{20,200})\/exec$/);
+  return m ? m[1] : '';
+}
+function lienParentDirect_(id) {
+  const d = deploiement_();
+  return d ? ORIGINE_SITE_ + '/parent/?s=' + d + (id && id !== enfants_()[0].id ? '&e=' + encodeURIComponent(id) : '') : '';
+}
+function lienEnfantDirect_(id) {
+  const d = deploiement_();
+  return d ? ORIGINE_SITE_ + '/?s=' + d + (id && id !== enfants_()[0].id ? '&e=' + encodeURIComponent(id) : '') : '';
+}
+// espace parent de l'enfant courant : app.soccaquiz.fr/parent pour un appareil reconnu, sinon l'adresse Google
+function urlParentIci_(id) { id = id || enfantId_(); return (PARENT_ && lienParentDirect_(id)) || CONFIG.urlParent; }
+
 /* Réglages → Appareils : liste, invitation, retrait */
 function apiAppareils() {
   if (interdit_()) return refusEnfant_();
