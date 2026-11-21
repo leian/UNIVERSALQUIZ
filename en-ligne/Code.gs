@@ -95,6 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
+const INSTALLATEUR_V = '21-11 B';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -699,7 +700,7 @@ function pageHtml_(suppr, vue) {
 
   '<div id="resultat" aria-live="polite"></div>' +
   '<p class="petit" style="text-align:center;margin-top:24px">Tes quiz et les résultats restent dans ton compte Google. Pour effacer toutes tes données : supprime chaque site avec « Supprimer » dans sa carte ; quand il n\'en reste plus, l\'installateur ne garde plus rien sur toi. Le site de l\'enfant s\'ouvre avec son lien : ne le partage qu\'avec lui. L\'installateur compte les installations, mises à jour et suppressions de façon anonyme, sans rien savoir de toi.<br>' +
-  '<a href="https://soccaquiz.fr/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit.</p>' +
+  '<a href="https://soccaquiz.fr/confidentialite.html" target="_blank" rel="noopener">Confidentialité</a> · Licence PolyForm Noncommercial — usage commercial interdit. <span style="opacity:.6">Installateur ' + INSTALLATEUR_V + '</span></p>' +
   '</main><script>window.__SUPPR = ' + JSON.stringify(suppr || null).replace(/</g, '\\u003c') + ';\nwindow.__VUE = ' + JSON.stringify(vue || '') + ';\n' + BASCULE_ + '\n' + scriptPage_() + '</script></body></html>';
 }
 
