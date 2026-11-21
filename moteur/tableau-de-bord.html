@@ -24,6 +24,34 @@ h2{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.2rem;margin:0 0 
 .btn:hover{border-color:var(--soft)}
 .btn.danger{border-color:#fecaca;color:var(--ko)}
 .box{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:16px;margin-top:16px}
+/* Réglages : groupes, sommaire, blocs, zone sensible */
+.sommaire{display:flex;gap:8px;overflow-x:auto;padding:2px 0 6px;margin:0 0 4px;scrollbar-width:none}
+.sommaire::-webkit-scrollbar{display:none}
+.sommaire a{flex:none;white-space:nowrap;text-decoration:none;color:var(--ink);background:var(--card);border:2px solid var(--line);border-radius:999px;padding:6px 12px;font:600 .85rem "Fredoka",sans-serif}
+.sommaire a:hover{border-color:var(--soft)}
+.sommaire a.rouge{color:var(--ko)}
+.groupe{scroll-margin-top:12px}
+.groupe-titre{font:700 .8rem system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);margin:26px 4px 0}
+.groupe-titre.rouge{color:var(--ko)}
+.carte h3{font-family:"Fredoka",sans-serif;font-weight:600;font-size:1.05rem;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.bloc+.bloc{border-top:1px solid var(--line);margin-top:16px;padding-top:16px}
+.bloc[hidden]{display:none}
+details.bloc>summary{cursor:pointer;font:600 1rem "Fredoka",sans-serif;display:flex;align-items:center;gap:8px;list-style:none;min-height:32px}
+details.bloc>summary::-webkit-details-marker{display:none}
+details.bloc>summary::after{content:"›";margin-left:auto;font-size:1.3rem;color:var(--soft);transition:transform .2s}
+details.bloc[open]>summary::after{transform:rotate(90deg)}
+details.bloc[open]>summary{margin-bottom:8px}
+.carte.danger{border-color:#fecaca}
+.carte.danger h3{color:var(--ko)}
+/* une carte, ou un groupe, dont tous les blocs sont cachés disparaît */
+.carte:not(:has(>.bloc:not([hidden]))){display:none}
+.groupe:not(:has(.bloc:not([hidden]))){display:none}
+.sommaire a{display:none}
+#p-reglages:has(#g-enfant .bloc:not([hidden])) .sommaire a[href="#g-enfant"],
+#p-reglages:has(#g-famille .bloc:not([hidden])) .sommaire a[href="#g-famille"],
+#p-reglages:has(#g-appareil .bloc:not([hidden])) .sommaire a[href="#g-appareil"],
+#p-reglages:has(#g-soccaquiz .bloc:not([hidden])) .sommaire a[href="#g-soccaquiz"],
+#p-reglages:has(#g-danger .bloc:not([hidden])) .sommaire a[href="#g-danger"]{display:inline-block}
 .msg{border-radius:12px;padding:12px 14px;margin-top:12px;font-size:.95rem}
 .msg.warn{background:#fffbeb;border:1px solid #fcd34d;color:#78350f}
 .msg.info{background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a8a}
@@ -203,52 +231,91 @@ dialog.boite.large{max-width:720px}
     </div>
   </div>
   <div class="panneau" id="p-reglages" role="tabpanel" aria-labelledby="o-reglages" hidden>
-    <div class="box" id="actions">
-      <h2><i data-ic="send"></i>Partager et mettre à jour</h2>
-      <div class="filtres">
-        <button class="btn" id="envoyer-lien" type="button" hidden><i data-ic="mail"></i> Envoyer le lien à {{PRENOM}}</button>
-        <a class="btn" id="lien-installateur" href="#" target="_top" hidden><i data-ic="tool"></i> Installateur</a>
+    <!-- Réglages rangés par sujet (le plus utilisé d'abord, les actions définitives à la fin) ; chaque « bloc » garde son id :
+         le script l'affiche ou le cache, et une carte ou un groupe dont tous les blocs sont cachés disparaît (règles .carte / .groupe) -->
+    <nav class="sommaire" aria-label="Rubriques des réglages">
+      <a href="#g-enfant">{{PRENOM}}</a><a href="#g-famille">Famille et accès</a><a href="#g-appareil">Cet appareil</a><a href="#g-soccaquiz">SoccaQuiz</a><a href="#g-danger" class="rouge">Zone sensible</a>
+    </nav>
+
+    <section class="groupe" id="g-enfant">
+      <h2 class="groupe-titre">Le site de {{PRENOM}}</h2>
+      <div class="box carte" id="actions">
+        <div class="bloc">
+          <h3><i data-ic="send"></i>Partager</h3>
+          <p class="small" style="margin:0 0 8px">Le site de {{PRENOM}} s'ouvre sans compte, avec son lien : ne le donne qu'à {{PRENOM}}.</p>
+          <div class="filtres"><button class="btn" id="envoyer-lien" type="button" hidden><i data-ic="mail"></i> Envoyer le lien à {{PRENOM}}</button></div>
+          <p class="small" id="info-lien" hidden></p>
+        </div>
       </div>
-      <p class="small" id="info-lien" hidden></p>
-      <p class="small" id="info-version" style="margin:10px 0 0"></p>
-      <p class="small" id="info-gemini" style="margin:4px 0 0"></p>
-    </div>
-    <div class="box">
-      <h2><i data-ic="cap"></i>Classe de {{PRENOM}}</h2>
-      <div id="classe"></div>
-    </div>
-    <div class="box" id="box-parents" hidden>
-      <h2><i data-ic="mail"></i>Autre parent et appareils</h2>
-      <div id="parents" class="small"></div>
-    </div>
-    <div class="box" id="box-raz" hidden>
-      <h2><i data-ic="refresh"></i>Remettre à zéro</h2>
-      <div id="raz" class="small"></div>
-    </div>
-    <div class="box" id="box-famille" hidden>
-      <h2><i data-ic="cap"></i>Enfants de la famille</h2>
-      <div id="famille-reglages" class="small"></div>
-    </div>
-    <div class="box">
-      <h2><i data-ic="snow"></i>Décorations de saison</h2>
-      <div id="saison"></div>
-    </div>
-    <div class="box">
-      <h2><i data-ic="phone"></i>Cet appareil</h2>
-      <div id="appareil"></div>
-    </div>
-    <div class="box" id="box-chrono" hidden>
-      <h2><i data-ic="phone"></i>Mesurer la vitesse</h2>
-      <div id="chrono" class="small"></div>
-    </div>
-    <div class="box">
-      <h2><i data-ic="link"></i>Adresses du site</h2>
-      <div id="adresses" class="small"></div>
-    </div>
-    <div class="box" id="box-suppr" hidden>
-      <h2><i data-ic="trash"></i>Supprimer le site de {{PRENOM}}</h2>
-      <div id="suppr" class="small"></div>
-    </div>
+      <div class="box carte">
+        <div class="bloc">
+          <h3><i data-ic="cap"></i>Classe et apparence</h3>
+          <div id="classe"></div>
+        </div>
+        <div class="bloc">
+          <h3><i data-ic="snow"></i>Décorations de saison</h3>
+          <div id="saison"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="groupe" id="g-famille">
+      <h2 class="groupe-titre">Famille et accès</h2>
+      <div class="box carte">
+        <div class="bloc" id="box-famille" hidden>
+          <h3><i data-ic="cap"></i>Enfants de la famille</h3>
+          <div id="famille-reglages" class="small"></div>
+        </div>
+        <div class="bloc" id="box-parents" hidden>
+          <h3><i data-ic="mail"></i>Autre parent et appareils</h3>
+          <div id="parents" class="small"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="groupe" id="g-appareil">
+      <h2 class="groupe-titre">Cet appareil</h2>
+      <div class="box carte">
+        <div class="bloc">
+          <div id="appareil"></div>
+        </div>
+        <details class="bloc avance" id="box-chrono" hidden>
+          <summary><i data-ic="phone"></i>Mesurer la vitesse</summary>
+          <div id="chrono" class="small"></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="groupe" id="g-soccaquiz">
+      <h2 class="groupe-titre">SoccaQuiz</h2>
+      <div class="box carte">
+        <div class="bloc">
+          <h3><i data-ic="tool"></i>Version et mises à jour</h3>
+          <p class="small" id="info-version" style="margin:0"></p>
+          <p class="small" id="info-gemini" style="margin:4px 0 0"></p>
+          <div class="filtres" style="margin-top:8px"><a class="btn" id="lien-installateur" href="#" target="_top" hidden><i data-ic="tool"></i> Installateur</a></div>
+        </div>
+        <details class="bloc avance">
+          <summary><i data-ic="link"></i>Adresses et dossier Drive</summary>
+          <div id="adresses" class="small"></div>
+        </details>
+      </div>
+    </section>
+
+    <section class="groupe" id="g-danger">
+      <h2 class="groupe-titre rouge">Zone sensible</h2>
+      <p class="small" style="margin:2px 4px 0">Ces actions effacent des données : une confirmation est toujours demandée.</p>
+      <div class="box carte danger">
+        <div class="bloc" id="box-raz" hidden>
+          <h3><i data-ic="refresh"></i>Remettre à zéro</h3>
+          <div id="raz" class="small"></div>
+        </div>
+        <div class="bloc" id="box-suppr" hidden>
+          <h3><i data-ic="trash"></i>Supprimer le site de {{PRENOM}}</h3>
+          <div id="suppr" class="small"></div>
+        </div>
+      </div>
+    </section>
   </div>
 </div>
 
@@ -871,7 +938,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       `<a class="btn" href="${esc(avec(1))}" target="_top">${I("eye")} Ouvrir avec le chrono</a> <a class="btn" href="${esc(avec(0))}" target="_top">Arrêter le chrono</a>`;
   }
   const ligne = (t, u) => u ? `<b>${t}</b><a class="adr" href="${esc(u)}" target="_top">${esc(u)}</a>` : "";
-  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz, contrôles PDF et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de {{PRENOM}} (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi, à garder en favori)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
+  $("adresses").innerHTML = (U.dossierUrl ? `<p style="margin:0 0 10px"><a class="btn" href="${esc(U.dossierUrl)}" target="_blank" rel="noopener">${I("folder")} Ouvrir le dossier Drive</a> <span class="small">quiz et tableau des résultats de {{PRENOM}}</span></p>` : "") + (ligne("Site de {{PRENOM}} (à lui envoyer)", lienEnfant) + ligne("Espace parent (pour toi : installe-le comme une appli)", U.urlParent) + ligne("Installateur (mises à jour)", U.installateur)
     || "Adresses inconnues : ce site a été installé à la main. Passe par l'installateur pour avoir un site de l'enfant et un espace parent séparés.");
   if (U.urlEnfant) {
     $("envoyer-lien").hidden = false;
@@ -1219,6 +1286,17 @@ var Sig = (() => {
   });
   if (actif()) charger();
   return { actif, appel, charger };
+})();
+
+/* sommaire des réglages : défilement vers la rubrique (la page a <base target="_top"> : un simple lien #… changerait de page) */
+(() => {
+  const n = document.querySelector(".sommaire"); if (!n) return;
+  n.addEventListener("click", e => {
+    const a = e.target.closest('a[href^="#"]'); if (!a) return;
+    e.preventDefault(); e.stopPropagation();
+    const g = document.querySelector(a.getAttribute("href"));
+    if (g) try { g.scrollIntoView({ behavior: "smooth", block: "start" }); } catch (x) { g.scrollIntoView(); }
+  }, true);
 })();
 
 /* supprimer ce site (un enfant) : ménage dans le Drive ici, puis l'installateur désactive le site */

@@ -641,7 +641,7 @@ try {
   await page.locator('.boite button[data-r=oui]').click();
   await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
   await page.locator('.onglet[data-o=reglages]').click();
-  ok(await page.locator('#appareil button').isVisible() && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').innerText()), 'page parents : l\'onglet « Réglages » montre l\'appareil et les adresses');
+  ok(await page.locator('#appareil button').isVisible() && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').textContent()), 'page parents : l\'onglet « Réglages » montre l\'appareil et les adresses');
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !(await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ')')).r.some(q => /les-volcans/.test(q.nom)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 
