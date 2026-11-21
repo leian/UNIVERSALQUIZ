@@ -124,7 +124,7 @@ function cache_() {
   };
 }
 /* site publié par l'installateur (adresses connues), quel que soit l'enfant choisi */
-function siteInstalle_() { return URL_SITE_.test(cfgPremier_().urlParent || ''); }
+function siteInstalle_() { const c = cfgPremier_(); return URL_SITE_.test(c.urlParent || '') || URL_SITE_.test(c.urlEnfant || ''); }   // programme de la famille : une seule adresse (urlEnfant)
 /* appels des pages servies par Google pour un autre enfant que le premier (pont.html) */
 // (fonction publique : Google interdit aux pages d'appeler une fonction dont le nom finit par « _ »)
 function apiPourEnfant(enfant, nom, args) {

@@ -127,7 +127,8 @@ try {
   // espace parent servi hors de Google (chantier « sans alerte », étape 2) : lien d'invitation → clé de l'appareil
   {
     const code = 'b'.repeat(64);
-    await ev(`CONFIG.invitation = empreinte_("${code}"); ["CLES", "INVITS", "INVIT_INSTALL"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); 0`);
+    // comme un programme de la famille installé par l'installateur : une seule adresse (urlEnfant), pas d'urlParent
+    await ev(`CONFIG.invitation = empreinte_("${code}"); CONFIG.urlParent = ""; CONFIG.urlEnfant = "https:\/\/script.google.com/macros/s/AKfycbENFANT_essai_0123456789/exec"; PREMIER_CFG_ = null; choisirEnfant_(""); ["CLES", "INVITS", "INVIT_INSTALL"].forEach(k => PropertiesService.getScriptProperties().deleteProperty(k)); 0`);
     const ctxP = await browser.newContext({ viewport: { width: 1100, height: 900 } });
     await ctxP.route(/fonts\.(googleapis|gstatic)\.com|leian\.github\.io|jsdelivr|script\.google\.com/, r => r.fulfill({ status: 200, body: '' }));
     const pp = await ctxP.newPage();
@@ -142,6 +143,7 @@ try {
     await fp.locator('#o-reglages').click();
     await fp.locator('#parents [data-retirer-appareil]').waitFor({ timeout: 10000 }).catch(() => {});
     ok(/cet appareil/.test(await fp.locator('#parents').innerText()) && await fp.locator('#parents [data-inviter="parent"]').count() === 1, 'espace parent hors de Google : Réglages → cet appareil dans la liste, « Inviter l\'autre parent »');
+    ok(await fp.locator('#box-suppr').isVisible(), 'espace parent hors de Google (programme de la famille, une seule adresse) : « Supprimer le site de … » proposé au parent qui a installé');
     await fp.locator('a[href="ajouter.html"]').first().click();
     await pp.waitForFunction(() => location.hash === '#ajouter');
     fp = await cadreP();
