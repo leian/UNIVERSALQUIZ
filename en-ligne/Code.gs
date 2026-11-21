@@ -482,18 +482,34 @@ function apiAutorise(ref) {
    version) ; l'installateur prouve qu'il est celui de la famille par sa clé (seule son empreinte est dans le programme) */
 function apiLienParent(ref) {
   try {
-    const n = trouverSite_(ref), s = lireSite_(n) || {};
+    const n = trouverSite_(ref);
+    let s = lireSite_(n) || {};
     if (s.modele !== 'famille') return { erreur: 'Ce site n\'utilise pas cette étape.' };
-    if (/^[0-9a-f]{40,80}$/.test(s.cleInst || '') && s.url) {
-      let d = null;
-      try {
-        const r = UrlFetchApp.fetch(s.url, { method: 'post', contentType: 'text/plain', payload: JSON.stringify({ api: 'inviter-installateur', cle: s.cleInst }), muteHttpExceptions: true, followRedirects: true });
-        d = JSON.parse(r.getContentText());
-      } catch (e) { d = null; }
-      if (d && d.ok && /^[0-9a-f]{40,80}$/.test(d.code || '')) return { ok: true, n, invitation: origineSite_() + '/parent/?s=' + idDeploiement_(s) + '#i=' + d.code, urlParent: lienParentFamille_(s) };
+    let code = demanderCode_(s, 1);
+    if (!code) {
+      // site installé avant la clé de l'installateur : une mise à jour la lui donne ; Google met parfois quelques secondes
+      // à servir la nouvelle version, d'où plusieurs essais (un code écrit dans le programme aurait le même délai)
+      const r = publierFamille_(false, n, moteur_(), s, false);
+      if (!r.ok) return r;
+      if (!r.pret) return { erreur: 'Le site ne répond pas encore : autorise-le d\'abord (bouton « Ouvrir le programme »).', aAutoriser: true, lienProjet: r.lienProjet, n };
+      s = lireSite_(n) || {};
+      code = demanderCode_(s, 8);
     }
+    if (code) return { ok: true, n, invitation: origineSite_() + '/parent/?s=' + idDeploiement_(s) + '#i=' + code, urlParent: lienParentFamille_(s) };
   } catch (e) { return traduire_(e); }
-  return apiNouvelAppareil(ref);   // site d'avant la clé de l'installateur, ou qui ne répond pas : nouveau code écrit dans le programme
+  return { erreur: 'Le site n\'a pas pu fabriquer le lien. Réessaie dans une minute.' };
+}
+function demanderCode_(s, essais) {
+  if (!/^[0-9a-f]{40,80}$/.test(s.cleInst || '') || !s.url) return '';
+  for (let i = 0; i < essais; i++) {
+    if (i) Utilities.sleep(3000);
+    try {
+      const r = UrlFetchApp.fetch(s.url, { method: 'post', contentType: 'text/plain', payload: JSON.stringify({ api: 'inviter-installateur', cle: s.cleInst }), muteHttpExceptions: true, followRedirects: true });
+      const d = JSON.parse(r.getContentText());
+      if (d && d.ok && /^[0-9a-f]{40,80}$/.test(d.code || '')) return d.code;
+    } catch (e) {}
+  }
+  return '';
 }
 /* nouvel appareil du parent (téléphone changé, clé perdue…) : nouveau code, écrit dans le programme (une version de plus) */
 function apiNouvelAppareil(ref) {

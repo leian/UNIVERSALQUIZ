@@ -403,10 +403,11 @@ ok(!ctx.apiEtat().installe && Object.keys(projets).length > 0, '?recommencer=1 n
   r = ctx.apiLienParent({ id: userProps.scriptId });
   ok(r.ok && r.invitation === 'https://app.soccaquiz.fr/parent/?s=' + dep + '#i=' + 'd'.repeat(64) && p.versions === v1 && code().includes("cleInstallateur: '" + sha(userProps.cleInst) + "'"),
     '« 🔒 Espace parent » dans l\'installateur : le site fabrique le lien de cet appareil (clé de l\'installateur prouvée, seule son empreinte est dans le programme), sans nouvelle version');
-  const cleVraie = userProps.cleInst; userProps.cleInst = 'e'.repeat(64);
+  // site installé avant la clé de l'installateur : une mise à jour la lui donne, puis le site fabrique le lien
+  delete userProps.cleInst;
   r = ctx.apiLienParent({ id: userProps.scriptId });
-  ok(r.ok && /#i=[0-9a-f]{64}$/.test(r.invitation) && !r.invitation.endsWith('d'.repeat(64)) && p.versions === v1 + 1, 'clé refusée par le site : nouveau code écrit dans le programme (secours)');
-  void cleVraie;
+  ok(r.ok && r.invitation.endsWith('#i=' + 'd'.repeat(64)) && p.versions === v1 + 1 && /^[0-9a-f]{64}$/.test(userProps.cleInst || '') && code().includes("cleInstallateur: '" + sha(userProps.cleInst) + "'"),
+    'site d\'avant la clé de l\'installateur : une version pour lui donner la clé, puis lien fabriqué par le site (jamais de code d\'installation réutilisé)');
   const code0 = userProps.invit;
   r = ctx.apiNouvelAppareil({ id: userProps.scriptId });
   ok(r.ok && userProps.invit !== code0 && r.invitation.endsWith('#i=' + userProps.invit) && code().includes("invitation: '" + sha(userProps.invit) + "'"), 'nouvel appareil : nouveau code, écrit dans le programme, nouveau lien');
