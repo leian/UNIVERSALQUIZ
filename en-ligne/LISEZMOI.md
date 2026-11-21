@@ -8,10 +8,12 @@
 
 L'installateur en ligne permet à un ami de créer son site SoccaQuiz **depuis son téléphone**, sans rien télécharger. C'est un petit site Apps Script, publié par l'éditeur (le compte **soccaquiz@gmail.com**). Quand un ami l'ouvre, il agit dans *le compte de l'ami* :
 
-1. il crée chez lui un projet « SoccaQuiz » par site (« SoccaQuiz – Léa » pour un site de plus ; « Universal Quiz » pour les sites installés avant le 11 novembre 2026) ;
-2. il y copie la dernière version du moteur, prise dans le fichier `universal-quiz.json` de la dernière Release GitHub ;
-3. il le publie **deux fois** : le **site de l'enfant** (ouvert sans compte, sans les pages des parents) et l'**espace parent** (accès « Seulement moi » : il ne s'ouvre qu'avec le compte Google de l'ami, et contient « Ajouter un quiz », le suivi des résultats et la clé Gemini). Chaque publication connaît l'adresse de l'autre ;
-4. à chaque mise à jour, il republie les deux (deux versions par mise à jour). Un site installé avant l'espace parent le reçoit à sa prochaine mise à jour, sans changer l'adresse de l'enfant.
+1. il crée chez lui **un** projet « SoccaQuiz » pour toute la famille (les autres enfants s'ajoutent ensuite dans l'espace parent) ;
+2. il y copie la dernière version du moteur, prise dans le fichier `universal-quiz.json` de la dernière Release GitHub ; le moteur ne demande que `drive.file` (les fichiers qu'il crée) et l'adresse e-mail ;
+3. il le publie **une fois** (exécuté avec le compte de l'ami, ouvert sans compte), puis l'ami l'**autorise dans l'éditeur** (« Ouvrir le programme », ▷ Exécuter, écrans bleus) ; l'installateur attend que le site réponde, puis donne le lien de l'**espace parent** (app.soccaquiz.fr/parent, code à usage unique : l'appareil reçoit une clé) ;
+4. à chaque mise à jour, il republie (une version par mise à jour). Un site installé avant le programme de la famille (deux publications, accès à tout le Drive) ne peut pas être mis à jour : le supprimer, puis installer.
+
+Projet d'installateur : il doit être relié au projet Google Cloud SoccaQuiz (n° 710131532855, API Apps Script activée), dans ⚙️ Paramètres du projet. Pour un essai depuis une branche : propriétés du script `SOURCE` (adresse raw.githubusercontent.com du `universal-quiz.json` de la branche) et `ORIGINE` (`https://essai.soccaquiz.pages.dev`).
 
 L'installateur n'utilise pas l'API Drive et ne lit aucun fichier de l'ami. Il garde seulement la liste de ses sites (prénom, classe, adresses…), que l'ami peut effacer avec « Effacer toutes mes données de l'installateur », en bas de la page. Il n'écrit aucun journal d'erreur (`exceptionLogging: NONE`).
 

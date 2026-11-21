@@ -14,7 +14,7 @@ Ce projet est né d'un moteur de quiz familial, généralisé ici pour que n'imp
 
 ### L'installateur en ligne (téléphone, tablette ou ordinateur)
 
-L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur, et l'installateur affiche deux boutons : **▶ Site de l'enfant** (le lien à envoyer à l'enfant) et **🔒 Espace parent** (à garder en favori, il ne s'ouvre qu'avec le compte Google du parent). Le même lien d'installateur sert ensuite aux mises à jour, et les adresses ne changent pas. Un site installé avant l'espace parent le reçoit à sa prochaine mise à jour.
+L'ami reçoit un lien par mail. Il active l'interrupteur « API Google Apps Script », tape le prénom de l'enfant, puis touche **Installer mon site**. Son site est créé dans son propre compte Google, avec la dernière version du moteur, puis il l'autorise une fois dans l'éditeur de Google Apps Script (écrans bleus seulement : le site ne demande que l'accès aux fichiers qu'il crée). L'installateur affiche alors **🔒 Ouvrir mon espace parent** (sur app.soccaquiz.fr, sans compte Google, une clé par appareil) et le lien du site de l'enfant. Les autres enfants s'ajoutent dans l'espace parent. Le même lien d'installateur sert ensuite aux mises à jour, et les adresses ne changent pas.
 
 L'éditeur (soccaquiz@gmail.com) met ce lien en place une seule fois : voir [`en-ligne/LISEZMOI.md`](en-ligne/LISEZMOI.md), qui contient aussi le mail type à envoyer aux amis.
 
@@ -54,8 +54,8 @@ L'IA répond au format en lignes décrit dans `src/consignes.txt` (une ligne par
 
 - Google affiche un bandeau en haut des pages (« Cette application a été créée par un utilisateur de Google Apps Script »).
 - Une page met 1 à 2 secondes à s'ouvrir.
-- Un projet peut avoir au plus 200 versions, et chaque mise à jour en crée deux (site de l'enfant et espace parent). Au-delà, supprime les anciennes dans « Gérer les déploiements ».
-- L'espace parent s'ouvre seulement avec le compte Google de la famille. Si plusieurs comptes Google sont connectés dans le navigateur, Google peut afficher « Impossible d'ouvrir le fichier » : ouvrir l'espace parent dans une fenêtre où seul ce compte est connecté.
+- Un projet peut avoir au plus 200 versions, et chaque mise à jour en crée une. Au-delà, supprime les anciennes dans « Historique du projet ».
+- L'espace parent s'ouvre seulement sur les appareils reconnus (lien d'invitation à usage unique). Un lien ouvert dans le navigateur intégré d'une appli (messagerie, mail) peut être perdu : ouvrir le lien dans Chrome ou Safari, ou le coller sur la page.
 
 ## Licence
 
