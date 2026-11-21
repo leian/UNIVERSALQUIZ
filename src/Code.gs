@@ -4,25 +4,21 @@
    Licence PolyForm Noncommercial 1.0.0 — usage commercial interdit :
    https://polyformproject.org/licenses/noncommercial/1.0.0
    ---------------------------------------------------------------------
-   Une seule adresse web sert tout le site :
-     …/exec                      → page d'accueil « SoccaQuiz »
-     …/exec?page=<nom du quiz>   → un quiz (fichier <nom>.html du dossier Drive)
-     …/exec?page=tableau-de-bord → suivi des résultats (parents)
-     …/exec?page=ajouter         → ajout d'un quiz (parents)
+   👉 Tu es ici pour autoriser ton site ? En haut, la fonction « autoriser » est déjà choisie :
+      clique sur « ▷ Exécuter », puis « Examiner les autorisations », coche « Tout sélectionner »
+      et « Continuer ». Ne modifie rien d'autre dans ce programme.
 
-   Deux publications du même site (créées par l'installateur en ligne) :
-     • le site de l'enfant (accès : tout le monde, sans compte) : quiz, accueil ;
-     • l'espace parent (accès : « Seulement moi », Google vérifie le compte du parent) :
-       tout le site, plus « Ajouter un quiz », le suivi des résultats et la clé Gemini.
-   Dans le site de l'enfant, les pages et les actions réservées aux parents sont refusées.
+   Le programme de la famille (un seul pour tous les enfants), installé par l'installateur en ligne :
+     • une seule publication, exécutée avec le compte du parent, ouverte sans compte ;
+     • il ne demande que deux autorisations : les fichiers qu'il crée lui-même dans le Drive
+       et l'adresse e-mail du compte ; il ne se connecte à aucun service extérieur ;
+     • les pages (site de l'enfant, espace parent) sont servies par app.soccaquiz.fr : ce programme
+       ne fait que lire et écrire les données (API) ; l'espace parent n'est ouvert qu'aux appareils
+       qui ont une clé (lien d'invitation à usage unique).
 
-   Où sont les choses :
-     • le moteur (commun/…) et les pages d'accueil : dans ce projet (dossier lib/)
-     • les quiz (.html) : dans le dossier Drive « SoccaQuiz » (« Universal Quiz » pour les sites installés avant)
-     • les résultats : dans le Google Sheets « SoccaQuiz – Résultats » (même dossier)
-
-   Le dossier et le Sheets sont créés tout seuls à la première visite
-   (ou en lançant la fonction installer() depuis l'éditeur).
+   Où sont les choses : pour chaque enfant, un dossier Drive « SoccaQuiz » (ou « SoccaQuiz – prénom »)
+   avec les Google Sheets « SoccaQuiz – Quiz » (les quiz) et « SoccaQuiz – Résultats ». Le moteur des
+   quiz et les pages sont dans ce projet (dossier lib/).
    ===================================================================== */
 
 /* Première fonction du fichier, donc déjà choisie dans l'éditeur : l'installateur l'ouvre ici, le parent clique

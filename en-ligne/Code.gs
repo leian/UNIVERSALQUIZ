@@ -95,7 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
-const INSTALLATEUR_V = '21-11 C';   // repère affiché en bas de la page : changer à chaque modification à recoller
+const INSTALLATEUR_V = '21-11 D';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -759,6 +759,12 @@ function scriptPage_() {
           '<p class="petit" style="margin:0 0 8px">Ajouter des quiz, suivre les résultats, ajouter un autre enfant. Ce bouton ouvre ton espace parent <b>sur cet appareil</b>, une seule fois, sans compte Google ensuite : ajoute-le à ton écran d\'accueil. Pour un autre appareil : « Ouvrir l\'espace parent sur un autre appareil », plus bas.</p>' : '') +
         '<p style="margin:0">Ensuite, envoie son lien à ' + h((s && s.prenom) || 'ton enfant') + ' (bouton ✉️) : son site s\'ouvre sans compte.</p></div>';
     }
+    // onglet ouvert au clic sur « 🔒 Espace parent », le temps que le lien arrive : même allure que l'écran de chargement de l'espace parent
+    var PAGE_OUVERTURE = '<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>SoccaQuiz</title>' +
+      '<style>html,body{margin:0;height:100%;background:#fff8ef;color:#2b2350;font:500 17px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}' +
+      'body{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px;text-align:center;padding:24px;box-sizing:border-box}' +
+      'img{width:96px;height:96px;animation:b 1.4s ease-in-out infinite}@keyframes b{0%,100%{transform:scale(1)}50%{transform:scale(1.06)}}</style></head>' +
+      '<body><img src="https:\/\/leian.github.io/UNIVERSALQUIZ/icone.png" alt=""><div>Ouverture de ton espace parent…</div></body></html>';
     var ATTENTES = {};
     function attendreAutorisation(s) {
       if (ATTENTES[s.id]) return;
@@ -984,7 +990,7 @@ function scriptPage_() {
         // ouvrir l'espace parent sur CET appareil : un lien à usage unique, fabriqué à la demande (la fenêtre s'ouvre tout de suite,
         // sinon le navigateur bloquerait l'ouverture qui arrive après la réponse du serveur)
         var w = null; try { w = window.open('', '_blank'); } catch (er) {}
-        if (w) try { w.document.write('<p style="font:16px system-ui;padding:24px">Ouverture de ton espace parent…</p>'); } catch (er) {}
+        if (w) try { w.document.write(PAGE_OUVERTURE); w.document.close(); } catch (er) {}
         google.script.run.withSuccessHandler(function (r) {
           if (!r || r.erreur || !r.invitation) { if (w) w.close(); return erreur(r || { erreur: 'Le lien n\'a pas pu être fabriqué.' }, n); }
           if (w) w.location.href = r.invitation;
