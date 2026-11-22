@@ -1330,15 +1330,17 @@ var Sig = (() => {
     google.script.run.withSuccessHandler(r => {
       if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
       champ.disabled = true; document.getElementById("suppr-garder").disabled = true;
+      // l'icône posée sur l'écran d'accueil d'un téléphone ou d'une tablette reste : seul son propriétaire peut la retirer
+      const icone = (qui) => `<p class="small" style="margin:6px 0 0">${I("info")} Si ${qui} a été ajouté à l'écran d'accueil d'un téléphone, d'une tablette ou d'un ordinateur, l'icône y reste : retire-la sur chaque appareil (sur téléphone : appui long sur l'icône, puis « Désinstaller »). En l'ouvrant, on verra seulement que ce SoccaQuiz n'existe plus.</p>`;
       if (r.reste && r.reste.length) {
-        msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>Fait : {{PRENOM}} n'est plus dans SoccaQuiz</b> (${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}, son lien ne marche plus). Rien ne change pour ${esc(r.reste.join(", "))}.</p>` +
+        msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>Fait : {{PRENOM}} n'est plus dans SoccaQuiz</b> (${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}, son lien ne marche plus). Rien ne change pour ${esc(r.reste.join(", "))}.</p>` + icone("le site de {{PRENOM}}") +
           (r.parent ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.parent)}" target="_top">Continuer avec ${esc(r.reste[0])}</a></p>` : "");
         return;
       }
       const fait = `${r.garde ? "quiz et résultats gardés dans le Drive" : "quiz et résultats mis à la corbeille du Drive"}${r.programme ? ", programme du site mis à la corbeille" : ""}, site retiré de la famille`;
       const bouton = r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`;
       // secours : l'installateur n'a pas pu finir dans le cadre invisible (connexion Google refusée dans le cadre, plusieurs comptes…)
-      const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : clique sur le bouton, l'installateur termine tout seul.</p>` + bouton; };
+      const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : clique sur le bouton, l'installateur termine tout seul.</p>` + bouton + icone("SoccaQuiz"); };
       if (!r.retour) return secours();
       // l'installateur finit ici, dans un cadre invisible : pas de changement de page, donc pas de toucher en plus
       msg.innerHTML = `<p class="small" style="margin:8px 0 0">✅ Fait : ${fait}.<br>Dernière étape en cours : l'installateur désactive son site… (quelques secondes)</p>`;
@@ -1350,7 +1352,8 @@ var Sig = (() => {
         if (m.etat !== "ok") return secours();
         msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>Le site de {{PRENOM}} est entièrement supprimé</b> : ${fait}, son site et son espace parent sont désactivés.` +
           (m.desinstalle ? `<br><b>SoccaQuiz est entièrement désinstallé</b> : il n'a plus aucun accès à ton compte Google.</p>` +
-            `<p class="small" style="margin:6px 0 0">Pour ne plus rien garder du tout (facultatif) : vide la <a href="https:\/\/drive.google.com/drive/trash" target="_blank" rel="noopener">corbeille du Drive</a> (sinon Google l'efface dans 30 jours) ; si tu avais créé une clé Gemini, supprime-la sur <a href="https:\/\/aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a> ; remets l'interrupteur « API Google Apps Script » sur Désactivé (<a href="https:\/\/script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).` : "") + `</p>`;
+            `<p class="small" style="margin:6px 0 0">Pour ne plus rien garder du tout (facultatif) : vide la <a href="https:\/\/drive.google.com/drive/trash" target="_blank" rel="noopener">corbeille du Drive</a> (sinon Google l'efface dans 30 jours) ; si tu avais créé une clé Gemini, supprime-la sur <a href="https:\/\/aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a> ; remets l'interrupteur « API Google Apps Script » sur Désactivé (<a href="https:\/\/script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).` : "") + `</p>` +
+          icone(m.desinstalle ? "SoccaQuiz (site de l'enfant ou espace parent)" : "le site de {{PRENOM}}");
       };
       window.addEventListener("message", ecoute);
       const cadre = document.createElement("iframe");

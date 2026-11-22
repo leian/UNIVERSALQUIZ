@@ -124,6 +124,25 @@ try {
   await p3.waitForTimeout(1500);
   ok(/pas encore l'API/.test(await p3.locator('#msg').innerText()), 'site sans API : reconnu (ancienne appli utilisée en vrai)');
 
+  // enfant supprimé : l'icône restée sur l'appareil dit que ce SoccaQuiz n'existe plus (jamais le site d'un autre enfant)
+  {
+    const etat = await (await fetch(GOOGLE + '/exec?api=etat')).json();
+    const parti = await (await fetch(GOOGLE + '/exec?api=etat&attendu=zz9')).json();
+    const partiE = await (await fetch(GOOGLE + '/exec?api=etat&e=zz9')).json();
+    const post = await (await fetch(GOOGLE + '/exec', { method: 'POST', body: JSON.stringify({ api: 'enregistrer', attendu: 'zz9', d: '{}' }) })).json();
+    ok(etat.enfant === 'a' && parti.supprime && partiE.supprime && post.supprime && !parti.reglages, 'programme : enfant inconnu (supprimé) → { supprime }, rien d\'un autre enfant ni enregistrement chez lui — ' + JSON.stringify([etat.enfant, parti, post]));
+    const ps = await (await browser.newContext()).newPage();
+    await ps.goto(ADRESSE + '&e=zz9');
+    await ps.locator('#supprime').waitFor({ state: 'visible', timeout: 8000 }).catch(() => {});
+    const marque = await ps.evaluate(() => Object.keys(localStorage).filter(k => k.indexOf('sq-supprime:') === 0).length);
+    ok(await ps.locator('#supprime').isVisible() && /n'existe plus/.test(await ps.locator('#supprime-titre').innerText()) && /Désinstaller|Supprimer le signet|⋮/.test(await ps.locator('#supprime-icone').innerText()) && !(await ps.locator('iframe.page').count()) && marque === 1 && await ps.locator('#supprime-reessayer').isHidden(),
+      'appli : enfant supprimé → écran « n\'existe plus » avec la façon de retirer l\'icône, retenu sur l\'appareil');
+    await ps.reload();
+    await ps.waitForTimeout(800);
+    ok(await ps.locator('#supprime').isVisible(), 'appli : rouverte plus tard, l\'écran « n\'existe plus » s\'affiche tout de suite');
+    await ps.context().close();
+  }
+
   // espace parent servi hors de Google (chantier « sans alerte », étape 2) : lien d'invitation → clé de l'appareil
   {
     const code = 'b'.repeat(64);

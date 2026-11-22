@@ -95,7 +95,7 @@ function plusRecente_(a, b) {
 /* Adresse de l'appli installable pour un site de l'enfant (…/app/?s=<identifiant de son déploiement>), ou '' :
    le site doit avoir le « mode cadre » (v2.77 et suivantes), sinon l'appli attendrait 15 s avant d'ouvrir le site classique.
    La page ne s'en sert que si docs/soccaquiz.json l'autorise ("appli": "on", ou "beta" sur Android). */
-const INSTALLATEUR_V = '21-11 F';   // repère affiché en bas de la page : changer à chaque modification à recoller
+const INSTALLATEUR_V = '22-11 A';   // repère affiché en bas de la page : changer à chaque modification à recoller
 const VERSION_APPLI = 'v2.77', URL_APPLI = 'https://leian.github.io/app/?s=';
 function appli_(url, version) {
   const m = String(url || '').match(/^https:\/\/script\.google\.com\/macros\/s\/(AKfy[\w-]{20,200})\/exec$/);
@@ -1025,6 +1025,7 @@ function scriptPage_() {
           ? '<p style="margin:6px 0 0">Il apparaît peut-être encore dans la famille de tes autres sites : <a class="btn leger" href="' + h(r.restants[0]) + '?oublier=' + encodeURIComponent(r.urlParent) + '" target="_top">Le retirer de la famille</a></p>' : '';
         res.innerHTML = '<div class="ok"><p style="margin:0 0 6px"><b>✅ ' + h(qui) + ' est supprimé</b> : son site et son espace parent sont désactivés' + (r.corbeille ? ', son programme est dans la corbeille du Drive' : '') + ', l\'installateur ne garde plus rien sur lui.' + (parSite ? '' : ' Ses quiz et ses résultats restent dans ton Drive.') + '</p>' + famille +
           (r.corbeille ? '' : '<p class="petit" style="margin:6px 0 0">Il reste son programme « SoccaQuiz » sur <a href="https://script.google.com/home" target="_blank" rel="noopener">script.google.com</a> : tu peux le mettre à la corbeille (⋮ → Supprimer), il ne sert plus.</p>') +
+          '<p class="petit" style="margin:6px 0 0">Si SoccaQuiz a été ajouté à l\'écran d\'accueil d\'un téléphone, d\'une tablette ou d\'un ordinateur, l\'icône y reste : retire-la sur chaque appareil (sur téléphone : appui long sur l\'icône, puis « Désinstaller »). En l\'ouvrant, on verra seulement que ce SoccaQuiz n\'existe plus.</p>' +
           (r.desinstalle ? '<p style="margin:8px 0 0"><b>SoccaQuiz est entièrement désinstallé</b> : il n\'a plus aucun accès à ton compte Google.</p><p class="petit" style="margin:6px 0 0">Pour ne plus rien garder du tout (facultatif) : vide la <a href="https://drive.google.com/drive/trash" target="_blank" rel="noopener">corbeille du Drive</a> (sinon Google l\'efface dans 30 jours) ; si tu avais créé une clé Gemini, supprime-la sur <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">aistudio.google.com</a> ; remets l\'interrupteur « API Google Apps Script » sur Désactivé (<a href="https://script.google.com/home/usersettings" target="_blank" rel="noopener">page Google</a>).</p>' : '') + '</div>';
         if (r.desinstalle) { $('deja').classList.add('cache'); $('nouveau').classList.add('cache'); return; }   // accès retiré : plus d'appel possible
         charger();                                         // liste relue : les autres sites restent tels quels

@@ -94,7 +94,41 @@
   }
   bouton.addEventListener('click', function () { location.reload(); });
 
-  function lireJson(r) { return r.text().then(function (t) { try { return JSON.parse(t); } catch (e) { throw new Error('Réponse illisible'); } }); }
+  function lireJson(r) {
+    if (r.status === 404) { var e404 = new Error('Site supprimé'); e404.supprime = true; return Promise.reject(e404); }
+    return r.text().then(function (t) { try { return JSON.parse(t); } catch (e) { throw new Error('Réponse illisible'); } });
+  }
+  /* ---------- SoccaQuiz supprimé (dernier enfant : la publication du programme est retirée) ----------
+     L'icône de l'écran d'accueil reste : aucun site ne peut la retirer à distance. On l'explique au lieu d'une erreur.
+     Sûr : l'adresse renvoie 404. Probable : elle ne répond pas du tout (deux fois) alors que l'adresse publique de
+     SoccaQuiz chez Google répond — même règle que le site de l'enfant (site/index.html). */
+  var PUBLIC = 'https:\/\/leian.github.io/UNIVERSALQUIZ/soccaquiz.json';
+  function googleRepond() {
+    return fetch(PUBLIC, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
+      if (!c || !/^https:\/\/script\.google\.com\//.test(c.propositions || '')) return false;
+      return fetch(c.propositions + '?correction=0', { credentials: 'omit' }).then(function (r) { return r.json(); }).then(function (d) { return !!(d && d.statut); });
+    }).catch(function () { return false; });
+  }
+  function siPasSupprime(err, sinon) {
+    if (err && err.supprime) return siteSupprime(true);
+    if (local || !err || navigator.onLine === false || !(err instanceof TypeError)) return sinon();
+    return new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () {
+      return fetch(BASE + '?api=etat', { credentials: 'omit' }).then(function (r) { return r.status === 404; }, function () { return googleRepond(); });
+    }).then(function (partie) { if (partie) siteSupprime(false); else sinon(); });
+  }
+  function siteSupprime(sur) {
+    if (sur) try { localStorage.removeItem(K_CLE); } catch (e) {}
+    Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { x.remove(); });
+    barre.classList.remove('actif');
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    arreter('Ce SoccaQuiz a été supprimé', !sur, 'Ses liens ne marchent plus. ' + (/Android/.test(ua)
+      ? 'Pour retirer l\'icône de l\'écran d\'accueil : appui long sur l\'icône SoccaQuiz, puis « Désinstaller ».'
+      : ios ? 'Pour retirer l\'icône de l\'écran d\'accueil : appui long sur l\'icône SoccaQuiz, puis « Supprimer le signet ».'
+      : 'Si l\'espace parent est installé sur cet ordinateur : menu ⋮ en haut de sa fenêtre, puis « Désinstaller ». Sinon, tu peux fermer cette page.') +
+      ' Pour réinstaller SoccaQuiz plus tard : soccaquiz.fr.');
+    document.title = 'SoccaQuiz – supprimé';
+  }
   function poster(o) {      // texte simple : pas de requête préalable CORS
     if (enfant) o.e = enfant;
     return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
@@ -227,7 +261,8 @@
     }).catch(function (e) {
       if (e && e.nonReconnu) return;
       barre.classList.remove('actif');
-      if (!document.querySelector('iframe.page')) arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, String(e && e.message || ''));
+      if (e && e.supprime) return siteSupprime(true);
+      if (!document.querySelector('iframe.page')) siPasSupprime(e, function () { arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, String(e && e.message || '')); });
     });
   }
 
@@ -263,6 +298,7 @@
    }).catch(function (e) {
     if (e && e.lien) return arreter(e.message, false, 'Demande un nouveau lien au parent qui a installé SoccaQuiz, puis colle-le ici.', true);
     if (e && e.nonReconnu) return;
+    if (e && e.supprime) return siteSupprime(true);
     var m = String(e && e.message || '');
     if (/permission|drive\.files|autoris/i.test(m)) return arreter('Il manque une autorisation à ton site.', true, 'Ouvre l\'installateur SoccaQuiz : sur la carte de ton site, clique sur « Ouvrir le programme », puis ▷ Exécuter, et coche « Tout sélectionner » dans l\'écran de Google. (' + m + ')');
     arreter('SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true, m);

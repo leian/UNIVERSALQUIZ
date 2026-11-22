@@ -25,6 +25,15 @@
   #charge { position: fixed; left: 0; top: 0; height: 3px; width: 0; z-index: 98; background: #c8102e; transition: width 2s ease-out, opacity .3s; opacity: 0; }
   #charge.actif { width: 80%; opacity: 1; }
   @keyframes battre { 50% { transform: scale(1.06); } }
+  #supprime { position: fixed; inset: 0; z-index: 100; display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 14px; padding: 24px; text-align: center; background: #fff8ef; color: #2a1f1a; font: 17px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  #supprime[hidden] { display: none; }
+  #supprime img { width: 96px; height: 96px; border-radius: 22px; opacity: .55; filter: grayscale(.6); }
+  #supprime h1 { margin: 0; font-size: 22px; color: #a9010d; }
+  #supprime p { margin: 0; max-width: 30em; }
+  #supprime .etapes { background: #fff; border: 1px solid #ead9c6; border-radius: 14px; padding: 12px 16px; }
+  #supprime .petit { font-size: 14px; color: #6b5a4e; }
+  #supprime button { font: 600 15px system-ui, sans-serif; color: #a9010d; background: none; border: 1px solid #a9010d; border-radius: 999px; padding: 8px 18px; }
   @media (prefers-reduced-motion: reduce) { #demarrage.attente img { animation: none; } #charge { transition: none; } }
 </style>
 </head>
@@ -35,6 +44,14 @@
   <button id="reessayer" type="button" hidden>Réessayer</button>
 </div>
 <div id="charge" aria-hidden="true"></div>
+<div id="supprime" role="alert" hidden>
+  <img src="icone-192.png" alt="">
+  <h1 id="supprime-titre">Ce SoccaQuiz n'existe plus</h1>
+  <p id="supprime-texte">Il a été supprimé par le parent qui l'avait installé.</p>
+  <p class="etapes" id="supprime-icone"></p>
+  <p class="petit">Si tu as besoin d'aide, demande à un adulte.</p>
+  <button id="supprime-reessayer" type="button" hidden>Réessayer</button>
+</div>
 <script>
 /* =====================================================================
    APPLI SoccaQuiz SERVIE HORS DE GOOGLE (site statique, Cloudflare Pages)
@@ -88,6 +105,7 @@
 
   /* ---------- échanges avec le Google de la famille ---------- */
   function lireJson(r) {
+    if (r.status === 404) { var e404 = new Error('Site supprimé'); e404.supprime = true; return Promise.reject(e404); }
     return r.text().then(function (t) {
       try { return JSON.parse(t); } catch (e) { var err = new Error('Réponse illisible'); err.ancien = /<html/i.test(t); throw err; }
     });
@@ -96,14 +114,80 @@
     var q = new URLSearchParams(params || {});
     q.set('api', nom);
     if (enfant) q.set('e', enfant);
+    else if (vuEnfant()) q.set('attendu', vuEnfant());       // l'enfant vu la dernière fois : le serveur dit s'il a été supprimé
     return fetch(BASE + '?' + q.toString(), { credentials: 'omit' }).then(lireJson).then(function (d) {
+      if (d && d.supprime) { var s = new Error('Site supprimé'); s.supprime = true; throw s; }
       if (!d || !d.v) { var e = new Error('Site pas à jour'); e.ancien = true; throw e; }
       return d;
     });
   }
   function poster(o) {      // texte simple : pas de requête préalable CORS
     if (enfant) o.e = enfant;
-    return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson);
+    else if (vuEnfant()) o.attendu = vuEnfant();
+    return fetch(BASE, { method: 'POST', body: JSON.stringify(o), credentials: 'omit' }).then(lireJson).then(function (d) {
+      if (d && d.supprime) { siteSupprime(true); var s = new Error('Site supprimé'); s.supprime = true; throw s; }
+      return d;
+    });
+  }
+
+  /* ---------- site supprimé par son parent ----------
+     L'icône posée sur l'écran d'accueil reste : aucun site ne peut la retirer à distance (Android, iPhone et les
+     ordinateurs le réservent au propriétaire de l'appareil). On le dit clairement, au lieu d'une erreur.
+     Sûr : le serveur répond { supprime } (enfant retiré de la famille) ou l'adresse renvoie 404 → retenu sur l'appareil.
+     Probable : notre adresse ne répond pas du tout (deux fois), alors que l'adresse publique de SoccaQuiz chez Google
+     répond → affiché, mais revérifié à chaque ouverture (bouton « Réessayer »). */
+  var K_SUPPR = 'sq-supprime:' + id + (enfant ? '.' + enfant : '');
+  var marque = lireJ(K_SUPPR);                 // { prenom, enfant } : supprimé, c'est sûr
+  // lien sans ?e= (premier enfant) : l'identifiant de l'enfant affiché la dernière fois (s'il est supprimé,
+  // le suivant prend sa place : sans lui, l'appareil montrerait un autre enfant)
+  function vuEnfant() { return (etat && etat.enfant) || (marque && marque.enfant) || ''; }
+  var PUBLIC = 'https:\/\/leian.github.io/UNIVERSALQUIZ/soccaquiz.json';
+  function googleRepond() {
+    return fetch(PUBLIC, { cache: 'no-store' }).then(function (r) { return r.json(); }).then(function (c) {
+      if (!c || !/^https:\/\/script\.google\.com\//.test(c.propositions || '')) return false;
+      return fetch(c.propositions + '?correction=0', { credentials: 'omit' }).then(function (r) { return r.json(); }).then(function (d) { return !!(d && d.statut); });
+    }).catch(function () { return false; });
+  }
+  function semblePartie(err) {
+    if (local || !err || err.ancien || navigator.onLine === false || !(err instanceof TypeError)) return Promise.resolve(false);
+    return new Promise(function (ok) { setTimeout(ok, 2500); }).then(function () {
+      return fetch(BASE + '?api=etat', { credentials: 'omit' }).then(function (r) { return r.status === 404; }, function () { return googleRepond(); });
+    });
+  }
+  // erreur au démarrage : site supprimé ? sinon, l'action habituelle
+  function siPasSupprime(err, sinon) {
+    if (err && err.supprime) return siteSupprime(true);
+    return semblePartie(err).then(function (partie) { if (partie) siteSupprime(false); else if (sinon) sinon(); });
+  }
+  function siteSupprime(sur) {
+    var prenom = (etat && etat.prenom) || (marque && marque.prenom) || '';
+    if (sur && !marque) { marque = { prenom: prenom, enfant: enfant || vuEnfant() }; ecrireJ(K_SUPPR, marque); }
+    try {
+      // ce que l'appareil gardait de ce site part aussi (quiz, scores, réglages)
+      Object.keys(localStorage).forEach(function (k) {
+        if (k === K_ETAT || k.indexOf(K_QUIZ) === 0 || k.indexOf('sq:' + id + (enfant ? '.' + enfant : '') + ':') === 0) localStorage.removeItem(k);
+      });
+    } catch (e) {}
+    etat = null;
+    var ua = navigator.userAgent || '';
+    var ios = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1);
+    var texte = /Android/.test(ua) ? 'Pour retirer l\'icône SoccaQuiz de l\'écran d\'accueil : <b>appui long sur l\'icône</b>, puis <b>« Désinstaller »</b>.'
+      : ios ? 'Pour retirer l\'icône SoccaQuiz de l\'écran d\'accueil : <b>appui long sur l\'icône</b>, puis <b>« Supprimer le signet »</b>.'
+      : 'Si SoccaQuiz est installé sur cet ordinateur : menu <b>⋮</b> en haut de sa fenêtre, puis <b>« Désinstaller SoccaQuiz »</b>. Sinon, tu peux simplement fermer cette page.';
+    var nom = prenom ? 'Le SoccaQuiz de ' + prenom : 'Ce SoccaQuiz';
+    // pas tout à fait sûr (aucune réponse du tout) : on le dit avec prudence, et « Réessayer » reste proposé
+    document.getElementById('supprime-titre').textContent = nom + (sur ? ' n\'existe plus' : ' ne répond plus');
+    document.getElementById('supprime-texte').textContent = sur ? 'Il a été supprimé par le parent qui l\'avait installé.' : 'Il a sans doute été supprimé par le parent qui l\'avait installé.';
+    document.getElementById('supprime-icone').innerHTML = texte;
+    var r = document.getElementById('supprime-reessayer');
+    r.hidden = sur;
+    r.onclick = function () { location.reload(); };
+    Array.prototype.forEach.call(document.querySelectorAll('iframe.page'), function (x) { x.remove(); });
+    barre.classList.remove('actif');
+    dem.classList.add('fini');
+    document.getElementById('supprime').hidden = false;
+    document.title = 'SoccaQuiz – supprimé';
+    if (dansEnveloppe && !annonce) { annonce = true; try { window.parent.postMessage({ uq: 'pret' }, ENVELOPPE); } catch (e) {} }   // l'appli installée retire son écran d'attente
   }
   // affichée dans l'appli installée (leian.github.io/app) : on lui parle par messages, jamais de renvoi
   var ENVELOPPE = 'https:\/\/leian.github.io', dansEnveloppe = window.parent !== window;
@@ -243,6 +327,7 @@
       montrer(assembler(q.html, page, reglages(page, { maitrise: q.maitrise, chrono: { etapes: [[q.garde ? 'quiz déjà sur l\'appareil' : 'quiz', q.ms]], total: q.ms, demande: '' } })));
     }).catch(function (e) {
       if (e && e.ancien) return versAncienneAppli();
+      if (e && e.supprime) return siteSupprime(true);
       barre.classList.remove('actif');
       if (!document.querySelector('iframe.page')) arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz met du temps à répondre. Réessaie dans un instant.', true);
     });
@@ -275,15 +360,21 @@
 
   /* ---------- démarrage ---------- */
   var libs = chargerLibs();
-  if (etat && etat.reglages) {
+  if (marque) {
+    // supprimé (c'est sûr) : on le redit tout de suite ; une vérification discrète remet le site s'il est revenu
+    siteSupprime(true);
+    api('etat').then(function () { try { localStorage.removeItem(K_SUPPR); } catch (e) {} location.reload(); }, function () {});
+  } else if (etat && etat.reglages) {
     // affichage immédiat avec ce qui est gardé sur l'appareil, puis mise à jour discrète
     libs.then(function () { return afficher(pageDeLAdresse()); }).then(function () {
       return rafraichir().then(function (change) { if (change && pageCourante === 'index') afficher('index'); });
-    }).catch(function (e) { if (e && e.ancien) versAncienneAppli(); });
+    }).catch(function (e) { if (e && e.ancien) return versAncienneAppli(); siPasSupprime(e); });
   } else {
     Promise.all([libs, rafraichir()]).then(function () { return afficher(pageDeLAdresse()); }).catch(function (e) {
       if (e && e.ancien) return versAncienneAppli();
-      arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true);
+      siPasSupprime(e, function () {
+        arreter(navigator.onLine === false ? 'Pas de connexion à Internet. Réessaie dans un instant.' : 'SoccaQuiz ne répond pas pour l\'instant. Réessaie dans un instant.', true);
+      });
     });
   }
   if ('serviceWorker' in navigator && !local) navigator.serviceWorker.register('sw.js').catch(function () {});

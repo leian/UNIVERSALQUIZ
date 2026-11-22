@@ -361,13 +361,24 @@ const API_V = 1;
 function reponseJson_(o) {
   return ContentService.createTextOutput(JSON.stringify(o)).setMimeType(ContentService.MimeType.JSON);
 }
+/* l'appli demande un enfant précis (?e=, ou attendu= : celui qu'elle affichait sans ?e=) qui n'est plus dans la
+   famille : il a été supprimé. Sans ce contrôle, choisirEnfant_ prendrait le premier enfant et l'icône restée sur
+   l'appareil montrerait le site d'un autre enfant. Les identifiants ne sont jamais réutilisés. */
+function enfantSupprime_(p) {
+  const l = enfants_();
+  return ['e', 'attendu'].some(k => {
+    const id = String((p && p[k]) || '');
+    return /^[a-z0-9]{1,12}$/.test(id) && !l.some(x => x.id === id);
+  });
+}
 function apiGet_(p) {
   if (CONFIG.espace === 'parent') return { v: API_V, erreur: 'Réservé au site de l\'enfant.' };
+  if (enfantSupprime_(p)) return { v: API_V, supprime: true };
   try {
     const inst = installer_();
     if (p.api === 'etat') {
       const cat = catalogue_(inst.dossier);
-      return { v: API_V, version: CONFIG.version, prenom: CONFIG.prenom || '', polices: POLICES, reglages: reglagesPage_('index', inst, cat), quiz: cat.QUIZ, matieres: MATIERES };
+      return { v: API_V, version: CONFIG.version, prenom: CONFIG.prenom || '', enfant: enfantId_(), polices: POLICES, reglages: reglagesPage_('index', inst, cat), quiz: cat.QUIZ, matieres: MATIERES };
     }
     if (p.api === 'quiz') {
       const page = nettoyerNom_(p.page || '');
@@ -394,6 +405,7 @@ function doPost(e) {
   if (o.api === 'appairer') return reponseJson_(Object.assign({ v: API_V }, appairer_(o.code, o.nom)));
   if (o.api === 'inviter-installateur') return reponseJson_(Object.assign({ v: API_V }, inviterParInstallateur_(o.cle)));
   if (o.api === 'parent') return reponseJson_(Object.assign({ v: API_V }, actionParent_(o)));
+  if ((o.api === 'enregistrer' || o.api === 'signaler') && enfantSupprime_(o)) return reponseJson_({ v: API_V, supprime: true });   // jamais chez un autre enfant
   try {
     if (o.api === 'enregistrer') return reponseJson_(Object.assign({ v: API_V }, apiEnregistrer(typeof o.d === 'string' ? o.d : JSON.stringify(o.d || {}))));
     if (o.api === 'signaler') return reponseJson_(Object.assign({ v: API_V }, apiSignaler(o.d && typeof o.d === 'object' ? o.d : {})));
