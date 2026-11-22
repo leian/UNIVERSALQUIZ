@@ -109,10 +109,13 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0 0}
 .famille b{font-size:.85rem;color:var(--soft);font-weight:600;margin-right:2px}
 /* les deux en rouge SoccaQuiz (lisibles en thème clair comme sombre) ; l'enfant affiché en rouge foncé, cerclé */
-.famille a,.famille span.on{display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:2px solid var(--rouge);background:var(--rouge);color:#fff;text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s,filter .12s}
-.famille a:hover{filter:brightness(1.08)}
+/* une couleur par enfant (--c, posée par afficherFamille d'après son rang : COULEURS_ENFANTS), texte blanc lisible sur chacune */
+.famille a,.famille span.on{--c:var(--rouge);display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--ink);text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s,filter .12s}
+.famille a::before,.pastille-enfant{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;background:var(--c);align-self:center}
+.famille a:hover{background:color-mix(in srgb,var(--c) 26%,var(--card))}
 .famille a:active{transform:scale(.95)}
-.famille span.on{background:color-mix(in srgb,var(--rouge) 55%,#000);border-color:#fff3;box-shadow:0 0 0 2px color-mix(in srgb,var(--rouge) 55%,#000)}
+.famille span.on{background:var(--c);color:#fff;border-color:#fff3;box-shadow:0 0 0 2px var(--c)}
+.pastille-enfant{margin-right:6px}
 .famille small{font-weight:500;opacity:.75;font-size:.78rem}
 .onglet:focus-visible,.btn:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .onglet .nb{font-size:.78rem;background:var(--line);color:var(--ink);border-radius:999px;padding:0 7px;font-weight:700}
@@ -1001,15 +1004,18 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   const U = window.__UQ || {}, l = U.famille || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
   if (!el || !r || !l.length) return;
   const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
+  // une couleur par enfant, dans l'ordre de la famille (le premier garde le rouge socca) ; pas de violet (charte)
+  const COULEURS_ENFANTS = ["#C8102E", "#1D6FB8", "#1E7B4A", "#B85A0E", "#0B7A80", "#B03A6A", "#7A5C12", "#4A5A6A"];
+  const coul = i => `style="--c:${COULEURS_ENFANTS[i % COULEURS_ENFANTS.length]}"`;
   if (l.length > 1) {
-    el.innerHTML = "<b>Enfant :</b>" + l.map(x => x.ici ? `<span class="on" aria-current="page">${nom(x)}</span>`
-      : `<a href="${esc(x.parent)}" target="_top">${nom(x)}</a>`).join("");
+    el.innerHTML = "<b>Enfant :</b>" + l.map((x, i) => x.ici ? `<span class="on" aria-current="page" ${coul(i)}>${nom(x)}</span>`
+      : `<a href="${esc(x.parent)}" target="_top" ${coul(i)}>${nom(x)}</a>`).join("");
     el.hidden = false;
   }
   r.innerHTML = (l.length > 1
       ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe de l'un à l'autre. Chaque enfant a ses quiz, ses résultats, sa classe et son lien.</p>"
       : "<p style=\"margin:0 0 8px\">Un autre enfant ? Ajoute-le ici : il aura ses propres quiz, ses résultats, sa classe et son lien, sans rien réinstaller.</p>") +
-    l.map(x => `<p style="margin:4px 0">${nom(x)}${x.ici ? " <small>(affiché)</small>" : ""}</p>`).join("") +
+    l.map((x, i) => `<p style="margin:4px 0">${l.length > 1 ? `<span class="pastille-enfant" ${coul(i)} aria-hidden="true"></span>` : ""}${nom(x)}${x.ici ? " <small>(affiché)</small>" : ""}</p>`).join("") +
     (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>`);
   document.getElementById("box-famille").hidden = false;
   const bt = document.getElementById("ajouter-enfant");
