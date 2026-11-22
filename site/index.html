@@ -146,7 +146,7 @@
     var tete = '\n<script>window.__UQ = ' + jsonScript(cfg) + ';<\/script>\n' + lib('pont', false) +
       '\n<script>\nvar QUIZ = ' + jsonScript(etat.quiz || []) + ';\nvar MATIERES = ' + jsonScript(etat.matieres || {}) + ';\n<\/script>\n';
     var styleTheme = '<link rel="stylesheet" href="' + (etat.polices || '') + '">\n' + lib(COMMUN['themes.css'], false);
-    var genre = (cfg.genresDessines || []).indexOf(cfg.theme) >= 0 && cfg.genreEffectif !== 'n';
+    var genre = (cfg.genresDessines || []).indexOf(cfg.theme) >= 0 && cfg.genreEffectif && cfg.genreEffectif !== 'n';
     html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') +
       (genre ? ' data-genre="' + cfg.genreEffectif + '"' + ((cfg.genresSaisons || []).indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') +
       (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));

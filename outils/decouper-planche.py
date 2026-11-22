@@ -51,11 +51,20 @@ def main():
         print('→', cible, taille); return
     noms = ['accueil', 'bravo'] if genre == 'saison' else ['accueil', 'bravo', 'encouragement', 'reflexion']
     cols, rows = 2, len(noms) // 2
-    for i, n in enumerate(noms):
+    morceaux = []
+    for i in range(len(noms)):
         x, y = i % cols, i // cols
-        morceau = im.crop((x * w // cols, y * h // rows, (x + 1) * w // cols, (y + 1) * h // rows))
+        m = im.crop((x * w // cols, y * h // rows, (x + 1) * w // cols, (y + 1) * h // rows))
+        morceaux.append(m.crop(m.getbbox() or (0, 0, *m.size)))
+    # même échelle pour toutes les cases : la mascotte garde la même taille d'une attitude à l'autre
+    taille = 384
+    k = min((taille - 8) / max(m.width for m in morceaux), (taille - 8) / max(m.height for m in morceaux))
+    for n, m in zip(noms, morceaux):
+        m = m.resize((max(1, round(m.width * k)), max(1, round(m.height * k))), Image.LANCZOS)
+        c = Image.new('RGBA', (taille, taille), (0, 0, 0, 0))
+        c.paste(m, ((taille - m.width) // 2, taille - 4 - m.height), m)   # posée en bas, comme les actuelles
         f = os.path.join(sortie, n + '.webp')
-        case(morceau).save(f, 'WEBP', quality=88)
+        c.save(f, 'WEBP', quality=88)
         print('→', f)
 
 if __name__ == '__main__':

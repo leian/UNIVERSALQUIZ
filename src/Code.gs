@@ -540,10 +540,14 @@ function reglagesPage_(page, inst, cat) {
     genreAuto: genreDuPrenom_(CONFIG.prenom), // ce que donne le prénom (affiché à côté de « Automatique »)
     genreEffectif: genre_(),
     genresDessines: GENRES_DESSINES,
-    genresSaisons: GENRES_SAISONS,
     raz: props_().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
   cfg.theme = themeDe_(cfg.classe);
+  // allure : seulement si les dessins existent pour ce thème (sinon la socca de toujours)
+  cfg.genresDispo = ['f', 'm'].filter(g => genreDessine_(cfg.theme, g));
+  if (!genreDessine_(cfg.theme, cfg.genreEffectif)) cfg.genreEffectif = 'n';
+  if (!genreDessine_(cfg.theme, cfg.genreAuto)) cfg.genreAuto = 'n';
+  cfg.genresSaisons = cfg.genreEffectif === 'n' ? [] : SAISONS_GENRE[cfg.genreEffectif];
   if (resultats) cfg.resultats = resultats;
   chrono_('revisions et maitrise');
   // adresse de l'appli de l'enfant : liens « site de l'enfant » de l'espace parent, retour du site ouvert hors de l'appli (pont.html)
@@ -601,7 +605,7 @@ function assembler_(html, page, inst) {
   // thème d'âge : posé sur <html>, styles ajoutés en fin d'en-tête pour passer après ceux de la page
   // polices (Fredoka, Nunito, Andika) servies par GitHub Pages : aucune requête vers Google Fonts depuis le site de l'enfant
   const styleTheme = '<link rel="stylesheet" href="' + POLICES + '">\n' + lib_(COMMUN['themes.css'], false);
-  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (GENRES_DESSINES.indexOf(cfg.theme) >= 0 && cfg.genreEffectif !== 'n' ? ' data-genre="' + cfg.genreEffectif + '"' + (GENRES_SAISONS.indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+  html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (cfg.genreEffectif !== 'n' ? ' data-genre="' + cfg.genreEffectif + '"' + (cfg.genresSaisons.indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
   html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
@@ -1312,8 +1316,12 @@ function apiMascotte(d) {
    Le serveur pose <html data-genre="f|m"> seulement pour les thèmes dont les dessins existent
    (GENRES_DESSINES) : ailleurs, la mascotte ne change pas et le réglage n'est pas proposé.
    Images : docs/themes/<thème>-f/ et docs/themes/<thème>-m/ (accueil, bravo, encouragement, reflexion). */
-const GENRES_DESSINES = [];          // ex. ['petits', 'lecteurs', 'explorateurs'] quand les dessins sont prêts (au lycée : les deux tenues)
-const GENRES_SAISONS = [];           // saisons dont les costumes existent au féminin et au masculin (docs/themes/saisons/<saison>-f/ et -m/)
+// dessins disponibles, par allure : un thème ou une saison n'apparaît ici qu'une fois ses images déposées
+// (au lycée : les deux tenues). Une allure sans dessin pour le thème en cours retombe sur la socca de toujours.
+const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: [] };
+const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: [] };
+const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé
+function genreDessine_(theme, g) { return !!DESSINS_GENRE[g] && DESSINS_GENRE[g].indexOf(theme) >= 0; }
 const GENRES = ['auto', 'f', 'm', 'n'];
 const PRENOMS_MIXTES_ = 'camille sacha sasha noa noah charlie eden alix claude dominique lou andrea andréa ange morgan yael yaël alex dany dani jessy jordan kim loan marley mael maël maé mae nael naël sam swann robin stéphane stephane leslie june ari elia élia'.split(' ');
 const PRENOMS_F_ = ('emma louise jade alice chloe chloé lina mila rose anna léa lea mia julia inès ines ambre zoé zoe léna lena juliette lou agathe jeanne iris eva éva romy nina luna victoria margaux margot manon sarah sara clara lana lola charlotte adèle adele alba louna lyna olivia capucine elena héloïse heloise mathilde ava jeanne anaïs anais apolline gabrielle valentine victoire elsa aya maya yasmine salomé salome céleste celeste lise lucie laura marie pauline justine camila diane hanna hannah emy nour assia sofia sophia marion lison sharon alicia amandine aurélie aurelie céline celine claire élise elise émilie emilie fanny isabelle julie léonie leonie maëlle maelle marine mélanie melanie morgane nathalie océane oceane sandrine sophie stéphanie stephanie valérie valerie virginie lilou maelys maëlys mélina melina nora rachel ruth sixtine thaïs thais violette suzanne gaïa gaia alma ninon constance garance albane bérénice berenice cassandre clémence clemence noémie noemie lisa liza giulia')
