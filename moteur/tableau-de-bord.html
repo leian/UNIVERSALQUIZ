@@ -109,7 +109,7 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0 0}
 .famille b{font-size:.85rem;color:var(--soft);font-weight:600;margin-right:2px}
 /* les deux en rouge SoccaQuiz (lisibles en thème clair comme sombre) ; l'enfant affiché en rouge foncé, cerclé */
-/* une couleur par enfant (--c, posée par afficherFamille d'après son rang : COULEURS_ENFANTS), texte blanc lisible sur chacune */
+/* une couleur fixe par enfant (--c, posée par afficherFamille : COULEURS_ENFANTS[couleur]), texte blanc lisible sur chacune */
 .famille a,.famille span.on{--c:var(--rouge);display:inline-flex;align-items:baseline;gap:5px;padding:6px 13px;border-radius:999px;border:2px solid var(--c);background:color-mix(in srgb,var(--c) 14%,var(--card));color:var(--ink);text-decoration:none;font:600 .95rem "Fredoka",sans-serif;transition:transform .12s,filter .12s}
 .famille a::before,.pastille-enfant{content:"";display:inline-block;width:.6em;height:.6em;border-radius:50%;background:var(--c);align-self:center}
 .famille a:hover{background:color-mix(in srgb,var(--c) 26%,var(--card))}
@@ -1004,9 +1004,9 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   const U = window.__UQ || {}, l = U.famille || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
   if (!el || !r || !l.length) return;
   const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
-  // une couleur par enfant, dans l'ordre de la famille (le premier garde le rouge socca) ; pas de violet (charte)
+  // une couleur fixe par enfant (x.couleur, donnée une fois par le serveur : couleursEnfants_) ; pas de violet (charte)
   const COULEURS_ENFANTS = ["#C8102E", "#1D6FB8", "#1E7B4A", "#B85A0E", "#0B7A80", "#B03A6A", "#7A5C12", "#4A5A6A"];
-  const coul = i => `style="--c:${COULEURS_ENFANTS[i % COULEURS_ENFANTS.length]}"`;
+  const coul = i => { const c = l[i].couleur; return `style="--c:${COULEURS_ENFANTS[(Number.isInteger(c) ? c : i) % COULEURS_ENFANTS.length]}"`; };
   if (l.length > 1) {
     el.innerHTML = "<b>Enfant :</b>" + l.map((x, i) => x.ici ? `<span class="on" aria-current="page" ${coul(i)}>${nom(x)}</span>`
       : `<a href="${esc(x.parent)}" target="_top" ${coul(i)}>${nom(x)}</a>`).join("");

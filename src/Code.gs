@@ -67,6 +67,19 @@ function enfants_() {
   }
   return l;
 }
+/* couleur fixe de chaque enfant (rang dans COULEURS_ENFANTS du tableau de bord, 8 couleurs) : donnée une fois,
+   gardée même si un autre enfant est supprimé ; un nouvel enfant prend la première couleur libre */
+const NB_COULEURS_ = 8;
+function couleursEnfants_(l) {
+  let change = false;
+  l.forEach(x => {
+    if (Number.isInteger(x.c) && x.c >= 0 && x.c < NB_COULEURS_) return;
+    const n = Array.from({ length: NB_COULEURS_ }, (v, i) => l.filter(y => y.c === i).length), min = Math.min.apply(null, n);
+    x.c = n.indexOf(min); change = true;
+  });
+  if (change) ecrireEnfants_(l);
+  return l;
+}
 function ecrireEnfants_(l) { PropertiesService.getScriptProperties().setProperty('ENFANTS', JSON.stringify(l)); }
 function enfantId_() { return ENFANT_ || choisirEnfant_(''); }
 function estPremier_() { return enfantId_() === enfants_()[0].id; }
@@ -159,8 +172,9 @@ function apiAjouterEnfant(d) {
   if (l.some(x => String(x.prenom).toLowerCase() === prenom.toLowerCase())) return { erreur: prenom + ' est déjà dans la liste.' };
   let id;
   do { id = Utilities.getUuid().replace(/[^a-z0-9]/g, '').slice(0, 6); } while (!id || l.some(x => x.id === id));
+  couleursEnfants_(l);
   l.push({ id, prenom });
-  ecrireEnfants_(l);
+  couleursEnfants_(l);
   return pourEnfant_(id, () => {
     if (d.classe) apiClasse({ classe: d.classe });
     installer_();
@@ -568,7 +582,7 @@ function reglagesPage_(page, inst, cat) {
     cfg.razMot = CONFIG.prenom || 'zéro';         // mot à taper pour confirmer une remise à zéro
     try { cfg.dossierUrl = inst.dossier.getUrl(); } catch (e) {}   // Réglages → « Ouvrir le dossier Drive »
   }
-  if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici })); } catch (e) { cfg.famille = []; }
+  if (!estEnfant_() && ['index', 'tableau-de-bord', 'ajouter'].indexOf(page) >= 0) try { cfg.famille = familleListe_().map(x => ({ prenom: x.prenom, classe: x.classe, parent: x.parent, ici: x.ici, couleur: x.couleur })); } catch (e) { cfg.famille = []; }
   // la configuration est posée dans sa propre balise : Apps Script peut retirer les commentaires des fichiers,
   // on ne s'appuie donc sur aucun marqueur à remplacer dans pont.html
   return cfg;
@@ -1456,10 +1470,10 @@ function inscrireFamille_() {}
 // enfants de la famille (ce programme) : prénom, classe, espace parent de chacun, dossier de ses quiz
 function familleListe_() {
   const ici = enfantId_();
-  return enfants_().map(x => pourEnfant_(x.id, () => {
+  return couleursEnfants_(enfants_()).map(x => pourEnfant_(x.id, () => {
     let dossier = '';
     try { dossier = String(props_().getProperty('DOSSIER') || ''); } catch (e) {}
-    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: urlParentIci_(x.id) || urlIci_(), dossier, ici: x.id === ici };
+    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: urlParentIci_(x.id) || urlIci_(), dossier, ici: x.id === ici, couleur: x.c };
   }));
 }
 

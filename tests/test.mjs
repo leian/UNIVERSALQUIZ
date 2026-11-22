@@ -1066,6 +1066,9 @@ try {
     const ajout = (await ev('[apiAjouterEnfant({ prenom: "Hugo", classe: "CE1" }), apiAjouterEnfant({ prenom: "hugo" }).erreur, apiAjouterEnfant({ prenom: "  " }).erreur]')).r;
     const H = ajout[0].id, P2 = P1 + '?e=' + H;
     ok(ajout[0].ok && /^[a-z0-9]{6}$/.test(H) && ajout[0].parent === P2 && !!ajout[1] && !!ajout[2], 'famille : « Ajouter un enfant » (même programme, adresse …?e=<id>), doublon et prénom vide refusés — ' + JSON.stringify(ajout));
+    // couleur fixe par enfant : gardée quand un autre est retiré, la première libre pour le suivant
+    const coul = (await ev(`(() => { const z = apiAjouterEnfant({ prenom: "Zoé" }).id, n = apiAjouterEnfant({ prenom: "Noé" }).id, avant = familleListe_().map(x => x.couleur); retirerEnfant_(z); const apres = familleListe_().map(x => x.couleur); const o = apiAjouterEnfant({ prenom: "Léo" }).id; const fin = familleListe_().map(x => [x.prenom, x.couleur]); retirerEnfant_(n); retirerEnfant_(o); return { avant, apres, fin }; })()`)).r;
+    ok(JSON.stringify(coul.avant) === '[0,1,2,3]' && JSON.stringify(coul.apres) === '[0,1,3]' && JSON.stringify(coul.fin) === '[["Lana",0],["Hugo",1],["Noé",3],["Léo",2]]', 'famille : chaque enfant garde sa couleur, même après la suppression d\'un autre ; le nouveau prend la première libre — ' + JSON.stringify(coul));
     const sep = (await ev(`({ lana: [installer_().dossier.getName(), classe_()], hugo: pourEnfant_("${H}", () => [installer_().dossier.getName(), classe_(), CONFIG.prenom]), apres: [installer_().dossier.getName(), CONFIG.prenom] })`)).r;
     ok(sep.hugo[0] === 'SoccaQuiz – Hugo' && sep.hugo[1] === 'CE1' && sep.hugo[2] === 'Hugo' && sep.lana[0] !== sep.hugo[0] && sep.lana[1] !== 'CE1' && sep.apres[0] === sep.lana[0] && sep.apres[1] === 'Lana',
       'famille : chaque enfant a son dossier, sa classe et son prénom ; on revient bien au premier — ' + JSON.stringify(sep));
