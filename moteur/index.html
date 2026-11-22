@@ -82,15 +82,15 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
    Chaque accessoire a deux calques : « dos » derrière la socca (intérieur d'un chapeau, serre-tête, arrière de la couronne de fleurs,
    ruban de la médaille), caché par la tête là où elle passe devant, et « avant » par-dessus */
 .poupee .in{left:9%;right:9%;top:18%;bottom:0}
-.poupee .acc{background-size:1200% 100%;z-index:2;background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires-avant.webp")}
-.poupee .acc.dos{z-index:0;background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires-dos.webp")}
+.poupee .acc{background-size:1200% 100%;z-index:2;background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires2-avant.webp")}
+.poupee .acc.dos{z-index:0;background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires2-dos.webp")}
 .salut .poupee{width:80px;height:80px;flex:none}
 #socca .grand{width:150px;height:150px;margin:6px auto 10px}
 #socca h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
 #socca .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
 #socca p{margin:0;font-size:.82rem;color:var(--soft);text-align:center}
 #socca .garde{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:10px}
-#socca .garde button{aspect-ratio:1;border:2px solid var(--line);border-radius:12px;background:var(--bg) url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires.webp") no-repeat;background-size:1200% 100%;cursor:pointer;padding:0}
+#socca .garde button{aspect-ratio:1;border:2px solid var(--line);border-radius:12px;background:var(--bg) url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/accessoires2.webp") no-repeat;background-size:1200% 100%;cursor:pointer;padding:0}
 #socca .garde button.on{border-color:var(--accent,#c8102e);box-shadow:0 0 0 2px var(--accent,#c8102e)}
 #socca .garde button:disabled{filter:grayscale(1);opacity:.3;cursor:default}
 #socca .garde button.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
@@ -318,12 +318,14 @@ document.addEventListener("click", infoAlbum);
 document.addEventListener("keydown", infoAlbum);
 /* ---------- petits : habiller la socca. Chaque notion acquise (ou maîtrisée) débloque un accessoire ----------
    [centre x, centre y, taille] dans l'image de la mascotte (384 px), 1 = derrière (cape) */
-// [nom, centre x, centre y, taille] en pixels de l'image de la socca (384 × 384) ; y négatif : au-dessus de sa tête
-const ACCESSOIRES = [["chapeau de chef",212,34,165],["couronne",212,28,120],["casquette",212,48,118],["oreilles de lapin",212,40,170],["lunettes de soleil",212,166,140],["nœud papillon",205,286,84],
-  ["moustache",212,193,96],["bonnet",212,40,124],["casque d'astronaute",210,146,290],["chapeau de pirate",212,44,130],["couronne de fleurs",212,68,128],["médaille",205,306,80]];
+// [nom, centre x, centre y, largeur, hauteur] en pixels de l'image de la socca (384 × 384) ; y négatif : au-dessus de sa tête.
+// Positions relevées sur l'aperçu « résultat attendu » (22 nov. 2026) ; planches : outils/accessoires2-planches.py
+const ACCESSOIRES = [["chapeau de chef",206,45,167,132],["couronne",204,45,148,122],["casquette",204,56,135,111],["écharpe",209,268,228,137],
+  ["lunettes de soleil",210,164,175,73],["nœud papillon",211,243,111,58],["cape",201,305,343,130],["bonnet",205,62,149,139],
+  ["bandeau étoile",207,108,128,58],["chapeau de pirate",207,68,223,151],["chapeau de fête",207,60,122,146],["étoile",268,224,70,66]];
 function poupee(k, cls) {
-  const a = ACCESSOIRES[k];
-  const calque = c => a ? `<span class="acc${c}" style="left:${((a[1] - a[3] / 2) / 3.84).toFixed(2)}%;top:${((a[2] - a[3] / 2) / 3.84).toFixed(2)}%;width:${(a[3] / 3.84).toFixed(2)}%;height:${(a[3] / 3.84).toFixed(2)}%;background-position:${(k * 100 / 11).toFixed(3)}% 0"></span>` : "";
+  const a = ACCESSOIRES[k], pc = v => (v / 3.84).toFixed(2) + "%";
+  const calque = c => a ? `<span class="acc${c}" style="left:${pc(a[1] - a[3] / 2)};top:${pc(a[2] - a[4] / 2)};width:${pc(a[3])};height:${pc(a[4])};background-position:${(k * 100 / 11).toFixed(3)}% 0"></span>` : "";
   return `<span class="poupee ${cls}" aria-hidden="true"><span class="in">${calque(" dos")}<span class="doll"></span>${calque("")}</span></span>`;
 }
 function socca() {
