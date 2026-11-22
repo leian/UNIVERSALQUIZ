@@ -1,0 +1,38 @@
+# Publie le relais d'essai (Cloudflare Worker « soccaquiz-relais-essai ») de l'étude « sans installation ».
+# Déclenché par un push qui touche relais-essai/ sur main, ou à la main (Actions → Run workflow).
+# Exception à la règle « jamais de fonction serveur chez Cloudflare » : essai décidé par Yan le 22 nov. 2026 (voie 2).
+name: Publier le relais d'essai (Cloudflare)
+
+on:
+  push:
+    branches: [main]
+    paths: ['relais-essai/**', '.github/workflows/relais-essai.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relais-essai
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5   # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 22
+      - name: Vérifier la syntaxe du relais
+        run: node --check relais-essai/worker.js
+      - name: Publier le Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::error::Secrets Cloudflare absents."; exit 1; fi
+          cd relais-essai
+          npx --yes wrangler@4 deploy

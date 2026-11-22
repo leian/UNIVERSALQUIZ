@@ -1,0 +1,9 @@
+# Relais d'essai (étude « sans installation », 22 nov. 2026) — compte Cloudflare soccaquiz.
+# Secret à poser dans le tableau de bord Cloudflare (jamais dans le dépôt) : GOOGLE_CLIENT_SECRET.
+name = "soccaquiz-relais-essai"
+main = "worker.js"
+compatibility_date = "2026-11-01"
+workers_dev = true
+
+[vars]
+GOOGLE_CLIENT_ID = "853028792280-jtbp72idekv2jue1qb0t3fa8qc8d328d.apps.googleusercontent.com"
