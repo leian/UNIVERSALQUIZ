@@ -144,6 +144,12 @@ try {
     await fp.locator('#parents [data-retirer-appareil]').waitFor({ timeout: 10000 }).catch(() => {});
     ok(/cet appareil/.test(await fp.locator('#parents').innerText()) && await fp.locator('#parents [data-inviter="parent"]').count() === 1, 'espace parent hors de Google : Réglages → cet appareil dans la liste, « Inviter l\'autre parent »');
     ok(await fp.locator('#box-suppr').isVisible(), 'espace parent hors de Google (programme de la famille, une seule adresse) : « Supprimer le site de … » proposé au parent qui a installé');
+    // changer la classe : la coquille redemande la page (jamais l'adresse about:srcdoc du cadre, qui donnait « ERR_INVALID_URL »)
+    await fp.locator('#choix-classe').selectOption('CM2');
+    for (let i = 0; i < 200; i++) { if (await pp.locator('iframe.page').count() === 1 && /CM2/.test(await pp.frameLocator('iframe.page').last().locator('#classe').innerText().catch(() => ''))) break; await pp.waitForTimeout(50); }
+    fp = pp.frameLocator('iframe.page').last();
+    const adrApres = await pp.evaluate(() => location.href);
+    ok(adrApres.startsWith(SITE) && await fp.locator('#p-reglages').isVisible() && (await fp.locator('#choix-classe').inputValue()) === 'CM2', 'espace parent hors de Google : changer la classe recharge la page dans l\'appli, onglet Réglages gardé (plus de about:srcdoc) — ' + adrApres);
     await fp.locator('a[href="ajouter.html"]').first().click();
     await pp.waitForFunction(() => location.hash === '#ajouter');
     fp = await cadreP();

@@ -236,7 +236,8 @@
       var nom = brut.split('#')[0].split('?')[0].split('/').pop();
       try { nom = decodeURIComponent(nom); } catch (x) {}
       if (/\.html?$/i.test(nom) || nom === '') {
-        var page = nom.replace(/\.html?$/i, '') || 'index';
+        var page = nom.replace(/\.html?$/i, '') || 'index', mq = brut.match(/[?&]page=([^&#]*)/);
+        if (mq) try { page = decodeURIComponent(mq[1]) || page; } catch (x) {}   // « ?page=… » (lien fait avec une adresse vide, ex. « Jouer au quiz »)
         if (CFG.espaceDirect === 'parent') {        // espace parent servi hors de Google : la coquille décide (pages des parents, site de l'enfant à part)
           e.preventDefault();
           if (e.type === 'click' && !e.button && window.parent && window.parent.SQ) window.parent.SQ.aller(page);

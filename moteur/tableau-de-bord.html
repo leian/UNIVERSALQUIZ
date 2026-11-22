@@ -577,6 +577,13 @@ function enregistrement(id) {
   dire("Enregistrement…");
   return { ko: t => dire("😕 " + t, true), recharge: () => dire("✅ Enregistré. Le site se recharge…") };
 }
+/* recharger l'espace parent après un réglage. Espace parent servi par app.soccaquiz.fr (mode direct) : la page est dans un
+   cadre « srcdoc », dont l'adresse (about:srcdoc) ne se recharge pas — c'est la coquille qui redemande la page. */
+function rechargerSite(onglet) {
+  const U = window.__UQ || {}, coquille = U.direct && window.parent !== window ? window.parent.SQ : null;
+  if (coquille) { if (coquille.recharger) coquille.recharger(onglet); else coquille.aller("tableau-de-bord"); return; }
+  window.open(U.url || location.href, "_top");
+}
 /* ---------- classe : choisit le thème du site, monte toute seule chaque 1er septembre ---------- */
 const NOMS_MASCOTTES = { gothique: "Gothique (veste en cuir, rangers)", rap: "Rap (casquette, chaîne dorée)" };
 // allure de la mascotte : on ne parle que du dessin, jamais du genre de l'enfant ; « neutre » pour qui ne se reconnaît dans aucun des deux
@@ -607,7 +614,7 @@ function afficherClasse() {
     e.target.disabled = true;
     const m = enregistrement("enreg-classe");
     google.script.run
-      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiClasse({ classe: e.target.value });
   };
@@ -617,7 +624,7 @@ function afficherClasse() {
     e.target.disabled = true;
     const m = enregistrement("enreg-mascotte");
     google.script.run
-      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiMascotte({ mascotte: e.target.value });
   };
@@ -627,7 +634,7 @@ function afficherClasse() {
     e.target.disabled = true;
     const m = enregistrement("enreg-genre");
     google.script.run
-      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiGenre({ genre: e.target.value });
   };
@@ -647,7 +654,7 @@ function afficherSaison() {
     e.target.disabled = true;
     const m = enregistrement("enreg-saison");
     google.script.run
-      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); window.open(U.url || location.href, "_top"); })
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiSaison({ active: e.target.checked });
   };
@@ -916,7 +923,8 @@ document.getElementById("onglets").addEventListener("keydown", e => {
   if (j === undefined) return;
   e.preventDefault(); ouvrirOnglet(L[(j + L.length) % L.length], true);
 });
-if (/^#(quiz|bibliotheque|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
+if (/^(quiz|bibliotheque|reglages)$/.test((window.__UQ || {}).onglet || "")) ouvrirOnglet(window.__UQ.onglet);   // rechargée par la coquille (mode direct) après un réglage
+else if (/^#(quiz|bibliotheque|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
 // lien venu d'une autre page (« Revenir à l'espace parent ») : l'onglet est dans l'adresse de la page principale
 else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
 
@@ -1090,7 +1098,8 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     b.disabled = true; msg.innerHTML = "<p class=\"small\">Remise à zéro en cours…</p>";
     google.script.run.withSuccessHandler(r => {
       if (!r || r.erreur) { b.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
-      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(r.fait.join(", "))}. <a href="${esc(U.url || "")}" target="_top">Recharger la page</a></p>`;
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(r.fait.join(", "))}. <button type="button" class="btn" id="raz-recharger">Recharger la page</button></p>`;
+      document.getElementById("raz-recharger").addEventListener("click", () => rechargerSite("reglages"));
     }).withFailureHandler(e => { b.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; }).apiRemettreAZero(d);
   });
 })();

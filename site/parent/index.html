@@ -191,7 +191,7 @@
   }
 
   /* ---------- pages ---------- */
-  var PAGES = ['tableau-de-bord', 'ajouter'], pageCourante = null, numero = 0, appli = '';
+  var PAGES = ['tableau-de-bord', 'ajouter'], pageCourante = null, numero = 0, appli = '', ongletVoulu = '';
   var pageDeLAdresse = function () { var h = location.hash.slice(1).split('&')[0]; return PAGES.indexOf(h) >= 0 ? h : 'tableau-de-bord'; };
   function montrer(html) {
     var n = ++numero, f = document.createElement('iframe');
@@ -217,9 +217,10 @@
     return parent({ action: 'page', page: page }).then(function (d) {
       if (pageCourante !== page) return;
       if (!d || !d.html) throw new Error((d && d.erreur) || 'Page indisponible');
+      var onglet = ongletVoulu; ongletVoulu = '';
       var r = d.reglages || {};
       appli = r.appli || r.urlEnfant || '';
-      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '' }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
+      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '', onglet: onglet }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
       document.title = 'SoccaQuiz – Espace parent' + (d.prenom ? ' – ' + d.prenom : '');
       montrer(assembler(d, cfg));
       if (vientDAppairer) { vientDAppairer = false; conseillerEcranAccueil(); }
@@ -239,6 +240,8 @@
       if (PAGES.indexOf(page) < 0) { if (appli) window.open(appli + (appli.indexOf('#') < 0 ? '#' + encodeURIComponent(page) : ''), '_blank', 'noopener'); return; }   // un quiz : dans le site de l'enfant
       if (location.hash.slice(1) === page) afficher(page); else location.hash = page;
     },
+    // après un réglage (classe, saison…) : la page est redemandée, à l'onglet voulu (jamais de rechargement du cadre srcdoc)
+    recharger: function (onglet) { ongletVoulu = /^(quiz|bibliotheque|reglages)$/.test(String(onglet || '')) ? String(onglet) : ''; afficher(pageCourante || pageDeLAdresse()); },
     appel: function (fn, arg, args) {
       return parent({ action: fn, args: Array.isArray(args) ? args : (arg === undefined ? [] : [arg]) }).then(function (d) {
         if (d && 'r' in d) return d.r;
