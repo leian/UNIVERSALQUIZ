@@ -217,11 +217,11 @@
      le nombre de questions, le nombre de choix, la lecture à voix haute, les animaux et les statistiques,
      ainsi que le ton des messages ---------- */
   const PROFILS = {
-    // récompenses : saut de la mascotte à chaque bonne réponse (petits) ou en fin de quiz (primaire),
-    // animaux de plus en plus rares avec l'âge, emblèmes de niveau au collège, coche sobre au lycée
-    petits:       { nb: 8,  choix: 3, lecture: 'auto', saut: 'reponse', animal: 0.2 },
-    lecteurs:     { nb: 10, choix: 3, lecture: 'bouton', saut: 'fin', animal: 0.15 },
-    explorateurs: { saut: 'fin', animal: 0.15 },
+    // récompenses : animaux de plus en plus rares avec l'âge (la mascotte compagne réagit à chaque réponse ;
+    // le saut de la mascotte dans le coin de l'écran a été retiré le 22 nov. 2026), emblèmes de niveau au collège, coche sobre au lycée
+    petits:       { nb: 8,  choix: 3, lecture: 'auto', animal: 0.2 },
+    lecteurs:     { nb: 10, choix: 3, lecture: 'bouton', animal: 0.15 },
+    explorateurs: { animal: 0.15 },
     college:      { stats: true, animaux: false, emblemes: true },
     lycee:        { stats: true, animaux: false, coche: true },
     parent:       { stats: true, animaux: false, coche: true }
@@ -523,15 +523,7 @@
   }
   function recompenseReponse() {
     const p = profil();
-    if (p.saut === 'reponse') sauter();
     if (p.animaux !== false && window.celebrate && Math.random() < (p.animal == null ? 1 : p.animal)) celebrate();
-  }
-  // la mascotte de la tranche d'âge fait un saut de joie (feuille de 6 images animée en CSS)
-  function sauter() {
-    if (!profil().saut) return;
-    let m = document.getElementById('saut-mascotte');
-    if (!m) { m = document.createElement('div'); m.id = 'saut-mascotte'; m.setAttribute('aria-hidden', 'true'); document.body.appendChild(m); }
-    m.classList.remove('go'); void m.offsetWidth; m.classList.add('go');
   }
   function handleAnswer(idx) {
     if (selected !== null) return;
@@ -1405,10 +1397,9 @@
       if (msgEl) msgEl.insertAdjacentHTML('afterend', `<div class="bp-nouveau">${Badges.badgeHTML()}<div><b>Nouveau badge gagné !</b>Sans aucune faute : le badge « ${esc(Badges.titre()) || H(C.titre)} » rejoint tes récompenses.</div></div>`);
     }
     const P = profil();
-    if (P.saut && pct >= 60) setTimeout(sauter, 400);
     // primaire : la scène du capybara devient une surprise rare (une partie parfaite sur trois)
     const capy = P.animal != null ? pct === 100 && Math.random() < 1 / 3 : (n - sc) / n < 0.25;
-    if (capy && window.showCapybara && P.animaux !== false) setTimeout(showCapybara, P.saut ? 1600 : 500);
+    if (capy && window.showCapybara && P.animaux !== false) setTimeout(showCapybara, 500);
     if (window.Animations) Animations.fin(pct, themeActuel());
   }
   // pages « Mes révisions » et défi du mois, fabriquées par le serveur
@@ -1483,7 +1474,7 @@
     start: () => { debloquerVoix(); startQuiz(); }, home: renderStart, answer: handleAnswer, validate: validateInput, prev: prevQuestion, next,
     ecouter, lire: lireQuestion, indice: montrerIndice, erreurs: refaireErreurs, repondre: (d, ok, t) => enregistrer(d, ok, t),
     nombre(k) { nbChoisi = k; renderStart(); },
-    famille: renderFamille, duel: () => { debloquerVoix(); lancerDuel(); }, revanche: () => lancerDuel(true), propositions: voirPropositions, sauter,
+    famille: renderFamille, duel: () => { debloquerVoix(); lancerDuel(); }, revanche: () => lancerDuel(true), propositions: voirPropositions,
     rafraichir: () => renderQuestion(), quitterQuiz, fermerQuitter, signaler,
     _ex: (action, n) => actionExercice(action, n),
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau

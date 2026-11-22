@@ -310,15 +310,13 @@ try {
   const rec = await page.evaluate(() => {
     const H = document.documentElement, r = {};
     const bonne = () => { MoteurQuiz.home(); MoteurQuiz.start(); const e = MoteurQuiz._etat(), q = e.shuffled[0]; e.shuffled[0] = q.opts ? q : e.shuffled.find(x => x.opts && !x._ecrit) || q; MoteurQuiz.rafraichir(); const p = MoteurQuiz._etat().shuffled[0]; MoteurQuiz.answer(p.opts.indexOf(p.a)); };
-    H.dataset.theme = 'petits'; bonne(); const m = document.getElementById('saut-mascotte');
-    r.petits = !!m && m.classList.contains('go') && getComputedStyle(m).backgroundImage.includes('petits/saut.webp');
-    m && m.remove();
+    H.dataset.theme = 'petits'; bonne(); r.petits = !document.getElementById('saut-mascotte') && !!document.querySelector('.q-compagnon .m-bravo');
     H.dataset.theme = 'college'; bonne(); r.college = !document.getElementById('saut-mascotte');
     window.__UQ.maitrise = { q: {}, notions: { Capitales: [3, 95, 20] } }; MoteurQuiz.home();
     r.emblemes = document.querySelectorAll('.notions img.embleme[src*="niveau-3"]').length === 1;
     return r;
   });
-  ok(rec.petits, 'petits : la socca au bonnet fait un saut de joie à chaque bonne réponse');
+  ok(rec.petits, 'petits : plus de mascotte qui saute dans le coin, la mascotte compagne félicite');
   ok(rec.college && rec.emblemes, 'collège : pas d\'animal ni de saut, emblème de niveau (arbre pour « Maîtrisé ») sur les notions');
   await page.evaluate(() => { document.documentElement.dataset.theme = 'explorateurs'; window.__UQ.maitrise = {}; MoteurQuiz.home(); });
 

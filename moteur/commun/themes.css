@@ -260,21 +260,6 @@ html[data-saison="halloween"][data-genre-saison="m"]:is([data-theme="petits"], [
 }
 @keyframes saison-chute { from { transform: translateY(0); } to { transform: translateY(480px); } }
 
-/* ---------- saut de joie de la mascotte (feuille de 6 images), petits et primaire ---------- */
-#saut-mascotte { position: fixed; right: 12px; bottom: 12px; z-index: 60; height: clamp(110px, 24vw, 170px); aspect-ratio: 170 / 260; pointer-events: none; opacity: 0;
-  background: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/explorateurs/saut.webp") no-repeat 0 0 / 600% 100%; }
-html[data-theme="petits"] #saut-mascotte { aspect-ratio: 188 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits/saut.webp"); }
-html[data-theme="lecteurs"] #saut-mascotte { aspect-ratio: 172 / 260; background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs/saut.webp"); }
-/* saut au féminin / au masculin */
-html[data-theme="petits"][data-genre="f"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-f/saut.webp"); }
-html[data-theme="petits"][data-genre="m"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/saut.webp"); }
-html[data-theme="lecteurs"][data-genre="f"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-f/saut.webp"); }
-html[data-theme="lecteurs"][data-genre="m"] #saut-mascotte { background-image: url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lecteurs-m/saut.webp"); }
-#saut-mascotte.go { animation: saut-images .7s steps(5, jump-none) 2, saut-visible 1.6s ease forwards; }
-@keyframes saut-images { from { background-position: 0 0; } to { background-position: 100% 0; } }
-@keyframes saut-visible { 0% { opacity: 0; transform: translateY(24px); } 12%, 85% { opacity: 1; transform: none; } 100% { opacity: 0; } }
-@media (prefers-reduced-motion: reduce) { #saut-mascotte.go { animation: saut-visible 1.6s ease forwards; background-position: 40% 0; } }
-
 /* ---- Effet de bascule sur tous les boutons : on voit tout de suite qu'on a bien touché ----
    « scale » (et non « transform ») pour ne pas déranger les boutons déjà déplacés ou animés */
 :is(button, [role="button"], a.btn, a.card, a.next-btn, .btn, .chip, .filtre, input[type="button"], input[type="submit"]) {
