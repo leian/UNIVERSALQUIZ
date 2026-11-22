@@ -1318,8 +1318,8 @@ function apiMascotte(d) {
    Images : docs/themes/<thème>-f/ et docs/themes/<thème>-m/ (accueil, bravo, encouragement, reflexion). */
 // dessins disponibles, par allure : un thème ou une saison n'apparaît ici qu'une fois ses images déposées
 // (au lycée : les deux tenues). Une allure sans dessin pour le thème en cours retombe sur la socca de toujours.
-const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: [] };
-const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: [] };
+const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
+const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'] };
 const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé
 function genreDessine_(theme, g) { return !!DESSINS_GENRE[g] && DESSINS_GENRE[g].indexOf(theme) >= 0; }
 const GENRES = ['auto', 'f', 'm', 'n'];

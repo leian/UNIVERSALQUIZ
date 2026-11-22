@@ -705,7 +705,7 @@ try {
   const g = (await ev('["Lana","Hugo","Camille","Marie-Lou","Sacha","Justine","Florian","Xq",""].map(genreDuPrenom_).join(",")')).r;
   ok(g === 'f,m,n,f,n,f,m,n,n', 'mascotte : allure devinée d\'après le prénom, neutre dans le doute (' + g + ')');
   const prenomAvant = (await ev('CONFIG.prenom')).r;
-  await ev('CONFIG.prenom = ""');
+  await ev('CONFIG.prenom = ""; var dessinsM = DESSINS_GENRE.m.slice(), saisonsM = SAISONS_GENRE.m.slice(); DESSINS_GENRE.m.length = 0; SAISONS_GENRE.m.length = 0');
   await page.goto(BASE + '/exec');
   ok(await page.locator('#choix-genre option').count() === 4 && await page.locator('#choix-genre option[value="m"]').isDisabled() && await page.locator('html').getAttribute('data-genre') === null, 'mascotte : sans prénom, la socca de toujours ; « au masculin » grisé tant que ses dessins manquent');
   await ev('CONFIG.prenom = "Lana"');
@@ -720,7 +720,7 @@ try {
   await ev('apiGenre({ genre: "n" })');
   await page.goto(BASE + '/exec');
   ok(await page.locator('html').getAttribute('data-genre') === null, 'mascotte : neutre = la socca de toujours, sans attribut');
-  await ev('apiGenre({ genre: "auto" }); DESSINS_GENRE.m.length = 0; CONFIG.prenom = ' + JSON.stringify(prenomAvant));
+  await ev('apiGenre({ genre: "auto" }); DESSINS_GENRE.m.length = 0; DESSINS_GENRE.m.push(...dessinsM); SAISONS_GENRE.m.push(...saisonsM); CONFIG.prenom = ' + JSON.stringify(prenomAvant));
   await ev('apiClasse({ classe: ' + JSON.stringify(classeAvant) + ' })');
   const essai = await ev('apiEnregistrer(JSON.stringify({ quiz: "x", score: 1, total: 2 }))');
   ok(essai.r.essai === true, 'espace parent : les essais du parent ne sont pas comptés dans les résultats');
