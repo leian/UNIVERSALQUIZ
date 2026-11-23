@@ -106,7 +106,14 @@ dialog.boite::backdrop{background:rgba(20,16,40,.45)}
 .onglet:hover{color:var(--ink)}
 @media (max-width:420px){.onglet{gap:5px;padding:12px 10px 10px;font-size:.95rem}}
 .onglet.on{color:var(--rouge);border-bottom-color:var(--rouge)}
-.famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:12px 0 0}
+.famille{display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin:0}
+.choix-enfant{position:relative}
+.choix-enfant summary,.famille .seul{--c:var(--rouge);list-style:none;display:inline-flex;align-items:center;gap:7px;padding:7px 14px;border-radius:999px;background:var(--card);border:2px solid var(--c);color:var(--ink);font:600 1rem "Fredoka",sans-serif;cursor:pointer}
+.choix-enfant summary::-webkit-details-marker{display:none}
+.famille .seul{cursor:default}
+.on-puce{display:inline-block;width:.6em;height:.6em;border-radius:50%;background:var(--c, var(--rouge))}
+.choix-enfant .fleche{font-size:.8rem;color:var(--soft)}
+.menu-enfants{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:200px;display:flex;flex-direction:column;gap:6px;padding:10px;background:var(--card);border:1px solid var(--line);border-radius:14px;box-shadow:0 10px 28px rgba(0,0,0,.18)}
 .famille b{font-size:.85rem;color:var(--soft);font-weight:600;margin-right:2px}
 /* les deux en rouge SoccaQuiz (lisibles en thème clair comme sombre) ; l'enfant affiché en rouge foncé, cerclé */
 /* une couleur fixe par enfant (--c, posée par afficherFamille : COULEURS_ENFANTS[couleur]), texte blanc lisible sur chacune */
@@ -173,25 +180,48 @@ dialog.boite.large{max-width:720px}
 .boite .aide{font-size:.8rem;color:var(--soft);margin:6px 0}
 .boite textarea{width:100%;min-height:120px;font:.8rem/1.4 ui-monospace,monospace;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px}
 .enreg{margin:6px 0 0;font-size:.85rem;color:var(--soft)}.enreg.ko{color:var(--ko)}
+/* ---------- en-tête C (téléphone) : logo + enfant + aide en haut, onglets en bas avec un gros « + » ---------- */
+.onglet-plus{display:none}
+@media (max-width:760px){
+  .wrap{padding-bottom:110px}
+  .barre{flex-wrap:nowrap;gap:8px}
+  .marque{margin:0;flex:0 0 auto}.marque .nom-marque,.badge-parent{display:none}
+  .famille{flex:1 1 auto;min-width:0;justify-content:center}
+  .choix-enfant summary,.famille .seul{font-size:.95rem;padding:6px 12px;max-width:100%}
+  .actions-tete{flex-wrap:nowrap;gap:6px}
+  .actions-tete .creer-tete{display:none}
+  #lien-enfant{padding:0;width:42px;height:42px;border-radius:50%;justify-content:center}#lien-enfant .txt{display:none}
+  .menu-enfants{left:50%;transform:translateX(-50%)}
+  .onglets{position:fixed;top:auto;bottom:0;left:0;right:0;margin:0;z-index:20;gap:0;justify-content:space-around;align-items:center;background:var(--card);box-shadow:0 -1px 0 var(--line),0 -6px 18px rgba(0,0,0,.06);padding:4px 4px calc(6px + env(safe-area-inset-bottom));overflow:visible}
+  .onglet{flex:1 1 0;flex-direction:column;gap:2px;padding:6px 2px 4px;font-size:.72rem;border-bottom:0;position:relative;min-width:0}
+  .onglet .ic{width:22px;height:22px}
+  .onglet.on{color:var(--rouge);border-bottom:0}
+  .onglet .nb{position:absolute;top:0;right:calc(50% - 22px);font-size:.65rem;padding:0 5px}
+  .onglet-plus{display:grid;place-items:center;flex:0 0 auto;width:54px;height:54px;margin:-22px 4px 0;border-radius:50%;background:var(--rouge);color:#fff;box-shadow:0 4px 12px rgba(200,16,46,.35);text-decoration:none}
+  .onglet-plus .ic{width:28px;height:28px}
+  .onglet-plus:active{transform:scale(.94)}
+  .onglet-plus:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
+}
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="barre">
-    <div class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="40" height="40" alt=""><span>Socca<em>Quiz</em></span><span class="badge-parent"><i data-ic="lock"></i> Espace parent</span></div>
+    <div class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="40" height="40" alt=""><span class="nom-marque">Socca<em>Quiz</em></span><span class="badge-parent"><i data-ic="lock"></i> Espace parent</span></div>
+    <nav class="famille" id="famille" aria-label="Choisir l'enfant" hidden></nav>
     <div class="actions-tete">
-      <a class="btn" id="lien-enfant" href="index.html"><i data-ic="eye"></i> Site de {{PRENOM}}</a>
-      <a class="btn principal" href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a>
+      <a class="btn" id="lien-enfant" href="index.html" title="Site de {{PRENOM}}"><i data-ic="eye"></i><span class="txt"> Site de {{PRENOM}}</span></a>
+      <a class="btn principal creer-tete" href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a>
       <a class="pastille-maj" id="pastille-maj" href="#maj" hidden title="Nouvelle version disponible" aria-label="Nouvelle version disponible"><i data-ic="refresh"></i></a>
       <button type="button" class="pastille-aide" id="bouton-aide" title="Aide" aria-label="Aide" aria-haspopup="dialog"><i data-ic="aide"></i></button>
     </div>
   </header>
-  <nav class="famille" id="famille" aria-label="Choisir l'enfant" hidden></nav>
   <h1 class="titre-page">Suivi de {{PRENOM}}</h1>
   <div id="maj" class="msg maj" hidden></div>
   <nav class="onglets" id="onglets" role="tablist">
     <button type="button" class="onglet on" data-o="resultats" role="tab" id="o-resultats" aria-controls="p-resultats" aria-selected="true"><i data-ic="chart"></i> Résultats</button>
     <button type="button" class="onglet" data-o="quiz" role="tab" id="o-quiz" aria-controls="p-quiz" aria-selected="false" tabindex="-1"><i data-ic="folder"></i> Quiz <span class="nb" id="nb-quiz"></span></button>
+    <a class="onglet-plus" href="ajouter.html" aria-label="Créer un quiz" title="Créer un quiz"><i data-ic="plus"></i></a>
     <button type="button" class="onglet" data-o="bibliotheque" role="tab" id="o-bibliotheque" aria-controls="p-bibliotheque" aria-selected="false" tabindex="-1"><i data-ic="book"></i> Bibliothèque <span class="nb" id="nb-bib" hidden></span></button>
     <button type="button" class="onglet" data-o="reglages" role="tab" id="o-reglages" aria-controls="p-reglages" aria-selected="false" tabindex="-1"><i data-ic="settings"></i> Réglages</button>
   </nav>
@@ -942,7 +972,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   // lien de l'enfant : son appli (sans le bandeau Google) dès qu'elle existe, sinon l'adresse du site
   const lienEnfant = U.appli || U.urlEnfant;
   if (U.urlEnfant) { $("lien-enfant").href = lienEnfant; $("lien-enfant").target = "_top"; }
-  else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + " Accueil";
+  else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + '<span class="txt"> Accueil</span>';
   else $("lien-enfant").hidden = true;
   // chronomètre (pont.html) : s'allume sur l'appareil qui ouvre le site de l'enfant avec chrono=1 et y reste
   if (U.urlEnfant) {
@@ -1009,9 +1039,15 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   // une couleur fixe par enfant (x.couleur, donnée une fois par le serveur : couleursEnfants_) ; pas de violet (charte)
   const COULEURS_ENFANTS = ["#C8102E", "#1D6FB8", "#1E7B4A", "#B85A0E", "#0B7A80", "#B03A6A", "#7A5C12", "#4A5A6A"];
   const coul = i => { const c = l[i].couleur; return `style="--c:${COULEURS_ENFANTS[(Number.isInteger(c) ? c : i) % COULEURS_ENFANTS.length]}"`; };
+  const ici = Math.max(0, l.findIndex(x => x.ici));
   if (l.length > 1) {
-    el.innerHTML = "<b>Enfant :</b>" + l.map((x, i) => x.ici ? `<span class="on" aria-current="page" ${coul(i)}>${nom(x)}</span>`
-      : `<a href="${esc(x.parent)}" target="_top" ${coul(i)}>${nom(x)}</a>`).join("");
+    el.innerHTML = `<details class="choix-enfant"><summary ${coul(ici)}><span class="on-puce" aria-hidden="true"></span>${nom(l[ici])}<span class="fleche" aria-hidden="true">▾</span></summary><div class="menu-enfants">` +
+      l.map((x, i) => x.ici ? `<span class="on" aria-current="page" ${coul(i)}>${nom(x)}</span>` : `<a href="${esc(x.parent)}" target="_top" ${coul(i)}>${nom(x)}</a>`).join("") + `</div></details>`;
+    el.hidden = false;
+    const d = el.querySelector("details");
+    document.addEventListener("click", e => { if (d.open && !d.contains(e.target)) d.open = false; });
+  } else {
+    el.innerHTML = `<span class="seul" ${coul(0)}><span class="on-puce" aria-hidden="true"></span>${nom(l[0])}</span>`;
     el.hidden = false;
   }
   r.innerHTML = (l.length > 1

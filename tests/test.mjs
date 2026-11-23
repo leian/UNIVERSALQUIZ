@@ -675,7 +675,7 @@ try {
   await ev('CONFIG.espace = "parent"; CONFIG.urlParent = ""');
   await page.goto(BASE + '/exec');
   ok(await page.locator('#porte-parent').count() === 0, 'espace parent : pas de lien vers lui-même en bas de page');
-  ok(await page.locator('.actions-tete a.principal').isVisible() && /Créer un quiz/.test(await page.locator('.actions-tete').innerText()) && await page.locator('#onglets').isVisible() && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (« Créer un quiz » en haut, onglets, pas la page de l\'enfant)');
+  ok((await page.locator('.actions-tete a.principal').isVisible() && /Créer un quiz/.test(await page.locator('.actions-tete').innerText()) || await page.locator('.onglet-plus[aria-label="Créer un quiz"]').isVisible()) && await page.locator('#onglets').isVisible() && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (« Créer un quiz » en haut, onglets, pas la page de l\'enfant)');
   ok(await page.locator('#liste-quiz a.tester').count() > 0 && await page.locator('#liste-quiz button[data-f]').count() > 0, 'espace parent : chaque quiz peut être testé ou supprimé');
   ok(/Clé Gemini/.test(await page.locator('#info-gemini').innerText()), 'espace parent : état de la clé Gemini affiché');
   // classe et thème : choix dans Réglages, thème posé sur <html>, montée automatique au 1er septembre
@@ -1077,7 +1077,8 @@ try {
       'famille : chaque enfant a son dossier, sa classe et son prénom ; on revient bien au premier — ' + JSON.stringify(sep));
     await page.goto(BASE + '/exec');
     const fam = await page.locator('#famille').innerText().catch(() => '');
-    ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').innerText()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1,
+    if (process.env.SQ_CAPTURE) { await page.setViewportSize({ width: 390, height: 800 }); await page.screenshot({ path: '/tmp/tb-mobile.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.screenshot({ path: '/tmp/tb-menu.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.setViewportSize({ width: 1100, height: 800 }); await page.screenshot({ path: '/tmp/tb-pc.png' }); }
+    ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').textContent()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1,
       'famille : sélecteur en haut de l\'espace parent (enfant affiché, lien vers l\'autre) — ' + fam.replace(/\s+/g, ' '));
     const g = await ev(`(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); return pourEnfant_("${H}", cleGemini_) === k; })()`);
     ok(g.r === true, 'famille : clé Gemini saisie une fois, la même pour tous les enfants');
@@ -1092,7 +1093,7 @@ try {
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.filter(n => /fractions/i.test(n)).length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
     // espace parent de Hugo (…?e=<id>) : ses réglages, ses quiz ; les appels des pages passent par apiPourEnfant() avec son id
     await page.goto(BASE + '/exec?e=' + H);
-    ok(/Hugo/.test(await page.locator('#famille span.on').innerText().catch(() => '')) && await page.locator(`#famille a[href="${P1}"]`).count() === 1, 'famille : espace parent de Hugo (…?e=<id>), lien de retour vers Lana');
+    ok(/Hugo/.test(await page.locator('#famille span.on').textContent().catch(() => '')) && await page.locator(`#famille a[href="${P1}"]`).count() === 1, 'famille : espace parent de Hugo (…?e=<id>), lien de retour vers Lana');
     const nLana = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ').length')).r;
     await page.goto(BASE + '/exec?e=' + H + '&page=ajouter');
     await page.locator('#secours').evaluate(d => { d.open = true; });
@@ -1180,8 +1181,8 @@ try {
     const retire2 = (await ev(`[apiFamilleRetirer({ parent: "${P2}" }).ok, enfants_().map(x => x.prenom).join(), PropertiesService.getScriptProperties().getKeys().filter(k => k.indexOf("${H}|") === 0).length]`)).r;
     await page.goto(BASE + '/exec');
     await page.locator('#o-reglages').click();
-    ok(retire2[0] === true && retire2[1] === 'Lana' && retire2[2] === 0 && !(await page.locator('#famille').isVisible()) && /Un autre enfant/.test(await page.locator('#famille-reglages').innerText()),
-      'famille : enfant retiré (ses réglages effacés) → un seul enfant, pas de sélecteur, Réglages propose d\'en ajouter un — ' + JSON.stringify(retire2));
+    ok(retire2[0] === true && retire2[1] === 'Lana' && retire2[2] === 0 && (await page.locator('#famille details').count()) === 0 && /Un autre enfant/.test(await page.locator('#famille-reglages').innerText()),
+      'famille : enfant retiré (ses réglages effacés) → un seul enfant, pas de menu de choix, Réglages propose d\'en ajouter un — ' + JSON.stringify(retire2));
     const urls = await ev('[URL_SITE_.test("https://script.google.com/macros/s/AKfy-1_x/exec"), URL_SITE_.test("https://script.google.com/a/macros/ecole.fr/s/AKfy-1/exec"), URL_SITE_.test("https://script.google.com/macros/s/AKfy/exec?x=1")]');
     ok(urls.r.join() === 'true,true,false', 'famille : adresses des comptes Gmail et Google Workspace reconnues');
     await ev('CONFIG.espace = "enfant"');
