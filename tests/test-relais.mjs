@@ -116,6 +116,25 @@ const etatH = await appel('/f/' + S + '?api=etat&e=' + (enfants.d.r && (enfants.
 ok(etatH.d.prenom === 'Hugo', 'site de Hugo : son propre accueil — ' + etatH.d.prenom);
 ok([...fichiers.values()].some(f => /\(Hugo\)\.json$/.test(f.name)), 'Drive : fichiers de Hugo séparés — ' + [...fichiers.values()].map(f => f.name).join(', '));
 
+/* 4 bis. schémas : F (SVG nettoyé), Z (toucher la zone), E (légender), aller-retour du texte */
+const svgPiege = '<svg viewBox="0 0 300 200" onload="alert(1)"><script>alert(2)</script><rect id="coeur" x="120" y="60" width="60" height="60" fill="#e57373"/><ellipse id="poumons" cx="70" cy="90" rx="40" ry="60" fill="#90caf9"/><circle id="estomac" cx="230" cy="140" r="35" fill="#ffcc80" style="background:url(javascript:alert(3))"/><a href="javascript:alert(4)"><text x="10" y="20">piège</text></a><text x="150" y="190" text-anchor="middle">Le corps</text></svg>';
+const texteSch = ['T|Le corps humain|Les organes|sciences|🫀|🩺', '## Organes|🫀',
+  'F|corps|' + svgPiege,
+  'Z|Touche le cœur.|coeur|Le cœur pompe le sang.|sch=corps',
+  'E|Légende le schéma.|coeur=Cœur|poumons=Poumons|estomac=Estomac|Chaque organe a un rôle.|sch=corps',
+  'Z|Touche le foie.|foie|Zone absente : ignorée.|sch=corps',
+  'Q|Quel organe fait respirer ?|Les poumons|Le cœur|L\'estomac|Les poumons font respirer.',
+  'V|Le cœur est un muscle.|V|Oui.', 'S|Organe qui digère ?|estomac|C\'est l\'estomac.', 'M|Le cœur pompe le sang.'].join('\n');
+const ajout = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiAjouterQuiz', args: [texteSch] });
+ok(ajout.d.r && ajout.d.r.ok && ajout.d.r.nb === 5 && (ajout.d.r.avertissements || []).some(a => /schéma ou zone/.test(a)), 'schémas : quiz créé, la zone absente est écartée — ' + JSON.stringify(ajout.d.r).slice(0, 200));
+const qSch = await appel('/f/' + S + '?api=quiz&page=' + encodeURIComponent(ajout.d.r.page));
+const h = String(qSch.d.html || '').replace(/\\u003c/g, '<');
+ok(/"type":"zone"/.test(h) && /"type":"legende"/.test(h) && /<svg viewBox/.test(h), 'schémas : exercices Z et E dans la page du quiz');
+ok(!/onload|<script>alert|javascript:|url\(|<a |style=/.test(h.replace(/<script[^>]*>[\s\S]*?MoteurQuiz/, '')) && /id=\\?"coeur\\?"/.test(h) && /Le corps/.test(h), 'schémas : SVG nettoyé (ni script, ni événement, ni adresse, ni style), zones et texte gardés');
+const txt = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiTexteQuiz', args: [ajout.d.r.page + '.html'] });
+const lignes = String(txt.d.r && (txt.d.r.texte || txt.d.r) || '');
+ok(/^F\|s1\|<svg/m.test(lignes) && /^Z\|Touche le cœur\.\|coeur\|.*sch=s1/m.test(lignes) && /^E\|Légende le schéma\.\|coeur=Cœur\|poumons=Poumons\|estomac=Estomac\|.*sch=s1/m.test(lignes) && (lignes.match(/^F\|/gm) || []).length === 1, 'schémas : texte en lignes (Corriger moi-même) avec un seul F et sch= — ' + lignes.split('\n').filter(l => /^[FZE]\|/.test(l)).map(l => l.slice(0, 60)).join(' / '));
+
 /* 5. reconnexion du même compte : même famille, nouveau code d'appareil */
 const re = await appel('/connexion', { code: 'bon-code', prenom: 'X', classe: 'CP' });
 ok(re.d.s === S && re.d.code && re.d.nouvelle === false, 'reconnexion : même famille, nouveau code');

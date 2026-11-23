@@ -339,7 +339,8 @@
   const codeEmoji = e => { const cps = [...String(e)].map(c => c.codePointAt(0).toString(16)); return (cps.includes('200d') ? cps : cps.filter(c => c !== 'fe0f')).join('-'); };
   const emojiImg = (e, cls) => e ? `<img class="emo ${cls || ''}" src="https:\/\/cdn.jsdelivr.net/npm/@twemoji/svg@15.0.0/${codeEmoji(e)}.svg" alt="${esc(e)}" draggable="false" onerror="const s=document.createElement('span');s.className=this.className;s.textContent=this.alt;this.replaceWith(s)">` : '';
   function visuel(q) {
-    const svg = (C.figure && C.figure(q)) || q.svg || (C.illustrations && C.illustrations[q.cat]);
+    const zoneOuLegende = typeDe(q) === 'zone' || typeDe(q) === 'legende';
+    const svg = (C.figure && C.figure(q)) || (q.svg && !zoneOuLegende ? (C.html ? q.svg : svgSur(q.svg)) : '') || (C.illustrations && C.illustrations[q.cat]);
     if (svg) return `<div class="fig-box">${svg}</div>`;
     if (q.fig && window.Dessins && Dessins.geo) { const g = Dessins.geo(q.fig); if (g) return `<div class="fig-box dessin geo" role="img" aria-label="Figure de géométrie">${g}</div>`; }
     if (dessin(q.img)) return `<div class="fig-box dessin" role="img" aria-label="${esc(Dessins.nom(q.img))}">${Dessins.grand(q.img)}</div>`;
@@ -841,7 +842,99 @@
     }, 700);
   }
 
+  /* Schéma SVG d'un quiz créé par l'IA : déjà nettoyé par le serveur, reconstruit ici une seconde fois avec la même liste
+     blanche (balises de dessin, attributs simples, aucune adresse ni script). Les éléments avec un id sont les zones. */
+  const SVG_OK = ['svg', 'g', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'tspan'];
+  const SVG_ATTR_OK = ['id', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height', 'd', 'points', 'fill', 'stroke', 'stroke-width',
+    'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'fill-opacity', 'font-size', 'font-weight', 'text-anchor', 'transform', 'viewBox', 'dx', 'dy'];
+  const NS_SVG = 'http:\/\/www.w3.org/2000/svg';
+  function svgSur(source) {
+    try {
+      const t = String(source || '').replace(/^\s*<svg\b(?![^>]*xmlns=)/i, '<svg xmlns="' + NS_SVG + '"');
+      const doc = new DOMParser().parseFromString(t, 'image/svg+xml'), racine = doc.documentElement;
+      if (!racine || racine.nodeName.toLowerCase() !== 'svg') return '';
+      const copier = (n, profondeur) => {
+        if (n.nodeType === 3) return document.createTextNode(String(n.nodeValue).slice(0, 80));
+        if (n.nodeType !== 1 || profondeur > 12) return null;
+        const nom = n.nodeName.toLowerCase();
+        if (SVG_OK.indexOf(nom) < 0) return null;
+        const e = document.createElementNS(NS_SVG, nom);
+        for (const a of Array.from(n.attributes)) {
+          if (SVG_ATTR_OK.indexOf(a.name) < 0 || /url\s*\(|javascript|expression|[<>&]/i.test(a.value)) continue;
+          e.setAttribute(a.name, a.value);
+        }
+        for (const k of Array.from(n.childNodes)) { if (n.nodeType === 1 && k.nodeType === 3 && !/^(text|tspan)$/.test(nom)) continue; const c = copier(k, profondeur + 1); if (c) e.appendChild(c); }
+        return e;
+      };
+      const propre = copier(racine, 0);
+      if (!propre || !propre.getAttribute('viewBox')) return '';
+      propre.setAttribute('role', 'img'); propre.setAttribute('aria-label', 'Schéma');
+      return new XMLSerializer().serializeToString(propre);
+    } catch (e) { return ''; }
+  }
+  const zonesDe = q => { const l = []; String(q.svg || '').replace(/\sid="([\w-]{1,30})"/g, (t, id) => { if (l.indexOf(id) < 0) l.push(id); return t; }); return l; };
+  // relie les zones du schéma affiché aux actions (toucher), et les colore selon l'état
+  function monterSchema(q, c, action, etatZone) {
+    const boite = document.querySelector('.ex-schema'); if (!boite) return;
+    const ids = zonesDe(q), svg = boite.querySelector('svg'); if (!svg) return;
+    ids.forEach((id, i) => {
+      const el = svg.querySelector('[id="' + id + '"]'); if (!el) return;
+      const cls = etatZone(id);
+      el.classList.add('sq-zone'); if (cls) el.classList.add(cls);
+      if (!c.repondu && cls !== 'neutre') {
+        el.setAttribute('tabindex', '0'); el.setAttribute('role', 'button');
+        el.addEventListener('click', () => actionExercice(action, i));
+        el.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); actionExercice(action, i); } });
+      }
+    });
+  }
+  // pastille numérotée au centre d'une zone (légendes posées)
+  function pastilleZone(svg, id, texte, cls) {
+    const el = svg.querySelector('[id="' + id + '"]'); if (!el || !el.getBBox) return;
+    let b; try { b = el.getBBox(); } catch (e) { return; }
+    const vb = (svg.getAttribute('viewBox') || '0 0 300 200').split(/[\s,]+/).map(Number), r = Math.max(8, (vb[2] || 300) / 28);
+    const g = document.createElementNS(NS_SVG, 'g'); g.setAttribute('class', 'sq-pastille ' + (cls || ''));
+    const ci = document.createElementNS(NS_SVG, 'circle'); ci.setAttribute('cx', b.x + b.width / 2); ci.setAttribute('cy', b.y + b.height / 2); ci.setAttribute('r', r);
+    const t = document.createElementNS(NS_SVG, 'text'); t.setAttribute('x', b.x + b.width / 2); t.setAttribute('y', b.y + b.height / 2); t.setAttribute('dy', '.35em');
+    t.setAttribute('text-anchor', 'middle'); t.setAttribute('font-size', r * 1.15); t.textContent = texte;
+    g.appendChild(ci); g.appendChild(t); svg.appendChild(g);
+  }
+
   const INTEGRES = {
+    // Z : toucher la bonne zone d'un schéma — F|corps|<svg …>…</svg> puis Z|Touche le cœur.|coeur|explication|sch=corps
+    zone: {
+      corps(q, c) {
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche la bonne zone sur le schéma.</div>'}<div class="ex-schema">${svgSur(q.svg)}</div>`;
+      },
+      monter(q, c) {
+        monterSchema(q, c, 'zone', id => c.repondu ? (id === q.zone ? 'ok' : id === c.donne ? 'ko' : '') : '');
+      },
+      attendu: () => 'la zone en vert sur le schéma'
+    },
+    // E : légender un schéma — E|Légende le schéma.|coeur=Cœur|poumons=Poumons|explication|sch=corps
+    legende: {
+      corps(q, c) {
+        const s = etat(q, () => ({ ordre: melangeDifferent(q.legendes.length, q.legendes.map(l => l[1])), sel: null, place: {} }));
+        const place = c.repondu ? (c.donne && typeof c.donne === 'object' ? c.donne : {}) : s.place;
+        const numDe = {}; Object.keys(place).forEach(z => { numDe[place[z]] = z; });
+        const etiquettes = s.ordre.map(i => {
+          const pose = numDe[i] != null, cls = c.repondu ? (pose && q.legendes.some(l => l[0] === numDe[i] && l[1] === q.legendes[i][1]) ? 'ok' : 'ko') : s.sel === i ? 'choisi' : pose ? 'pose' : '';
+          return puce((pose ? `<span class="ex-num">${s.ordre.indexOf(i) + 1}</span>` : '') + esc(q.legendes[i][1]), cls, 'legende-choisir', i, c.repondu);
+        }).join('');
+        return `${c.repondu ? '' : '<div class="ex-legende">Touche une étiquette, puis sa place sur le schéma. Touche une zone déjà légendée pour la libérer.</div>'}<div class="ex-schema">${svgSur(q.svg)}</div><div class="ex-ligne">${etiquettes}</div>` +
+          valider(!c.repondu && Object.keys(s.place).length === q.legendes.length, 'legende-valider', !c.repondu && aPlacer(q.legendes.length - Object.keys(s.place).length, 'étiquette'));
+      },
+      monter(q, c) {
+        const s = E && E.q === q ? E : { ordre: [], place: {} };
+        const place = c.repondu ? (c.donne && typeof c.donne === 'object' ? c.donne : {}) : s.place;
+        const zones = q.legendes.map(l => l[0]), juste = z => place[z] != null && q.legendes[place[z]] && q.legendes.some(l => l[0] === z && l[1] === q.legendes[place[z]][1]);
+        monterSchema(q, c, 'legende-poser', id => zones.indexOf(id) < 0 ? 'neutre' : c.repondu ? (juste(id) ? 'ok' : 'ko') : place[id] != null ? 'pose' : '');
+        const svg = document.querySelector('.ex-schema svg'); if (!svg) return;
+        Object.keys(place).forEach(z => pastilleZone(svg, z, String(s.ordre.indexOf(place[z]) + 1), c.repondu ? (juste(z) ? 'ok' : 'ko') : ''));   // même numéro que l'étiquette
+      },
+      attendu: q => q.legendes.map(l => '<b>' + esc(l[1]) + '</b>').join(', ') + ' (chacune à sa place sur le schéma)'
+    },
+
     // G : texte à trous — G|Il [a] faim et [est;était] fatigué.|explication
     trous: {
       corps(q, c) {
@@ -1041,6 +1134,18 @@
       }
       case 'paire-valider': return enregistrer(Object.assign({}, s.lien), q.paires.every((p, i) => s.lien[i] === i || q.paires[s.lien[i]] && q.paires[s.lien[i]][1] === p[1]),
         q.paires.map((p, i) => esc(p[0]) + ' = ' + esc(q.paires[s.lien[i]][1])).join(' ; '));
+      case 'zone': { const id = zonesDe(q)[n]; if (!id) return; return enregistrer(id, id === q.zone, id === q.zone ? 'la bonne zone' : 'une autre zone'); }
+      case 'legende-choisir': s.sel = s.sel === n ? null : n; break;
+      case 'legende-poser': {
+        const id = zonesDe(q)[n]; if (!id || !q.legendes.some(l => l[0] === id)) return;
+        if (s.sel == null) { if (s.place[id] != null) { s.sel = s.place[id]; delete s.place[id]; break; } return clignoter('.ex-legende'); }
+        Object.keys(s.place).forEach(z => { if (s.place[z] === s.sel) delete s.place[z]; });
+        s.place[id] = s.sel; s.sel = null; break;
+      }
+      case 'legende-valider': {
+        const juste = q.legendes.every(l => s.place[l[0]] != null && q.legendes[s.place[l[0]]][1] === l[1]);
+        return enregistrer(Object.assign({}, s.place), juste, q.legendes.map(l => esc(l[1]) + ' → ' + (s.place[l[0]] != null && q.legendes[s.place[l[0]]][1] === l[1] ? 'bien placé' : 'mal placé')).join(' ; '));
+      }
       case 'classer-choisir': s.sel = s.sel === n ? null : n; break;
       case 'classer-poser': if (s.sel == null) return clignoter('.ex-legende'); s.place[s.sel] = n; s.sel = null; break;
       case 'classer-retirer': delete s.place[n]; s.sel = n; break;      // un élément mal rangé est repris en main : un toucher sur la bonne case suffit

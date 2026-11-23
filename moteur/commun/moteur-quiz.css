@@ -357,3 +357,17 @@ button, .ex-case, .opt-btn { touch-action: manipulation; -webkit-tap-highlight-c
 .aide-micro summary { cursor: pointer; padding: 10px 0; font-weight: 700; color: #8f0b20; }
 .aide-micro ol { margin: 0 0 10px; padding-left: 20px; } .aide-micro li { margin: 4px 0; } .aide-micro p { margin: 0 0 10px; }
 @media (prefers-color-scheme: dark) { .aide-micro { background: #2a1e17; border-color: #4a3527; color: #f3e6da; } .aide-micro summary { color: #ff9a9a; } }
+
+/* exercices Z (toucher la zone) et E (légender) : schéma SVG créé par l'IA */
+.ex-schema { margin: 8px auto 12px; max-width: 520px; background: #fff; border: 1px solid #eadfce; border-radius: 14px; padding: 8px; }
+.ex-schema svg { display: block; width: 100%; height: auto; max-height: 360px; }
+.ex-schema .sq-zone { cursor: pointer; transition: opacity .15s; outline: none; }
+.ex-schema .sq-zone.neutre { cursor: default; }
+.ex-schema .sq-zone:not(.neutre):not(.ok):not(.ko):hover, .ex-schema .sq-zone:not(.ok):not(.ko):focus-visible { opacity: .75; stroke: #E8B53A; stroke-width: 3; }
+.ex-schema .sq-zone.pose { stroke: #1D6FB8; stroke-width: 3; }
+.ex-schema .sq-zone.ok { fill: #bfe8c9; stroke: #1b7a3a; stroke-width: 3; }
+.ex-schema .sq-zone.ko { fill: #f6c3c9; stroke: #C8102E; stroke-width: 3; }
+.ex-schema .sq-pastille circle { fill: #1D6FB8; stroke: #fff; stroke-width: 2; }
+.ex-schema .sq-pastille.ok circle { fill: #1b7a3a; } .ex-schema .sq-pastille.ko circle { fill: #C8102E; }
+.ex-schema .sq-pastille text { fill: #fff; font-weight: 700; pointer-events: none; }
+.ex-schema .sq-pastille { pointer-events: none; }

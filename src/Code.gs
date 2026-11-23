@@ -1237,7 +1237,7 @@ function apiSignalementMaj(id, statut, code) {
 function lignesDeQuiz_(c) {
   const ent = s => String(s == null ? '' : s).replace(/<[^>]*>/g, ' ').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
   const f = s => ent(s).replace(/[|\r\n]+/g, ' / ').replace(/\s+/g, ' ').trim();
-  const L = [];
+  const L = [], schemas = {}, ecrits = {};
   L.push(['T', f(c.titre), f(c.sousTitre), f(c.matiere || 'autre'), f(c.icone), f(c.badge || '')].join('|') + (c.langueAudio ? '|langue=' + f(c.langueAudio) : ''));
   let cat = null;
   c.questions.forEach(q => {
@@ -1260,13 +1260,22 @@ function lignesDeQuiz_(c) {
       case 'parler': l = ['P', f(q.q), f(q.phrase), exp]; break;
       case 'clavier': l = ['K', f(q.q), (q.notes || []).map(f).join(' '), exp]; break;
       case 'placer': l = ['L', f(q.q), f((q.notes || [])[0]), exp]; break;
+      case 'zone': l = ['Z', f(q.q), f(q.zone), exp]; break;
+      case 'legende': l = ['E', f(q.q)].concat((q.legendes || []).map(p => f(p[0]) + '=' + f(p[1]).replace(/=/g, '-')), [exp]); break;
       default: return;
+    }
+    // schéma : une ligne F avant la question (le même schéma n'est écrit qu'une fois), puis sch=nom
+    let sch = '';
+    if (q.svg) {
+      sch = schemas[q.svg] || (schemas[q.svg] = 's' + (Object.keys(schemas).length + 1));
+      if (!ecrits[sch]) { ecrits[sch] = 1; L.push('F|' + sch + '|' + String(q.svg).replace(/[|\r\n]+/g, ' ')); }
     }
     while (l.length > 2 && l[l.length - 1] === '') l.pop();
     if (q.dire && !(q.type === 'parler' && q.dire === q.phrase)) l.push('dire=' + f(q.dire));
     if (q.langue && q.langue !== c.langueAudio) l.push('langue=' + f(q.langue));
     if (q.img) l.push('img=' + f(q.img));
     if (q.fig) l.push('fig=' + f(q.fig));
+    if (sch) l.push('sch=' + sch);
     if (q.hint) l.push('indice=' + f(q.hint));
     if (q.notes && q.type !== 'clavier' && q.type !== 'placer') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
     if (q.portee) l.push(q.portee === 'seule' ? 'portee=seule' : 'portee=oui');
@@ -1491,6 +1500,44 @@ function familleListe_() {
 
 /* une question du quiz (format JSON interne), vérifiée et nettoyée ; null si elle est inutilisable.
    Sert à la création d'un quiz et aux questions ratées renvoyées par le moteur (révisions, défi). */
+/* Schéma SVG écrit par l'IA → SVG sûr : seules quelques balises de dessin et quelques attributs sont gardés, valeurs
+   contrôlées (pas d'adresse, de script, de style ni d'événement) ; tout le reste disparaît. Les éléments ayant un id
+   (lettres, chiffres, - et _) sont les zones des exercices Z et E. Renvoie { svg, zones } ou null. */
+const SVG_BALISES_ = ['svg', 'g', 'rect', 'circle', 'ellipse', 'line', 'polyline', 'polygon', 'path', 'text', 'tspan'];
+const SVG_ATTRS_ = ['id', 'x', 'y', 'x1', 'y1', 'x2', 'y2', 'cx', 'cy', 'r', 'rx', 'ry', 'width', 'height', 'd', 'points', 'fill', 'stroke', 'stroke-width',
+  'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'opacity', 'fill-opacity', 'font-size', 'font-weight', 'text-anchor', 'transform', 'viewbox', 'dx', 'dy'];
+function svgPropre_(source) {
+  const s = String(source || '').slice(0, 12000);
+  if (!/^\s*<svg[\s>]/i.test(s)) return null;
+  const sortie = [], pile = [], zones = [];
+  let n = 0;
+  const re = /<\s*(\/?)\s*([a-zA-Z]+)([^<>]*?)(\/?)\s*>|([^<]+)/g;
+  let m;
+  while ((m = re.exec(s)) && n < 400) {
+    if (m[5] != null) { if (pile.length && /^(text|tspan)$/.test(pile[pile.length - 1])) sortie.push(m[5].replace(/[<>&"]/g, c => ({ '<': '&lt;', '>': '&gt;', '&': '&amp;', '"': '&quot;' })[c]).slice(0, 80)); continue; }
+    const fin = m[1] === '/', nom = m[2].toLowerCase(), auto = m[4] === '/';
+    if (SVG_BALISES_.indexOf(nom) < 0) continue;
+    if (fin) { const k = pile.lastIndexOf(nom); if (k >= 0) { while (pile.length > k) sortie.push('</' + pile.pop() + '>'); } continue; }
+    n++;
+    const attrs = [];
+    String(m[3]).replace(/([a-zA-Z-]+)\s*=\s*("([^"]*)"|'([^']*)')/g, (t, a, b, v1, v2) => {
+      const nomA = a.toLowerCase(), v = (v1 != null ? v1 : v2).slice(0, 2000);
+      if (SVG_ATTRS_.indexOf(nomA) < 0 || /url\s*\(|javascript|expression|[<>&]/i.test(v)) return '';
+      if (nomA === 'id') { if (!/^[\w-]{1,30}$/.test(v) || zones.indexOf(v) >= 0) return ''; zones.push(v); }
+      else if (!/^[\w\s.,#%()+\-]*$/.test(v)) return '';
+      attrs.push((nomA === 'viewbox' ? 'viewBox' : nomA) + '="' + v + '"');
+      return '';
+    });
+    if (nom === 'svg' && pile.length) continue;
+    sortie.push('<' + nom + (attrs.length ? ' ' + attrs.join(' ') : '') + (auto ? '/>' : '>'));
+    if (!auto) pile.push(nom);
+  }
+  while (pile.length) sortie.push('</' + pile.pop() + '>');
+  const svg = sortie.join('');
+  if (!/^<svg/.test(svg) || !/viewBox=/.test(svg)) return null;
+  return { svg: svg.slice(0, 15000), zones };
+}
+
 function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ratée d'un quiz existant (pas les contrôles faits pour l'IA)
   d = d || {};
   const txt = (v, n) => String(v == null ? '' : v).replace(/<\/?script[^>]*>/gi, '').trim().slice(0, n);
@@ -1504,6 +1551,9 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   // figure de géométrie décrite en quelques mots (dessinée par le moteur, dessins.js) : caractères limités
   const fig = String(q.fig || '').replace(/\s+/g, ' ').trim().slice(0, 600);
   if (fig && /^[A-Za-z0-9 ()\[\],;.=°'\-éèêàç/]+$/.test(fig) && /[A-Z][0-9']?\s*\(\s*-?\d/.test(fig)) base.fig = fig;
+  // schéma SVG (dessiné par l'IA) : reconstruit avec une liste blanche de balises et d'attributs, rien d'autre
+  const svg = q.svg ? svgPropre_(q.svg) : null;
+  if (svg) base.svg = svg.svg;
   const dire = txt(q.dire || q.ecoute || q.audio, 300);
   if (dire) { base.dire = dire; const lg = txt(q.langue || q.lang, 10); if (/^[a-z]{2}(-[A-Za-z]{2})?$/.test(lg)) base.langue = lg; }
   if (Array.isArray(q.notes) && type !== 'clavier' && type !== 'placer') {
@@ -1511,6 +1561,18 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
     const notes = q.notes.slice(0, 24).map(x => Array.isArray(x) ? x.slice(0, 5).map(y => txt(y, 10)).filter(note) : txt(x, 10))
       .filter(x => Array.isArray(x) ? x.length : note(x));
     if (notes.length) { base.notes = notes; if (q.portee) base.portee = q.portee === 'seule' ? 'seule' : true; }
+  }
+  if (type === 'zone') {                     // Z : toucher la bonne zone du schéma
+    const zone = txt(q.zone, 30);
+    if (!svg || svg.zones.indexOf(zone) < 0 || svg.zones.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (schéma ou zone introuvable).'); return null; }
+    return Object.assign(base, { type: 'zone', zone });
+  }
+  if (type === 'legende') {                  // E : placer les étiquettes sur les zones du schéma
+    const vues = {};
+    const legendes = (Array.isArray(q.legendes) ? q.legendes : []).filter(p => Array.isArray(p) && p.length === 2).map(p => [txt(p[0], 30), txt(p[1], 60)])
+      .filter(p => p[1] && svg && svg.zones.indexOf(p[0]) >= 0 && !vues[p[0]] && (vues[p[0]] = 1)).slice(0, 8);
+    if (!svg || legendes.length < 2) { avert.push('Question ' + (i + 1) + ' ignorée (schéma ou étiquettes introuvables).'); return null; }
+    return Object.assign(base, { type: 'legende', legendes });
   }
   if (type === 'qcm') {
     const opts = (Array.isArray(q.opts || q.choix) ? (q.opts || q.choix) : []).map(o => txt(o, 160)).filter(Boolean);
@@ -1831,9 +1893,10 @@ function emoji_(v) {
 }
 
 function lireFormatLignes_(texte) {
-  const d = { questions: [], memo: [], icones: {} };
+  const d = { questions: [], memo: [], icones: {}, schemas: {} };
   let cat = '', vu = false;
-  String(texte).split(/\r?\n/).forEach(brute => {
+  // un schéma SVG écrit sur plusieurs lignes par l'IA est remis sur une seule
+  String(texte).replace(/<svg[\s\S]*?<\/svg>/gi, m => m.replace(/\s*\r?\n\s*/g, ' ')).split(/\r?\n/).forEach(brute => {
     const l = brute.replace(/^\s*(?:[-*•]\s+|\d+[.)]\s+)?/, '').trim();
     if (/^#+\s*\**\s*(sujet|notions?|supports?)\s*\**\s*:/i.test(l)) return;   // analyse de la leçon écrite par l'IA (# Sujet, # Notions, # Supports)
     const titreCat = l.match(/^#{2,}\s*(.+)$/);
@@ -1842,7 +1905,9 @@ function lireFormatLignes_(texte) {
       cat = nom; if (ico) d.icones[cat] = ico;
       return;
     }
-    const m = l.match(/^([TQVSMGOACXNPKL])\s*[|:]\s*(.*)$/i);
+    const f = l.match(/^F\s*\|\s*([\w-]{1,30})\s*\|\s*(<svg[\s\S]*<\/svg>)/i);   // F|nom|<svg …>…</svg> : schéma pour Z, E ou sch=nom
+    if (f) { d.schemas[f[1]] = f[2]; return; }
+    const m = l.match(/^([TQVSMGOACXNPKLZE])\s*[|:]\s*(.*)$/i);
     if (!m) return;
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
@@ -1850,7 +1915,7 @@ function lireFormatLignes_(texte) {
     // champs nommés : toujours avec = (une bonne réponse « dire » ou « notes » reste une réponse) ;
     // seul « portee » peut être écrit seul, et seulement après la question et sa réponse
     champs.forEach(c => {
-      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img|fig)\s*=\s*(.+)$/i);
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img|fig|sch)\s*=\s*(.+)$/i);
       if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2].trim();
       else if (/^port[eé]e$/i.test(c) && pos.length >= 3) extra.portee = true;
       else pos.push(c);
@@ -1886,6 +1951,11 @@ function lireFormatLignes_(texte) {
       Object.assign(q, { type: 'placer', notes: [String(pos[1] || '').trim()], exp: pos[2] || '' });
     } else if (sorte === 'K') {                // K|consigne|C4 D4 E4|explication
       Object.assign(q, { type: 'clavier', notes: String(pos[1] || '').split(/[\s,]+/).filter(Boolean), exp: pos[2] || '' });
+    } else if (sorte === 'Z') {                // Z|consigne|nom de la zone|explication|sch=schéma : toucher la bonne zone
+      Object.assign(q, { type: 'zone', zone: String(pos[1] || '').trim(), exp: pos[2] || '' });
+    } else if (sorte === 'E') {                // E|consigne|zone=étiquette|zone=étiquette|…|explication|sch=schéma : légender
+      const paires = pos.slice(1).filter(x => /^[\w-]{1,30}\s*=/.test(x)), autres = pos.slice(1).filter(x => !/^[\w-]{1,30}\s*=/.test(x));
+      Object.assign(q, { type: 'legende', legendes: paires.map(x => { const k = x.indexOf('='); return [x.slice(0, k).trim(), x.slice(k + 1).trim()]; }), exp: autres[autres.length - 1] || '' });
     } else if (sorte === 'Q') {
       const reste = pos.slice(1);
       // dernier champ = explication s'il y a au moins 3 choix derrière la question, ou s'il ressemble à une phrase
@@ -1901,13 +1971,15 @@ function lireFormatLignes_(texte) {
     if (typeof extra.dire === 'string') q.dire = extra.dire;
     if (typeof extra.img === 'string') q.img = extra.img;
     if (typeof extra.fig === 'string') q.fig = extra.fig;
+    if (typeof extra.sch === 'string') q.sch = extra.sch.trim();
     if (typeof extra.langue === 'string') q.langue = extra.langue;
     if (typeof extra.indice === 'string') q.hint = extra.indice;
     if (typeof extra.notes === 'string' && q.type !== 'clavier' && q.type !== 'placer') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
     if (extra.portee) q.portee = extra.portee === 'seule' ? 'seule' : true;
     vu = true;
     d.questions.push(q);
-  });
+  });  d.questions.forEach(q => { if (q.sch && d.schemas[q.sch]) q.svg = d.schemas[q.sch]; delete q.sch; });
+
   return vu && d.questions.length ? d : null;
 }
 

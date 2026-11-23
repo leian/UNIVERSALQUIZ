@@ -73,6 +73,26 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       <label for="nb">Questions</label>
       <select id="nb"><option selected>20</option><option>30</option><option>40</option></select>
     </div>
+    <div class="ligne">
+      <label for="exercices">Exercices</label>
+      <select id="exercices">
+        <option value="" selected>Choisis par l'IA d'après la leçon (conseillé)</option>
+        <optgroup label="Langues">
+          <option value="ecouter">Écouter et comprendre</option>
+          <option value="dictee">Dictée : écouter puis écrire</option>
+          <option value="prononcer">Prononcer (micro)</option>
+          <option value="vocabulaire">Vocabulaire</option>
+          <option value="grammaire">Grammaire et conjugaison</option>
+        </optgroup>
+        <optgroup label="Musique">
+          <option value="sons">Reconnaître des sons (aigu, grave, long, court…)</option>
+          <option value="notes">Notes entendues</option>
+          <option value="melodie">Rejouer une mélodie</option>
+          <option value="portee">Lire et placer des notes sur la portée</option>
+          <option value="vocamus">Vocabulaire musical</option>
+        </optgroup>
+      </select>
+    </div>
     <div id="pour-qui" class="pour-qui" hidden></div>
     <p class="petit">20 questions suffisent pour une partie. 30 ou 40 font varier les questions d'une partie à l'autre, mais l'IA met plus longtemps.</p>
   </section>
@@ -155,10 +175,24 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   const CONSIGNES = '__CONSIGNES__';
   const RELECTURE = '__RELECTURE__';      // src/relecture.txt : 2e passage de Gemini, qui corrige les questions hors sujet ou ambiguës
   const URL_CONSIGNES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/consignes/__CONSIGNES_ID__.txt';
+  // langues et musique : le parent peut orienter les exercices (une courte précision ajoutée à la demande ; ailleurs l'IA choisit seule)
+  const EXERCICES = {
+    ecouter: 'compréhension orale : dire= sur presque toutes les questions, Q « Que veut dire la phrase entendue ? » et S pour écrire ce qu\'on entend',
+    dictee: 'dictée : surtout des S avec dire=, à écrire exactement comme entendu',
+    prononcer: 'prononciation : jusqu\'à 6 P (phrase à dire), le reste en Q ou S avec dire=',
+    vocabulaire: 'vocabulaire : A (mot = traduction), S et Q de traduction, dire= sur un tiers des questions',
+    grammaire: 'grammaire et conjugaison : G, X, S et Q, dire= sur un tiers des questions',
+    sons: 'musique, reconnaître des sons : surtout notes= avec / (sons à comparer : aigu ou grave, long ou court, fort ou doux)',
+    notes: 'musique, notes entendues : notes= d\'une note ou d\'un intervalle, « Quelle note entends-tu ? »',
+    melodie: 'musique, rejouer : surtout des K (courte mélodie à rejouer au clavier)',
+    portee: 'musique, portée : surtout des L (placer la note) et des Q sur la portée',
+    vocamus: 'musique, vocabulaire musical : Q, A et V sur les mots de la leçon'
+  };
   const demande = () => {
     const classe = $('classe').value.trim() || (U.classe === 'adulte' ? 'adulte' : '');
     const pour = /^adultes?$/i.test(classe) ? ' pour un adulte' : classe ? ' pour un élève de ' + classe : '';
-    return `Crée un quiz de révision de ${$('nb').value} questions${pour} à partir des photos de leçon jointes`;
+    const ex = EXERCICES[$('exercices').value] || '';
+    return `Crée un quiz de révision de ${$('nb').value} questions${pour} à partir des photos de leçon jointes` + (ex ? ' (' + ex + ')' : '');
   };
   // ce que voit le parent dans l'IA : une seule phrase, les consignes sont lues sur la page
   const messageCourt = () => demande() + ', en suivant exactement les consignes de cette page : ' + URL_CONSIGNES +
@@ -170,6 +204,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   function majLiens() { const m = messageCourt(); liensIA.forEach(a => { a.href = a.dataset.ia + encodeURIComponent(m); }); }
   $('classe').addEventListener('input', majLiens);
   $('nb').addEventListener('change', majLiens);
+  $('exercices').addEventListener('change', majLiens);
   // classe : celle des Réglages de l'espace parent (montée automatique chaque 1er septembre) ;
   // à taper ici seulement si elle n'y est pas renseignée (site installé à la main, ancien site)
   if (U.classe) {
@@ -404,7 +439,7 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     }
     throw new Error(derniere || 'Gemini ne répond pas. Réessaie dans un instant.');
   }
-  const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPK]\s*\|/gim) || []).length;
+  const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPKLZE]\s*\|/gim) || []).length;
   // 1. création ; 2. relecture par Flash-Lite (autre quota gratuit), qui corrige les questions hors sujet ou ambiguës.
   // Si la relecture échoue (ou dépasse le délai) ou perd des questions, on garde le premier quiz.
   async function demanderGemini(lot, texte, etape) {
