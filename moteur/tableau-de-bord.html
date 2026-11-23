@@ -1341,6 +1341,13 @@ var Sig = (() => {
       const bouton = r.retour ? `<p style="margin:8px 0 0"><a class="btn principal" href="${esc(r.retour)}" target="_top">${I("trash")} Terminer dans l'installateur</a></p>` : `<p class="small">Ouvre l'installateur pour désactiver le site.</p>`;
       // secours : l'installateur n'a pas pu finir dans le cadre invisible (connexion Google refusée dans le cadre, plusieurs comptes…)
       const secours = () => { msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ Fait : ${fait}.<br><b>Dernière étape</b> : clique sur le bouton, l'installateur termine tout seul.</p>` + bouton + icone("SoccaQuiz"); };
+      // famille servie par le relais SoccaQuiz : tout est déjà fait (fichiers à la corbeille, accès Google retiré, données effacées)
+      if (r.complet) {
+        msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ <b>SoccaQuiz est entièrement supprimé</b> : ${r.garde ? "quiz et résultats gardés dans ton Drive (dossier « SoccaQuiz »)" : "quiz et résultats mis à la corbeille du Drive"}, accès de SoccaQuiz à ton compte Google retiré, réglages effacés.</p>` +
+          (r.garde ? "" : `<p class="small" style="margin:6px 0 0">Pour ne plus rien garder du tout (facultatif) : vide la <a href="https:\/\/drive.google.com/drive/trash" target="_blank" rel="noopener">corbeille du Drive</a> (sinon Google l'efface dans 30 jours) ; si tu avais créé une clé Gemini, supprime-la sur aistudio.google.com.</p>`) +
+          icone("SoccaQuiz (site de l'enfant ou espace parent)");
+        return;
+      }
       if (!r.retour) return secours();
       // l'installateur finit ici, dans un cadre invisible : pas de changement de page, donc pas de toucher en plus
       msg.innerHTML = `<p class="small" style="margin:8px 0 0">✅ Fait : ${fait}.<br>Dernière étape en cours : l'installateur désactive son site… (quelques secondes)</p>`;

@@ -82,12 +82,15 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
     <div id="g-sans-cle" class="cache">
       <p>Gemini, l'IA de Google, crée le quiz directement ici, gratuitement. Il faut d'abord une <b>clé Gemini</b>, à créer <b>une seule fois</b> :</p>
       <ol class="pas">
-        <li><a class="btn leger" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Ouvrir Google AI Studio</a></li>
-        <li>Connecte-toi avec ton compte Google et accepte les conditions.</li>
-        <li>Clique sur <b>« Create API key »</b> (Créer une clé). S'il te demande un projet, choisis <b>« Default Gemini Project »</b> (ou « Créer un projet »). Copie ensuite la clé : elle commence par <b>AQ.</b> (ou AIza pour les anciennes).</li>
-        <li>Colle-la ici :<br><input type="text" id="g-cle" placeholder="AQ.…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
-          <button class="btn" id="g-enregistrer" type="button">Enregistrer la clé</button></li>
+        <li><a class="btn" href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">🔑 Obtenir ma clé Gemini</a><br>
+          <span class="petit">Google AI Studio s'ouvre avec ton compte Google : touche <b>« Create API key »</b> (Créer une clé), puis <b>« Copy »</b> (Copier). S'il demande un projet, choisis celui proposé.</span></li>
+        <li>Reviens ici, puis : <button class="btn" id="g-coller" type="button">📋 Coller ma clé</button><br>
+          <span class="petit">SoccaQuiz vérifie la clé et la garde pour toi : à faire une seule fois.</span></li>
       </ol>
+      <details class="petit" id="g-manuel"><summary>Coller la clé à la main</summary>
+        <input type="text" id="g-cle" placeholder="AQ.…" autocomplete="off" spellcheck="false" style="width:100%;margin:6px 0"><br>
+        <button class="btn leger" id="g-enregistrer" type="button">Enregistrer la clé</button>
+      </details>
       <p class="petit">La clé est gratuite et sans carte bancaire. En Europe, Google n'utilise pas les photos envoyées avec la clé gratuite pour améliorer ses produits ; ailleurs, il peut le faire. La clé Gemini est réservée à l'adulte qui la crée : l'enfant n'a jamais accès à Gemini.</p>
     </div>
     <div id="g-avec-cle" class="cache">
@@ -281,6 +284,19 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
       $('g-enregistrer').disabled = false;
       res.innerHTML = '<div class="ko">😕 ' + h(e.message) + '</div>';
     }
+  });
+  // « Coller ma clé » : lit le presse-papiers (le téléphone demande l'autorisation une fois), puis vérifie et enregistre
+  $('g-coller').addEventListener('click', async () => {
+    let t = '';
+    try { t = (await navigator.clipboard.readText() || '').trim(); } catch (e) {}
+    const m = t.match(/(AIza|AQ\.)[\w.\-]{25,200}/);
+    if (!m) {
+      $('g-manuel').open = true; $('g-cle').focus();
+      $('g-resultat').innerHTML = '<div class="ko">' + (t ? 'Le presse-papiers ne contient pas de clé Gemini : dans AI Studio, touche « Copy » à côté de la clé, puis reviens.' : 'Ton navigateur n\'a pas laissé lire le presse-papiers : colle la clé dans le champ ci-dessous (appui long → Coller).') + '</div>';
+      return;
+    }
+    $('g-cle').value = m[0];
+    $('g-enregistrer').click();
   });
   $('g-changer').addEventListener('click', ev => { ev.preventDefault(); cle = ''; etatGemini(); $('g-resultat').innerHTML = ''; });
 

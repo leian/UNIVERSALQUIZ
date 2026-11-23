@@ -168,7 +168,13 @@ async function enregistrerMagasin_(env, fam, ctx, fichiers) {
   const jeton = await acces_(env, fam), M = ctx.magasin;
   const ids = Array.from(ctx.sale).filter(id => id !== 'index' && M.tableurs[id]);
   let indexSale = ctx.sale.has('index');
-  await Promise.all(ids.map(async id => {
+  // tableau mis à la corbeille (ou dans un dossier mis à la corbeille, ex. un enfant supprimé) : son fichier aussi
+  const jete = t => t.trashed || (t.parents || []).some(p => M.dossiers[p] && M.dossiers[p].trashed);
+  await Promise.all(Object.keys(M.tableurs).filter(id => fichiers[id] && jete(M.tableurs[id]) && !M.tableurs[id].fichierJete).map(async id => {
+    await jsonOk_(await drive_(jeton, 'https://www.googleapis.com/drive/v3/files/' + fichiers[id] + '?fields=id', { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }), 'corbeille du Drive');
+    M.tableurs[id].fichierJete = true; indexSale = true;
+  }));
+  await Promise.all(ids.filter(id => !M.tableurs[id].fichierJete).map(async id => {
     const t = M.tableurs[id], contenu = JSON.stringify({ feuilles: t.feuilles });
     if (fichiers[id]) await ecrireFichier_(jeton, fichiers[id], contenu);
     else { fichiers[id] = await creerFichier_(jeton, nomFichierTableur_(M, t), fam.dossier, contenu); indexSale = true; }
@@ -217,9 +223,18 @@ async function demande_(env, id, parametres, corps, url) {
     const pris = await env.DB.prepare('UPDATE familles SET verrou = ? WHERE id = ? AND rev = ? AND verrou < ?').bind(t + 15000, id, fam.rev, t).run();
     if (!pris.meta || !pris.meta.changes) { await new Promise(r => setTimeout(r, 300 + 400 * essai)); MEMOIRE_.delete(id); continue; }
     try {
+      if (ctx.revoquer) {
+        // dernier enfant supprimé (apiSupprimerSite → invalidateAuth) : SoccaQuiz quitte entièrement la famille
+        const garde = !!(objet && objet.r && objet.r.garde);
+        if (!garde) try { const j = await acces_(env, fam); await drive_(j, 'https://www.googleapis.com/drive/v3/files/' + fam.dossier, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) }); } catch (e) { console.error(e); }
+        await revoquerFamille_(env, fam);
+        await env.DB.prepare('DELETE FROM familles WHERE id = ?').bind(id).run();
+        MEMOIRE_.delete(id);
+        if (objet && objet.r) objet.r.complet = true;
+        return { objet, statut };
+      }
       const fichiers = Object.assign({}, mem.fichiers);
       if (ctx.sale.size) await enregistrerMagasin_(env, fam, ctx, fichiers);
-      if (ctx.revoquer) await revoquerFamille_(env, fam);
       const props_c = ctx.propsSales ? await chiffrer_(env, JSON.stringify(ctx.props)) : fam.props_c;
       await env.DB.prepare('UPDATE familles SET props_c = ?, rev = rev + 1, verrou = 0, maj = ? WHERE id = ?').bind(props_c, Date.now(), id).run();
       MEMOIRE_.set(id, Object.assign(MEMOIRE_.get(id) || {}, { rev: fam.rev + 1, magasin: ctx.magasin, fichiers, cache: ctx.cache }));

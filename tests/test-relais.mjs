@@ -120,7 +120,20 @@ ok([...fichiers.values()].some(f => /\(Hugo\)\.json$/.test(f.name)), 'Drive : fi
 const re = await appel('/connexion', { code: 'bon-code', prenom: 'X', classe: 'CP' });
 ok(re.d.s === S && re.d.code && re.d.nouvelle === false, 'reconnexion : même famille, nouveau code');
 
-/* 6. adresses inconnues */
+/* 6. suppression : un enfant parmi d'autres, puis le dernier (SoccaQuiz quitte la famille) */
+const idH = enfants.d.r && (enfants.d.r.id || (enfants.d.r.enfant && enfants.d.r.enfant.id)) || 'b';
+const supH = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiSupprimerSite', args: [{ confirmation: 'Hugo' }], e: idH });
+ok(supH.d.r && supH.d.r.ok && supH.d.r.reste && supH.d.r.reste[0] === 'Lana', 'supprimer Hugo : Lana reste — ' + JSON.stringify(supH.d).slice(0, 140));
+ok([...fichiers.values()].filter(f => /\(Hugo\)\.json$/.test(f.name)).every(f => f.trashed), 'Drive : fichiers de Hugo à la corbeille');
+ok([...fichiers.values()].filter(f => /Résultats\.json$/.test(f.name)).every(f => !f.trashed), 'Drive : fichiers de Lana intacts');
+const supL = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiSupprimerSite', args: [{ confirmation: 'Lana' }] });
+ok(supL.d.r && supL.d.r.ok && supL.d.r.complet, 'supprimer le dernier enfant : suppression complète — ' + JSON.stringify(supL.d).slice(0, 140));
+ok(revoque, 'accès Google retiré (révocation)');
+ok(!sql.prepare('SELECT id FROM familles WHERE id = ?').get(S), 'D1 : famille effacée');
+ok([...fichiers.values()].find(f => f.name === 'SoccaQuiz' && f.mimeType === 'application/vnd.google-apps.folder').trashed, 'Drive : dossier « SoccaQuiz » à la corbeille');
+ok((await appel('/f/' + S + '?api=etat')).statut === 404, 'site de l\'enfant : « n\'existe plus » (404)');
+
+/* 7. adresses inconnues */
 ok((await appel('/f/rInconnue00000000000000000?api=etat')).statut === 404, 'famille inconnue : 404 (« supprimée »)');
 ok((await appel('/f/pas-un-id?api=etat')).statut === 404, 'identifiant mal formé : 404');
 

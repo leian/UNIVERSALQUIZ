@@ -472,10 +472,12 @@ try {
   });
   await page.goto(BASE + '/exec?page=ajouter');
   ok(await page.locator('#g-sans-cle').isVisible() && !(await page.locator('#g-avec-cle').isVisible()), 'Gemini : sans clé, la procédure de création de clé est affichée');
-  await page.fill('#g-cle', 'AIzaFAUSSE_cle_fausse_0123456789abcdef');
-  await page.locator('#g-enregistrer').click();
+  // « Coller ma clé » : lit le presse-papiers (simulé) puis vérifie
+  await page.evaluate(() => { Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { readText: async () => 'Ta clé : AIzaFAUSSE_cle_fausse_0123456789abcdef', writeText: async () => {} } }); });
+  await page.locator('#g-coller').click();
   await page.locator('#g-resultat .ko').waitFor({ timeout: 5000 });
   ok(/refuse/.test(await page.locator('#g-resultat').innerText()), 'Gemini : une clé refusée par Google est signalée');
+  await page.evaluate(() => { document.getElementById('g-manuel').open = true; });   // secours : la clé collée à la main
   await page.fill('#g-cle', 'AQ.Ab8TEST-cle_de_test_0123456789abcdef');
   await page.locator('#g-enregistrer').click();
   await page.locator('#g-resultat .ok').waitFor({ timeout: 5000 });
