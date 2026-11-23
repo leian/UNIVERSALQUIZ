@@ -208,7 +208,7 @@ try {
     ok(incomplet && await tel.locator('iframe.page').count() === 1 && await tel.evaluate(() => Object.keys(localStorage).some(k => /^sq-cle:/.test(k))), 'espace parent hors de Google : lien collé sur la page → appareil reconnu (lien incomplet refusé avec un message)');
     ok(await tel.locator('#astuce').isVisible() && /écran d'accueil/.test(await tel.locator('#astuce').innerText()), 'espace parent hors de Google : conseil « Ajouter à l\'écran d\'accueil » après la première ouverture sur téléphone');
     const man = JSON.parse(readFileSync(join(RACINE, 'build-site', 'parent', 'manifest.webmanifest'), 'utf8'));
-    ok(man.display === 'standalone' && man.start_url === './' && man.scope === './' && man.icons.some(i => i.purpose === 'maskable') && await tel.locator('link[rel="manifest"]').count() === 1,
+    ok(man.display === 'standalone' && man.start_url === './' && man.scope === '/' && man.icons.some(i => i.purpose === 'maskable') && await tel.locator('link[rel="manifest"]').count() === 1,
       'espace parent installable comme une appli (manifeste, icône pleine) ; adresse retenue sur l\'appareil pour l\'ouvrir sans ?s=');
     await ctxP.close();
   }

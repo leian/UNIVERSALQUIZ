@@ -1013,6 +1013,11 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk
     ? "🔑 Clé Gemini enregistrée : les quiz se créent directement à partir des photos."
     : "🔑 Pas encore de clé Gemini : <a href=\"ajouter.html\">ajoute-la sur « Créer un quiz »</a> pour créer les quiz directement à partir des photos.";
+  if (U.version === "relais") {   // nouvelle installation : le relais sert toujours la dernière version, rien à mettre à jour
+    const h = $("info-version").parentNode.querySelector("h3"); if (h) h.innerHTML = `${I("tool")}Mises à jour et clé Gemini`;
+    $("info-version").textContent = "✅ Ton SoccaQuiz est toujours à jour : les nouveautés arrivent toutes seules, il n'y a rien à faire.";
+    return;
+  }
   if (!U.version || !U.installateur) return;
   $("info-version").textContent = "Version " + U.version + ".";
   // une nouvelle version est-elle publiée ? (dernière Release GitHub, même source que l'installateur)

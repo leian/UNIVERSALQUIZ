@@ -4,7 +4,7 @@
   "short_name": "SoccaQuiz parent",
   "lang": "fr",
   "start_url": "./",
-  "scope": "./",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#fff8ef",
   "theme_color": "#a9010d",
