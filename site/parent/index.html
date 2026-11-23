@@ -163,7 +163,8 @@
     var u = navigator.userAgent || '';
     var type = /iPad|Tablet/i.test(u) ? 'Tablette' : /Mobi|Android|iPhone/i.test(u) ? 'Téléphone' : 'Ordinateur';
     var os = /iPhone|iPad/.test(u) ? 'iPhone' : /Android/.test(u) ? 'Android' : /Mac/.test(u) ? 'Mac' : /Windows/.test(u) ? 'Windows' : '';
-    return type + (os && os !== type ? ' ' + os : '');
+    var nav = /EdgA?\//.test(u) ? 'Edge' : /SamsungBrowser/.test(u) ? 'Samsung Internet' : /Firefox|FxiOS/.test(u) ? 'Firefox' : /OPR\//.test(u) ? 'Opera' : (navigator.brave ? 'Brave' : /CriOS|Chrome\//.test(u) ? 'Chrome' : /Safari\//.test(u) ? 'Safari' : '');
+    return type + (os && os !== type ? ' ' + os : '') + (nav ? ' · ' + nav : '');
   }
   // invitation : …#i=<code> → clé de cet appareil, puis le code disparaît de l'adresse
   var vientDAppairer = false;

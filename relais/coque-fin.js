@@ -230,6 +230,7 @@ async function demande_(env, id, parametres, corps, url) {
         await revoquerFamille_(env, fam);
         await env.DB.prepare('DELETE FROM familles WHERE id = ?').bind(id).run();
         MEMOIRE_.delete(id);
+        await compterRelais_('suppression');
         if (objet && objet.r) objet.r.complet = true;
         return { objet, statut };
       }
@@ -283,6 +284,7 @@ async function connexion_(env, o, url) {
   await env.DB.prepare('INSERT INTO familles (id, email_h, email_c, jeton_c, dossier, index_id, props_c, rev, verrou, cree, maj) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)')
     .bind(id, emailH, await chiffrer_(env, email), await chiffrer_(env, j.refresh_token), dossier, indexId, await chiffrer_(env, JSON.stringify(props)), t, t).run();
   const code = await codeAppareil_(env, id, nomAppareil);
+  await compterRelais_('installation');
   return { ok: true, s: id, code, nouvelle: true };
 }
 /* code à usage unique pour le premier appareil (ou un nouvel appareil après reconnexion) : Code.gs le fabrique (creerInvitation_) */
@@ -308,4 +310,19 @@ async function demandeInterne_(env, id, fn) {
     } catch (e) { await env.DB.prepare('UPDATE familles SET verrou = 0 WHERE id = ?').bind(id).run(); MEMOIRE_.delete(id); throw e; }
   }
   throw new Error('SoccaQuiz est très occupé, réessaie dans un instant.');
+}
+
+/* compteurs anonymes pour la console (onglet Statistiques) : l'événement et « relais », rien d'autre ; jamais bloquant */
+let ADR_STATS_ = null;
+async function compterRelais_(e) {
+  try {
+    if (ADR_STATS_ === null) {
+      ADR_STATS_ = '';
+      const r = await fetch('https://leian.github.io/UNIVERSALQUIZ/soccaquiz.json', { signal: AbortSignal.timeout(3000) });
+      const c = r.ok ? await r.json() : {};
+      if (typeof c.propositions === 'string' && /^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(c.propositions)) ADR_STATS_ = c.propositions;
+    }
+    if (!ADR_STATS_) return;
+    await fetch(ADR_STATS_, { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify({ type: 'stat', evts: [{ e, v: 'relais' }] }), signal: AbortSignal.timeout(4000) });
+  } catch (err) {}
 }

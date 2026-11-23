@@ -167,6 +167,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 .bib-actions{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .bib-apercu{grid-column:1/-1;margin:6px 0 0;padding-left:20px;font-size:.88rem;color:var(--ink)}
 .bib-apercu li{margin:2px 0}
+.apercu-mascotte{width:72px;height:72px;object-fit:contain;flex:0 0 auto}
 .btn.fait{border-color:#bbf7d0;color:var(--ok)}
 .sig{border-top:1px solid var(--line);padding:12px 0}
 .sig:first-of-type{border-top:none}
@@ -637,14 +638,25 @@ function afficherClasse() {
     `<p class="small">Le site s'habille selon la classe : thème <b>${esc(NOMS_THEMES[U.theme] || "Explorateurs")}</b>. La classe passe toute seule à la suivante chaque 1er septembre.</p>` +
     (U.theme === "lycee" && U.mascottes ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       U.mascottes.map(m => `<option value="${esc(m)}" ${m === U.mascotte ? "selected" : ""}>${esc(NOMS_MASCOTTES[m] || m)}</option>`).join("") + `</select></p>` +
-      `<p style="display:flex;gap:8px;align-items:center"><span class="mascotte m-accueil" aria-hidden="true"></span><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
+      `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
       `<p class="enreg" id="enreg-mascotte" role="status" hidden></p>` : "") +
     (U.genresDessines && U.genresDessines.indexOf(U.theme) >= 0 ? `<p style="margin-top:14px"><label for="choix-genre"><b>Allure de la mascotte</b></label><br><select id="choix-genre" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       [["auto", "Automatique"], ["f", "Au féminin"], ["m", "Au masculin"], ["n", "Neutre : la socca de toujours"]]
         .map(([v, t]) => { const manque = (v === "f" || v === "m") && U.genresDispo && U.genresDispo.indexOf(v) < 0;   // dessins pas encore prêts pour ce thème
           return `<option value="${v}" ${v === (U.genre || "auto") ? "selected" : ""} ${manque && v !== U.genre ? "disabled" : ""}>${esc(t + (manque ? " (dessins bientôt prêts)" : ""))}</option>`; }).join("") + `</select></p>` +
-      `<p style="display:flex;gap:8px;align-items:center"><span class="mascotte m-accueil" aria-hidden="true"></span><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +
+      `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +
       `<p class="enreg" id="enreg-genre" role="status" hidden></p>` : "");
+  // aperçu : la mascotte que verra l'enfant (thème de sa classe, tenue du lycée, allure), jamais le costume de saison
+  const majApercu = () => {
+    const tenue = (document.getElementById("choix-mascotte") || {}).value || U.mascotte || "gothique";
+    const choix = (document.getElementById("choix-genre") || {}).value || U.genre || "auto";
+    const g = choix === "auto" ? (U.genreDevine || "n") : choix;
+    const suffixe = (g === "f" || g === "m") && (U.genresDispo || []).indexOf(g) >= 0 ? "-" + g : "";
+    const dossier = (U.theme === "lycee" ? "lycee-" + tenue : (U.theme || "explorateurs")) + suffixe;
+    document.querySelectorAll(".apercu-mascotte").forEach(im => { im.src = "https:\/\/leian.github.io/UNIVERSALQUIZ/themes/" + dossier + "/accueil.webp"; });
+  };
+  majApercu();
+  ["choix-mascotte", "choix-genre"].forEach(id => { const el = document.getElementById(id); if (el) el.addEventListener("input", majApercu); });
   document.getElementById("choix-classe").onchange = e => {
     if (!(window.google && google.script && google.script.run)) return;
     e.target.disabled = true;
@@ -1054,7 +1066,8 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe de l'un à l'autre. Chaque enfant a ses quiz, ses résultats, sa classe et son lien.</p>"
       : "<p style=\"margin:0 0 8px\">Un autre enfant ? Ajoute-le ici : il aura ses propres quiz, ses résultats, sa classe et son lien, sans rien réinstaller.</p>") +
     l.map((x, i) => `<p style="margin:4px 0">${l.length > 1 ? `<span class="pastille-enfant" ${coul(i)} aria-hidden="true"></span>` : ""}${nom(x)}${x.ici ? " <small>(affiché)</small>" : ""}</p>`).join("") +
-    (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>`);
+    (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <select id="nouvel-classe" aria-label="Classe" style="padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)"><option value="">Classe…</option>${(U.classes || []).map(c => `<option>${esc(c)}</option>`).join("")}<option value="adulte">Adulte</option></select> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>` +
+      `<p style="margin:14px 0 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><label for="renommer-enfant" class="small">Renommer ${esc(l[ici] ? l[ici].prenom : "")} :</label><input type="text" id="renommer-enfant" maxlength="30" value="${esc(l[ici] ? l[ici].prenom : "")}" autocomplete="off" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn" id="renommer-go">Renommer</button></p><div id="renommer-msg"></div>`);
   document.getElementById("box-famille").hidden = false;
   const bt = document.getElementById("ajouter-enfant");
   if (bt) bt.addEventListener("click", () => {
@@ -1067,7 +1080,20 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       champ.value = "";
       msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(res.prenom)} a sa place dans SoccaQuiz.</p><p style="margin:6px 0 0"><a class="btn principal" href="${esc(res.parent)}" target="_top">Ouvrir l'espace parent de ${esc(res.prenom)}</a></p><p class="small" style="margin:6px 0 0">Choisis sa classe dans ses Réglages, puis envoie-lui son lien.</p>`;
     }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
-      .apiAjouterEnfant({ prenom: champ.value });
+      .apiAjouterEnfant({ prenom: champ.value, classe: (document.getElementById("nouvel-classe") || {}).value || "" });
+  });
+  const ren = document.getElementById("renommer-go");
+  if (ren) ren.addEventListener("click", () => {
+    const champ = document.getElementById("renommer-enfant"), msg = document.getElementById("renommer-msg");
+    if (!champ.value.trim()) { champ.focus(); return; }
+    ren.disabled = true;
+    google.script.run.withSuccessHandler(res => {
+      ren.disabled = false;
+      if (!res || res.erreur) { msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((res && res.erreur) || "Erreur")}</p>`; return; }
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : il s'appelle maintenant ${esc(res.prenom)}. Le site se recharge…</p>`;
+      setTimeout(() => rechargerSite("reglages"), 900);
+    }).withFailureHandler(e => { ren.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
+      .apiRenommerEnfant({ prenom: champ.value });
   });
 })();
 
@@ -1086,7 +1112,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     const l = (liste && liste.appareils) || [], peut = liste && liste.peutInviter;
     z.innerHTML = `<p style="margin:0 0 8px">L'espace parent s'ouvre <b>sans compte Google</b>, sur chaque appareil, avec un lien d'invitation. ${peut ? "Invite l'autre parent, ou ouvre l'espace parent sur un autre de tes appareils." : ""}</p>` +
       (liste ? l.map(x => `<p style="margin:4px 0"><b>${esc(x.nom)}</b> <small>${x.role === "proprio" ? "parent qui a installé" : "autre parent"}${x.vu ? " · vu le " + jour(x.vu) : ""}${x.moi ? " · cet appareil" : ""}</small>` +
-        (peut || x.moi ? ` <button type="button" class="btn" data-retirer-appareil="${esc(x.id)}">Retirer</button>` : "") + `</p>`).join("") || "<p class=\"small\" style=\"margin:4px 0\">Aucun appareil pour l'instant : l'espace parent est ouvert ici avec ton compte Google.</p>"
+        (peut || x.moi ? ` <button type="button" class="btn" data-renommer-appareil="${esc(x.id)}" data-nom="${esc(x.nom)}">Renommer</button> <button type="button" class="btn" data-retirer-appareil="${esc(x.id)}">Retirer</button>` : "") + `</p>`).join("") || "<p class=\"small\" style=\"margin:4px 0\">Aucun appareil pour l'instant : l'espace parent est ouvert ici avec ton compte Google.</p>"
         : "<p class=\"small\">Chargement…</p>") +
       (peut ? `<p style="margin:10px 0 0;display:flex;gap:6px;flex-wrap:wrap"><button type="button" class="btn principal" data-inviter="parent">Inviter l'autre parent</button> <button type="button" class="btn" data-inviter="proprio">Ouvrir sur un autre de mes appareils</button></p>` : "") +
       (invit ? `<div class="ok" style="margin:10px 0 0;padding:10px;border-radius:10px"><p style="margin:0 0 6px">✅ Lien prêt (une seule fois, pendant 24 h) :</p><p class="adr" style="margin:0 0 8px;word-break:break-all">${esc(invit)}</p>` +
@@ -1100,6 +1126,20 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   rendre(); charger();
   z.addEventListener("click", ev => {
     const inv = ev.target.closest("[data-inviter]"), ret = ev.target.closest("[data-retirer-appareil]"), cop = ev.target.closest("#copier-invit");
+    const ren = ev.target.closest("[data-renommer-appareil]"), enr = ev.target.closest("[data-nom-ok]");
+    if (ren) {   // champ sur place (pas de prompt(), bloqué dans le cadre de Google)
+      const p = ren.closest("p");
+      p.innerHTML = `<input type="text" maxlength="50" value="${esc(ren.getAttribute("data-nom"))}" aria-label="Nom de l'appareil" style="padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit;min-width:160px"> <button type="button" class="btn principal" data-nom-ok="${esc(ren.getAttribute("data-renommer-appareil"))}">Enregistrer</button>`;
+      p.querySelector("input").focus();
+      return;
+    }
+    if (enr) {
+      const champ = enr.parentNode.querySelector("input"); if (!champ.value.trim()) { champ.focus(); return; }
+      enr.disabled = true;
+      google.script.run.withSuccessHandler(r => { msg = r && r.ok ? "" : `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; charger(); })
+        .withFailureHandler(() => { enr.disabled = false; }).apiRenommerAppareil({ id: enr.getAttribute("data-nom-ok"), nom: champ.value });
+      return;
+    }
     if (cop) { navigator.clipboard.writeText(invit).then(() => { cop.textContent = "Copié ✓"; }, () => { cop.textContent = "Copie impossible : sélectionne le lien"; }); return; }
     if (inv) {
       inv.disabled = true; msg = "";

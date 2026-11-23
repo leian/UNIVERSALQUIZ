@@ -181,6 +181,22 @@ function apiAjouterEnfant(d) {
     return { ok: true, id, prenom, parent: urlParentIci_(id), enfant: urlAppli_() || CONFIG.urlEnfant };
   });
 }
+/* renommer l'enfant affiché : prénom de la liste (et, pour le premier, celui des réglages) ; son dossier garde son nom */
+function apiRenommerEnfant(d) {
+  if (interdit_()) return refusEnfant_();
+  if (!estProprietaire_()) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut renommer un enfant.' };
+  const prenom = String((d && d.prenom) || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30);
+  if (!prenom) return { erreur: 'Écris le prénom.' };
+  const l = enfants_(), id = enfantId_(), x = l.find(y => y.id === id);
+  if (!x) return { erreur: 'Enfant introuvable.' };
+  if (l.some(y => y.id !== id && String(y.prenom).toLowerCase() === prenom.toLowerCase())) return { erreur: prenom + ' est déjà dans la liste.' };
+  x.prenom = prenom;
+  if (x.id === l[0].id) x.force = 1;            // le premier enfant prend ce prénom à la place de celui des réglages d'installation
+  ecrireEnfants_(l);
+  CONFIG.prenom = prenom;
+  try { const c = cache_(); c.removeAll(['catalogue', 'liste', 'famille']); } catch (e) {}
+  return { ok: true, prenom };
+}
 const ICONE_SITE = 'https://leian.github.io/UNIVERSALQUIZ/icone.png';
 const POLICES = 'https://leian.github.io/UNIVERSALQUIZ/polices/polices.css';
 // Appli installable (dossier appli/, publiée sur leian.github.io/app/) : elle affiche le site de l'enfant dans un cadre
@@ -565,6 +581,7 @@ function reglagesPage_(page, inst, cat) {
     genre: genreReglage_(),                 // réglage du parent : auto, f, m, n
     genreAuto: genreDuPrenom_(CONFIG.prenom), // ce que donne le prénom (affiché à côté de « Automatique »)
     genreEffectif: genre_(),
+    genreDevine: genreDuPrenom_(CONFIG.prenom),
     genresDessines: GENRES_DESSINES,
     raz: props_().getProperty('RAZ') || ''    // remise à zéro de la mémoire des appareils (pont.html)
   };
@@ -2149,7 +2166,7 @@ function lireListe_(cle) {
   try { const l = JSON.parse(PropertiesService.getScriptProperties().getProperty(cle) || '[]'); return Array.isArray(l) ? l.filter(x => x && typeof x === 'object') : []; } catch (e) { return []; }
 }
 function ecrireListe_(cle, l) { PropertiesService.getScriptProperties().setProperty(cle, JSON.stringify(l)); }
-function nomAppareil_(n) { return String(n || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 40) || 'Appareil'; }
+function nomAppareil_(n) { return String(n || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 50) || 'Appareil'; }
 function creerInvitation_(role, nom) {
   const code = aleatoire_(), l = lireListe_('INVITS').filter(x => x.exp > Date.now());
   l.push({ h: empreinte_(code), role: role === 'proprio' ? 'proprio' : 'parent', nom: nomAppareil_(nom), exp: Date.now() + DUREE_INVITATION_ });
@@ -2265,6 +2282,17 @@ function apiRetirerAppareil(d) {
   if (reste.length === l.length) return { erreur: 'Appareil introuvable.' };
   ecrireListe_('CLES', reste);
   return { ok: true };
+}
+function apiRenommerAppareil(d) {
+  if (interdit_()) return refusEnfant_();
+  const id = String((d && d.id) || ''), nom = nomAppareil_(d && d.nom);
+  const soi = !!PARENT_ && PARENT_.h.slice(0, 12) === id;
+  if (!estProprietaire_() && !soi) return { erreur: 'Seul le parent qui a installé SoccaQuiz peut renommer un appareil.' };
+  if (!nom) return { erreur: 'Écris un nom.' };
+  const l = lireListe_('CLES'), x = l.find(y => y.h.slice(0, 12) === id);
+  if (!x) return { erreur: 'Appareil introuvable.' };
+  x.nom = nom; ecrireListe_('CLES', l);
+  return { ok: true, nom };
 }
 /* depuis l'éditeur (parent qui a installé) : un lien pour un nouvel appareil, si l'ancien est perdu */
 function nouveauLienParent() {

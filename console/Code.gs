@@ -621,6 +621,13 @@ const LIENS_ = [
     ['Créer une clé Gemini gratuite', 'https:\/\/aistudio.google.com/apikey', 'Projet « Default Gemini Project ».'],
     ['Appli de l\'enfant (Cloudflare Pages)', 'https:\/\/app.soccaquiz.fr/', 'Ouverte avec ?s=<identifiant du site> ; l\'enveloppe leian.github.io/app choisit le mode (soccaquiz.json → « appli »).']
   ]],
+  ['Nouvelle installation (connexion Google + relais)', [
+    ['Page « Commencer avec Google »', 'https:\/\/app.soccaquiz.fr/connexion/', 'Le nouveau point de départ des familles : prénom, classe, compte Google, et c\'est installé (rien dans Apps Script). Rouvrir son espace : ?reconnecter=1.'],
+    ['Relais : est-il en marche ?', 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev/sante', 'Doit répondre ok. Worker « soccaquiz-relais » du compte Cloudflare soccaquiz, publié par l\'Action « Relais » à chaque push.'],
+    ['Cloudflare : Workers et D1', 'https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages', 'Worker « soccaquiz-relais » (secrets GOOGLE_CLIENT_SECRET et CLE_CHIFFREMENT, de type Secret : ne jamais effacer CLE_CHIFFREMENT) et base D1 « soccaquiz-relais » (une ligne par famille).'],
+    ['Google Cloud : projet « soccaquiz »', 'https:\/\/console.cloud.google.com/auth/overview', 'Choisir le projet soccaquiz : marque, client OAuth « SoccaQuiz relais », accès drive.file seulement. Ne pas toucher aux accès du projet 710131532855 pendant la validation.'],
+    ['Action « Relais » (GitHub)', 'https:\/\/github.com/' + DEPOT + '/actions/workflows/relais.yml', 'Tests, puis publication du relais et de app.soccaquiz.fr. Compteurs : les installations par le relais apparaissent avec la version « relais » dans l\'onglet Statistiques.']
+  ]],
   ['Site public soccaquiz.fr', [
     ['Dépôt leian/soccaquiz.fr', 'https:\/\/github.com/leian/soccaquiz.fr', 'Accueil, aide et confidentialité (en ligne dès le push).'],
     ['Domaine chez Gandi', 'https:\/\/admin.gandi.net/', 'DNS : A/AAAA vers GitHub Pages, CNAME www et app ; renouvellement chaque année.'],

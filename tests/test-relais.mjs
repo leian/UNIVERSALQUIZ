@@ -30,6 +30,7 @@ let n = 0, lectures = 0, revoque = false;
 const COMPTE = 'parent.test@exemple.fr';
 const rep = (o, s = 200) => new Response(typeof o === 'string' ? o : JSON.stringify(o), { status: s });
 const vraiFetch = globalThis.fetch;
+const STATS = [];
 globalThis.fetch = async (url, o = {}) => {
   const u = new URL(typeof url === 'string' ? url : url.url), corps = o.body;
   if (u.host === 'oauth2.googleapis.com' && u.pathname === '/token') {
@@ -39,6 +40,8 @@ globalThis.fetch = async (url, o = {}) => {
     if (p.get('grant_type') === 'refresh_token') return !revoque && p.get('refresh_token') === 'durable-1' ? rep({ access_token: 'acces-2', expires_in: 3600 }) : rep({ error: 'invalid_grant' }, 400);
   }
   if (u.host === 'oauth2.googleapis.com' && u.pathname === '/revoke') { revoque = true; return rep({}); }
+  if (u.host === 'leian.github.io' && u.pathname === '/UNIVERSALQUIZ/soccaquiz.json') return rep({ propositions: 'https://script.google.com/macros/s/AKfyPROPOSITIONS/exec' });
+  if (u.host === 'script.google.com' && u.pathname === '/macros/s/AKfyPROPOSITIONS/exec') { STATS.push(JSON.parse(String(corps))); return rep({ ok: true }); }
   if (u.host === 'www.googleapis.com') {
     const auth = (o.headers || {}).Authorization || '';
     if (!/^Bearer acces-/.test(auth)) return rep({ error: 'unauthorized' }, 401);
@@ -116,6 +119,22 @@ const etatH = await appel('/f/' + S + '?api=etat&e=' + (enfants.d.r && (enfants.
 ok(etatH.d.prenom === 'Hugo', 'site de Hugo : son propre accueil — ' + etatH.d.prenom);
 ok([...fichiers.values()].some(f => /\(Hugo\)\.json$/.test(f.name)), 'Drive : fichiers de Hugo séparés — ' + [...fichiers.values()].map(f => f.name).join(', '));
 
+const idHugo = enfants.d.r && (enfants.d.r.id || (enfants.d.r.enfant && enfants.d.r.enfant.id)) || 'b';
+const ren = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, e: idHugo, action: 'apiRenommerEnfant', args: [{ prenom: 'Hugo-Léo' }] });
+const etatR = await appel('/f/' + S + '?api=etat&e=' + idHugo);
+const ren1 = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiRenommerEnfant', args: [{ prenom: 'Lana-Rose' }] });
+const etat1 = await appel('/f/' + S + '?api=etat');
+const double = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiRenommerEnfant', args: [{ prenom: 'hugo-léo' }] });
+ok(ren.d.r && ren.d.r.ok && etatR.d.prenom === 'Hugo-Léo' && ren1.d.r && ren1.d.r.ok && etat1.d.prenom === 'Lana-Rose' && double.d.r && double.d.r.erreur,
+  'renommer un enfant (le premier aussi), prénom en double refusé — ' + [etatR.d.prenom, etat1.d.prenom, JSON.stringify(double.d.r)].join(' / '));
+await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiRenommerEnfant', args: [{ prenom: 'Lana' }] });
+await appel('/f/' + S, { api: 'parent', cle: app.d.cle, e: idHugo, action: 'apiRenommerEnfant', args: [{ prenom: 'Hugo' }] });
+const apps = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiAppareils' });
+const moi = apps.d.r && apps.d.r.appareils.find(x => x.moi);
+const renA = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiRenommerAppareil', args: [{ id: moi && moi.id, nom: 'Tablette <b>salon</b>' }] });
+const apps2 = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiAppareils' });
+ok(renA.d.r && renA.d.r.ok && apps2.d.r.appareils.find(x => x.moi).nom === 'Tablette bsalon/b', 'renommer un appareil (nom nettoyé) — ' + JSON.stringify(apps2.d.r && apps2.d.r.appareils));
+
 /* 4 bis. schémas : F (SVG nettoyé), Z (toucher la zone), E (légender), aller-retour du texte */
 const svgPiege = '<svg viewBox="0 0 300 200" onload="alert(1)"><script>alert(2)</script><rect id="coeur" x="120" y="60" width="60" height="60" fill="#e57373"/><ellipse id="poumons" cx="70" cy="90" rx="40" ry="60" fill="#90caf9"/><circle id="estomac" cx="230" cy="140" r="35" fill="#ffcc80" style="background:url(javascript:alert(3))"/><a href="javascript:alert(4)"><text x="10" y="20">piège</text></a><text x="150" y="190" text-anchor="middle">Le corps</text></svg>';
 const texteSch = ['T|Le corps humain|Les organes|sciences|🫀|🩺', '## Organes|🫀',
@@ -156,5 +175,6 @@ ok((await appel('/f/' + S + '?api=etat')).statut === 404, 'site de l\'enfant : �
 ok((await appel('/f/rInconnue00000000000000000?api=etat')).statut === 404, 'famille inconnue : 404 (« supprimée »)');
 ok((await appel('/f/pas-un-id?api=etat')).statut === 404, 'identifiant mal formé : 404');
 
+ok(STATS.length >= 2 && STATS.every(x => x.type === 'stat' && x.evts.length === 1 && Object.keys(x.evts[0]).join() === 'e,v' && x.evts[0].v === 'relais') && STATS.some(x => x.evts[0].e === 'installation') && STATS.some(x => x.evts[0].e === 'suppression'), 'compteurs anonymes envoyés à la console (installation, suppression ; rien d\'autre) — ' + JSON.stringify(STATS));
 console.log(echecs ? '\n' + echecs + ' échec(s).' : '\nTout est vert.');
 process.exit(echecs ? 1 : 0);
