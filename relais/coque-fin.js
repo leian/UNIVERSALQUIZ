@@ -192,7 +192,7 @@ function executer_(fam, mem, props, email, fn) {
   let cfg = {};
   try { cfg = JSON.parse(props.__CONFIG || '{}'); } catch (e) { cfg = {}; }
   Object.keys(CONFIG).forEach(k => { CONFIG[k] = CONFIG_DEFAUT_[k]; });
-  Object.assign(CONFIG, cfg, { espace: 'enfant', urlEnfant: ctx.adresse, urlParent: '', installateur: '' });
+  Object.assign(CONFIG, cfg, { espace: 'enfant', urlEnfant: ctx.adresse, urlParent: ORIGINE_SITE_ + '/parent/?s=' + fam.id, installateur: '' });
   reinitStockage_();
   const sortie = fn();
   ctx.sortie = sortie && typeof sortie.getContent === 'function' ? sortie.getContent() : JSON.stringify(sortie == null ? {} : sortie);

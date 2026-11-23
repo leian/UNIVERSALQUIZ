@@ -295,6 +295,14 @@
   demarrer(appairerSiBesoin());
   function demarrer(attente) {
    return attente.then(function () {
+    if (!cle && /^r/.test(id)) {   // famille inscrite avec Google (relais) : on se reconnecte avec Google sur cet appareil
+      arreter('Ouvre ton espace parent', false, 'Sur cet appareil, SoccaQuiz te demande ton compte Google une seule fois. Tu peux aussi coller un lien d\'invitation reçu de l\'autre parent.', true);
+      var g = document.createElement('a');
+      g.href = '/connexion/?reconnecter=1'; g.id = 'reconnecter'; g.textContent = 'Me connecter avec Google';
+      g.style.cssText = 'display:inline-block;margin:6px 0 14px;padding:13px 22px;border-radius:999px;background:#C8102E;color:#fff;font:700 1.05rem/1 system-ui,sans-serif;text-decoration:none';
+      formCode.parentNode.insertBefore(g, formCode);
+      return;
+    }
     if (!cle) { arreter('Colle ici ton lien d\'invitation', false, 'Pour l\'obtenir : ouvre l\'installateur SoccaQuiz et clique sur « 🔒 Espace parent » (ou demande un lien à l\'autre parent : Réglages → Autre parent et appareils). Tu peux aussi coller le lien ci-dessous. L\'espace parent s\'ouvre ainsi une seule fois sur chaque appareil : ensuite, il suffit de revenir à cette adresse.', true); return; }
     return libs.then(function () { return afficher(pageDeLAdresse()); });
    }).catch(function (e) {

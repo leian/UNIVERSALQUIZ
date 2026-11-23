@@ -79,6 +79,7 @@ ok([...fichiers.values()].some(f => f.name === 'SoccaQuiz' && f.mimeType === 'ap
 /* 2. site de l'enfant */
 const etat = await appel('/f/' + S + '?api=etat');
 ok(etat.statut === 200 && etat.cors === 'https://app.soccaquiz.fr' && etat.d.prenom === 'Lana' && Array.isArray(etat.d.quiz) && etat.d.quiz.length >= 1, 'API etat : prénom, quiz d\'exemple, CORS — ' + JSON.stringify({ statut: etat.statut, prenom: etat.d.prenom, nb: (etat.d.quiz || []).length, err: etat.d.erreur }));
+ok(etat.d.reglages && etat.d.reglages.urlParent === 'https://app.soccaquiz.fr/parent/?s=' + S, 'API etat : lien « Espace parent » du site de l\'enfant vers app.soccaquiz.fr/parent — ' + (etat.d.reglages && etat.d.reglages.urlParent));
 ok(etat.d.reglages && etat.d.reglages.classe === 'CM1', 'API etat : classe CM1 dans les réglages — ' + (etat.d.reglages && etat.d.reglages.classe));
 const page = etat.d.quiz && etat.d.quiz[0] && (etat.d.quiz[0].page || etat.d.quiz[0].fichier || '').replace(/\.html$/, '');
 const quiz = await appel('/f/' + S + '?api=quiz&page=' + encodeURIComponent(page));

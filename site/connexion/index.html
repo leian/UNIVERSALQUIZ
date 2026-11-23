@@ -109,7 +109,7 @@
     probleme(q.get('error') === 'access_denied' ? 'La connexion Google a été annulée. Recommence quand tu veux.' : 'Google a refusé la connexion (' + q.get('error') + ').');
     return;
   }
-  if (!q.get('code')) { montrer('formulaire'); return; }
+  if (!q.get('code')) { if (q.get('reconnecter')) { versGoogle(true); return; } montrer('formulaire'); return; }
 
   // retour de Google : vérifier, puis créer (ou retrouver) le SoccaQuiz de la famille
   var code = q.get('code'), etat = q.get('state');
