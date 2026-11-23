@@ -1103,26 +1103,44 @@
     }
   }
 
-  // partie en cours : le premier toucher sur le logo ouvre une petite bulle sous le logo, avec « Quitter » et « Continuer »
-  // (un second toucher sur le logo dans les 6 s quitte aussi)
-  let quitterArme = 0;
+  // partie commencée (question affichée) : quitter par le logo en haut à gauche ou par le lien « Espace parent » en bas
+  // demande TOUJOURS confirmation, dans une vraie fenêtre (pas de bulle qui disparaît, pas de « second toucher qui quitte »).
+  // « Quitter » rejoue ensuite le clic d'origine : le lien suit son chemin habituel (pont, appli, nouvel onglet…).
+  let sortieOk = false, lienSortie = null;
+  const enPartie = () => state === 'q';
   function quitterQuiz(e) {
-    if (state !== 'q' || !answers || !answers.some(Boolean) || Date.now() - quitterArme < 6000) return true;
-    quitterArme = Date.now();
-    if (e) { e.preventDefault(); e.stopPropagation(); }
-    let b = document.getElementById('mq-quitter');
-    if (!b) { b = document.createElement('div'); b.id = 'mq-quitter'; b.setAttribute('role', 'dialog'); b.setAttribute('aria-label', 'Quitter le quiz ?'); document.body.appendChild(b); }
-    b.innerHTML = '<div>Quitter le quiz ? Ta partie en cours ne sera pas enregistrée.</div>' +
-      '<div class="mq-q-btns"><button type="button" class="mq-q-non" onclick="MoteurQuiz.fermerQuitter()">Continuer</button>' +
-      '<a class="mq-q-oui" href="index.html" target="_top">Quitter</a></div>';
-    const logo = e && e.currentTarget && e.currentTarget.getBoundingClientRect ? e.currentTarget : appli().querySelector('.barre-quiz .btn-myquiz');
-    const r = logo ? logo.getBoundingClientRect() : { left: 12, bottom: 64 };
-    b.style.left = Math.max(8, r.left) + 'px'; b.style.top = (r.bottom + 8) + 'px';
-    b.className = 'visible'; clearTimeout(b._t); b._t = setTimeout(fermerQuitter, 6000);
+    if (!enPartie() || sortieOk) return true;
+    if (e) { e.preventDefault(); e.stopPropagation(); if (e.stopImmediatePropagation) e.stopImmediatePropagation(); }
+    lienSortie = e && e.currentTarget && e.currentTarget.tagName === 'A' ? e.currentTarget : (e && e.target && e.target.closest ? e.target.closest('a') : null);
+    let d = document.getElementById('mq-quitter');
+    if (!d) {
+      d = document.createElement('div'); d.id = 'mq-quitter';
+      d.innerHTML = '<div class="mq-q-boite" role="alertdialog" aria-modal="true" aria-labelledby="mq-q-titre" aria-describedby="mq-q-texte">' +
+        '<p id="mq-q-titre" class="mq-q-titre">Quitter le quiz ?</p><p id="mq-q-texte">Ta partie en cours ne sera pas enregistrée.</p>' +
+        '<div class="mq-q-btns"><button type="button" class="mq-q-non">Continuer</button><button type="button" class="mq-q-oui">Quitter</button></div></div>';
+      document.body.appendChild(d);
+      d.addEventListener('click', ev => {
+        if (ev.target === d || ev.target.closest('.mq-q-non')) return fermerQuitter();
+        if (ev.target.closest('.mq-q-oui')) {
+          const l = lienSortie; fermerQuitter(); sortieOk = true;
+          if (l) l.click(); else location.href = 'index.html';
+          setTimeout(() => { sortieOk = false; }, 1500);
+        }
+      });
+      d.addEventListener('keydown', ev => { if (ev.key === 'Escape') fermerQuitter(); });
+    }
+    d.className = 'visible';
+    setTimeout(() => { const b = d.querySelector('.mq-q-non'); if (b) b.focus(); }, 30);
     return false;
   }
-  try { window.addEventListener('scroll', () => { const b = document.getElementById('mq-quitter'); if (b && b.className) fermerQuitter(); }, { passive: true }); } catch (e) {}
-  function fermerQuitter() { const b = document.getElementById('mq-quitter'); if (b) { clearTimeout(b._t); b.className = ''; } quitterArme = 0; }
+  // le lien « Espace parent » en bas de page (ajouté par le pont) : même confirmation (écouteur posé avant ceux du pont)
+  try {
+    window.addEventListener('click', e => {
+      const a = e.target && e.target.closest ? e.target.closest('#porte-parent a') : null;
+      if (a && enPartie() && !sortieOk) quitterQuiz({ preventDefault: () => e.preventDefault(), stopPropagation: () => e.stopPropagation(), stopImmediatePropagation: () => e.stopImmediatePropagation(), currentTarget: a, target: a });
+    }, true);
+  } catch (e) {}
+  function fermerQuitter() { const d = document.getElementById('mq-quitter'); if (d) d.className = ''; lienSortie = null; }
   function enQuestion(oui) {
     document.body.classList.toggle('en-question', !!oui);
     if (!oui) fermerQuitter();

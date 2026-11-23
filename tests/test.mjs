@@ -235,11 +235,12 @@ try {
     await page.locator('#mq-quitter .mq-q-non').click();
     const continuer = await page.locator('#mq-quitter.visible').count() === 0 && /page=quiz_Test_verifier/.test(page.url());
     await page.locator('.barre-quiz a.btn-myquiz').click();
-    const bulle = await page.locator('#mq-quitter').boundingBox(), logo = await page.locator('.barre-quiz a.btn-myquiz').boundingBox();
-    ok(continuer && bulle && bulle.y >= logo.y + logo.height, 'partie en cours : bulle sous le logo (sans le cacher), « Continuer » la ferme et reste dans le quiz');
+    await page.waitForTimeout(300);
+    const rouverte = await page.locator('#mq-quitter.visible').count() === 1 && /page=quiz_Test_verifier/.test(page.url());
+    ok(continuer && rouverte, 'partie en cours : fenêtre « Quitter le quiz ? », « Continuer » la ferme et reste dans le quiz, un nouveau toucher la rouvre (jamais de sortie sans confirmation)');
     await page.locator('#mq-quitter .mq-q-oui').click();
     await page.waitForURL(BASE + '/exec', { timeout: 5000 }).catch(() => {});
-    ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo ouvre la bulle, « Quitter » ramène à l\'accueil');
+    ok(resteQ && page.url() === BASE + '/exec', 'partie en cours : un toucher sur le logo ouvre la fenêtre, « Quitter » ramène à l\'accueil');
     await ev('retirerQuiz(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ', "quiz_Test_verifier_15-11-2026.html")');
     await ev('CacheService.getScriptCache().remove("catalogue")');
   }

@@ -86,6 +86,9 @@
   var K_CLE = 'sq-cle:' + id;
   var lireCle = function () { try { return localStorage.getItem(K_CLE) || ''; } catch (e) { return ''; } };
   var cle = lireCle();
+  // écran de chargement : « Chargement de l'espace parent de Lana » (prénom vu la dernière fois sur cet appareil)
+  var TEXTE_CHARGE = (function () { var n = ''; try { n = localStorage.getItem('sq-prenom:' + id + ':' + (enfant || '')) || ''; } catch (e) {} return 'Chargement de l\'espace parent' + (n ? ' de ' + n : ''); })();
+  try { document.getElementById('msg').textContent = TEXTE_CHARGE; } catch (e) {}
 
   function arreter(t, reessayer, plus, coller) {
     dem.classList.remove('attente', 'fini');
@@ -166,7 +169,7 @@
   var vientDAppairer = false;
   function appairer(code) {
     dem.classList.add('attente'); formCode.hidden = true; detail.hidden = true;
-    msg.textContent = 'Chargement de l\'espace parent';   // même texte et même allure que l'onglet ouvert par l'installateur
+    msg.textContent = TEXTE_CHARGE;   // même texte et même allure que l'onglet ouvert par l'installateur
     return poster({ api: 'appairer', code: code, nom: nomAppareil() }).then(function (d) {
       if (!d || !d.ok || !d.cle) throw Object.assign(new Error(d && d.erreur || 'Lien refusé'), { lien: true });
       cle = d.cle; vientDAppairer = true;
@@ -266,6 +269,7 @@
       appli = r.appli || r.urlEnfant || '';
       var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '', onglet: onglet }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
       document.title = 'SoccaQuiz – Espace parent' + (d.prenom ? ' – ' + d.prenom : '');
+      try { if (d.prenom) localStorage.setItem('sq-prenom:' + id + ':' + (enfant || ''), d.prenom); } catch (e) {}
       montrer(assembler(d, cfg));
       if (vientDAppairer) { vientDAppairer = false; conseillerEcranAccueil(); }
     }).catch(function (e) {
