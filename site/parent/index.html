@@ -65,7 +65,9 @@
    ===================================================================== */
 (function () {
   var COMMUN = __COMMUN__;
-  var MOTIF = /^AKfy[\w-]{20,200}$/;
+  var MOTIF = /^(AKfy[\w-]{20,200}|r[A-Za-z0-9]{23})$/;
+  // famille inscrite par « Commencer avec Google » (identifiant r…) : ses données passent par le relais SoccaQuiz
+  var RELAIS = 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev';
   var dem = document.getElementById('demarrage'), msg = document.getElementById('msg'), detail = document.getElementById('detail');
   var bouton = document.getElementById('reessayer'), barre = document.getElementById('charge'), formCode = document.getElementById('coller');
   var p = new URLSearchParams(location.search);
@@ -78,7 +80,7 @@
       else id = localStorage.getItem('sq-site');
     } catch (e) {}
     if (!id || !MOTIF.test(id)) { arreter('Ouvre le lien de l\'espace parent reçu par mail.'); return; }
-    BASE = 'https:\/\/script.google.com/macros/s/' + id + '/exec';
+    BASE = /^r/.test(id) ? RELAIS + '/f/' + id : 'https:\/\/script.google.com/macros/s/' + id + '/exec';
   }
   var enfant = (p.get('e') || '').replace(/[^a-z0-9]/g, '').slice(0, 12);
   var K_CLE = 'sq-cle:' + id;
@@ -174,7 +176,7 @@
     ev.preventDefault();
     var t = document.getElementById('code-invit').value.trim();
     var c = (t.match(/(?:#|&|^)i=([0-9a-fA-F]{40,80})/) || t.match(/^([0-9a-fA-F]{40,80})$/) || [])[1];
-    var s = (t.match(/[?&]s=(AKfy[\w-]{20,200})/) || [])[1];
+    var s = (t.match(/[?&]s=(AKfy[\w-]{20,200}|r[A-Za-z0-9]{23})/) || [])[1];
     if (!c) { arreter('Ce lien est incomplet.', false, 'Copie le lien d\'invitation en entier, jusqu\'à la fin du code, puis colle-le ici.', true); return; }
     if (s && s !== id && !local) { location.replace(location.pathname + '?s=' + s + '#i=' + c.toLowerCase()); return; }
     demarrer(appairer(c.toLowerCase()));

@@ -9,7 +9,7 @@ self.addEventListener('activate', e => {
 });
 self.addEventListener('fetch', e => {
   const u = new URL(e.request.url);
-  if (e.request.method !== 'GET' || u.origin !== location.origin) return;
+  if (e.request.method !== 'GET' || u.origin !== location.origin || u.pathname.indexOf('/connexion') === 0) return;   // inscription : jamais gardée
   e.respondWith(caches.open(CACHE).then(async c => {
     const garde = await c.match(e.request, { ignoreSearch: true });
     const frais = fetch(e.request).then(r => { if (r.ok) c.put(e.request, r.clone()); return r; }).catch(() => garde);

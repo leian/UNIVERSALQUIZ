@@ -121,6 +121,9 @@ writeFileSync(join(SITE, 'index.html'), remplacer(lire(join(ICI, 'site', 'index.
 mkdirSync(join(SITE, 'parent'), { recursive: true });
 writeFileSync(join(SITE, 'parent', 'index.html'), remplacer(lire(join(ICI, 'site', 'parent', 'index.html')), '__COMMUN__', () => JSON.stringify(communSite), 'site/parent/index.html'));
 writeFileSync(join(SITE, 'parent', 'manifest.webmanifest'), lire(join(ICI, 'site', 'parent', 'manifest.webmanifest')));   // installable (icône d'appli)
+// inscription « Commencer avec Google » (familles servies par le relais) : page seule, jamais gardée par le service worker
+mkdirSync(join(SITE, 'connexion'), { recursive: true });
+writeFileSync(join(SITE, 'connexion', 'index.html'), lire(join(ICI, 'site', 'connexion', 'index.html')));
 const fichiersSite = ['./', 'index.html', 'manifest.webmanifest', 'icone-192.png', ...libsSite.map(n => 'lib/' + n + '.html')];
 const versionSite = createHash('sha1').update(libsSite.map(n => lire(join(SITE, 'lib', n + '.html'))).join('') + lire(join(SITE, 'index.html'))).digest('hex').slice(0, 10);
 writeFileSync(join(SITE, 'sw.js'), lire(join(ICI, 'site', 'sw.js')).replace('__VERSION__', versionSite).replace('__FICHIERS__', JSON.stringify(fichiersSite)));

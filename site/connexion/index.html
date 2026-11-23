@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="referrer" content="no-referrer">
+<meta name="theme-color" content="#C8102E">
+<title>SoccaQuiz — commencer</title>
+<link rel="icon" href="/icone-192.png">
+<style>
+  :root { --rouge: #C8102E; --creme: #FFF8EE; --brun: #2b1d14; --doux: #6b5444; --dore: #E8B53A; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; background: var(--creme); color: var(--brun); }
+  main { max-width: 460px; margin: 0 auto; padding: 28px 18px 40px; }
+  .logo { display: flex; align-items: center; gap: 12px; margin-bottom: 18px; }
+  .logo img { width: 56px; height: 56px; border-radius: 14px; }
+  .logo span { font-size: 1.7rem; font-weight: 800; color: var(--rouge); letter-spacing: -.01em; }
+  h1 { font-size: 1.35rem; margin: 0 0 8px; }
+  p { line-height: 1.5; }
+  .note { color: var(--doux); font-size: .92rem; }
+  label { display: block; font-weight: 600; margin: 16px 0 6px; }
+  input, select { width: 100%; font-size: 1.05rem; padding: 12px; border: 2px solid #e7d8c6; border-radius: 12px; background: #fff; color: var(--brun); }
+  input:focus, select:focus, button:focus-visible, a:focus-visible { outline: 3px solid var(--dore); outline-offset: 2px; }
+  button.principal { display: flex; align-items: center; justify-content: center; gap: 10px; width: 100%; margin-top: 22px; padding: 15px 18px; border: 0; border-radius: 999px; background: var(--rouge); color: #fff; font-size: 1.1rem; font-weight: 700; cursor: pointer; transition: transform .08s; }
+  button.principal:active { transform: scale(.97); }
+  button.principal svg { width: 22px; height: 22px; background: #fff; border-radius: 50%; padding: 3px; }
+  a.lien { display: inline-block; margin-top: 16px; color: var(--rouge); font-weight: 600; }
+  .carte { background: #fff; border-radius: 18px; padding: 18px; box-shadow: 0 2px 10px rgba(43, 29, 20, .07); }
+  .erreur { color: var(--rouge); font-weight: 600; }
+  .attente { display: flex; align-items: center; gap: 12px; font-weight: 600; }
+  .roue { width: 26px; height: 26px; border: 4px solid #f0d9d0; border-top-color: var(--rouge); border-radius: 50%; animation: tourne 1s linear infinite; }
+  @keyframes tourne { to { transform: rotate(360deg); } }
+  ul.points { padding-left: 20px; margin: 14px 0 0; color: var(--doux); font-size: .92rem; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<main>
+  <div class="logo"><img src="/icone-192.png" alt=""><span>SoccaQuiz</span></div>
+
+  <section id="formulaire" class="carte" hidden>
+    <h1>Crée le SoccaQuiz de ton enfant</h1>
+    <p class="note">Des quiz de révision faits à partir de ses leçons. Gratuit, sans publicité.</p>
+    <form id="f">
+      <label for="prenom">Prénom de l'enfant</label>
+      <input id="prenom" autocomplete="off" maxlength="30" placeholder="Par exemple : Lana">
+      <label for="classe">Classe</label>
+      <select id="classe">
+        <option value="">Choisir…</option>
+        <optgroup label="Maternelle"><option>PS</option><option>MS</option><option>GS</option></optgroup>
+        <optgroup label="Primaire"><option>CP</option><option>CE1</option><option>CE2</option><option>CM1</option><option>CM2</option></optgroup>
+        <optgroup label="Collège"><option>6e</option><option>5e</option><option>4e</option><option>3e</option></optgroup>
+        <optgroup label="Lycée"><option>2de</option><option>1re</option><option>Tle</option></optgroup>
+        <option value="adulte">Pour moi (révisions d'un adulte)</option>
+      </select>
+      <button class="principal" type="submit"><svg viewBox="0 0 48 48" aria-hidden="true"><path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.5l6.7-6.7C35.6 2.4 30.2 0 24 0 14.6 0 6.6 5.4 2.7 13.3l7.8 6C12.4 13.6 17.7 9.5 24 9.5z"/><path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.1-.4-4.5H24v9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4 7.1-10 7.1-17.5z"/><path fill="#FBBC05" d="M10.5 28.7c-.5-1.5-.8-3-.8-4.7s.3-3.2.8-4.7l-7.8-6C1 16.6 0 20.2 0 24s1 7.4 2.7 10.7l7.8-6z"/><path fill="#34A853" d="M24 48c6.5 0 11.9-2.1 15.9-5.8l-7.5-5.8c-2.1 1.4-4.9 2.3-8.4 2.3-6.3 0-11.6-4.1-13.5-9.8l-7.8 6C6.6 42.6 14.6 48 24 48z"/></svg>Commencer avec Google</button>
+    </form>
+    <ul class="points">
+      <li>Les quiz et les résultats restent dans <strong>ton</strong> Google Drive.</li>
+      <li>SoccaQuiz ne voit que les fichiers qu'il crée, jamais le reste de ton Drive.</li>
+      <li>Ton enfant n'a besoin d'aucun compte.</li>
+    </ul>
+    <a class="lien" href="#" id="deja">J'ai déjà un SoccaQuiz : me reconnecter</a>
+    <p class="note"><a href="https://soccaquiz.fr/confidentialite.html">Règles de confidentialité</a> · <a href="https://soccaquiz.fr/aide.html">Aide</a></p>
+  </section>
+
+  <section id="attente" class="carte" hidden>
+    <div class="attente"><div class="roue"></div><span id="texte-attente">Préparation de ton SoccaQuiz…</span></div>
+    <p class="note">Quelques secondes : SoccaQuiz crée son dossier dans ton Google Drive.</p>
+  </section>
+
+  <section id="probleme" class="carte" hidden>
+    <h1>Petit souci</h1>
+    <p class="erreur" id="texte-probleme"></p>
+    <button class="principal" type="button" id="recommencer">Recommencer</button>
+  </section>
+</main>
+<script>
+(function () {
+  'use strict';
+  var CLIENT = '807028385743-iaqmp4ns39q250ceh6nrqfjjlukmvt02.apps.googleusercontent.com';
+  var RETOUR = 'https://app.soccaquiz.fr/connexion/';
+  var RELAIS = 'https://soccaquiz-relais.soccaquiz.workers.dev';
+  var $ = function (id) { return document.getElementById(id); };
+  var montrer = function (id) { ['formulaire', 'attente', 'probleme'].forEach(function (x) { $(x).hidden = x !== id; }); };
+  var probleme = function (t) { $('texte-probleme').textContent = t; montrer('probleme'); };
+  var memo = function (k, v) { try { if (v === undefined) return sessionStorage.getItem(k); if (v === null) sessionStorage.removeItem(k); else sessionStorage.setItem(k, v); } catch (e) { return null; } };
+  var appareil = function () { var u = navigator.userAgent || ''; return /iPhone|Android.*Mobile|Mobile/.test(u) ? 'Téléphone' : /iPad|Tablet|Android/.test(u) ? 'Tablette' : 'Ordinateur'; };
+
+  function versGoogle(reconnexion) {
+    var etat = Array.from(crypto.getRandomValues(new Uint8Array(16)), function (x) { return x.toString(16).padStart(2, '0'); }).join('');
+    memo('sq-etat', etat);
+    memo('sq-inscription', JSON.stringify(reconnexion ? {} : { prenom: $('prenom').value.trim(), classe: $('classe').value }));
+    var p = new URLSearchParams({ client_id: CLIENT, redirect_uri: RETOUR, response_type: 'code', scope: 'https://www.googleapis.com/auth/drive.file', access_type: 'offline', prompt: 'consent', state: etat });
+    location.assign('https://accounts.google.com/o/oauth2/v2/auth?' + p.toString());
+  }
+
+  $('f').addEventListener('submit', function (e) {
+    e.preventDefault();
+    if (!$('prenom').value.trim()) { $('prenom').focus(); $('prenom').placeholder = 'Écris le prénom de ton enfant'; return; }
+    versGoogle(false);
+  });
+  $('deja').addEventListener('click', function (e) { e.preventDefault(); versGoogle(true); });
+  $('recommencer').addEventListener('click', function () { history.replaceState(null, '', RETOUR); montrer('formulaire'); });
+
+  var q = new URLSearchParams(location.search);
+  if (q.get('error')) {
+    history.replaceState(null, '', RETOUR);
+    probleme(q.get('error') === 'access_denied' ? 'La connexion Google a été annulée. Recommence quand tu veux.' : 'Google a refusé la connexion (' + q.get('error') + ').');
+    return;
+  }
+  if (!q.get('code')) { montrer('formulaire'); return; }
+
+  // retour de Google : vérifier, puis créer (ou retrouver) le SoccaQuiz de la famille
+  var code = q.get('code'), etat = q.get('state');
+  history.replaceState(null, '', RETOUR);            // le code ne reste pas dans l'adresse ni dans l'historique
+  if (!etat || etat !== memo('sq-etat')) { probleme('La connexion a été ouverte dans une autre fenêtre ou a expiré. Recommence ici.'); return; }
+  memo('sq-etat', null);
+  var infos = {};
+  try { infos = JSON.parse(memo('sq-inscription') || '{}'); } catch (e) {}
+  montrer('attente');
+  fetch(RELAIS + '/connexion', { method: 'POST', body: JSON.stringify({ code: code, prenom: infos.prenom || '', classe: infos.classe || '', appareil: appareil() }), credentials: 'omit' })
+    .then(function (r) { return r.json(); })
+    .then(function (d) {
+      if (d && d.ok && d.s && d.code) {
+        memo('sq-inscription', null);
+        $('texte-attente').textContent = d.nouvelle ? 'C\'est prêt !' : 'Content de te revoir !';
+        location.replace('/parent/?s=' + encodeURIComponent(d.s) + '#i=' + encodeURIComponent(d.code));
+        return;
+      }
+      probleme((d && (d.message || d.erreur)) || 'SoccaQuiz n\'a pas pu terminer. Recommence dans un instant.');
+    })
+    .catch(function () { probleme('SoccaQuiz ne répond pas. Vérifie ta connexion à Internet, puis recommence.'); });
+})();
+</script>
+</body>
+</html>

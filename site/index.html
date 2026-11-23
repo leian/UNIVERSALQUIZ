@@ -68,7 +68,9 @@
 (function () {
   var COMMUN = __COMMUN__;                 // posé par construire.mjs : la même liste que Code.gs
   var ANCIENNE = 'https:\/\/leian.github.io/app/?s=';
-  var MOTIF = /^AKfy[\w-]{20,200}$/;
+  var MOTIF = /^(AKfy[\w-]{20,200}|r[A-Za-z0-9]{23})$/;
+  // famille inscrite par « Commencer avec Google » (identifiant r…) : ses données passent par le relais SoccaQuiz
+  var RELAIS = 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev';
   var dem = document.getElementById('demarrage'), msg = document.getElementById('msg'), bouton = document.getElementById('reessayer');
   var barre = document.getElementById('charge');
   var p = new URLSearchParams(location.search);
@@ -90,7 +92,7 @@
       else id = localStorage.getItem('sq-site');
     } catch (e) {}
     if (!id || !MOTIF.test(id)) { arreter('Ouvre le lien SoccaQuiz reçu par mail.'); return; }
-    BASE = 'https:\/\/script.google.com/macros/s/' + id + '/exec';
+    BASE = /^r/.test(id) ? RELAIS + '/f/' + id : 'https:\/\/script.google.com/macros/s/' + id + '/exec';
   }
   // un autre enfant que le premier : ?e=<id> (le programme sert toute la famille)
   var enfant = (p.get('e') || '').replace(/[^a-z0-9]/g, '').slice(0, 12);

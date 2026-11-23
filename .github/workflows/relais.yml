@@ -1,0 +1,85 @@
+# Publie le relais SoccaQuiz (voie 2, « sans installation ») : Cloudflare Worker « soccaquiz-relais » + base D1.
+# Déclenché par un push sur la branche « relais » (ou main) qui touche le relais, Code.gs, le moteur ou le site,
+# ou à la main (Actions → Run workflow).
+#  1. tests du relais (faux Google, fausse D1) puis tests complets ;
+#  2. base D1 « soccaquiz-relais » créée si besoin, Worker publié, secret CLE_CHIFFREMENT tiré au hasard s'il manque
+#     (jamais affiché ; ne JAMAIS le supprimer : les données des familles deviendraient illisibles) ;
+#  3. appli (app.soccaquiz.fr) republiée : page /connexion/ et coquilles qui savent parler au relais.
+# Jeton Cloudflare (secret CLOUDFLARE_API_TOKEN) : Pages Edit + Workers Scripts Edit + D1 Edit.
+# Secret à poser à la main dans Cloudflare (Worker soccaquiz-relais → Settings → Variables and Secrets) : GOOGLE_CLIENT_SECRET.
+name: Publier le relais (Cloudflare)
+
+on:
+  push:
+    branches: [relais, main]
+    paths: ['relais/**', 'src/**', 'moteur/**', 'site/**', 'construire.mjs', 'tests/test-relais.mjs', '.github/workflows/relais.yml']
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: relais
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5   # v4.3.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020   # v4.4.0
+        with:
+          node-version: 22
+      - name: Construire et tester le relais
+        run: |
+          node construire.mjs
+          node relais/construire.mjs
+          node tests/test-relais.mjs
+      - name: Tests complets (faux Google + Chrome)
+        run: |
+          npm install --no-save --ignore-scripts playwright@1.63.0
+          npx --no-install playwright install --with-deps chromium
+          node tests/test.mjs
+      - name: Base D1, Worker et secret de chiffrement
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ] || [ -z "$CLOUDFLARE_ACCOUNT_ID" ]; then echo "::error::Secrets Cloudflare absents."; exit 1; fi
+          W="npx --yes wrangler@4"
+          ID=$($W d1 list --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const l=JSON.parse(s);const b=l.find(x=>x.name==='soccaquiz-relais');process.stdout.write(b?b.uuid:'')})")
+          if [ -z "$ID" ]; then
+            $W d1 create soccaquiz-relais >/dev/null
+            ID=$($W d1 list --json | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{const l=JSON.parse(s);const b=l.find(x=>x.name==='soccaquiz-relais');process.stdout.write(b?b.uuid:'')})")
+          fi
+          if [ -z "$ID" ]; then echo "::error::Base D1 introuvable (le jeton a-t-il l'autorisation D1 Edit ?)"; exit 1; fi
+          cat > relais/dist/wrangler.toml <<TOML
+          name = "soccaquiz-relais"
+          main = "worker.js"
+          compatibility_date = "2026-11-01"
+          workers_dev = true
+
+          [vars]
+          GOOGLE_CLIENT_ID = "807028385743-iaqmp4ns39q250ceh6nrqfjjlukmvt02.apps.googleusercontent.com"
+
+          [[d1_databases]]
+          binding = "DB"
+          database_name = "soccaquiz-relais"
+          database_id = "$ID"
+
+          [observability]
+          enabled = true
+          TOML
+          sed -i 's/^          //' relais/dist/wrangler.toml
+          cd relais/dist
+          $W deploy
+          if ! $W secret list --name soccaquiz-relais | grep -q '"CLE_CHIFFREMENT"'; then
+            openssl rand -base64 32 | tr -d '\n' | $W secret put CLE_CHIFFREMENT --name soccaquiz-relais
+          fi
+      - name: Publier l'appli (app.soccaquiz.fr)
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: npx --yes wrangler@4 pages deploy build-site --project-name=soccaquiz --branch=main --commit-dirty=true
