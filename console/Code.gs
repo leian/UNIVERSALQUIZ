@@ -613,7 +613,7 @@ const LIENS_ = [
   ]],
   ['Pour les familles', [
     ['Installateur SoccaQuiz', 'https:\/\/script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec', 'Déploiement « Install officielle » : le lien à donner aux parents, avec « Mettre à jour mon site ».'],
-    ['Lien court de l\'installateur', PAGES + 'installer.html', 'Celui du mail d\'invitation (redirige vers l\'installateur).'],
+    ['Lien des anciens mails d\'invitation', PAGES + 'installer.html', 'Redirige vers la nouvelle installation (app.soccaquiz.fr/connexion). Le mail actuel pointe directement sur app.soccaquiz.fr/connexion.'],
     ['Mail d\'invitation (aperçu)', PAGES + 'invitation.html', 'Lu aussi par l\'onglet Invitations.'],
     ['Page d\'accueil publique', 'https:\/\/soccaquiz.fr/', 'Celle que vérifie Google (dépôt leian/soccaquiz.fr).'],
     ['Règles de confidentialité', 'https:\/\/soccaquiz.fr/confidentialite.html', 'Copie aussi dans docs/ : modifier les deux.'],
