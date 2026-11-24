@@ -282,7 +282,7 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   const r = ctx.apiJetonRelais('k'.repeat(64)), b = ctx.apiBilanRelais().bilan;
   ok(r.ok && ctx.apiEtat().jetonRelais === true && b.familles === 5 && b.actives7 === 2 && b.actives30 === 4 && b.semaines.length === 1 && b.semaines[0].n === 3, 'bilan du relais : jeton vérifié puis retenu ; totaux lus, semaine douteuse écartée');
   const page = ctx.doGet({ parameter: {} }).h;
-  ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
+  ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page) && /En cas de souci/.test(page) && /already exists/.test(page) && /CLE_CHIFFREMENT/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
   ok(ctx.apiJetonRelais('').ok && ctx.apiEtat().jetonRelais === false, 'bilan du relais : délier');
 }
 // onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements

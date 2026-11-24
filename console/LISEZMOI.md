@@ -40,3 +40,10 @@ Quand `console/Code.gs` change : recolle-le, enregistre, puis **Déployer → G�
 - « Le jeton GitHub est refusé ou a expiré » : crée un nouveau jeton (mêmes réglages) et colle-le dans Réglages.
 - Plusieurs comptes Google ouverts dans le navigateur : la console peut afficher une page vide ou « Impossible d'ouvrir le fichier ». Utilise la fenêtre privée ou le profil soccaquiz.
 - Le tableau des propositions (« SoccaQuiz – Propositions ») est dans le Drive de soccaquiz ; le bouton « Ouvrir le tableau » y mène.
+
+## Bilan du relais (onglet Statistiques) et remise à zéro
+
+- **Relier la console au relais** (une fois) : Réglages → « Bilan du relais » → **Créer un jeton** → **Copier**. Puis Cloudflare (compte soccaquiz) → Workers & Pages → `soccaquiz-relais` → **Settings** → **Variables and Secrets** → **Add** : type **Secret**, nom `JETON_CONSOLE`, valeur = le jeton → Deploy. Revenir dans la console → **Enregistrer** (la console vérifie que le relais reconnaît le jeton).
+- **Problèmes fréquents** : tout est expliqué dans la console, Réglages → « Bilan du relais » → « En cas de souci » (nom déjà existant, Variable au lieu de Secret, jeton non reconnu, « Introuvable » sur l'adresse du relais, changer ou retirer le jeton).
+- **Ne jamais supprimer ni modifier `CLE_CHIFFREMENT`** dans Cloudflare : les données de toutes les familles deviendraient illisibles.
+- **Remettre les compteurs à zéro** : Statistiques → « Remettre à zéro… » → confirmation (Annuler / Oui). La feuille « Statistiques » est renommée en archive (rien n'est effacé) ; le bloc « Familles inscrites » ne change pas (familles réellement inscrites dans le relais).
