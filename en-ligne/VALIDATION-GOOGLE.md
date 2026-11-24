@@ -2,6 +2,8 @@
 
 But : supprimer l'avertissement « Google n'a pas validé cette application » **de l'installateur**, et afficher le logo SoccaQuiz sur son écran d'autorisation. C'est gratuit. Compte quelques jours à quelques semaines, avec parfois un ou deux échanges de mails avec Google.
 
+> **✅ Validation obtenue le 24 novembre 2026** (mail de Google à soccaquiz@gmail.com) pour le projet Google Cloud n° 710131532855 (ID `lucky-union-514320-c3`), scopes `script.projects`, `script.deployments` et `script.external_request`. Toute modification de l'écran de consentement (nom, logo, domaines, liens) ou tout nouveau scope sensible demandera une nouvelle validation. Garder à jour les comptes Propriétaire et Éditeur du projet pour recevoir les mails de Google.
+
 Ce que la validation ne change pas : l'avertissement affiché à la première ouverture du **site de chaque famille**. Ce site est un projet Apps Script qui appartient à la famille (l'avertissement affiche d'ailleurs sa propre adresse), et Google ne valide que le projet de l'éditeur.
 
 Tout se fait avec le compte **soccaquiz@gmail.com**.
@@ -48,6 +50,8 @@ Google répond par mail à soccaquiz@gmail.com. S'il demande une précision, ré
 Tant que la validation n'est pas accordée, rien ne change pour les amis : ils passent par « Paramètres avancés », comme aujourd'hui.
 
 ## Le jour de la validation
+
+**Sans objet depuis le 24 novembre 2026.** Le mail d'invitation (`docs/invitation.html`) envoie déjà vers la nouvelle version (« Commencer avec Google » sur app.soccaquiz.fr, aucune alerte) : l'encadré jaune « C'est normal : … » n'existe plus, et le texte de remplacement prévu ci-dessous n'est plus à poser. Paragraphe gardé pour mémoire :
 
 Le mail d'invitation annonce deux avertissements « Google n'a pas validé cette application » ; il n'en restera qu'un (celui du site de la famille). Le texte de remplacement est prêt dans `docs/invitation.html`, dans le commentaire « TEXTE À METTRE LE JOUR OÙ GOOGLE VALIDE L'INSTALLATEUR », juste après le mail : remplace l'encadré jaune par ce texte et pousse (GitHub Pages, aucun redéploiement). L'aide de l'installateur (« Dernière étape ») porte sur le site de la famille : elle reste juste.
 
