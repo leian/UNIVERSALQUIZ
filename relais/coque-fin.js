@@ -5,7 +5,9 @@
      GET  /f/<famille>?api=…         → doGet de Code.gs (site de l'enfant : etat, quiz…)
      POST /f/<famille>                → doPost de Code.gs (enregistrer, signaler, appairer, parent…)
      GET  /sante                     → « ok »
-   Secrets (Cloudflare) : GOOGLE_CLIENT_SECRET, CLE_CHIFFREMENT (32 octets en base64). Variable : GOOGLE_CLIENT_ID.
+     GET  /bilan                     → totaux pour la console de l'éditeur (en-tête Authorization: Bearer <JETON_CONSOLE>)
+   Secrets (Cloudflare) : GOOGLE_CLIENT_SECRET, CLE_CHIFFREMENT (32 octets en base64), JETON_CONSOLE (facultatif, posé à la main).
+   Variable : GOOGLE_CLIENT_ID.
    Base D1 (liaison DB) : une ligne par famille ; les réglages de Code.gs (propriétés du script) y sont chiffrés.
    Données de la famille : dans SON Drive, dossier « SoccaQuiz » (autorisation drive.file seule) :
      « SoccaQuiz – famille.json » (dossiers et liste des tableaux) + un fichier .json par tableau (quiz, résultats).
@@ -30,6 +32,7 @@ export default {
       if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: Object.assign({ 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Content-Type', 'Access-Control-Max-Age': '86400' }, cors) });
       if (url.pathname === '/sante') return json({ ok: true });
       await schema_(env);
+      if (url.pathname === '/bilan' && req.method === 'GET') return bilan_(env, req, json);
       if (url.pathname === '/connexion' && req.method === 'POST') return json(await connexion_(env, await lireCorps_(req), url));
       const m = url.pathname.match(/^\/f\/([^/]+)\/?$/);
       if (m) {
@@ -327,6 +330,26 @@ async function demandeInterne_(env, id, fn) {
     } catch (e) { await env.DB.prepare('UPDATE familles SET verrou = 0 WHERE id = ?').bind(id).run(); MEMOIRE_.delete(id); throw e; }
   }
   throw new Error('SoccaQuiz est très occupé, réessaie dans un instant.');
+}
+
+/* bilan pour la console de l'éditeur (onglet Statistiques) : des TOTAUX seulement, calculés ici sur les colonnes en clair
+   (dates de création et de dernière écriture) ; aucun identifiant, aucune donnée déchiffrée ne sort.
+   Protégé par le secret JETON_CONSOLE (absent ou trop court : l'adresse n'existe pas). Règles de confidentialité, § 4. */
+function egal_(a, b) { a = String(a); b = String(b); let d = a.length ^ b.length; for (let i = 0; i < Math.max(a.length, b.length); i++) d |= (a.charCodeAt(i) | 0) ^ (b.charCodeAt(i) | 0); return d === 0; }
+async function bilan_(env, req, json) {
+  const attendu = String(env.JETON_CONSOLE || ''), donne = (req.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '');
+  if (attendu.length < 32 || !egal_(donne, attendu)) return json({ erreur: 'Introuvable.' }, 404);
+  const t = Date.now(), J = 86400000;
+  const tot = await env.DB.prepare('SELECT COUNT(*) AS n, SUM(CASE WHEN maj >= ? THEN 1 ELSE 0 END) AS a7, SUM(CASE WHEN maj >= ? THEN 1 ELSE 0 END) AS a30 FROM familles').bind(t - 7 * J, t - 30 * J).first();
+  const r = await env.DB.prepare('SELECT cree FROM familles WHERE cree >= ?').bind(t - 84 * J).all();
+  const semaines = {};
+  (r.results || []).forEach(x => {
+    const d = new Date(+x.cree); if (isNaN(d)) return;
+    const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)));
+    const k = lundi.toISOString().slice(0, 10); semaines[k] = (semaines[k] || 0) + 1;
+  });
+  return json({ ok: true, t, familles: +(tot && tot.n) || 0, actives7: +(tot && tot.a7) || 0, actives30: +(tot && tot.a30) || 0,
+    semaines: Object.keys(semaines).sort().reverse().map(k => ({ semaine: k, n: semaines[k] })) });
 }
 
 /* compteurs anonymes pour la console (onglet Statistiques) : l'événement et « relais », rien d'autre ; jamais bloquant */

@@ -77,6 +77,14 @@ ok(ins.d.ok && /^r[A-Za-z0-9]{23}$/.test(ins.d.s) && ins.d.code && ins.d.nouvell
 const S = ins.d.s;
 const ligne = sql.prepare('SELECT * FROM familles').get();
 ok(ligne && !/durable-1|parent\.test|Lana/.test(JSON.stringify(ligne)), 'D1 : clé durable, adresse et prénom chiffrés (rien de lisible)');
+/* bilan pour la console : totaux seulement, protégé par JETON_CONSOLE */
+const bilan = async jeton => { const r = await relais.fetch(new Request('https://relais.test/bilan', { headers: jeton ? { Authorization: 'Bearer ' + jeton } : {} }), env); return { statut: r.status, d: await r.json() }; };
+ok((await bilan('')).statut === 404 && (await bilan('x'.repeat(40))).statut === 404, 'bilan : sans secret JETON_CONSOLE, l\'adresse n\'existe pas');
+env.JETON_CONSOLE = 'j'.repeat(48);
+const b0 = await bilan('mauvais-jeton-mauvais-jeton-mauvais-jeton'), b1 = await bilan('j'.repeat(48));
+ok(b0.statut === 404 && b1.statut === 200 && b1.d.familles === 1 && b1.d.actives7 === 1 && b1.d.actives30 === 1 && b1.d.semaines.length === 1 && b1.d.semaines[0].n === 1
+  && Object.keys(b1.d).sort().join() === 'actives30,actives7,familles,ok,semaines,t' && !JSON.stringify(b1.d).includes(S) && !/Lana|parent\.test/.test(JSON.stringify(b1.d)),
+  'bilan : mauvais jeton refusé ; bon jeton → totaux seulement (familles, actives, inscriptions par semaine), sans identifiant — ' + JSON.stringify(b1.d));
 ok([...fichiers.values()].some(f => f.name === 'SoccaQuiz' && f.mimeType === 'application/vnd.google-apps.folder') && [...fichiers.values()].some(f => f.name === 'SoccaQuiz – famille.json'), 'Drive : dossier « SoccaQuiz » et fichier de la famille créés');
 
 /* 2. site de l'enfant */

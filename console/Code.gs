@@ -346,7 +346,7 @@ function apiEtat() {
   return {
     propositions: props, retires, erreurs, aide, stats,
     projetConsole, projetInstallateur: lienProjetId_(p.getProperty('PROJET_INSTALLATEUR') || ''),
-    jeton: !!p.getProperty('GITHUB_JETON'),
+    jeton: !!p.getProperty('GITHUB_JETON'), jetonRelais: !!p.getProperty('RELAIS_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
     quota, signature: u.getProperty('SIGNATURE') || '', nom: u.getProperty('NOM') || '',
@@ -503,6 +503,37 @@ function apiJeton(jeton) {
   }
 }
 
+/* ---------------- bilan du relais (nouvelle installation) ----------------
+   Totaux calculés par le relais sur sa base D1 : familles inscrites, inscriptions par semaine, familles actives
+   (au moins une écriture : partie jouée ou réglage) sur 7 et 30 jours. Aucun identifiant, aucune donnée de famille.
+   Le jeton (propriété RELAIS_JETON) est le même que le secret JETON_CONSOLE du Worker « soccaquiz-relais ». */
+const RELAIS_ = 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev';
+function lireBilan_(jeton) {
+  const r = UrlFetchApp.fetch(RELAIS_ + '/bilan', { headers: { Authorization: 'Bearer ' + jeton }, muteHttpExceptions: true });
+  let j = null; try { j = JSON.parse(r.getContentText()); } catch (e) {}
+  if (r.getResponseCode() !== 200 || !j || !j.ok) return null;
+  return { familles: +j.familles || 0, actives7: +j.actives7 || 0, actives30: +j.actives30 || 0,
+    semaines: (Array.isArray(j.semaines) ? j.semaines : []).filter(w => w && /^\d{4}-\d{2}-\d{2}$/.test(w.semaine)).slice(0, 12).map(w => ({ semaine: w.semaine, n: +w.n || 0 })) };
+}
+function apiBilanRelais() {
+  exiger_();
+  const jeton = PropertiesService.getScriptProperties().getProperty('RELAIS_JETON');
+  if (!jeton) return { sansJeton: true };
+  try { const b = lireBilan_(jeton); return b ? { bilan: b } : { erreur: 'Le relais refuse le jeton : vérifie le secret JETON_CONSOLE dans Cloudflare (onglet Réglages).' }; }
+  catch (e) { return { erreur: 'Relais injoignable : ' + (e.message || e) }; }
+}
+function apiJetonRelais(jeton) {
+  exiger_();
+  const p = PropertiesService.getScriptProperties();
+  jeton = String(jeton || '').trim();
+  if (!jeton) { p.deleteProperty('RELAIS_JETON'); return { ok: true, jetonRelais: false }; }
+  if (!/^[A-Za-z0-9_-]{32,128}$/.test(jeton)) return { erreur: 'Jeton invalide : 32 à 128 lettres ou chiffres (utilise « Créer un jeton »).' };
+  let b = null; try { b = lireBilan_(jeton); } catch (e) { return { erreur: 'Relais injoignable : ' + (e.message || e) }; }
+  if (!b) return { erreur: 'Le relais ne reconnaît pas ce jeton. Pose-le d\'abord dans Cloudflare (secret JETON_CONSOLE, type Secret), attends quelques secondes, puis réessaie.' };
+  p.setProperty('RELAIS_JETON', jeton);
+  return { ok: true, jetonRelais: true, bilan: b };
+}
+
 /* adresse du déploiement « Propositions » : publiée dans docs/soccaquiz.json, lu par les sites des familles */
 function apiUrlPropositions(url) {
   exiger_();
@@ -625,6 +656,7 @@ const LIENS_ = [
     ['Page « Commencer avec Google »', 'https:\/\/app.soccaquiz.fr/connexion/', 'Le nouveau point de départ des familles : prénom, classe, compte Google, et c\'est installé (rien dans Apps Script). Rouvrir son espace : ?reconnecter=1.'],
     ['Relais : est-il en marche ?', 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev/sante', 'Doit répondre ok. Worker « soccaquiz-relais » du compte Cloudflare soccaquiz, publié par l\'Action « Relais » à chaque push.'],
     ['Cloudflare : Workers et D1', 'https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages', 'Worker « soccaquiz-relais » (secrets GOOGLE_CLIENT_SECRET et CLE_CHIFFREMENT, de type Secret : ne jamais effacer CLE_CHIFFREMENT) et base D1 « soccaquiz-relais » (une ligne par famille).'],
+    ['Journal du relais (Cloudflare)', 'https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages', 'Worker « soccaquiz-relais » → onglet Logs : demandes et erreurs des derniers jours. À ouvrir seulement pour comprendre une panne (règles de confidentialité, § 3).'],
     ['Google Cloud : projet « soccaquiz »', 'https:\/\/console.cloud.google.com/auth/overview', 'Choisir le projet soccaquiz : marque, client OAuth « SoccaQuiz relais », accès drive.file seulement. Ne pas toucher aux accès du projet 710131532855 pendant la validation.'],
     ['Action « Relais » (GitHub)', 'https:\/\/github.com/' + DEPOT + '/actions/workflows/relais.yml', 'Tests, puis publication du relais et de app.soccaquiz.fr. Compteurs : les installations par le relais apparaissent avec la version « relais » dans l\'onglet Statistiques.']
   ]],
@@ -797,13 +829,23 @@ function client_() {
     if (!S) { c.innerHTML = MSG + '<div class="box"><p class="petit">Statistiques indisponibles pour l\'instant.</p></div>'; return; }
     var t = S.totaux, chiffre = function (n, lib, aide) { return '<div class="chiffre"><b>' + n + '</b><span>' + esc(lib) + '</span>' + (aide ? '<small>' + esc(aide) + '</small>' : '') + '</div>'; };
     var jour = function (k) { try { return new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); } catch (e) { return k; } };
-    c.innerHTML = MSG + '<div class="box"><h2>' + I('chart') + 'Sites SoccaQuiz</h2>' +
+    c.innerHTML = MSG + '<div class="box" id="bilan-relais"><h2>' + I('chart') + 'Familles inscrites (nouvelle version)</h2><p class="petit">Lecture du relais…</p></div>' +
+      '<div class="box"><h2>' + I('chart') + 'Sites SoccaQuiz</h2>' +
       '<div class="chiffres">' + chiffre(S.enService, 'en service', 'déjà là + installés − supprimés') + chiffre(t.installation, 'installations') + chiffre(t.maj, 'mises à jour') + chiffre(t.suppression, 'suppressions') + '</div>' +
       '<p class="petit">Compteurs anonymes envoyés par l\'installateur' + (S.debut ? ' depuis le ' + esc(new Date(S.debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '') + ' : un « +1 » par installation, mise à jour ou suppression, avec le numéro de version, sans rien sur les familles. Les sites installés avant les compteurs (' + t.existant + ' comptés pour l\'instant) le sont à leur première mise à jour ou suppression.</p></div>' +
       '<div class="box"><h2>' + I('chart') + 'Par semaine</h2>' + (S.semaines.length ? '<table class="stats"><tr><th>Semaine du</th><th>Installations</th><th>Mises à jour</th><th>Suppressions</th></tr>' +
         S.semaines.map(function (w) { return '<tr><td>' + esc(jour(w.semaine)) + '</td><td>' + w.installation + '</td><td>' + w.maj + '</td><td>' + w.suppression + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>' +
       '<div class="box"><h2>' + I('tag') + 'Par version</h2>' + (S.versions.length ? '<table class="stats"><tr><th>Version</th><th>Installée</th><th>Mise à jour vers</th></tr>' +
         S.versions.map(function (v) { return '<tr><td>' + esc(v.version) + '</td><td>' + v.installation + '</td><td>' + v.maj + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>';
+    var zone = $('bilan-relais'), titre = '<h2>' + I('chart') + 'Familles inscrites (nouvelle version)</h2>';
+    appel('apiBilanRelais', [], function (r) {
+      if (!zone) return;
+      if (r.sansJeton) { zone.innerHTML = titre + '<p class="petit">Pas encore relié au relais : onglet <b>Réglages</b> → « Bilan du relais ».</p>'; return; }
+      var B = r.bilan;
+      zone.innerHTML = titre + '<div class="chiffres">' + chiffre(B.familles, 'familles inscrites', 'en ce moment, dans le relais') + chiffre(B.actives7, 'actives sur 7 jours') + chiffre(B.actives30, 'actives sur 30 jours') + '</div>' +
+        (B.semaines.length ? '<table class="stats"><tr><th>Semaine du</th><th>Inscriptions (familles encore inscrites)</th></tr>' + B.semaines.map(function (w) { return '<tr><td>' + esc(jour(w.semaine)) + '</td><td>' + w.n + '</td></tr>'; }).join('') + '</table>' : '') +
+        '<p class="petit">Totaux calculés par le relais : « active » = au moins une partie jouée ou un réglage enregistré. Aucun identifiant ni aucune donnée de famille ne sort du relais.</p>';
+    }, function (m) { if (zone) zone.innerHTML = titre + '<p class="petit">' + esc(m) + '</p>'; });
   }
 
   /* ---------- Demandes d'aide des familles : réponse par mail depuis ce compte ---------- */
@@ -1138,7 +1180,18 @@ function client_() {
       '<ol class="etapes"><li>Dans ce projet Apps Script : <b>Déployer → Nouveau déploiement</b> → Application web, Exécuter en tant que <b>Moi</b>, Accès <b>Tout le monde</b>, description « Propositions ».</li><li>Copie l\'adresse du déploiement et colle-la ici.</li></ol>' +
       '<label for="r-url">Adresse du déploiement « Propositions »</label><input id="r-url" value="' + esc(ETAT.urlPropositions) + '" placeholder="https:\/\/script.google.com/macros/s/…/exec">' +
       '<div class="actions" style="margin-top:10px"><button class="btn principal" id="r-url-ok"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('check') + ' Activer</button>' + (ETAT.urlPropositions ? '<button class="btn danger" id="r-url-off">' + I('x') + ' Couper la réception</button>' : '') + '</div>' +
-      (ETAT.jeton ? '' : '<p class="petit">Le jeton GitHub est nécessaire : l\'adresse est publiée dans docs/soccaquiz.json, que lisent les sites.</p>') + '</div>';
+      (ETAT.jeton ? '' : '<p class="petit">Le jeton GitHub est nécessaire : l\'adresse est publiée dans docs/soccaquiz.json, que lisent les sites.</p>') + '</div>' +
+      '<div class="box"><h2>' + I('key') + 'Bilan du relais</h2>' +
+      (ETAT.jetonRelais ? '<p class="ok"><b>Relié</b> : l\'onglet Statistiques affiche les familles inscrites et actives.</p>' : '<p>Pour afficher dans l\'onglet Statistiques les familles inscrites et actives (des totaux seulement), la console et le relais partagent un jeton secret :</p>') +
+      '<ol class="etapes"><li>Clique sur <b>Créer un jeton</b>, puis sur <b>Copier</b>.</li>' +
+      '<li>Ouvre <a href="https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages" target="_blank" rel="noopener">Cloudflare → Workers & Pages</a> (compte soccaquiz) → <code>soccaquiz-relais</code> → <b>Settings</b> → <b>Variables and Secrets</b> → <b>Add</b> : type <b>Secret</b>, nom <code>JETON_CONSOLE</code>, valeur : colle le jeton → <b>Deploy</b>.</li>' +
+      '<li>Reviens ici et clique sur <b>Enregistrer</b> : la console vérifie que le relais le reconnaît.</li></ol>' +
+      '<label for="r-relais">Jeton du relais</label><input id="r-relais" autocomplete="off" placeholder="' + (ETAT.jetonRelais ? 'Jeton enregistré (crée-en un nouveau pour le remplacer)' : 'Clique sur « Créer un jeton »') + '">' +
+      '<div class="actions" style="margin-top:10px"><button class="btn" id="r-relais-creer">' + I('key') + ' Créer un jeton</button><button class="btn" id="r-relais-copier">Copier</button><button class="btn principal" id="r-relais-ok">' + I('check') + ' Enregistrer</button>' + (ETAT.jetonRelais ? '<button class="btn danger" id="r-relais-suppr">' + I('trash') + ' Délier</button>' : '') + '</div></div>';
+    $('r-relais-creer').onclick = function () { var a = new Uint8Array(32); crypto.getRandomValues(a); $('r-relais').value = Array.prototype.map.call(a, function (x) { return ('0' + x.toString(16)).slice(-2); }).join(''); };
+    $('r-relais-copier').onclick = function () { var v = $('r-relais').value; if (!v) return erreur('Crée d\'abord un jeton.'); try { navigator.clipboard.writeText(v).then(function () { info('Jeton copié : colle-le dans Cloudflare (secret JETON_CONSOLE).'); }, function () { $('r-relais').select(); info('Sélectionné : copie-le avec Ctrl+C.'); }); } catch (e) { $('r-relais').select(); info('Sélectionné : copie-le avec Ctrl+C.'); } };
+    $('r-relais-ok').onclick = function () { var v = $('r-relais').value.trim(); if (!v) return erreur('Crée d\'abord un jeton.'); this.disabled = true; appel('apiJetonRelais', [v], function () { charger(function () { vueReglages(c); info('Relais relié : ouvre l\'onglet Statistiques.'); }); }, function (m) { $('r-relais-ok').disabled = false; erreur(m); }); };
+    if ($('r-relais-suppr')) $('r-relais-suppr').onclick = function () { confirmer(this, 'Toucher encore pour délier', function () { appel('apiJetonRelais', [''], function () { charger(function () { vueReglages(c); }); }); }); };
     $('r-ok').onclick = function () { var v = $('r-jeton').value.trim(); if (!v) return erreur('Colle le jeton.'); this.disabled = true; appel('apiJeton', [v], function () { charger(function () { vueReglages(c); info('Jeton enregistré et vérifié.'); }); }, function (m) { $('r-ok').disabled = false; erreur(m); }); };
     if ($('r-suppr')) $('r-suppr').onclick = function () { confirmer(this, 'Toucher encore pour effacer le jeton', function () { appel('apiJeton', [''], function () { charger(function () { vueReglages(c); }); }); }); };
     $('r-url-ok').onclick = function () { this.disabled = true; appel('apiUrlPropositions', [$('r-url').value], function () { charger(function () { vueReglages(c); info('Réception activée : les sites la proposeront d\'ici une minute.'); }); }, function (m) { $('r-url-ok').disabled = false; erreur(m); }); };

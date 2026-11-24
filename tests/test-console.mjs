@@ -81,6 +81,8 @@ const ctx = {
     fetch: (url, o = {}) => {
       const rep = (code, j) => ({ getResponseCode: () => code, getContentText: () => typeof j === 'string' ? j : JSON.stringify(j) });
       if (url.startsWith('https://leian.github.io/UNIVERSALQUIZ/invitation.html')) return rep(200, readFileSync(join(RACINE, 'docs', 'invitation.html'), 'utf8'));
+      if (url === 'https://soccaquiz-relais.soccaquiz.workers.dev/bilan') return (o.headers || {}).Authorization === 'Bearer ' + 'k'.repeat(64)
+        ? rep(200, { ok: true, t: 1, familles: 5, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }] }) : rep(404, { erreur: 'Introuvable.' });
       const m = url.match(/^https:\/\/api\.github\.com\/repos\/leian\/UNIVERSALQUIZ(.*)$/);
       if (!m) return rep(404, {});
       if (o.headers && o.headers.Authorization && !jetonValide) return rep(401, { message: 'Bad credentials' });
@@ -265,6 +267,16 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   ok(S.totaux.installation === 2 && S.totaux.maj === 2 && S.totaux.suppression === 1 && S.totaux.existant === 23 && S.enService === 24 && S.semaines.length === 1 && S.semaines[0].installation === 2
     && S.versions[0].version === 'v2.93' && S.versions[0].installation === 2 && S.versions[0].maj === 1, 'statistiques : en service = déjà là + installés − supprimés, par semaine et par version — ' + JSON.stringify(S.totaux));
   ok(/data-o="stats"/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Statistiques »');
+}
+// bilan du relais → onglet Statistiques (jeton partagé avec le secret JETON_CONSOLE du Worker)
+{
+  ok(ctx.apiBilanRelais().sansJeton && ctx.apiEtat().jetonRelais === false, 'bilan du relais : rien sans jeton');
+  ok(ctx.apiJetonRelais('court').erreur && ctx.apiJetonRelais('z'.repeat(64)).erreur && ctx.apiEtat().jetonRelais === false, 'bilan du relais : jeton mal formé ou inconnu du relais refusé, rien d\'enregistré');
+  const r = ctx.apiJetonRelais('k'.repeat(64)), b = ctx.apiBilanRelais().bilan;
+  ok(r.ok && ctx.apiEtat().jetonRelais === true && b.familles === 5 && b.actives7 === 2 && b.actives30 === 4 && b.semaines.length === 1 && b.semaines[0].n === 3, 'bilan du relais : jeton vérifié puis retenu ; totaux lus, semaine douteuse écartée');
+  const page = ctx.doGet({ parameter: {} }).h;
+  ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
+  ok(ctx.apiJetonRelais('').ok && ctx.apiEtat().jetonRelais === false, 'bilan du relais : délier');
 }
 // onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements
 {
