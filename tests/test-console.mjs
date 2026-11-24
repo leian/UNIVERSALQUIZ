@@ -45,7 +45,8 @@ const feuilleS = {
   getLastRow: () => lignesS.length,
   getRange: (l, c, nl, nc) => ({ getValues: () => lignesS.slice(l - 1, l - 1 + nl).map(r => r.slice(c - 1, c - 1 + nc)) })
 };
-let ongletS = false;
+let ongletS = false, archiveS = null;
+feuilleS.setName = n => { archiveS = { nom: n, lignes: lignesS.splice(0) }; ongletS = false; };
 ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : n === 'Aide' && ongletA ? feuilleA : n === 'Statistiques' && ongletS ? feuilleS : null;
 ss.insertSheet = n => { if (n === 'Aide') { ongletA = true; return feuilleA; } if (n === 'Statistiques') { ongletS = true; return feuilleS; } ongletE = true; return feuilleE; };
 // faux GitHub (API contents)
@@ -267,6 +268,12 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   ok(S.totaux.installation === 2 && S.totaux.maj === 2 && S.totaux.suppression === 1 && S.totaux.existant === 23 && S.enService === 24 && S.semaines.length === 1 && S.semaines[0].installation === 2
     && S.versions[0].version === 'v2.93' && S.versions[0].installation === 2 && S.versions[0].maj === 1, 'statistiques : en service = déjà là + installés − supprimés, par semaine et par version — ' + JSON.stringify(S.totaux));
   ok(/data-o="stats"/.test(ctx.doGet({ parameter: {} }).h), 'console : onglet « Statistiques »');
+  const r = ctx.apiRemettreStatsAZero(), S2 = ctx.apiEtat().stats;
+  ok(r.ok && r.n > 0 && /^Statistiques \(archive du /.test(r.archive) && archiveS && archiveS.lignes.length === r.n + 1 && S2.enService === 0 && S2.totaux.installation === 0 && !S2.semaines.length,
+    'remise à zéro des compteurs : feuille archivée (rien d\'effacé), statistiques reparties de zéro — ' + JSON.stringify(r));
+  ok(ctx.apiRemettreStatsAZero().vide && post({ type: 'stat', evts: [{ e: 'installation', v: 'relais' }] }).ok && ctx.apiEtat().stats.totaux.installation === 1, 'remise à zéro : rien à faire quand c\'est vide ; le compteur suivant recrée la feuille');
+  const pageS = ctx.doGet({ parameter: {} }).h;
+  ok(/raz-demander/.test(pageS) && /Oui, remettre à zéro/.test(pageS) && /raz-annuler/.test(pageS), 'console : bouton « Remettre à zéro… » avec confirmation (Annuler / Oui)');
 }
 // bilan du relais → onglet Statistiques (jeton partagé avec le secret JETON_CONSOLE du Worker)
 {

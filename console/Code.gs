@@ -180,6 +180,20 @@ function recevoirStat_(d) {
   try { const sh = feuilleStats_(); lignes.forEach(l => sh.appendRow(l)); return { ok: true }; }
   finally { verrou.releaseLock(); }
 }
+/* remise à zéro des compteurs : la feuille est ARCHIVÉE (renommée), jamais effacée ; la suivante se crée au prochain compteur */
+function apiRemettreStatsAZero() {
+  exiger_();
+  const verrou = LockService.getScriptLock();
+  verrou.waitLock(10000);
+  try {
+    const sh = feuille_().getParent().getSheetByName('Statistiques');
+    const n = sh ? Math.max(0, sh.getLastRow() - 1) : 0;
+    if (!n) return { ok: true, vide: true };
+    const nom = 'Statistiques (archive du ' + Utilities.formatDate(new Date(), 'Europe/Paris', 'dd/MM/yyyy HH:mm:ss') + ')';
+    sh.setName(nom);
+    return { ok: true, archive: nom, n };
+  } finally { verrou.releaseLock(); }
+}
 /* totaux, semaines (lundi), versions */
 function stats_() {
   const sh = feuille_().getParent().getSheetByName('Statistiques');
@@ -740,6 +754,7 @@ h3{font:600 1.02rem Fredoka,system-ui,sans-serif;margin:0}
 .btn:active{scale:.95;filter:brightness(.92)}.btn:disabled{opacity:.55;cursor:default}
 .retrait{margin-top:10px;padding:10px 12px;border:1px solid #fecaca;border-radius:12px;background:#fff7f7}.retrait input{width:100%;margin:6px 0}
 .btn.principal{background:var(--rouge);border-color:var(--rouge);color:#fff}.btn.danger{color:var(--ko);border-color:#fecaca}
+.confirmation{background:#fff5f5;border:2px solid #fecaca;border-radius:12px;padding:10px 14px;width:100%}.confirmation p{margin:.3em 0}
 .btn:focus-visible,.onglet:focus-visible{outline:3px solid var(--dore);outline-offset:2px}
 .carte{border:2px solid var(--line);border-radius:14px;padding:12px 14px;margin:10px 0}
 .carte .meta{font-size:.84rem;color:var(--soft);margin:2px 0 8px}
@@ -836,7 +851,21 @@ function client_() {
       '<div class="box"><h2>' + I('chart') + 'Par semaine</h2>' + (S.semaines.length ? '<table class="stats"><tr><th>Semaine du</th><th>Installations</th><th>Mises à jour</th><th>Suppressions</th></tr>' +
         S.semaines.map(function (w) { return '<tr><td>' + esc(jour(w.semaine)) + '</td><td>' + w.installation + '</td><td>' + w.maj + '</td><td>' + w.suppression + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>' +
       '<div class="box"><h2>' + I('tag') + 'Par version</h2>' + (S.versions.length ? '<table class="stats"><tr><th>Version</th><th>Installée</th><th>Mise à jour vers</th></tr>' +
-        S.versions.map(function (v) { return '<tr><td>' + esc(v.version) + '</td><td>' + v.installation + '</td><td>' + v.maj + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>';
+        S.versions.map(function (v) { return '<tr><td>' + esc(v.version) + '</td><td>' + v.installation + '</td><td>' + v.maj + '</td></tr>'; }).join('') + '</table>' : '<p class="vide">Rien encore.</p>') + '</div>' +
+      '<div class="box"><h2>' + I('trash') + 'Remettre les compteurs à zéro</h2>' +
+      '<p class="petit">Pour repartir de zéro après les essais. Concerne les blocs « Sites SoccaQuiz », « Par semaine » et « Par version » (compteurs reçus de l\'installateur et du relais). Rien n\'est effacé : la feuille « Statistiques » du Sheets « SoccaQuiz – Propositions » est renommée en archive, et une nouvelle se remplit dès le compteur suivant. Le bloc « Familles inscrites » ne change pas : il compte les familles réellement inscrites dans le relais.</p>' +
+      '<div class="actions" id="raz-stats"><button class="btn danger" id="raz-demander">' + I('trash') + ' Remettre à zéro…</button></div></div>';
+    var total = t.installation + t.maj + t.suppression + t.existant;
+    $('raz-demander').onclick = function () {
+      $('raz-stats').innerHTML = '<div class="confirmation"><p><b>Remettre les compteurs à zéro ?</b></p>' +
+        '<p>Les ' + total + ' compteurs reçus' + (S.debut ? ' depuis le ' + esc(new Date(S.debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '') + ' (' + t.installation + ' installations, ' + t.maj + ' mises à jour, ' + t.suppression + ' suppressions) seront rangés dans une feuille d\'archive. L\'onglet Statistiques repartira de zéro.</p>' +
+        '<div class="actions"><button class="btn" id="raz-annuler">Annuler</button><button class="btn danger" id="raz-oui">' + I('trash') + ' Oui, remettre à zéro</button></div></div>';
+      $('raz-annuler').onclick = function () { vueStats(c); };
+      $('raz-oui').onclick = function () {
+        this.disabled = true;
+        appel('apiRemettreStatsAZero', [], function (r) { charger(function () { ouvrir('stats'); info(r.vide ? 'Rien à remettre à zéro.' : 'Compteurs remis à zéro. Les anciens sont gardés dans la feuille « ' + r.archive + ' ».'); }); }, function (m) { $('raz-oui').disabled = false; erreur(m); });
+      };
+    };
     var zone = $('bilan-relais'), titre = '<h2>' + I('chart') + 'Familles inscrites (nouvelle version)</h2>';
     appel('apiBilanRelais', [], function (r) {
       if (!zone) return;
