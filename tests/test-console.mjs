@@ -165,7 +165,7 @@ jetonValide = true;
 
 // 6. invitations
 const inv = ctx.apiEnvoyer({ liste: 'Lucie Martin <Lucie@Gmail.com>\nMarc, marc@orange.fr\nsophie@gmail.com\nlucie@gmail.com\npas une adresse', signature: 'Yan', nom: 'Yan (SoccaQuiz)' });
-ok(inv.ok && envoyes.length === 3 && inv.lignes.filter(x => x.erreur).length === 2 && /Bonjour Lucie,/.test(envoyes[0].htmlBody) && /Bonjour,/.test(envoyes[2].htmlBody) && /Installer SoccaQuiz : https:\/\/leian\.github\.io\/UNIVERSALQUIZ\/installer\.html/.test(envoyes[2].body),
+ok(inv.ok && envoyes.length === 3 && inv.lignes.filter(x => x.erreur).length === 2 && /Bonjour Lucie,/.test(envoyes[0].htmlBody) && /Bonjour,/.test(envoyes[2].htmlBody) && /Installer SoccaQuiz : https:\/\/app\.soccaquiz\.fr\/connexion\//.test(envoyes[2].body),
   'invitations : 3 envoyées, doublon et ligne sans adresse signalés, prénom et version texte');
 quota = 1;
 ok(/Gmail ne permet plus que 1/.test(ctx.apiEnvoyer({ liste: 'a@b.fr\nc@d.fr' }).erreur) && envoyes.length === 3, 'quota Gmail insuffisant : rien n\'est envoyé');
@@ -177,7 +177,7 @@ refus = ''; try { ctx.modele_(); } catch (err) { refus = err.message; }
 ctx.UrlFetchApp.fetch = vrai;
 ok(/Repère <!--\/MAIL--> introuvable/.test(refus), 'repère du mail manquant : erreur claire, rien d\'envoyé');
 const installer = readFileSync(join(RACINE, 'docs', 'installer.html'), 'utf8');
-ok(/http-equiv="refresh" content="0; url=https:\/\/script\.google\.com\/macros\/s\/AKfy/.test(installer) && (installer.match(/AKfycbxseeW1[\w-]+/g) || []).every(x => readFileSync(join(RACINE, 'en-ligne', 'LISEZMOI.md'), 'utf8').includes(x) && readFileSync(join(RACINE, 'console', 'Code.gs'), 'utf8').includes(x)), 'docs/installer.html, la notice et les liens de la console mènent au même installateur');
+ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion\/"/.test(installer) && !/script\.google\.com/.test(installer) && readFileSync(join(RACINE, 'docs', 'invitation.html'), 'utf8').includes('https://app.soccaquiz.fr/connexion/'), 'docs/installer.html (anciens mails) et le mail d\'invitation mènent à la nouvelle installation');
 
 
 // erreurs signalées par les familles : réception, correction (famille seule ou toute la bibliothèque), relecture par code
