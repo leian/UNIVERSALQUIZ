@@ -4,9 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<!-- Lien stable de l'installateur, utilisé dans le mail d'invitation : si l'adresse du déploiement Apps Script change un jour,
+<!-- Lien stable d'installation (anciens mails), utilisé dans le mail d'invitation : si l'adresse du déploiement Apps Script change un jour,
      on la corrige ici (deux endroits) sans renvoyer les mails. Simple écran de chargement : le logo, puis l'installateur. -->
-<meta http-equiv="refresh" content="0; url=https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec">
+<meta http-equiv="refresh" content="0; url=https://app.soccaquiz.fr/connexion/">
 <title>SoccaQuiz</title>
 <link rel="icon" href="icone.png">
 <style>
@@ -22,7 +22,7 @@
 <body>
 <img src="icone.png" alt="SoccaQuiz">
 <!-- n'apparaît que si la page est toujours là au bout de 4 secondes (renvoi bloqué par le navigateur) -->
-<p id="secours">Rien ne se passe ? <a href="https://script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec">Ouvrir l'installateur</a></p>
+<p id="secours">Rien ne se passe ? <a href="https://app.soccaquiz.fr/connexion/">Installer SoccaQuiz</a></p>
 <script>setTimeout(function () { document.getElementById('secours').style.visibility = 'visible'; }, 4000);</script>
 <noscript><style>#secours { visibility: visible; }</style></noscript>
 </body>
