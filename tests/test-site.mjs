@@ -143,6 +143,28 @@ try {
     await ps.context().close();
   }
 
+  // une seule icône pour plusieurs enfants : appli lancée depuis l'icône → « Qui révise ? »
+  {
+    const cx = await browser.newContext({ viewport: { width: 400, height: 800 } });
+    await cx.route(/fonts\.(googleapis|gstatic)\.com|leian\.github\.io|jsdelivr|script\.google\.com/, r => r.fulfill({ status: 200, body: '' }));
+    await cx.addInitScript(() => {
+      const mm = window.matchMedia.bind(window);
+      window.matchMedia = q => /display-mode: standalone/.test(q) ? { matches: true, media: q, addEventListener() {}, removeEventListener() {} } : mm(q);
+      if (!localStorage.getItem('sq-vus:local')) localStorage.setItem('sq-vus:local', JSON.stringify([{ e: 'a', p: 'Lana' }, { e: 'b7', p: 'Tom' }]));
+    });
+    const pa = await cx.newPage();
+    await pa.goto(ADRESSE);
+    await pa.locator('#demarrage button', { hasText: 'Tom' }).waitFor({ timeout: 5000 }).catch(() => {});
+    const noms = await pa.locator('#demarrage button:not([hidden])').allInnerTexts();
+    ok(/Qui révise/.test(await pa.locator('#msg').innerText()) && noms.join() === 'Lana,Tom', 'une icône pour tous les enfants : « Qui révise ? » au lancement — ' + noms.join());
+    await pa.locator('#demarrage button', { hasText: 'Lana' }).click();
+    await pa.waitForURL(/[?&]e=a(&|#|$)/, { timeout: 5000 }).catch(() => {});
+    await pa.frameLocator('iframe.page').last().locator('a.card').first().waitFor({ timeout: 10000 }).catch(() => {});
+    ok(/[?&]e=a\b/.test(pa.url()) && await pa.locator('iframe.page').count() === 1 && !(await pa.locator('#msg').innerText().catch(() => '')).includes('Qui révise'),
+      'enfant choisi : son site s\'ouvre, plus de question pendant cette ouverture — ' + pa.url());
+    await cx.close();
+  }
+
   // espace parent servi hors de Google (chantier « sans alerte », étape 2) : lien d'invitation → clé de l'appareil
   {
     const code = 'b'.repeat(64);
