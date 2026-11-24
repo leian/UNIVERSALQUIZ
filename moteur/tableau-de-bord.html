@@ -344,12 +344,8 @@ dialog.boite.large{max-width:720px}
       <h2 class="groupe-titre rouge">Zone sensible</h2>
       <p class="small" style="margin:2px 4px 0">Ces actions effacent des données : une confirmation est toujours demandée.</p>
       <div class="box carte danger">
-        <div class="bloc" id="box-raz" hidden>
-          <h3><i data-ic="refresh"></i>Remettre à zéro</h3>
-          <div id="raz" class="small"></div>
-        </div>
         <div class="bloc" id="box-suppr" hidden>
-          <h3><i data-ic="trash"></i>Supprimer le site de {{PRENOM}}</h3>
+          <h3><i data-ic="trash"></i>Remettre à zéro ou supprimer {{PRENOM}}</h3>
           <div id="suppr" class="small"></div>
         </div>
       </div>
@@ -1166,34 +1162,6 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   });
 })();
 
-/* remise à zéro avec cases à cocher (parent qui a installé ; sites installés à la main : tout le monde) */
-(() => {
-  const U = window.__UQ || {}, z = document.getElementById("raz");
-  if (!z || U.proprio === false || !(window.google && google.script && google.script.run)) return;
-  document.getElementById("box-raz").hidden = false;
-  const prenom = U.razMot || "zéro";
-  const cases = [
-    ["resultats", "Résultats et progression", "badges, notions, révisions, défi du mois, album, et la mémoire des téléphones de {{PRENOM}} ; l'ancien tableau est gardé en archive dans le Drive"],
-    ["quiz", "Quiz", "les quiz partent dans la corbeille du Drive"]
-  ];
-  z.innerHTML = "<p style=\"margin:0 0 8px\">Le site et son lien restent les mêmes (pratique à la rentrée). Coche ce qui doit repartir de zéro ; rien n'est détruit définitivement : archive et corbeille du Drive.</p>" +
-    cases.map(([k, t, d]) => `<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer"><input type="checkbox" data-raz="${k}" style="width:18px;height:18px;margin-top:2px;accent-color:var(--rouge)"><span><b>${t}</b><br><span class="small">${d}</span></span></label>`).join("") +
-    `<p style="margin:12px 0 6px">Pour confirmer, tape <b>${esc(prenom)}</b> :</p><p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="raz-confirmation" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="raz-go" disabled>Remettre à zéro</button></p><div id="raz-msg"></div>`;
-  const coche = () => [...z.querySelectorAll("[data-raz]:checked")].map(c => c.getAttribute("data-raz"));
-  const maj = () => { document.getElementById("raz-go").disabled = !coche().length || document.getElementById("raz-confirmation").value.trim().toLowerCase() !== prenom.toLowerCase(); };
-  z.addEventListener("input", maj); z.addEventListener("change", maj);
-  document.getElementById("raz-go").addEventListener("click", () => {
-    const b = document.getElementById("raz-go"), msg = document.getElementById("raz-msg"), d = { confirmation: document.getElementById("raz-confirmation").value };
-    coche().forEach(k => { d[k] = true; });
-    b.disabled = true; msg.innerHTML = "<p class=\"small\">Remise à zéro en cours…</p>";
-    google.script.run.withSuccessHandler(r => {
-      if (!r || r.erreur) { b.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
-      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(r.fait.join(", "))}. <button type="button" class="btn" id="raz-recharger">Recharger la page</button></p>`;
-      document.getElementById("raz-recharger").addEventListener("click", () => rechargerSite("reglages"));
-    }).withFailureHandler(e => { b.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; }).apiRemettreAZero(d);
-  });
-})();
-
 /* quiz de la bibliothèque retirés depuis leur ajout : absents de la liste publiée (raison dans « retires » si donnée) */
 (() => {
   if (!(window.QUIZ || []).some(q => q.biblio)) return;
@@ -1401,20 +1369,45 @@ var Sig = (() => {
 /* supprimer ce site (un enfant) : ménage dans le Drive ici, puis l'installateur désactive le site */
 (() => {
   const U = window.__UQ || {}, z = document.getElementById("suppr");
-  if (!z || !U.proprio || !(window.google && google.script && google.script.run)) return;
+  if (!z || U.proprio === false || !(window.google && google.script && google.script.run)) return;
   const box = document.getElementById("box-suppr"); box.hidden = false;
-  const mot = U.razMot && U.razMot !== "zéro" ? U.razMot : "supprimer";
-  z.innerHTML = `<p style="margin:0 0 8px">Le site et l'espace parent de {{PRENOM}} seront <b>désactivés</b> (leurs liens ne marcheront plus), {{PRENOM}} sera retiré de la famille et de l'accès de l'autre parent. Les autres enfants ne sont pas touchés.</p>
-    <label style="display:flex;gap:8px;align-items:flex-start;margin:8px 0;cursor:pointer"><input type="checkbox" id="suppr-garder" style="width:18px;height:18px;margin-top:2px;accent-color:var(--rouge)"><span><b>Garder ses quiz et ses résultats</b> dans le Drive<br><span class="small">sinon, son dossier va dans la corbeille du Drive : récupérable pendant 30 jours</span></span></label>
-    <p style="margin:12px 0 6px">Pour confirmer, tape <b>${esc(mot)}</b> :</p>
-    <p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="suppr-confirmation" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="suppr-go" disabled>${I("trash")} Supprimer</button></p><div id="suppr-msg"></div>`;
+  const peutSuppr = !!U.proprio, aPrenom = U.razMot && U.razMot !== "zéro";
+  const caseHtml = (attr, t, d) => `<label style="display:flex;gap:8px;align-items:flex-start;margin:6px 0;cursor:pointer"><input type="checkbox" ${attr} style="width:18px;height:18px;margin-top:2px;accent-color:var(--rouge)"><span><b>${t}</b><br><span class="small" data-d>${d}</span></span></label>`;
+  z.innerHTML = `<p style="margin:0 0 8px">Coche ce que tu veux effacer, puis confirme une seule fois. Rien n'est détruit définitivement : ancien tableau gardé en archive, fichiers dans la corbeille du Drive (récupérables pendant 30 jours).</p>` +
+    caseHtml('data-raz="resultats"', "Ses résultats et sa progression", "badges, notions, révisions, défi du mois, album, et la mémoire de ses appareils ; l'ancien tableau reste en archive dans le Drive") +
+    caseHtml('data-raz="quiz"', "Ses quiz", "ils partent dans la corbeille du Drive") +
+    (peutSuppr ? caseHtml('id="suppr-site"', "Supprimer {{PRENOM}} de SoccaQuiz", "son site et son lien ne marcheront plus ; les autres enfants ne sont pas touchés. Ses quiz et résultats restent dans le Drive, sauf si tu coches aussi les deux cases du dessus") : "") +
+    `<p style="margin:12px 0 6px" id="suppr-mot"></p>
+    <p style="margin:0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="suppr-confirmation" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn principal" id="suppr-go" disabled></button></p><div id="suppr-msg"></div>`;
   const champ = document.getElementById("suppr-confirmation"), bt = document.getElementById("suppr-go"), msg = document.getElementById("suppr-msg");
-  champ.addEventListener("input", () => { bt.disabled = champ.value.trim().toLowerCase() !== mot.toLowerCase(); });
+  const site = document.getElementById("suppr-site"), cases = () => [...z.querySelectorAll("[data-raz]:checked")].map(c => c.getAttribute("data-raz"));
+  const supprimer = () => !!(site && site.checked);
+  const mot = () => aPrenom ? U.razMot : (supprimer() ? "supprimer" : "zéro");
+  const maj = () => {
+    document.getElementById("suppr-mot").innerHTML = `Pour confirmer, tape <b>${esc(mot())}</b> :`;
+    bt.innerHTML = supprimer() ? `${I("trash")} Supprimer {{PRENOM}}` : `${I("refresh")} Remettre à zéro`;
+    bt.disabled = !(supprimer() || cases().length) || champ.value.trim().toLowerCase() !== mot().toLowerCase();
+  };
+  z.addEventListener("input", maj); z.addEventListener("change", maj); maj();
   bt.addEventListener("click", () => {
-    bt.disabled = true; msg.innerHTML = "<p class=\"small\">Suppression en cours…</p>";
+    if (supprimer()) return lancerSuppression();
+    const d = { confirmation: champ.value };
+    cases().forEach(k => { d[k] = true; });
+    bt.disabled = true; msg.innerHTML = "<p class=\"small\">Remise à zéro en cours…</p>";
     google.script.run.withSuccessHandler(r => {
       if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
-      champ.disabled = true; document.getElementById("suppr-garder").disabled = true;
+      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(r.fait.join(", "))}. <button type="button" class="btn" id="raz-recharger">Recharger la page</button></p>`;
+      document.getElementById("raz-recharger").addEventListener("click", () => rechargerSite("reglages"));
+    }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; }).apiRemettreAZero(d);
+  });
+  // supprimer l'enfant : ses quiz et résultats sont gardés, sauf si les deux cases « effacer » sont cochées
+  const garder = () => !(cases().indexOf("resultats") >= 0 && cases().indexOf("quiz") >= 0);
+  const lancerSuppression = () => {
+    bt.disabled = true; msg.innerHTML = "<p class=\"small\">Suppression en cours…</p>";
+    const garde = garder();
+    google.script.run.withSuccessHandler(r => {
+      if (!r || r.erreur) { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((r && r.erreur) || "Erreur")}</p>`; return; }
+      champ.disabled = true; z.querySelectorAll("input[type=checkbox]").forEach(c => { c.disabled = true; });
       // l'icône posée sur l'écran d'accueil d'un téléphone ou d'une tablette reste : seul son propriétaire peut la retirer
       const icone = (qui) => `<p class="small" style="margin:6px 0 0">${I("info")} Si ${qui} a été ajouté à l'écran d'accueil d'un téléphone, d'une tablette ou d'un ordinateur, l'icône y reste : retire-la sur chaque appareil (sur téléphone : appui long sur l'icône, puis « Désinstaller »). En l'ouvrant, on verra seulement que ce SoccaQuiz n'existe plus.</p>`;
       if (r.reste && r.reste.length) {
@@ -1466,10 +1459,10 @@ var Sig = (() => {
       document.body.appendChild(cadre);
       setTimeout(() => { if (!fini) { fini = true; window.removeEventListener("message", ecoute); cadre.remove(); secours(); } }, 40000);
     }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
-      .apiSupprimerSite({ confirmation: champ.value, garder: document.getElementById("suppr-garder").checked });
-  });
+      .apiSupprimerSite({ confirmation: champ.value, garder: garde });
+  };
   // ouvert depuis l'installateur (« Supprimer … ») : on montre directement cet encadré
-  if (U.demandeSuppression) { try { ouvrirOnglet("reglages"); } catch (e) {} box.style.outline = "3px solid var(--rouge)"; setTimeout(() => box.scrollIntoView({ block: "center" }), 200); }
+  if (U.demandeSuppression) { if (site) { site.checked = true; maj(); } try { ouvrirOnglet("reglages"); } catch (e) {} box.style.outline = "3px solid var(--rouge)"; setTimeout(() => box.scrollIntoView({ block: "center" }), 200); }
 })();
 
 // ---------- messages de résultat (✅ fait, ou erreur) : toujours ramenés à l'écran, où qu'ils apparaissent ----------

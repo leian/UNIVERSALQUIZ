@@ -1162,15 +1162,15 @@ try {
     const avantRaz = await ev('({ ss: PropertiesService.getScriptProperties().getProperty("RESULTATS"), html: installer_().dossier.getFiles ? (() => { let n = 0; const it = installer_().dossier.getFiles(); while (it.hasNext()) if (/\.html$/.test(it.next().getName())) n++; return n; })() : 0, classe: classe_() })');
     await page.locator('[data-raz="resultats"]').check();
     await page.locator('[data-raz="quiz"]').check();
-    ok(await page.locator('#raz-go').isDisabled(), 'remise à zéro : bouton grisé tant que le prénom n\'est pas tapé');
-    await page.fill('#raz-confirmation', 'lana');
-    await page.locator('#raz-go').click();
-    await page.locator('#raz-msg .ok, #raz-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
+    ok(await page.locator('#suppr-go').isDisabled(), 'remise à zéro : bouton grisé tant que le prénom n\'est pas tapé');
+    await page.fill('#suppr-confirmation', 'lana');
+    await page.locator('#suppr-go').click();
+    await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const apresRaz = await ev(`(() => { const p = PropertiesService.getScriptProperties(); let n = 0; const it = installer_().dossier.getFiles(); while (it.hasNext()) if (/\\.html$/.test(it.next().getName())) n++;
       return { ss: p.getProperty("RESULTATS"), html: n, raz: !!p.getProperty("RAZ"), classe: classe_() }; })()`);
     apresRaz.r.archive = /archive du/.test((apresRaz.sheets[avantRaz.r.ss] || {}).name || '');
     apresRaz.r.lignes = ((apresRaz.sheets[apresRaz.r.ss] || {}).rows || []).length;
-    ok(/C'est fait/.test(await page.locator('#raz-msg').innerText()) && apresRaz.r.ss !== avantRaz.r.ss && apresRaz.r.archive && apresRaz.r.lignes === 1 && apresRaz.r.html === 0 && avantRaz.r.html > 0 && apresRaz.r.raz && apresRaz.r.classe === avantRaz.r.classe,
+    ok(/C'est fait/.test(await page.locator('#suppr-msg').innerText()) && apresRaz.r.ss !== avantRaz.r.ss && apresRaz.r.archive && apresRaz.r.lignes === 1 && apresRaz.r.html === 0 && avantRaz.r.html > 0 && apresRaz.r.raz && apresRaz.r.classe === avantRaz.r.classe,
       'remise à zéro : résultats archivés et nouveau tableau vide, quiz à la corbeille, classe non cochée gardée — ' + JSON.stringify(apresRaz.r));
     await page.goto(BASE + '/exec');
     const local = await page.evaluate(() => [localStorage.getItem('sq.tenue'), localStorage.getItem('uqSuivi.local'), localStorage.getItem('uq-sons')]);
@@ -1218,10 +1218,11 @@ try {
     await page.goto(BASE + '/exec?supprimer=1');
     await page.locator('#box-suppr').waitFor({ timeout: 5000 });
     ok(await page.locator('#box-suppr').isVisible() && await page.locator('#p-reglages').isVisible(), 'supprimer : ouvert depuis l\'installateur, Réglages et encadré « Supprimer » affichés directement');
-    ok(await page.locator('#suppr-go').isDisabled(), 'supprimer : bouton grisé tant que le prénom n\'est pas tapé');
+    ok(await page.locator('#suppr-site').isChecked() && await page.locator('#suppr-go').isDisabled(), 'supprimer : case « Supprimer » déjà cochée, bouton grisé tant que le prénom n\'est pas tapé');
     let lien = '';
     await page.route('**/macros/s/INSTALL/exec**', route => { lien = route.request().url(); route.fulfill({ contentType: 'text/html',
       body: '<script>parent.postMessage({ uq: "suppr", etat: "ok", desinstalle: true, id: "projet-script" }, "*")</script>' }); });
+    await page.locator('[data-raz="resultats"]').check(); await page.locator('[data-raz="quiz"]').check();
     await page.fill('#suppr-confirmation', 'Lana');
     await page.locator('#suppr-go').click();
     await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
@@ -1232,6 +1233,7 @@ try {
     // dernier enfant : comme avant, l'installateur termine (publications retirées : à refaire avec l'étape installateur)
     await page.goto(BASE + '/exec?supprimer=1');
     await page.locator('#box-suppr').waitFor({ timeout: 5000 });
+    await page.locator('[data-raz="resultats"]').check(); await page.locator('[data-raz="quiz"]').check();
     await page.fill('#suppr-confirmation', 'Hugo');
     await page.locator('#suppr-go').click();
     await page.locator('#suppr-msg .ok, #suppr-msg .ko').waitFor({ timeout: 10000 }).catch(() => {});
