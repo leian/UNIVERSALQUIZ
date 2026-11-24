@@ -51,7 +51,7 @@ Tant que la validation n'est pas accordée, rien ne change pour les amis : ils p
 
 ## Le jour de la validation
 
-**Sans objet depuis le 24 novembre 2026.** Le mail d'invitation (`docs/invitation.html`) envoie déjà vers la nouvelle version (« Commencer avec Google » sur app.soccaquiz.fr, aucune alerte) : l'encadré jaune « C'est normal : … » n'existe plus, et le texte de remplacement prévu ci-dessous n'est plus à poser. Paragraphe gardé pour mémoire :
+**Sans objet depuis le 24 novembre 2026.** Le mail d'invitation (`docs/invitation.html`) envoie déjà vers la nouvelle version (« Commencer avec Google » sur app.soccaquiz.fr, aucune alerte) : l'encadré jaune « C'est normal : … » n'existe plus, et le commentaire « TEXTE À METTRE LE JOUR OÙ GOOGLE VALIDE L'INSTALLATEUR » a été retiré de cette page (24 nov. 2026). Paragraphe d'origine gardé pour mémoire :
 
 Le mail d'invitation annonce deux avertissements « Google n'a pas validé cette application » ; il n'en restera qu'un (celui du site de la famille). Le texte de remplacement est prêt dans `docs/invitation.html`, dans le commentaire « TEXTE À METTRE LE JOUR OÙ GOOGLE VALIDE L'INSTALLATEUR », juste après le mail : remplace l'encadré jaune par ce texte et pousse (GitHub Pages, aucun redéploiement). L'aide de l'installateur (« Dernière étape ») porte sur le site de la famille : elle reste juste.
 
