@@ -155,8 +155,15 @@ const lignes = String(txt.d.r && (txt.d.r.texte || txt.d.r) || '');
 ok(/^F\|s1\|<svg/m.test(lignes) && /^Z\|Touche le cœur\.\|coeur\|.*sch=s1/m.test(lignes) && /^E\|Légende le schéma\.\|coeur=Cœur\|poumons=Poumons\|estomac=Estomac\|.*sch=s1/m.test(lignes) && (lignes.match(/^F\|/gm) || []).length === 1, 'schémas : texte en lignes (Corriger moi-même) avec un seul F et sch= — ' + lignes.split('\n').filter(l => /^[FZE]\|/.test(l)).map(l => l.slice(0, 60)).join(' / '));
 
 /* 5. reconnexion du même compte : même famille, nouveau code d'appareil */
-const re = await appel('/connexion', { code: 'bon-code', prenom: 'X', classe: 'CP' });
-ok(re.d.s === S && re.d.code && re.d.nouvelle === false, 'reconnexion : même famille, nouveau code');
+const re = await appel('/connexion', { code: 'bon-code', prenom: '', classe: '' });
+ok(re.d.s === S && re.d.code && re.d.nouvelle === false && !re.d.ajoute, 'reconnexion : même famille, nouveau code');
+const reM = await appel('/connexion', { code: 'bon-code', prenom: 'Mathilde', classe: 'CE1' });
+const etatM = await appel('/f/' + S + '?api=etat&e=' + reM.d.enfant);
+const reL = await appel('/connexion', { code: 'bon-code', prenom: 'lana', classe: 'CP' });
+ok(reM.d.s === S && reM.d.ajoute === true && etatM.d.prenom === 'Mathilde' && reL.d.ajoute === false && reL.d.enfant === 'a',
+  'réinstaller avec un nouveau prénom : l\'enfant rejoint la famille (prénom connu : ouvert, pas de doublon) — ' + JSON.stringify([reM.d, etatM.d.prenom, reL.d.enfant]));
+const supM = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiSupprimerSite', args: [{ confirmation: 'Mathilde' }], e: reM.d.enfant });
+ok(supM.d.r && supM.d.r.ok, 'supprimer Mathilde — ' + JSON.stringify(supM.d).slice(0, 120));
 
 /* 6. suppression : un enfant parmi d'autres, puis le dernier (SoccaQuiz quitte la famille) */
 const idH = enfants.d.r && (enfants.d.r.id || (enfants.d.r.enfant && enfants.d.r.enfant.id)) || 'b';

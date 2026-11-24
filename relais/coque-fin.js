@@ -272,8 +272,25 @@ async function connexion_(env, o, url) {
     // reconnexion : Google ne redonne une clé durable qu'avec prompt=consent ; sinon on garde l'ancienne
     if (j.refresh_token) await env.DB.prepare('UPDATE familles SET jeton_c = ?, maj = ? WHERE id = ?').bind(await chiffrer_(env, j.refresh_token), Date.now(), existante.id).run();
     MEMOIRE_.delete(existante.id);
-    const code = await codeAppareil_(env, existante.id, nomAppareil);
-    return { ok: true, s: existante.id, code, nouvelle: false };
+    // prénom tapé sur la page : enfant déjà là → on l'ouvre ; sinon on l'ajoute à la famille (le parent croyait installer pour lui)
+    const prenomR = String(o.prenom || '').replace(/[<>"`\\&$|]/g, '').replace(/\s+/g, ' ').trim().slice(0, 30), classeR = CLASSES_OK_.indexOf(o.classe) >= 0 ? o.classe : '';
+    let code = null, enfant = '', ajoute = false;
+    await demandeInterne_(env, existante.id, () => {
+      code = creerInvitation_('proprio', nomAppareil);
+      if (prenomR) {
+        const deja = enfants_().find(x => String(x.prenom).toLowerCase() === prenomR.toLowerCase());
+        if (deja) enfant = deja.id;
+        else {
+          PARENT_ = { h: 'connexion', role: 'proprio', nom: nomAppareil };
+          try { const r = apiAjouterEnfant({ prenom: prenomR, classe: classeR }); if (r && r.ok) { enfant = r.id; ajoute = true; } }
+          finally { PARENT_ = null; }
+        }
+      }
+      installer_();
+      return { ok: true };
+    });
+    if (!code) throw new Error('Code d\'appareil non créé.');
+    return { ok: true, s: existante.id, code, nouvelle: false, enfant, ajoute, prenom: prenomR };
   }
   if (!j.refresh_token) return { erreur: 'cle', message: 'Google n\'a pas donné de clé durable : recommence la connexion.' };
   const prenom = String(o.prenom || '').trim().slice(0, 30), classe = CLASSES_OK_.indexOf(o.classe) >= 0 ? o.classe : '';

@@ -124,8 +124,8 @@
     .then(function (d) {
       if (d && d.ok && d.s && d.code) {
         memo('sq-inscription', null);
-        $('texte-attente').textContent = d.nouvelle ? 'C\'est prêt !' : 'Content de te revoir !';
-        location.replace('/parent/?s=' + encodeURIComponent(d.s) + '#i=' + encodeURIComponent(d.code));
+        $('texte-attente').textContent = d.nouvelle ? 'C\'est prêt !' : d.ajoute ? d.prenom + ' rejoint ta famille SoccaQuiz !' : 'Content de te revoir !';
+        location.replace('/parent/?s=' + encodeURIComponent(d.s) + (d.enfant && /^[a-z0-9]{1,8}$/.test(d.enfant) ? '&e=' + d.enfant : '') + '#i=' + encodeURIComponent(d.code));
         return;
       }
       probleme((d && (d.message || d.erreur)) || 'SoccaQuiz n\'a pas pu terminer. Recommence dans un instant.');
