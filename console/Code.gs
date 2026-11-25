@@ -539,6 +539,9 @@ const PROJET_GCP_ = 'soccaquiz';
 /* À exécuter depuis l'éditeur (▷ Exécuter) : demande l'autorisation si besoin, puis écrit dans le journal d'exécution
    les autorisations réellement accordées et le résultat d'une vraie lecture de Cloud Monitoring (diagnostic). */
 function autoriserConsole() {
+  // Google ne redemande pas tout seul une autorisation ajoutée au manifeste après coup : on l'exige ici,
+  // ce qui ouvre la fenêtre « Autorisation requise » pour les accès manquants (monitoring.read).
+  if (typeof ScriptApp.requireAllScopes === 'function') ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
   const jeton = ScriptApp.getOAuthToken();
   let accordees = '';
   try {
