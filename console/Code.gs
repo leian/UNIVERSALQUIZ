@@ -529,6 +529,54 @@ function lireBilan_(jeton) {
   return { familles: +j.familles || 0, actives7: +j.actives7 || 0, actives30: +j.actives30 || 0,
     semaines: (Array.isArray(j.semaines) ? j.semaines : []).filter(w => w && /^\d{4}-\d{2}-\d{2}$/.test(w.semaine)).slice(0, 12).map(w => ({ semaine: w.semaine, n: +w.n || 0 })) };
 }
+/* ---------------- consommation de l'API Google Drive du projet « soccaquiz » ----------------
+   Le relais appelle l'API Drive pour toutes les familles avec le client OAuth du projet Google Cloud « soccaquiz » :
+   c'est ce projet qui compte pour les quotas et les niveaux d'API Workspace (Standard gratuit / Scaled payant, 1er avril 2027).
+   Chiffres lus dans Cloud Monitoring (métrique serviceruntime api/request_count, les mêmes que le tableau de bord de Google),
+   avec l'autorisation monitoring.read de la console ; quota de lecture compté sur le projet « soccaquiz » (en-tête
+   X-Goog-User-Project : API Cloud Monitoring à activer une fois dans ce projet). Aucune donnée de famille : des nombres d'appels. */
+const PROJET_GCP_ = 'soccaquiz';
+function autoriserConsole() { ScriptApp.getOAuthToken(); return 'Console autorisée.'; }
+function serieDrive_(debut, fin, periode, grouper) {
+  const filtre = 'metric.type="serviceruntime.googleapis.com/api/request_count" AND resource.type="consumed_api" AND resource.labels.service="drive.googleapis.com"';
+  const q = { filter: filtre, 'interval.startTime': debut.toISOString(), 'interval.endTime': fin.toISOString(),
+    'aggregation.alignmentPeriod': periode + 's', 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM', pageSize: '1000' };
+  if (grouper) q['aggregation.groupByFields'] = grouper;
+  const url = 'https:\/\/monitoring.googleapis.com/v3/projects/' + PROJET_GCP_ + '/timeSeries?' + Object.keys(q).map(k => k + '=' + encodeURIComponent(q[k])).join('&');
+  const r = UrlFetchApp.fetch(url, { headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Goog-User-Project': PROJET_GCP_ }, muteHttpExceptions: true });
+  let j = {}; try { j = JSON.parse(r.getContentText()); } catch (e) {}
+  if (r.getResponseCode() !== 200) {
+    const m = String((j.error && j.error.message) || r.getContentText()).slice(0, 300);
+    if (/has not been used|is disabled|SERVICE_DISABLED/i.test(m)) throw new Error('API Cloud Monitoring à activer dans le projet « soccaquiz » (Liens → « Activer Cloud Monitoring »), puis réessayer dans 2 minutes.');
+    if (r.getResponseCode() === 401 || /insufficient|scope/i.test(m)) throw new Error('La console n\'a pas encore l\'autorisation de lire les chiffres : dans l\'éditeur Apps Script, exécute la fonction autoriserConsole (voir Réglages → « Quota Google Drive »).');
+    throw new Error('Cloud Monitoring : ' + m);
+  }
+  return (j.timeSeries || []).map(t => ({ code: String((t.metric && t.metric.labels && t.metric.labels.response_code) || ''),
+    points: (t.points || []).map(p => ({ fin: String(p.interval && p.interval.endTime || ''), n: +((p.value && (p.value.int64Value != null ? p.value.int64Value : p.value.doubleValue)) || 0) })) }));
+}
+function apiUsageDrive(frais) {
+  exiger_();
+  const cache = CacheService.getScriptCache();
+  if (!frais) { const c = cache.get('usage-drive'); if (c) try { return JSON.parse(c); } catch (e) {} }
+  try {
+    const fin = new Date(), jours = {};
+    serieDrive_(new Date(fin.getTime() - 30 * 864e5), fin, 86400, 'metric.labels.response_code').forEach(s => s.points.forEach(p => {
+      const k = Utilities.formatDate(new Date(new Date(p.fin).getTime() - 1000), 'Europe/Paris', 'yyyy-MM-dd');
+      const j = jours[k] || (jours[k] = { jour: k, total: 0, quota: 0, erreurs: 0 });
+      j.total += p.n;
+      if (s.code === '429') j.quota += p.n; else if (/^[45]/.test(s.code)) j.erreurs += p.n;
+    }));
+    let pointe = 0, pointeA = '';
+    serieDrive_(new Date(fin.getTime() - 864e5), fin, 60, '').forEach(s => s.points.forEach(p => { if (p.n > pointe) { pointe = p.n; pointeA = p.fin; } }));
+    const liste = Object.keys(jours).sort().reverse().map(k => jours[k]);
+    const total = liste.reduce((a, j) => a + j.total, 0);
+    const r = { ok: true, lu: fin.toISOString(), jours: liste.slice(0, 30), total30: total, moyenne: liste.length ? Math.round(total / liste.length) : 0,
+      maxJour: liste.reduce((a, j) => Math.max(a, j.total), 0), quota30: liste.reduce((a, j) => a + j.quota, 0), erreurs30: liste.reduce((a, j) => a + j.erreurs, 0),
+      pointeMinute: pointe, pointeA };
+    cache.put('usage-drive', JSON.stringify(r), 600);
+    return r;
+  } catch (e) { return { erreur: String(e.message || e) }; }
+}
 function apiBilanRelais() {
   exiger_();
   const jeton = PropertiesService.getScriptProperties().getProperty('RELAIS_JETON');
@@ -671,6 +719,8 @@ const LIENS_ = [
     ['Relais : est-il en marche ?', 'https:\/\/soccaquiz-relais.soccaquiz.workers.dev/sante', 'Doit répondre {"ok":true}. L\'adresse du Worker seule (bouton Visit de Cloudflare) répond « Introuvable » : normal, le relais n\'a pas de page d\'accueil. Worker « soccaquiz-relais » du compte Cloudflare soccaquiz, publié par l\'Action « Relais » à chaque push.'],
     ['Cloudflare : Workers et D1', 'https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages', 'Worker « soccaquiz-relais » → Settings → Variables and Secrets : CLE_CHIFFREMENT (Secret, NE JAMAIS l\'effacer ni la modifier), GOOGLE_CLIENT_SECRET (Secret), GOOGLE_CLIENT_ID (Variable), JETON_CONSOLE (Secret, facultatif : bilan de l\'onglet Statistiques, voir Réglages). Base D1 « soccaquiz-relais » : une ligne par famille, données chiffrées.'],
     ['Journal du relais (Cloudflare)', 'https:\/\/dash.cloudflare.com/?to=/:account/workers-and-pages', 'Worker « soccaquiz-relais » → onglet Logs : demandes et erreurs des derniers jours. À ouvrir seulement pour comprendre une panne (règles de confidentialité, § 3).'],
+    ['Activer Cloud Monitoring (une fois)', 'https:\/\/console.cloud.google.com/apis/library/monitoring.googleapis.com?project=soccaquiz', 'Nécessaire au bloc « Quota Google Drive » de l\'onglet Statistiques : bouton « Activer », projet soccaquiz. Gratuit (lecture de chiffres seulement).'],
+    ['Quotas de l\'API Drive (projet soccaquiz)', 'https:\/\/console.cloud.google.com/apis/api/drive.googleapis.com/quotas?project=soccaquiz', 'Limites de Google pour le relais (toutes les familles). Niveaux Workspace « Standard » (gratuit) / « Scaled » (payant) à partir du 1er avril 2027 : comparer avec l\'onglet Statistiques.'],
     ['Google Cloud : projet « soccaquiz »', 'https:\/\/console.cloud.google.com/auth/overview', 'Choisir le projet soccaquiz : marque, client OAuth « SoccaQuiz relais », accès drive.file seulement. Ne pas toucher aux accès du projet 710131532855 pendant la validation.'],
     ['Action « Relais » (GitHub)', 'https:\/\/github.com/' + DEPOT + '/actions/workflows/relais.yml', 'Tests, puis publication du relais et de app.soccaquiz.fr. Compteurs : les installations par le relais apparaissent avec la version « relais » dans l\'onglet Statistiques.']
   ]],
@@ -845,6 +895,7 @@ function client_() {
     var t = S.totaux, chiffre = function (n, lib, aide) { return '<div class="chiffre"><b>' + n + '</b><span>' + esc(lib) + '</span>' + (aide ? '<small>' + esc(aide) + '</small>' : '') + '</div>'; };
     var jour = function (k) { try { return new Date(k + 'T12:00:00').toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' }); } catch (e) { return k; } };
     c.innerHTML = MSG + '<div class="box" id="bilan-relais"><h2>' + I('chart') + 'Familles inscrites (nouvelle version)</h2><p class="petit">Lecture du relais…</p></div>' +
+      '<div class="box" id="usage-drive"><h2>' + I('chart') + 'Quota Google Drive (projet soccaquiz)</h2><p class="petit">Lecture des chiffres de Google…</p></div>' +
       '<div class="box"><h2>' + I('chart') + 'Sites SoccaQuiz</h2>' +
       '<div class="chiffres">' + chiffre(S.enService, 'en service', 'déjà là + installés − supprimés') + chiffre(t.installation, 'installations') + chiffre(t.maj, 'mises à jour') + chiffre(t.suppression, 'suppressions') + '</div>' +
       '<p class="petit">Compteurs anonymes envoyés par l\'installateur' + (S.debut ? ' depuis le ' + esc(new Date(S.debut).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })) : '') + ' : un « +1 » par installation, mise à jour ou suppression, avec le numéro de version, sans rien sur les familles. Les sites installés avant les compteurs (' + t.existant + ' comptés pour l\'instant) le sont à leur première mise à jour ou suppression.</p></div>' +
@@ -866,6 +917,21 @@ function client_() {
         appel('apiRemettreStatsAZero', [], function (r) { charger(function () { ouvrir('stats'); info(r.vide ? 'Rien à remettre à zéro.' : 'Compteurs remis à zéro. Les anciens sont gardés dans la feuille « ' + r.archive + ' ».'); }); }, function (m) { $('raz-oui').disabled = false; erreur(m); });
       };
     };
+    var zoneU = $('usage-drive'), titreU = '<h2>' + I('chart') + 'Quota Google Drive (projet soccaquiz)</h2>';
+    var afficherUsage = function (u) {
+      if (!zoneU) return;
+      if (u.erreur) { zoneU.innerHTML = titreU + '<p class="petit">' + esc(u.erreur) + '</p>'; return; }
+      var nb = function (n) { return Number(n).toLocaleString('fr-FR'); };
+      var heure = u.pointeA ? new Date(u.pointeA).toLocaleString('fr-FR', { weekday: 'short', hour: '2-digit', minute: '2-digit' }) : '';
+      zoneU.innerHTML = titreU + '<div class="chiffres">' + chiffre(nb(u.total30), 'appels sur 30 jours') + chiffre(nb(u.moyenne), 'par jour en moyenne', 'jour le plus chargé : ' + nb(u.maxJour)) +
+        chiffre(nb(u.pointeMinute), 'pointe par minute', 'sur 24 h' + (heure ? ', ' + heure : '')) + chiffre(nb(u.quota30), 'refus pour quota', '30 jours (erreur 429)') + '</div>' +
+        (u.quota30 ? '<p class="ko"><b>Google a déjà refusé des appels pour cause de quota</b> : des familles ont pu voir une erreur. Regarde la page des quotas (onglet Liens).</p>' : '') +
+        (u.jours.length ? '<details><summary>Détail par jour</summary><table class="stats"><tr><th>Jour</th><th>Appels</th><th>Refus (quota)</th><th>Autres erreurs</th></tr>' +
+          u.jours.slice(0, 14).map(function (j) { return '<tr><td>' + esc(jour(j.jour)) + '</td><td>' + nb(j.total) + '</td><td>' + j.quota + '</td><td>' + j.erreurs + '</td></tr>'; }).join('') + '</table></details>' : '') +
+        '<p class="petit">Appels à l\'API Google Drive faits par le relais pour toutes les familles, comptés par Google (Cloud Monitoring, mêmes chiffres que son tableau de bord ; mis à jour toutes les 10 min). À comparer avec les limites du niveau « Standard » (gratuit) des API Workspace, en vigueur le 1er avril 2027 : onglet Liens → « Quotas de l\'API Drive ». <a href="#" id="usage-frais">Relire maintenant</a></p>';
+      if ($('usage-frais')) $('usage-frais').onclick = function (e) { e.preventDefault(); zoneU.innerHTML = titreU + '<p class="petit">Lecture…</p>'; appel('apiUsageDrive', [true], afficherUsage, function (m) { afficherUsage({ erreur: m }); }); };
+    };
+    appel('apiUsageDrive', [false], afficherUsage, function (m) { afficherUsage({ erreur: m }); });
     var zone = $('bilan-relais'), titre = '<h2>' + I('chart') + 'Familles inscrites (nouvelle version)</h2>';
     appel('apiBilanRelais', [], function (r) {
       if (!zone) return;
@@ -1210,6 +1276,15 @@ function client_() {
       '<label for="r-url">Adresse du déploiement « Propositions »</label><input id="r-url" value="' + esc(ETAT.urlPropositions) + '" placeholder="https:\/\/script.google.com/macros/s/…/exec">' +
       '<div class="actions" style="margin-top:10px"><button class="btn principal" id="r-url-ok"' + (ETAT.jeton ? '' : ' disabled') + '>' + I('check') + ' Activer</button>' + (ETAT.urlPropositions ? '<button class="btn danger" id="r-url-off">' + I('x') + ' Couper la réception</button>' : '') + '</div>' +
       (ETAT.jeton ? '' : '<p class="petit">Le jeton GitHub est nécessaire : l\'adresse est publiée dans docs/soccaquiz.json, que lisent les sites.</p>') + '</div>' +
+      '<div class="box"><h2>' + I('key') + 'Quota Google Drive</h2>' +
+      '<p>Le bloc « Quota Google Drive » de l\'onglet Statistiques lit chez Google le nombre d\'appels à l\'API Drive du projet <code>soccaquiz</code> (le relais, toutes familles confondues). Deux réglages, une seule fois :</p>' +
+      '<ol class="etapes"><li><b>Activer Cloud Monitoring</b> dans le projet soccaquiz : <a href="https:\/\/console.cloud.google.com/apis/library/monitoring.googleapis.com?project=soccaquiz" target="_blank" rel="noopener">ouvrir</a> (compte soccaquiz) → bouton <b>Activer</b>.</li>' +
+      '<li><b>Autoriser la console</b> : dans l\'éditeur Apps Script de la console, choisis la fonction <code>autoriserConsole</code> dans la liste en haut, clique sur <b>▷ Exécuter</b>, puis accepte (compte soccaquiz). À refaire seulement si le manifeste <code>appsscript.json</code> change.</li></ol>' +
+      '<details><summary>En cas de souci</summary><ul class="etapes">' +
+      '<li><b>« API Cloud Monitoring à activer »</b> : étape 1, puis attendre 2 minutes.</li>' +
+      '<li><b>« La console n\'a pas encore l\'autorisation »</b> : étape 2. Vérifie aussi que <code>appsscript.json</code> contient la ligne <code>monitoring.read</code> (Paramètres du projet → Afficher le fichier manifeste).</li>' +
+      '<li><b>« Permission denied »</b> : la console doit tourner avec le compte soccaquiz, propriétaire du projet Google Cloud soccaquiz.</li>' +
+      '<li><b>Chiffres à zéro</b> : normal tant que personne n\'a utilisé SoccaQuiz depuis 30 jours ; Google publie les chiffres avec quelques minutes de retard.</li></ul></details></div>' +
       '<div class="box"><h2>' + I('key') + 'Bilan du relais</h2>' +
       (ETAT.jetonRelais ? '<p class="ok"><b>Relié</b> : l\'onglet Statistiques affiche les familles inscrites et actives.</p>' : '<p>Pour afficher dans l\'onglet Statistiques les familles inscrites et actives (des totaux seulement), la console et le relais partagent un jeton secret :</p>') +
       '<ol class="etapes"><li>Clique sur <b>Créer un jeton</b>, puis sur <b>Copier</b>.</li>' +

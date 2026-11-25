@@ -47,3 +47,15 @@ Quand `console/Code.gs` change : recolle-le, enregistre, puis **Déployer → G�
 - **Problèmes fréquents** : tout est expliqué dans la console, Réglages → « Bilan du relais » → « En cas de souci » (nom déjà existant, Variable au lieu de Secret, jeton non reconnu, « Introuvable » sur l'adresse du relais, changer ou retirer le jeton).
 - **Ne jamais supprimer ni modifier `CLE_CHIFFREMENT`** dans Cloudflare : les données de toutes les familles deviendraient illisibles.
 - **Remettre les compteurs à zéro** : Statistiques → « Remettre à zéro… » → confirmation (Annuler / Oui). La feuille « Statistiques » est renommée en archive (rien n'est effacé) ; le bloc « Familles inscrites » ne change pas (familles réellement inscrites dans le relais).
+
+## Quota Google Drive (onglet Statistiques)
+
+Le bloc « Quota Google Drive » lit chez Google (Cloud Monitoring) le nombre d'appels à l'API Drive du projet Google Cloud `soccaquiz`, c'est-à-dire ceux du relais pour toutes les familles : appels sur 30 jours, moyenne par jour, pointe par minute, refus pour quota (erreur 429). À comparer avec les limites du niveau « Standard » (gratuit) des API Workspace, en vigueur le 1er avril 2027 (onglet Liens → « Quotas de l'API Drive »).
+
+Mise en place (une fois, compte soccaquiz), **dans cet ordre** :
+1. Activer l'API Cloud Monitoring dans le projet `soccaquiz` : https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=soccaquiz → **Activer**.
+2. Dans l'éditeur Apps Script de la console : remplacer `Code.gs` **et** `appsscript.json` (il contient maintenant `monitoring.read`), Enregistrer.
+3. Choisir la fonction `autoriserConsole` en haut de l'éditeur → **▷ Exécuter** → accepter l'autorisation. **Avant** l'étape 4 : sinon le déploiement « Propositions » (envois des familles) attendrait cette autorisation.
+4. Déployer → Gérer les déploiements → Nouvelle version de **« Console »** puis de **« Propositions »**.
+
+Problèmes fréquents : console → Réglages → « Quota Google Drive » → « En cas de souci ».

@@ -46,6 +46,7 @@ const feuilleS = {
   getRange: (l, c, nl, nc) => ({ getValues: () => lignesS.slice(l - 1, l - 1 + nl).map(r => r.slice(c - 1, c - 1 + nc)) })
 };
 let ongletS = false, archiveS = null;
+const MONITORING = []; let monitoringEtat = 'off';
 feuilleS.setName = n => { archiveS = { nom: n, lignes: lignesS.splice(0) }; ongletS = false; };
 ss.getSheetByName = n => n === 'Erreurs' && ongletE ? feuilleE : n === 'Aide' && ongletA ? feuilleA : n === 'Statistiques' && ongletS ? feuilleS : null;
 ss.insertSheet = n => { if (n === 'Aide') { ongletA = true; return feuilleA; } if (n === 'Statistiques') { ongletS = true; return feuilleS; } ongletE = true; return feuilleE; };
@@ -59,7 +60,7 @@ const envoyes = [];
 const b64 = s => Buffer.from(s, 'utf8').toString('base64');
 const ctx = {
   console,
-  ScriptApp: { getScriptId: () => 'ID-CONSOLE-0123456789abcdef' },
+  ScriptApp: { getScriptId: () => 'ID-CONSOLE-0123456789abcdef', getOAuthToken: () => 'jeton-oauth' },
   Session: { getActiveUser: () => ({ getEmail: () => actif }), getEffectiveUser: () => ({ getEmail: () => 'soccaquiz@gmail.com' }) },
   PropertiesService: {
     getScriptProperties: () => ({ getProperty: k => props[k] ?? null, setProperty: (k, v) => { props[k] = v; }, deleteProperty: k => { delete props[k]; } }),
@@ -82,6 +83,16 @@ const ctx = {
     fetch: (url, o = {}) => {
       const rep = (code, j) => ({ getResponseCode: () => code, getContentText: () => typeof j === 'string' ? j : JSON.stringify(j) });
       if (url.startsWith('https://leian.github.io/UNIVERSALQUIZ/invitation.html')) return rep(200, readFileSync(join(RACINE, 'docs', 'invitation.html'), 'utf8'));
+      if (url.startsWith('https://monitoring.googleapis.com/v3/projects/soccaquiz/timeSeries?')) {
+        MONITORING.push({ url, o });
+        if (monitoringEtat === 'off') return rep(403, { error: { message: 'Cloud Monitoring API has not been used in project 123 before or it is disabled.' } });
+        const q = new URL(url).searchParams;
+        if (q.get('aggregation.alignmentPeriod') === '86400s') return rep(200, { timeSeries: [
+          { metric: { labels: { response_code: '200' } }, points: [{ interval: { endTime: '2026-11-25T12:00:00Z' }, value: { int64Value: '1200' } }, { interval: { endTime: '2026-11-24T12:00:00Z' }, value: { int64Value: '800' } }] },
+          { metric: { labels: { response_code: '429' } }, points: [{ interval: { endTime: '2026-11-25T12:00:00Z' }, value: { int64Value: '3' } }] },
+          { metric: { labels: { response_code: '404' } }, points: [{ interval: { endTime: '2026-11-24T12:00:00Z' }, value: { int64Value: '5' } }] }] });
+        return rep(200, { timeSeries: [{ points: [{ interval: { endTime: '2026-11-25T08:01:00Z' }, value: { int64Value: '42' } }, { interval: { endTime: '2026-11-25T08:02:00Z' }, value: { int64Value: '7' } }] }] });
+      }
       if (url === 'https://soccaquiz-relais.soccaquiz.workers.dev/bilan') return (o.headers || {}).Authorization === 'Bearer ' + 'k'.repeat(64)
         ? rep(200, { ok: true, t: 1, familles: 5, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }] }) : rep(404, { erreur: 'Introuvable.' });
       const m = url.match(/^https:\/\/api\.github\.com\/repos\/leian\/UNIVERSALQUIZ(.*)$/);
@@ -284,6 +295,24 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   const page = ctx.doGet({ parameter: {} }).h;
   ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page) && /En cas de souci/.test(page) && /already exists/.test(page) && /CLE_CHIFFREMENT/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
   ok(ctx.apiJetonRelais('').ok && ctx.apiEtat().jetonRelais === false, 'bilan du relais : délier');
+}
+// consommation de l'API Drive du projet soccaquiz (Cloud Monitoring)
+{
+  const r0 = ctx.apiUsageDrive(true);
+  ok(r0.erreur && /Cloud Monitoring à activer/.test(r0.erreur), 'quota Drive : API Cloud Monitoring pas activée → message clair — ' + r0.erreur);
+  monitoringEtat = 'on'; MONITORING.length = 0;
+  const u = ctx.apiUsageDrive(true);
+  const q = new URL(MONITORING[0].url).searchParams;
+  ok(u.ok && u.total30 === 2008 && u.quota30 === 3 && u.erreurs30 === 5 && u.pointeMinute === 42 && u.jours.length >= 1 && u.maxJour <= 2008 && u.moyenne > 0, /* faux Utilities.formatDate : une seule date */
+    'quota Drive : appels sur 30 jours, refus pour quota (429), autres erreurs, pointe par minute — ' + JSON.stringify(u).slice(0, 200));
+  ok(/drive\.googleapis\.com/.test(q.get('filter')) && /api\/request_count/.test(q.get('filter')) && MONITORING[0].o.headers['X-Goog-User-Project'] === 'soccaquiz' && MONITORING[0].o.headers.Authorization === 'Bearer jeton-oauth',
+    'quota Drive : métrique api/request_count du service Drive, quota de lecture compté sur le projet soccaquiz');
+  MONITORING.length = 0; ctx.apiUsageDrive(false);
+  ok(MONITORING.length === 0, 'quota Drive : chiffres gardés 10 min (pas de nouvelle lecture)');
+  const man = JSON.parse(readFileSync(join(RACINE, 'console', 'appsscript.json'), 'utf8'));
+  const page = ctx.doGet({ parameter: {} }).h;
+  ok(man.oauthScopes.includes('https://www.googleapis.com/auth/monitoring.read') && typeof ctx.autoriserConsole === 'function' && /usage-drive/.test(page) && /autoriserConsole/.test(page) && /Activer Cloud Monitoring/.test(page),
+    'quota Drive : autorisation monitoring.read dans le manifeste, fonction autoriserConsole, bloc Statistiques, aide dans Réglages, lien Liens');
 }
 // onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements
 {
