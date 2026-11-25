@@ -24,7 +24,12 @@ urlAppliBase_ = function () { return FAMILLE_ ? ORIGINE_SITE_ + '/?s=' + FAMILLE
 urlAppli_ = function () { const b = urlAppliBase_(); return b && !estPremier_() ? b + '&e=' + enfantId_() : b; };                         // famille → { rev, magasin, fichiers, cache, jeton, expire } (le temps de vie du relais)
 
 export default {
-  async fetch(req, env) {
+  async fetch(req, env, ctx) {
+    try { return await traiter_(req, env); }
+    finally { const f = enregistrerAppels_(env); if (ctx && ctx.waitUntil) ctx.waitUntil(f); else await f; }
+  }
+};
+async function traiter_(req, env) {
     const url = new URL(req.url), origine = req.headers.get('Origin') || '';
     const cors = { 'Access-Control-Allow-Origin': ORIGINES_.indexOf(origine) >= 0 || /^http:\/\/localhost(:\d+)?$/.test(origine) ? origine : ORIGINES_[0], 'Vary': 'Origin' };
     const json = (o, statut) => new Response(JSON.stringify(o), { status: statut || 200, headers: Object.assign({ 'Content-Type': 'application/json; charset=utf-8', 'Cache-Control': 'no-store' }, cors) });
@@ -48,8 +53,7 @@ export default {
       console.error(e && e.stack || e);
       return json({ v: API_V, erreur: e && e.message ? e.message : String(e), relais: true }, e && e.statut || 500);
     }
-  }
-};
+}
 
 async function lireCorps_(req) {
   try { return JSON.parse(await req.text()); } catch (e) { const x = new Error('Demande illisible.'); x.statut = 400; throw x; }
@@ -60,6 +64,8 @@ let SCHEMA_OK_ = false;
 async function schema_(env) {
   if (SCHEMA_OK_) return;
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS familles (id TEXT PRIMARY KEY, email_h TEXT UNIQUE, email_c TEXT, jeton_c TEXT, dossier TEXT, index_id TEXT, props_c TEXT, rev INTEGER NOT NULL DEFAULT 0, verrou INTEGER NOT NULL DEFAULT 0, cree INTEGER, maj INTEGER)').run();
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS usage_jour (jour TEXT PRIMARY KEY, appels INTEGER NOT NULL DEFAULT 0, refus INTEGER NOT NULL DEFAULT 0, erreurs INTEGER NOT NULL DEFAULT 0)').run();
+  await env.DB.prepare('CREATE TABLE IF NOT EXISTS usage_minute (minute INTEGER PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0)').run();
   SCHEMA_OK_ = true;
 }
 const familleD1_ = (env, id) => env.DB.prepare('SELECT * FROM familles WHERE id = ?').bind(id).first();
@@ -120,7 +126,27 @@ async function acces_(env, fam) {
   MEMOIRE_.set(fam.id, m);
   return j.access_token;
 }
-const drive_ = (jeton, adresse, o = {}) => fetch(adresse, Object.assign({}, o, { headers: Object.assign({ Authorization: 'Bearer ' + jeton }, o.headers || {}) }));
+/* chaque appel à l'API Google Drive (toutes familles) est compté : totaux par jour et par minute dans D1 (tables usage_*),
+   pour suivre le quota du projet Google « soccaquiz » dans la console (bilan). Aucun identifiant de famille. */
+const APPELS_ = { n: 0, refus: 0, erreurs: 0, minutes: {} };
+const drive_ = async (jeton, adresse, o = {}) => {
+  const r = await fetch(adresse, Object.assign({}, o, { headers: Object.assign({ Authorization: 'Bearer ' + jeton }, o.headers || {}) }));
+  APPELS_.n++; if (r.status === 429) APPELS_.refus++; else if (r.status >= 400) APPELS_.erreurs++;
+  const mn = Math.floor(Date.now() / 60000); APPELS_.minutes[mn] = (APPELS_.minutes[mn] || 0) + 1;
+  return r;
+};
+const jourParis_ = t => new Intl.DateTimeFormat('fr-CA', { timeZone: 'Europe/Paris', year: 'numeric', month: '2-digit', day: '2-digit' }).format(new Date(t));
+async function enregistrerAppels_(env) {
+  if (!APPELS_.n) return;
+  const a = { n: APPELS_.n, refus: APPELS_.refus, erreurs: APPELS_.erreurs, minutes: APPELS_.minutes };
+  APPELS_.n = 0; APPELS_.refus = 0; APPELS_.erreurs = 0; APPELS_.minutes = {};
+  try {
+    const t = Date.now(), req = [env.DB.prepare('INSERT INTO usage_jour (jour, appels, refus, erreurs) VALUES (?, ?, ?, ?) ON CONFLICT(jour) DO UPDATE SET appels = appels + excluded.appels, refus = refus + excluded.refus, erreurs = erreurs + excluded.erreurs').bind(jourParis_(t), a.n, a.refus, a.erreurs)];
+    Object.keys(a.minutes).forEach(m => req.push(env.DB.prepare('INSERT INTO usage_minute (minute, n) VALUES (?, ?) ON CONFLICT(minute) DO UPDATE SET n = n + excluded.n').bind(+m, a.minutes[m])));
+    if (Math.random() < 0.02) { req.push(env.DB.prepare('DELETE FROM usage_minute WHERE minute < ?').bind(Math.floor(t / 60000) - 2880)); req.push(env.DB.prepare('DELETE FROM usage_jour WHERE jour < ?').bind(jourParis_(t - 400 * 864e5))); }
+    await env.DB.batch(req);
+  } catch (e) { console.error('compteur des appels Drive : ' + (e && e.message || e)); }
+}
 async function lireFichier_(jeton, id) {
   const r = await drive_(jeton, 'https://www.googleapis.com/drive/v3/files/' + id + '?alt=media');
   const t = await r.text();
@@ -348,8 +374,13 @@ async function bilan_(env, req, json) {
     const lundi = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() - ((d.getUTCDay() + 6) % 7)));
     const k = lundi.toISOString().slice(0, 10); semaines[k] = (semaines[k] || 0) + 1;
   });
+  await enregistrerAppels_(env);
+  const uj = await env.DB.prepare('SELECT jour, appels, refus, erreurs FROM usage_jour WHERE jour >= ? ORDER BY jour DESC').bind(jourParis_(t - 30 * J)).all();
+  const pm = await env.DB.prepare('SELECT minute, n FROM usage_minute WHERE minute >= ? ORDER BY n DESC LIMIT 1').bind(Math.floor(t / 60000) - 1440).first();
+  const jours = (uj.results || []).map(x => ({ jour: x.jour, appels: +x.appels || 0, refus: +x.refus || 0, erreurs: +x.erreurs || 0 }));
   return json({ ok: true, t, familles: +(tot && tot.n) || 0, actives7: +(tot && tot.a7) || 0, actives30: +(tot && tot.a30) || 0,
-    semaines: Object.keys(semaines).sort().reverse().map(k => ({ semaine: k, n: semaines[k] })) });
+    semaines: Object.keys(semaines).sort().reverse().map(k => ({ semaine: k, n: semaines[k] })),
+    drive: { jours, pointeMinute: pm ? +pm.n || 0 : 0, pointeA: pm ? new Date(pm.minute * 60000).toISOString() : '' } });
 }
 
 /* compteurs anonymes pour la console (onglet Statistiques) : l'événement et « relais », rien d'autre ; jamais bloquant */

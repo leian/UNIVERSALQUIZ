@@ -21,7 +21,8 @@ const DB = {
       run: async () => { const r = sql.prepare(q).run(...args); return { meta: { changes: Number(r.changes) } }; }
     };
     return st;
-  }
+  },
+  batch: async (liste) => { sql.exec('BEGIN'); try { const r = []; for (const st of liste) r.push(await st.run()); sql.exec('COMMIT'); return r; } catch (e) { sql.exec('ROLLBACK'); throw e; } }
 };
 
 /* ---------- faux Google ---------- */
@@ -83,7 +84,7 @@ ok((await bilan('')).statut === 404 && (await bilan('x'.repeat(40))).statut === 
 env.JETON_CONSOLE = 'j'.repeat(48);
 const b0 = await bilan('mauvais-jeton-mauvais-jeton-mauvais-jeton'), b1 = await bilan('j'.repeat(48));
 ok(b0.statut === 404 && b1.statut === 200 && b1.d.familles === 1 && b1.d.actives7 === 1 && b1.d.actives30 === 1 && b1.d.semaines.length === 1 && b1.d.semaines[0].n === 1
-  && Object.keys(b1.d).sort().join() === 'actives30,actives7,familles,ok,semaines,t' && !JSON.stringify(b1.d).includes(S) && !/Lana|parent\.test/.test(JSON.stringify(b1.d)),
+  && Object.keys(b1.d).sort().join() === 'actives30,actives7,drive,familles,ok,semaines,t' && !JSON.stringify(b1.d).includes(S) && !/Lana|parent\.test/.test(JSON.stringify(b1.d)),
   'bilan : mauvais jeton refusé ; bon jeton → totaux seulement (familles, actives, inscriptions par semaine), sans identifiant — ' + JSON.stringify(b1.d));
 ok([...fichiers.values()].some(f => f.name === 'SoccaQuiz' && f.mimeType === 'application/vnd.google-apps.folder') && [...fichiers.values()].some(f => f.name === 'SoccaQuiz – famille.json'), 'Drive : dossier « SoccaQuiz » et fichier de la famille créés');
 
@@ -173,6 +174,13 @@ ok(reM.d.s === S && reM.d.ajoute === true && etatM.d.prenom === 'Mathilde' && re
 const supM = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiSupprimerSite', args: [{ confirmation: 'Mathilde' }], e: reM.d.enfant });
 ok(supM.d.r && supM.d.r.ok, 'supprimer Mathilde — ' + JSON.stringify(supM.d).slice(0, 120));
 
+/* compteur des appels à l'API Drive (bilan pour la console) */
+{
+  const bd = await bilan('j'.repeat(48));
+  const d = bd.d.drive || {};
+  ok(bd.statut === 200 && Array.isArray(d.jours) && d.jours.length === 1 && d.jours[0].appels > 5 && /^\d{4}-\d{2}-\d{2}$/.test(d.jours[0].jour) && d.pointeMinute > 0 && d.pointeMinute <= d.jours[0].appels && !JSON.stringify(d).includes(S),
+    'bilan : appels à l\'API Drive comptés par jour et pointe par minute, sans identifiant — ' + JSON.stringify(d).slice(0, 160));
+}
 /* 6. suppression : un enfant parmi d'autres, puis le dernier (SoccaQuiz quitte la famille) */
 const idH = enfants.d.r && (enfants.d.r.id || (enfants.d.r.enfant && enfants.d.r.enfant.id)) || 'b';
 const supH = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiSupprimerSite', args: [{ confirmation: 'Hugo' }], e: idH });

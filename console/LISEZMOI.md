@@ -48,14 +48,10 @@ Quand `console/Code.gs` change : recolle-le, enregistre, puis **Déployer → G�
 - **Ne jamais supprimer ni modifier `CLE_CHIFFREMENT`** dans Cloudflare : les données de toutes les familles deviendraient illisibles.
 - **Remettre les compteurs à zéro** : Statistiques → « Remettre à zéro… » → confirmation (Annuler / Oui). La feuille « Statistiques » est renommée en archive (rien n'est effacé) ; le bloc « Familles inscrites » ne change pas (familles réellement inscrites dans le relais).
 
-## Quota Google Drive (onglet Statistiques)
+## Appels à Google Drive (onglet Statistiques)
 
-Le bloc « Quota Google Drive » lit chez Google (Cloud Monitoring) le nombre d'appels à l'API Drive du projet Google Cloud `soccaquiz`, c'est-à-dire ceux du relais pour toutes les familles : appels sur 30 jours, moyenne par jour, pointe par minute, refus pour quota (erreur 429). À comparer avec les limites du niveau « Standard » (gratuit) des API Workspace, en vigueur le 1er avril 2027 (onglet Liens → « Quotas de l'API Drive »).
+Le bloc « Appels à Google Drive » montre les appels à l'API Drive faits par le relais pour toutes les familles (projet Google Cloud `soccaquiz`), **comptés par le relais lui-même** (tables `usage_jour` et `usage_minute` de la base D1, totaux seulement) et lus avec le bilan (même jeton `JETON_CONSOLE`) : appels sur 30 jours, moyenne par jour, pointe par minute sur 24 h, refus pour quota (erreur 429). À comparer avec les limites du niveau « Standard » (gratuit) des API Workspace, en vigueur le 1er avril 2027 (onglet Liens → « Quotas de l'API Drive »).
 
-Mise en place (une fois, compte soccaquiz), **dans cet ordre** :
-1. Activer l'API Cloud Monitoring dans le projet `soccaquiz` : https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=soccaquiz → **Activer**.
-2. Dans l'éditeur Apps Script de la console : remplacer `Code.gs` **et** `appsscript.json` (il contient maintenant `monitoring.read`), Enregistrer.
-3. Choisir la fonction `autoriserConsole` en haut de l'éditeur → **▷ Exécuter** → accepter l'autorisation. **Avant** l'étape 4 : sinon le déploiement « Propositions » (envois des familles) attendrait cette autorisation.
-4. Déployer → Gérer les déploiements → Nouvelle version de **« Console »** puis de **« Propositions »**.
+Pourquoi pas Cloud Monitoring (essayé le 25 nov. 2026) : Google exige un compte de facturation (carte bancaire) sur le projet pour lire ces chiffres, même gratuits — contraire à la règle « coût nul ». L'API Cloud Monitoring activée dans le projet `soccaquiz` peut être désactivée.
 
-Problèmes fréquents : console → Réglages → « Quota Google Drive » → « En cas de souci ».
+`autoriserConsole` (à exécuter dans l'éditeur) : exige toutes les autorisations du manifeste — Google ne redemande pas tout seul un accès ajouté après coup — et écrit dans le journal d'exécution celles qui sont réellement accordées.

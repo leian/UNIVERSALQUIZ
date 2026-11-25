@@ -94,7 +94,7 @@ const ctx = {
         return rep(200, { timeSeries: [{ points: [{ interval: { endTime: '2026-11-25T08:01:00Z' }, value: { int64Value: '42' } }, { interval: { endTime: '2026-11-25T08:02:00Z' }, value: { int64Value: '7' } }] }] });
       }
       if (url === 'https://soccaquiz-relais.soccaquiz.workers.dev/bilan') return (o.headers || {}).Authorization === 'Bearer ' + 'k'.repeat(64)
-        ? rep(200, { ok: true, t: 1, familles: 5, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }] }) : rep(404, { erreur: 'Introuvable.' });
+        ? rep(200, { ok: true, t: 1, familles: 5, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }], drive: { jours: [{ jour: '2026-11-25', appels: 1203, refus: 3, erreurs: 0 }, { jour: '2026-11-24', appels: 805, refus: 0, erreurs: 5 }, { jour: '<x>', appels: 99999 }], pointeMinute: 42, pointeA: '2026-11-25T08:01:00.000Z' } }) : rep(404, { erreur: 'Introuvable.' });
       const m = url.match(/^https:\/\/api\.github\.com\/repos\/leian\/UNIVERSALQUIZ(.*)$/);
       if (!m) return rep(404, {});
       if (o.headers && o.headers.Authorization && !jetonValide) return rep(401, { message: 'Bad credentials' });
@@ -296,26 +296,19 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page) && /En cas de souci/.test(page) && /already exists/.test(page) && /CLE_CHIFFREMENT/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
   ok(ctx.apiJetonRelais('').ok && ctx.apiEtat().jetonRelais === false, 'bilan du relais : délier');
 }
-// consommation de l'API Drive du projet soccaquiz (Cloud Monitoring)
+// appels à l'API Drive comptés par le relais (bloc « Appels à Google Drive » de Statistiques), diagnostic autoriserConsole
 {
-  const r0 = ctx.apiUsageDrive(true);
-  ok(r0.erreur && /Cloud Monitoring à activer/.test(r0.erreur), 'quota Drive : API Cloud Monitoring pas activée → message clair — ' + r0.erreur);
-  monitoringEtat = 'on'; MONITORING.length = 0;
-  const u = ctx.apiUsageDrive(true);
-  const q = new URL(MONITORING[0].url).searchParams;
-  ok(u.ok && u.total30 === 2008 && u.quota30 === 3 && u.erreurs30 === 5 && u.pointeMinute === 42 && u.jours.length >= 1 && u.maxJour <= 2008 && u.moyenne > 0, /* faux Utilities.formatDate : une seule date */
-    'quota Drive : appels sur 30 jours, refus pour quota (429), autres erreurs, pointe par minute — ' + JSON.stringify(u).slice(0, 200));
-  ok(/drive\.googleapis\.com/.test(q.get('filter')) && /api\/request_count/.test(q.get('filter')) && MONITORING[0].o.headers['X-Goog-User-Project'] === 'soccaquiz' && MONITORING[0].o.headers.Authorization === 'Bearer jeton-oauth',
-    'quota Drive : métrique api/request_count du service Drive, quota de lecture compté sur le projet soccaquiz');
-  MONITORING.length = 0; ctx.apiUsageDrive(false);
-  ok(MONITORING.length === 0, 'quota Drive : chiffres gardés 10 min (pas de nouvelle lecture)');
+  ctx.apiJetonRelais('k'.repeat(64));
+  const d = ctx.apiBilanRelais().bilan.drive;
+  ok(d.total30 === 2008 && d.quota30 === 3 && d.erreurs30 === 5 && d.pointeMinute === 42 && d.maxJour === 1203 && d.jours.length === 2 && d.moyenne === 1004 && d.pointeA === '2026-11-25T08:01:00.000Z',
+    'appels Drive : totaux sur 30 jours, refus pour quota, autres erreurs, pointe par minute (jour douteux écarté) — ' + JSON.stringify(d).slice(0, 160));
   const journal = []; const avantLog = console.log; console.log = m => journal.push(String(m));
   let diag; try { diag = ctx.autoriserConsole(); } finally { console.log = avantLog; }
-  ok(diag === 'OK' && /Lecture de Cloud Monitoring : OK/.test(journal.join('\n')), 'autoriserConsole : écrit dans le journal les autorisations accordées et le résultat d\'une vraie lecture — ' + journal.join(' | ').slice(0, 160));
   const man = JSON.parse(readFileSync(join(RACINE, 'console', 'appsscript.json'), 'utf8'));
   const page = ctx.doGet({ parameter: {} }).h;
-  ok(man.oauthScopes.includes('https://www.googleapis.com/auth/monitoring.read') && typeof ctx.autoriserConsole === 'function' && /usage-drive/.test(page) && /autoriserConsole/.test(page) && /Activer Cloud Monitoring/.test(page),
-    'quota Drive : autorisation monitoring.read dans le manifeste, fonction autoriserConsole, bloc Statistiques, aide dans Réglages, lien Liens');
+  ok(diag === 'OK' && /Autorisations accordées/.test(journal.join(' ')) && !man.oauthScopes.some(x => /monitoring/.test(x)) && /usage-drive/.test(page) && !/apiUsageDrive|monitoring\.googleapis/.test(page),
+    'appels Drive : bloc Statistiques alimenté par le relais, plus de Cloud Monitoring (ni autorisation monitoring.read) ; autoriserConsole écrit les autorisations accordées');
+  ctx.apiJetonRelais('');
 }
 // onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements
 {
