@@ -536,7 +536,28 @@ function lireBilan_(jeton) {
    avec l'autorisation monitoring.read de la console ; quota de lecture compté sur le projet « soccaquiz » (en-tête
    X-Goog-User-Project : API Cloud Monitoring à activer une fois dans ce projet). Aucune donnée de famille : des nombres d'appels. */
 const PROJET_GCP_ = 'soccaquiz';
-function autoriserConsole() { ScriptApp.getOAuthToken(); return 'Console autorisée.'; }
+/* À exécuter depuis l'éditeur (▷ Exécuter) : demande l'autorisation si besoin, puis écrit dans le journal d'exécution
+   les autorisations réellement accordées et le résultat d'une vraie lecture de Cloud Monitoring (diagnostic). */
+function autoriserConsole() {
+  const jeton = ScriptApp.getOAuthToken();
+  let accordees = '';
+  try {
+    const r = UrlFetchApp.fetch('https:\/\/oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(jeton), { muteHttpExceptions: true });
+    accordees = String((JSON.parse(r.getContentText()) || {}).scope || '');
+  } catch (e) { accordees = '(illisible : ' + (e.message || e) + ')'; }
+  const aMonitoring = /monitoring\.read/.test(accordees);
+  console.log('1. Autorisations accordées à la console : ' + (accordees || '(aucune lue)'));
+  console.log('   → monitoring.read ' + (aMonitoring ? 'ACCORDÉE' : 'ABSENTE : vérifie appsscript.json (ligne monitoring.read), enregistre, puis relance autoriserConsole et accepte la fenêtre de Google.'));
+  try {
+    const fin = new Date(), s = serieDrive_(new Date(fin.getTime() - 864e5), fin, 3600, '');
+    const n = s.reduce((a, x) => a + x.points.reduce((b, p) => b + p.n, 0), 0);
+    console.log('2. Lecture de Cloud Monitoring : OK (' + n + ' appels à l\'API Drive sur 24 h). Le bloc « Quota Google Drive » marchera après une nouvelle version du déploiement « Console ».');
+    return 'OK';
+  } catch (e) {
+    console.log('2. Lecture de Cloud Monitoring : ÉCHEC — ' + (e.message || e));
+    return 'ÉCHEC';
+  }
+}
 function serieDrive_(debut, fin, periode, grouper) {
   const filtre = 'metric.type="serviceruntime.googleapis.com/api/request_count" AND resource.type="consumed_api" AND resource.labels.service="drive.googleapis.com"';
   const q = { filter: filtre, 'interval.startTime': debut.toISOString(), 'interval.endTime': fin.toISOString(),
@@ -548,8 +569,9 @@ function serieDrive_(debut, fin, periode, grouper) {
   if (r.getResponseCode() !== 200) {
     const m = String((j.error && j.error.message) || r.getContentText()).slice(0, 300);
     if (/has not been used|is disabled|SERVICE_DISABLED/i.test(m)) throw new Error('API Cloud Monitoring à activer dans le projet « soccaquiz » (Liens → « Activer Cloud Monitoring »), puis réessayer dans 2 minutes.');
-    if (r.getResponseCode() === 401 || /insufficient|scope/i.test(m)) throw new Error('La console n\'a pas encore l\'autorisation de lire les chiffres : dans l\'éditeur Apps Script, exécute la fonction autoriserConsole (voir Réglages → « Quota Google Drive »).');
-    throw new Error('Cloud Monitoring : ' + m);
+    if (r.getResponseCode() === 401 || /insufficient|scope/i.test(m)) throw new Error('La console n\'a pas encore l\'autorisation de lire les chiffres : dans l\'éditeur Apps Script, exécute la fonction autoriserConsole et lis le journal d\'exécution (voir Réglages → « Quota Google Drive »). Réponse de Google (' + r.getResponseCode() + ') : ' + m);
+    if (/serviceusage|USER_PROJECT_DENIED|permission to use project/i.test(m)) throw new Error('Le compte de la console n\'a pas le droit d\'utiliser le projet « soccaquiz » : ouvre la console avec le compte soccaquiz@gmail.com (propriétaire du projet). Réponse de Google : ' + m);
+    throw new Error('Cloud Monitoring (' + r.getResponseCode() + ') : ' + m);
   }
   return (j.timeSeries || []).map(t => ({ code: String((t.metric && t.metric.labels && t.metric.labels.response_code) || ''),
     points: (t.points || []).map(p => ({ fin: String(p.interval && p.interval.endTime || ''), n: +((p.value && (p.value.int64Value != null ? p.value.int64Value : p.value.doubleValue)) || 0) })) }));
@@ -1282,7 +1304,7 @@ function client_() {
       '<li><b>Autoriser la console</b> : dans l\'éditeur Apps Script de la console, choisis la fonction <code>autoriserConsole</code> dans la liste en haut, clique sur <b>▷ Exécuter</b>, puis accepte (compte soccaquiz). À refaire seulement si le manifeste <code>appsscript.json</code> change.</li></ol>' +
       '<details><summary>En cas de souci</summary><ul class="etapes">' +
       '<li><b>« API Cloud Monitoring à activer »</b> : étape 1, puis attendre 2 minutes.</li>' +
-      '<li><b>« La console n\'a pas encore l\'autorisation »</b> : étape 2. Vérifie aussi que <code>appsscript.json</code> contient la ligne <code>monitoring.read</code> (Paramètres du projet → Afficher le fichier manifeste).</li>' +
+      '<li><b>« La console n\'a pas encore l\'autorisation »</b> : étape 2, puis lis le <b>journal d\'exécution</b> en bas de l\'éditeur. Ligne 1 : les autorisations réellement accordées (<code>monitoring.read</code> doit être « ACCORDÉE ») ; ligne 2 : le résultat d\'une vraie lecture chez Google. Si la ligne 2 dit OK, fais une <b>Nouvelle version</b> du déploiement « Console ». Si <code>monitoring.read</code> est absente : vérifie la ligne dans <code>appsscript.json</code> (Paramètres du projet → Afficher le fichier manifeste), enregistre, relance.</li>' +
       '<li><b>« Permission denied »</b> : la console doit tourner avec le compte soccaquiz, propriétaire du projet Google Cloud soccaquiz.</li>' +
       '<li><b>Chiffres à zéro</b> : normal tant que personne n\'a utilisé SoccaQuiz depuis 30 jours ; Google publie les chiffres avec quelques minutes de retard.</li></ul></details></div>' +
       '<div class="box"><h2>' + I('key') + 'Bilan du relais</h2>' +

@@ -309,6 +309,9 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
     'quota Drive : métrique api/request_count du service Drive, quota de lecture compté sur le projet soccaquiz');
   MONITORING.length = 0; ctx.apiUsageDrive(false);
   ok(MONITORING.length === 0, 'quota Drive : chiffres gardés 10 min (pas de nouvelle lecture)');
+  const journal = []; const avantLog = console.log; console.log = m => journal.push(String(m));
+  let diag; try { diag = ctx.autoriserConsole(); } finally { console.log = avantLog; }
+  ok(diag === 'OK' && /Lecture de Cloud Monitoring : OK/.test(journal.join('\n')), 'autoriserConsole : écrit dans le journal les autorisations accordées et le résultat d\'une vraie lecture — ' + journal.join(' | ').slice(0, 160));
   const man = JSON.parse(readFileSync(join(RACINE, 'console', 'appsscript.json'), 'utf8'));
   const page = ctx.doGet({ parameter: {} }).h;
   ok(man.oauthScopes.includes('https://www.googleapis.com/auth/monitoring.read') && typeof ctx.autoriserConsole === 'function' && /usage-drive/.test(page) && /autoriserConsole/.test(page) && /Activer Cloud Monitoring/.test(page),
