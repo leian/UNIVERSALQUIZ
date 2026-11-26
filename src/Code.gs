@@ -54,7 +54,7 @@ const CONFIG = {
    les pages servies par Google. Les réglages propres à un enfant (CLES_ENFANT_) et la mémoire du serveur (cache_)
    sont alors rangés sous « <id>| » ; le premier enfant garde les clés sans préfixe (sites d'avant, un seul
    enfant : rien ne change). CONFIG (prénom, dossier, adresses, classe) est ajusté à l'enfant courant. */
-const CLES_ENFANT_ = ['DOSSIER', 'RESULTATS', 'EXEMPLE', 'CLASSE', 'CLASSE_ANNEE', 'GENRE', 'MASCOTTE', 'RAZ', 'SAISON_OFF'];
+const CLES_ENFANT_ = ['DOSSIER', 'RESULTATS', 'EXEMPLE', 'CLASSE', 'CLASSE_ANNEE', 'GENRE', 'MASCOTTE', 'RAZ', 'SAISON_OFF', 'PARPARTIE'];
 const CHAMPS_ENFANT_ = ['prenom', 'nomDossier', 'urlEnfant', 'urlParent', 'classe', 'classeAnnee'];
 let ENFANT_ = null, PREMIER_CFG_ = null;
 function enfants_() {
@@ -572,6 +572,8 @@ function reglagesPage_(page, inst, cat) {
     pagesParent: PAGES_PARENT,
     classe: classe_(),
     classes: CLASSES,
+    parPartie: parPartie_(),
+    parPartieChoix: PAR_PARTIE_,
     revisions: (page === 'index' && CONFIG.espace !== 'parent') ? (() => { try { const r = revisions_(); return { n: r.aRevoir.length, defi: r.defi.length, mois: r.moisDefi, nouveau: r.nouveauDefi }; } catch (e) { return null; } })() : null,
     maitrise: page === 'ajouter' ? null : (() => { try { return maitrisePour_(CONFIG.espace === 'parent' && page === 'index' ? 'tableau-de-bord' : page, CLES_PAGE_); } catch (e) { return null; } })(),
     saison: saison_(),
@@ -732,7 +734,7 @@ function catalogue_(dossier) {
         meta = Object.assign({ u: maj, n: nom }, lireMeta_(f.getBlob().getDataAsString('UTF-8'), nom, f.getDateCreated()));
         aEcrire[cle] = JSON.stringify(meta);
       }
-      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.nq ? { nq: meta.nq } : {}, meta.biblio ? { biblio: meta.biblio } : {}, meta.biblio && meta.biblioV ? { biblioV: meta.biblioV } : {}));
+      QUIZ.push(Object.assign({ titre: meta.titre, matiere: meta.matiere, fichier: nom, description: meta.description, date: meta.date, badge: meta.badge }, meta.nq ? { nq: meta.nq } : {}, meta.pool ? { pool: meta.pool } : {}, meta.biblio ? { biblio: meta.biblio } : {}, meta.biblio && meta.biblioV ? { biblioV: meta.biblioV } : {}));
     }
   }
 
@@ -755,7 +757,7 @@ function catalogue_(dossier) {
   return cat;
 }
 
-const META_V = 3;                       // à augmenter quand lireMeta_ lit un nouveau champ : les quiz déjà lus sont relus
+const META_V = 4;                       // à augmenter quand lireMeta_ lit un nouveau champ : les quiz déjà lus sont relus
 function lireMeta_(html, nom, cree) {
   const i = html.lastIndexOf('MoteurQuiz.lancer');
   const bloc = i >= 0 ? html.slice(i) : html;
@@ -778,6 +780,7 @@ function lireMeta_(html, nom, cree) {
     badge: (/^(⭐|🌟|✨)?$/u.test(champ('badge')) && champ('icone')) || champ('badge') || '',
     description: sous.slice(0, 200),
     nq: nq > 0 && nq < 1000 ? nq : 0,
+    pool: pool > 0 && pool < 1000 ? pool : 0,      // questions écrites : plafond quand le parent choisit plus de questions par partie
     v: META_V,
     date: dateDepuisNom_(nom) || jour_(cree),
     biblio: /^[a-z0-9-]{1,80}$/.test(champ('biblio')) ? champ('biblio') : '',   // quiz ajouté depuis la bibliothèque : son identifiant
@@ -1354,6 +1357,20 @@ function mascotte_() {
   const m = props_().getProperty('MASCOTTE');
   return MASCOTTES_LYCEE.indexOf(m) >= 0 ? m : MASCOTTES_LYCEE[0];
 }
+/* ---------------- questions par partie (Réglages, par enfant) ----------------
+   0 = automatique (selon l'âge : 8 en maternelle, 10 au CP-CE1, 20 ensuite) ; sinon 10, 15, 20 ou 30 pour tous ses quiz.
+   Un quiz qui a moins de questions les pose toutes ; le tirage favorise toujours les questions ratées. */
+const PAR_PARTIE_ = [10, 15, 20, 30];
+function parPartie_() { const n = +(props_().getProperty('PARPARTIE') || 0); return PAR_PARTIE_.indexOf(n) >= 0 ? n : 0; }
+function apiParPartie(d) {
+  if (interdit_()) return refusEnfant_();
+  const n = +((d && d.n) || 0);
+  if (n && PAR_PARTIE_.indexOf(n) < 0) return { erreur: 'Choix inconnu.' };
+  if (n) props_().setProperty('PARPARTIE', String(n)); else props_().deleteProperty('PARPARTIE');
+  try { cache_().removeAll(['catalogue', 'liste']); } catch (e) {}
+  return { ok: true, n };
+}
+
 function apiMascotte(d) {
   if (interdit_()) return refusEnfant_();
   const m = String((d && d.mascotte) || '');

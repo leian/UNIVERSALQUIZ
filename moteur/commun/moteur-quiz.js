@@ -251,7 +251,9 @@
     return l[(cur * 7 + serie) % l.length];
   }
   const ton = () => TONS[themeActuel()] || TONS.defaut;
-  const nbParDefaut = () => Math.min(C.nbQuestions, profil().nb || Infinity);
+  // questions par partie : choix du parent (Réglages, __UQ.parPartie : 10, 15, 20, 30) sinon automatique selon l'âge ;
+  // jamais plus que les questions du quiz
+  const nbParDefaut = () => { const f = +((window.__UQ || {}).parPartie) || 0; return Math.min(f || Math.min(C.nbQuestions, profil().nb || Infinity), C.questions.length || Infinity); };
   // lecture à voix haute de la question (petits : automatique ; lecteurs : bouton), avec les choix
   // d'un QCM (« 1 : la vache. 2 : le chat. ») et la phrase d'un texte à trous ou de mots à toucher
   function lireQuestion() {

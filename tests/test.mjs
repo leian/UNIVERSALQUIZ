@@ -1078,6 +1078,20 @@ try {
     await ev(`CONFIG.espace = ${JSON.stringify(avantM)}`);
   }
 
+  // questions par partie (Réglages) : automatique selon l'âge, ou 10 / 15 / 20 / 30 pour tous les quiz ; jamais plus que le quiz
+  {
+    const r = (await ev('[apiParPartie({ n: 30 }), parPartie_(), apiParPartie({ n: 12 }).erreur]')).r;
+    await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
+    const t30 = await page.locator('.start-card').innerText().catch(() => '');
+    await ev('apiParPartie({ n: 10 })');
+    await page.goto(BASE + '/exec?page=quiz_exemple_capitales');
+    const t10 = await page.locator('.start-card').innerText().catch(() => '');
+    const auto = (await ev('[apiParPartie({ n: 0 }).ok, parPartie_()]')).r;
+    await page.goto(BASE + '/exec?page=tableau-de-bord');
+    const reg = await page.locator('#choix-parpartie option').evaluateAll(l => l.map(o => o.textContent)).catch(() => []);
+    ok(r[0].ok && r[1] === 30 && !!r[2] && /\b12 questions\b/.test(t30) && /\b10 questions\b/.test(t10) && auto[0] && auto[1] === 0 && reg.length === 5 && /Automatique/.test(reg[0]),
+      'questions par partie : réglage par enfant (30 plafonné aux 12 questions du quiz, 10), choix inconnu refusé, retour à l\'automatique, liste dans Réglages — ' + JSON.stringify(reg));
+  }
   // famille : un seul programme pour tous les enfants (étape 1b du chantier « sans alerte »)
   {
     const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;

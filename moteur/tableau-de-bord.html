@@ -633,6 +633,14 @@ function afficherClasse() {
     `<optgroup label="Adulte"><option value="adulte" ${U.classe === "adulte" ? "selected" : ""}>Révisions d'un adulte</option></optgroup></select></p>` +
     `<p class="enreg" id="enreg-classe" role="status" hidden></p>` +
     `<p class="small">Le site s'habille selon la classe : thème <b>${esc(NOMS_THEMES[U.theme] || "Explorateurs")}</b>. La classe passe toute seule à la suivante chaque 1er septembre.</p>` +
+    (() => {     // questions par partie : automatique selon l'âge (conseillé), ou un nombre fixe pour tous les quiz de cet enfant
+      const auto = U.theme === "petits" ? 8 : U.theme === "lecteurs" ? 10 : 20;
+      return `<p style="margin-top:14px"><label for="choix-parpartie"><b>Questions par partie</b></label><br><select id="choix-parpartie" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
+        `<option value="0" ${U.parPartie ? "" : "selected"}>Automatique : ${auto} (conseillé à cet âge)</option>` +
+        (U.parPartieChoix || [10, 15, 20, 30]).map(n => `<option value="${n}" ${+U.parPartie === n ? "selected" : ""}>${n} questions</option>`).join("") + `</select></p>` +
+        `<p class="small">Pour tous les quiz de {{PRENOM}}. Des parties courtes et fréquentes font mieux retenir qu'une longue partie de temps en temps. À chaque partie, les questions sont tirées dans tout le quiz, en reposant plus souvent celles qui ont été ratées ; un quiz qui a moins de questions les pose toutes.</p>` +
+        `<p class="enreg" id="enreg-parpartie" role="status" hidden></p>`;
+    })() +
     (U.theme === "lycee" && U.mascottes ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       U.mascottes.map(m => `<option value="${esc(m)}" ${m === U.mascotte ? "selected" : ""}>${esc(NOMS_MASCOTTES[m] || m)}</option>`).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
@@ -662,6 +670,16 @@ function afficherClasse() {
       .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
       .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
       .apiClasse({ classe: e.target.value });
+  };
+  const choixN = document.getElementById("choix-parpartie");
+  if (choixN) choixN.onchange = e => {
+    if (!(window.google && google.script && google.script.run)) return;
+    e.target.disabled = true;
+    const m = enregistrement("enreg-parpartie");
+    google.script.run
+      .withSuccessHandler(r => { if (r && r.erreur) { e.target.disabled = false; m.ko(r.erreur); return; } m.recharge(); rechargerSite("reglages"); })
+      .withFailureHandler(() => { e.target.disabled = false; m.ko("Enregistrement impossible : vérifie ta connexion, puis réessaie."); })
+      .apiParPartie({ n: +e.target.value });
   };
   const choixM = document.getElementById("choix-mascotte");
   if (choixM) choixM.onchange = e => {

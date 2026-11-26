@@ -246,7 +246,8 @@ const cle = f => String(f).split("/").pop().replace(/\.html$/i, "");
 // Le thème d'âge réduit la partie comme dans le moteur (moteur-quiz.js, PROFILS : petits 8, lecteurs 10).
 const MAX_PARTIE = { petits: 8, lecteurs: 10 };
 function coin(q) {
-  const max = MAX_PARTIE[document.documentElement.dataset.theme] || Infinity, n = Math.min(nb(q.nq), max);
+  const fixe = +((window.__UQ || {}).parPartie) || 0;          // choix du parent (Réglages) : remplace l'automatique
+  const max = MAX_PARTIE[document.documentElement.dataset.theme] || Infinity, n = fixe ? Math.min(fixe, nb(q.pool) || nb(q.nq) || fixe) : Math.min(nb(q.nq), max);
   const nouveau = !STATS[cle(q.fichier)] && q.date && (Date.now() - new Date(q.date)) < 7 * 864e5 && /\.html$/i.test(q.fichier);
   const h = (nouveau ? `<span class="new">Nouveau !</span>` : "") + (n > 0 ? `<span class="nq" title="${n} question${n > 1 ? "s" : ""} par partie">${n} question${n > 1 ? "s" : ""}</span>` : "");
   return h ? `<span class="coin">${h}</span>` : "";
