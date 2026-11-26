@@ -217,6 +217,21 @@ try {
     fp = await cadreP();
     await fp.locator('#onglets').waitFor({ timeout: 15000 }).catch(() => {});
     ok(await fp.locator('#onglets').isVisible(), 'espace parent hors de Google : rouvert plus tard sans lien, grâce à la clé de l\'appareil');
+    // liens directs de l'aide : …/parent/#reglages/questions ouvre Réglages sur la rubrique, #ajouter/gemini la bonne étape
+    {
+      await pp.goto(ADR_P + '#reglages/questions');
+      fp = await cadreP();
+      await fp.locator('#p-reglages').waitFor({ state: 'visible', timeout: 15000 }).catch(() => {});
+      await fp.locator('.cible-aide').first().waitFor({ timeout: 5000 }).catch(() => {});
+      const vu = await fp.locator('body').evaluate(() => { const c = document.querySelector('.cible-aide'); return { reglages: !document.getElementById('p-reglages').hidden, cible: !!(c && c.querySelector('#choix-parpartie')) }; }).catch(() => ({}));
+      const adr = await pp.evaluate(() => location.hash);
+      await pp.goto(ADR_P + '#ajouter/gemini');
+      await pp.waitForFunction(() => location.hash === '#ajouter', null, { timeout: 5000 }).catch(() => {});
+      fp = await cadreP();
+      await fp.locator('#gemini').waitFor({ timeout: 15000 }).catch(() => {});
+      ok(vu.reglages && vu.cible && adr === '#tableau-de-bord' && await fp.locator('#gemini').count() === 1,
+        'lien direct de l\'aide : #reglages/questions ouvre Réglages sur « Questions par partie » (souligné), #ajouter/gemini ouvre « Créer un quiz » — ' + JSON.stringify(vu) + ' ' + adr);
+    }
     const autre = await (await browser.newContext()).newPage();
     await autre.goto(ADR_P);
     await autre.waitForTimeout(1500);

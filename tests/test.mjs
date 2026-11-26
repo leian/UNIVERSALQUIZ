@@ -644,6 +644,13 @@ try {
   const r = await ev('apiSupprimer(apiLister({}).resultats[0].id)');
   ok(r.r.ok && Object.values(r.sheets)[0].rows.length === avant - 1, 'suppression d\'une partie');
 
+  // questions les plus ratées : nombre d'erreurs en rouge, bonne réponse dans la couleur normale du texte
+  {
+    await page.goto(BASE + '/exec?page=tableau-de-bord');
+    await page.locator('th', { hasText: 'Ratée' }).first().waitFor({ timeout: 10000 }).catch(() => {});
+    const rat = await page.evaluate(() => { const t = [...document.querySelectorAll('table')].find(x => /Ratée/.test(x.querySelector('thead') ? x.querySelector('thead').innerText : '')); const tr = t && t.querySelector('tbody tr'); return tr ? { rouge: getComputedStyle(tr.lastElementChild.querySelector('b.ko')).color, normal: getComputedStyle(document.body).color, bonne: getComputedStyle(tr.children[1]).color } : null; });
+    ok(rat && rat.rouge !== rat.normal && rat.bonne === rat.normal, 'questions les plus ratées : nombre d\'erreurs en rouge, bonne réponse en couleur normale — ' + JSON.stringify(rat));
+  }
   // page parents : liste des quiz, suppression avec confirmation (corbeille du Drive) ; plus de croix dans « Mes quiz »
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card .suppr').count() === 0, 'Mes quiz : pas de bouton de suppression côté enfant');

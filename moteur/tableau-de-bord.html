@@ -87,6 +87,7 @@ tr.click:hover td{background:rgba(0,0,0,.03)}
 .det .q{padding:6px 0;border-top:1px dashed var(--line)}
 .det .q:first-child{border-top:none}
 .ko{color:var(--ko)} .okc{color:var(--ok)}
+.cible-aide{outline:3px solid var(--rouge);outline-offset:4px;border-radius:12px;transition:outline-color .6s}   /* rubrique montrée par un lien de l'aide */
 .filtres{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
 select{font:inherit;border:2px solid var(--line);border-radius:999px;padding:5px 10px;background:var(--card);color:var(--ink)}
 .small{font-size:.85rem;color:var(--soft)}
@@ -514,7 +515,7 @@ function afficher() {
   const questions = ratees.length ? `<div class="box"><h2>${I('x')}Questions les plus ratées</h2><div class="tablewrap"><table>
     <thead><tr><th>Question</th><th>Bonne réponse</th><th class="hide-m">Réponse fréquente de {{PRENOM}}</th><th>Ratée</th></tr></thead><tbody>${ratees.map(p => {
       const freq = Object.entries(p.donnes).sort((a, b) => b[1] - a[1])[0];
-      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td class="okc">${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td><b>${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div>${partiesDetail < L.length ? `<p class="small" style="margin:8px 0 0">Calculé sur les ${partiesDetail} parties les plus récentes de cette sélection (le détail n'est chargé que pour les 200 dernières parties).</p>` : ""}</div>` : "";
+      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td>${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td style="white-space:nowrap"><b class="ko">${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div>${partiesDetail < L.length ? `<p class="small" style="margin:8px 0 0">Calculé sur les ${partiesDetail} parties les plus récentes de cette sélection (le détail n'est chargé que pour les 200 dernières parties).</p>` : ""}</div>` : "";
 
   // --- historique
   const hist = `<div class="box"><h2>${I('clock')}Historique des parties</h2>${L.slice(0, 150).map(r => {
@@ -1001,10 +1002,23 @@ document.getElementById("onglets").addEventListener("keydown", e => {
   if (j === undefined) return;
   e.preventDefault(); ouvrirOnglet(L[(j + L.length) % L.length], true);
 });
-if (/^(quiz|bibliotheque|reglages)$/.test((window.__UQ || {}).onglet || "")) ouvrirOnglet(window.__UQ.onglet);   // rechargée par la coquille (mode direct) après un réglage
+if (/^(resultats|quiz|bibliotheque|reglages)$/.test((window.__UQ || {}).onglet || "")) ouvrirOnglet(window.__UQ.onglet);   // rechargée par la coquille (mode direct) après un réglage, ou lien direct de l'aide
 else if (/^#(quiz|bibliotheque|reglages)$/.test(location.hash)) ouvrirOnglet(location.hash.slice(1));
 // lien venu d'une autre page (« Revenir à l'espace parent ») : l'onglet est dans l'adresse de la page principale
 else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
+/* lien direct depuis l'aide (https://app.soccaquiz.fr/parent/#reglages/questions…) : la coquille ouvre l'onglet et passe la
+   rubrique (__UQ.cible) ; on y amène l'écran, on ouvre son encadré repliable s'il y en a un, et on la souligne un instant */
+const CIBLES_AIDE = { partager: "actions", classe: "classe", mascotte: "classe", questions: "choix-parpartie", saison: "saison", enfants: "box-famille",
+  parents: "box-parents", appareils: "box-parents", drive: "adresses", supprimer: "box-suppr", remise: "box-suppr", signalements: "signalements" };
+setTimeout(() => {
+  const id = CIBLES_AIDE[(window.__UQ || {}).cible || ""], el = id && document.getElementById(id);
+  if (!el) return;
+  const d = el.closest("details"); if (d) d.open = true;
+  const zone = el.closest(".bloc, .box") || el;
+  zone.classList.add("cible-aide");
+  try { zone.scrollIntoView({ block: "center", behavior: "smooth" }); } catch (e) { zone.scrollIntoView(); }
+  setTimeout(() => zone.classList.remove("cible-aide"), 3000);
+}, 400);
 
 /* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
 (function () {

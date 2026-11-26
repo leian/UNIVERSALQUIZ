@@ -138,7 +138,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
     <div id="g-resultat" aria-live="polite"></div>
   </section>
 
-  <section class="etape">
+  <section class="etape" id="autre-ia">
     <h2><span class="num">3</span> Ou avec une autre IA</h2>
     <ol class="ia-pas">
       <li><b>Ouvre une IA</b>, joins les photos de la leçon (📎 ou +) et envoie : la demande est déjà écrite.
@@ -178,6 +178,8 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
 <script>
 (function () {
   const $ = id => document.getElementById(id);
+  // lien direct depuis l'aide (…/parent/#ajouter/gemini ou #ajouter/autre-ia) : on amène l'écran à la bonne étape
+  setTimeout(() => { const c = { gemini: 'gemini', 'autre-ia': 'autre-ia', ia: 'autre-ia' }[(window.__UQ || {}).cible || ''], el = c && $(c); if (el) try { el.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e) { el.scrollIntoView(); } }, 400);
   const U = window.__UQ || {};
   const h = s => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
   const RESEAU = 'Pas de connexion Internet ? Vérifie le réseau, puis réessaie.';

@@ -239,8 +239,21 @@
   }
 
   /* ---------- pages ---------- */
-  var PAGES = ['tableau-de-bord', 'ajouter'], pageCourante = null, numero = 0, appli = '', ongletVoulu = '';
-  var pageDeLAdresse = function () { var h = location.hash.slice(1).split('&')[0]; return PAGES.indexOf(h) >= 0 ? h : 'tableau-de-bord'; };
+  var PAGES = ['tableau-de-bord', 'ajouter'], pageCourante = null, numero = 0, appli = '', ongletVoulu = '', cibleVoulue = '';
+  var ONGLETS = ['resultats', 'quiz', 'bibliotheque', 'reglages'];
+  // adresse : #<page> ; liens directs de l'aide : #<onglet>[/<rubrique>] (tableau de bord) ou #ajouter/<étape>
+  var morceaux = function () { return location.hash.slice(1).split('&')[0].split('/'); };
+  var pageDeLAdresse = function () { var h = morceaux()[0]; return PAGES.indexOf(h) >= 0 ? h : 'tableau-de-bord'; };
+  // renvoie vrai si l'adresse est un lien direct (onglet ou rubrique) ; elle redevient alors celle de la page,
+  // pour qu'un rechargement ne ramène pas à la rubrique
+  var lireLien = function () {
+    var m = morceaux(), rub = String(m[1] || '').replace(/[^a-z-]/g, '').slice(0, 30), lien = false;
+    if (ONGLETS.indexOf(m[0]) >= 0) { ongletVoulu = m[0]; cibleVoulue = rub; lien = true; }
+    else if (m[0] === 'ajouter' && rub) { cibleVoulue = rub; lien = true; }
+    if (lien) try { history.replaceState(null, '', location.pathname + location.search + '#' + (m[0] === 'ajouter' ? 'ajouter' : 'tableau-de-bord')); } catch (e) {}
+    return lien;
+  };
+  lireLien();
   function montrer(html) {
     var n = ++numero, f = document.createElement('iframe');
     f.className = 'page'; f.title = 'SoccaQuiz – Espace parent';
@@ -265,10 +278,10 @@
     return parent({ action: 'page', page: page }).then(function (d) {
       if (pageCourante !== page) return;
       if (!d || !d.html) throw new Error((d && d.erreur) || 'Page indisponible');
-      var onglet = ongletVoulu; ongletVoulu = '';
+      var onglet = ongletVoulu, cible = cibleVoulue; ongletVoulu = ''; cibleVoulue = '';
       var r = d.reglages || {};
       appli = r.appli || r.urlEnfant || '';
-      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '', onglet: onglet }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
+      var cfg = Object.assign({}, r, { page: page, chemin: '/' + page + '.html', direct: true, espaceDirect: 'parent', site: id, url: '', onglet: onglet, cible: cible }, p.get('supprimer') === '1' && page === 'tableau-de-bord' ? { demandeSuppression: true } : {});   // ?supprimer=1 : venu de l'installateur (« Supprimer SoccaQuiz »)
       document.title = 'SoccaQuiz – Espace parent' + (d.prenom ? ' – ' + d.prenom : '');
       try { if (d.prenom) localStorage.setItem('sq-prenom:' + id + ':' + (enfant || ''), d.prenom); } catch (e) {}
       montrer(assembler(d, cfg));
@@ -293,7 +306,7 @@
       if (location.hash.slice(1) === page) afficher(page); else location.hash = page;
     },
     // après un réglage (classe, saison…) : la page est redemandée, à l'onglet voulu (jamais de rechargement du cadre srcdoc)
-    recharger: function (onglet) { ongletVoulu = /^(quiz|bibliotheque|reglages)$/.test(String(onglet || '')) ? String(onglet) : ''; afficher(pageCourante || pageDeLAdresse()); },
+    recharger: function (onglet) { ongletVoulu = /^(resultats|quiz|bibliotheque|reglages)$/.test(String(onglet || '')) ? String(onglet) : ''; afficher(pageCourante || pageDeLAdresse()); },
     appel: function (fn, arg, args) {
       return parent({ action: fn, args: Array.isArray(args) ? args : (arg === undefined ? [] : [arg]) }).then(function (d) {
         if (d && 'r' in d) return d.r;
@@ -301,7 +314,10 @@
       });
     }
   };
-  window.addEventListener('hashchange', function () { var pg = pageDeLAdresse(); if (pg !== pageCourante || location.hash.slice(1) === pg) afficher(pg); });
+  window.addEventListener('hashchange', function () {
+    if (lireLien()) { afficher(pageDeLAdresse()); return; }      // lien direct ouvert alors que l'espace parent est déjà là
+    var pg = pageDeLAdresse(); if (pg !== pageCourante || location.hash.slice(1) === pg) afficher(pg);
+  });
 
   /* ---------- démarrage ---------- */
   var libs = chargerLibs();
