@@ -387,9 +387,18 @@ try {
   const hrefs = await page.locator('a.ia').evaluateAll(l => l.map(a => a.href));
   const urlConsignes = (msgs.court.match(/https:\/\/leian\.github\.io\/UNIVERSALQUIZ\/consignes\/(\w+)\.txt/) || [])[1];
   const publiees = urlConsignes && existsSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt')) ? readFileSync(join(RACINE, 'docs', 'consignes', urlConsignes + '.txt'), 'utf8') : '';
-  ok(hrefs.length === 3 && hrefs.every(h => decodeURIComponent(h.split('?q=')[1]) === msgs.court) && msgs.court.length < 600
+  ok(hrefs.length === 4 && hrefs.some(h => h.startsWith('https://chat.mistral.ai/chat?q=')) && hrefs.every(h => decodeURIComponent(h.split('?q=')[1]) === msgs.court) && msgs.court.length < 600
      && publiees === readFileSync(join(RACINE, 'src', 'consignes.txt'), 'utf8').replace(/\r\n/g, '\n') && msgs.complet.endsWith(publiees),
-    'liens Claude / ChatGPT / Grok : message court (' + msgs.court.length + ' car.) qui renvoie aux consignes publiées sur GitHub Pages');
+    'liens Claude / ChatGPT / Mistral / Grok : message court (' + msgs.court.length + ' car.) qui renvoie aux consignes publiées sur GitHub Pages');
+  // téléphone étroit : aucune liste déroulante (Exercices, Questions…) ne dépasse la largeur de l'écran
+  {
+    const avantV = page.viewportSize();
+    await page.setViewportSize({ width: 360, height: 760 });
+    const deb = await page.evaluate(() => Array.from(document.querySelectorAll('select')).filter(x => x.offsetParent).map(x => ({ id: x.id, droite: Math.round(x.getBoundingClientRect().right), largeur: innerWidth })).filter(x => x.droite > x.largeur));
+    const ordre = await page.locator('a.ia').evaluateAll(l => l.map(a => a.textContent.trim()).join(','));
+    if (avantV) await page.setViewportSize(avantV);
+    ok(!deb.length && ordre === 'Claude,ChatGPT,Mistral,Grok', 'page « Ajouter » sur téléphone (360 px) : listes déroulantes dans la largeur de l\'écran ; Mistral après ChatGPT — ' + JSON.stringify(deb) + ' ' + ordre);
+  }
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
     questions: [

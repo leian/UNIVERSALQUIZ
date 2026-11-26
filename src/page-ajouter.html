@@ -28,6 +28,9 @@ textarea{width:100%;font:13px/1.4 ui-monospace,Consolas,monospace;padding:10px;b
 .btn:disabled{opacity:.6;cursor:wait}
 .ias{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
 .ligne{display:flex;flex-wrap:wrap;gap:12px;align-items:center;margin:8px 0}
+/* une liste déroulante ne dépasse jamais la largeur de l'écran (sa largeur suit sinon le choix le plus long) */
+select{max-width:100%;min-width:0;text-overflow:ellipsis}
+#exercices{flex:1 1 220px;width:100%}
 details{margin-top:10px} summary{cursor:pointer;color:var(--soft);font-size:.9rem}
 #resultat{margin-top:12px}
 .ok{border-left:5px solid var(--ok);padding:10px 14px;background:color-mix(in srgb,var(--ok) 10%,var(--card));border-radius:10px}
@@ -51,7 +54,7 @@ ol.ia-pas>li:not(:last-child)::after{content:"";position:absolute;left:13px;top:
 ol.ia-pas .ias{margin-top:8px}
 .btn.grand{font-size:1.1rem;padding:14px 22px;margin-top:8px}
 .btn[hidden]{display:none}
-/* aperçu fidèle d'un bloc de réponse de Claude / ChatGPT / Grok : en-tête sombre, icône « copier » (deux carrés) en haut à droite */
+/* aperçu fidèle d'un bloc de réponse de Claude / ChatGPT / Mistral / Grok : en-tête sombre, icône « copier » (deux carrés) en haut à droite */
 .bloc-ia{margin:10px 0 4px;max-width:360px;border-radius:12px;overflow:hidden;background:#1e1e22;border:1px solid #34343c;box-shadow:0 2px 8px rgba(0,0,0,.15)}
 .bloc-tete{display:flex;justify-content:space-between;align-items:center;padding:6px 8px 6px 12px;background:#2a2a31;color:#a3a3ad;font:12px system-ui,sans-serif}
 .bloc-copier{display:inline-flex;align-items:center;gap:5px;color:#fff;padding:4px 8px;border-radius:7px;animation:pouls-c 1.6s ease-in-out infinite}
@@ -87,7 +90,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
     <div class="ligne">
       <label for="exercices">Exercices</label>
       <select id="exercices">
-        <option value="" selected>Choisis par l'IA d'après la leçon (conseillé)</option>
+        <option value="" selected>L'IA choisit (conseillé)</option>
         <optgroup label="Langues">
           <option value="ecouter">Écouter et comprendre</option>
           <option value="dictee">Dictée : écouter puis écrire</option>
@@ -96,7 +99,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
           <option value="grammaire">Grammaire et conjugaison</option>
         </optgroup>
         <optgroup label="Musique">
-          <option value="sons">Reconnaître des sons (aigu, grave, long, court…)</option>
+          <option value="sons">Sons : aigu, grave, long, court</option>
           <option value="notes">Notes entendues</option>
           <option value="melodie">Rejouer une mélodie</option>
           <option value="portee">Lire et placer des notes sur la portée</option>
@@ -142,6 +145,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
         <div class="ias">
           <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
           <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+          <a class="btn leger ia" data-ia="https://chat.mistral.ai/chat?q=" href="https://chat.mistral.ai/chat" target="_blank" rel="noopener">Mistral</a>
           <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
         </div>
         <p class="petit" id="copie-ok"></p></li>
@@ -256,7 +260,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
   /* ---------- création du quiz à partir d'un texte (réponse d'une IA) ---------- */
   function creer(texte, res, bouton) {
     if (!String(texte || '').trim()) { res.innerHTML = '<div class="ko">Rien à coller : clique d\'abord sur « Copier » sous la réponse de l\'IA.</div>'; return Promise.resolve(); }
-    // le presse-papiers contient encore notre demande (mise là au clic sur Claude, ChatGPT ou Grok), pas la réponse de l'IA
+    // le presse-papiers contient encore notre demande (mise là au clic sur Claude, ChatGPT, Mistral ou Grok), pas la réponse de l'IA
     const t = String(texte).trim();
     if (t === messageCourt().trim() || t === messageComplet().trim() || /^Crée un quiz de révision/.test(t)) {
       res.innerHTML = '<div class="ko">C\'est encore la demande, pas la réponse de l\'IA : clique sur « Copier » sous sa réponse, puis reviens ici.</div>';
