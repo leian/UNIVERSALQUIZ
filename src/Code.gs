@@ -178,7 +178,8 @@ function apiAjouterEnfant(d) {
   return pourEnfant_(id, () => {
     if (d.classe) apiClasse({ classe: d.classe });
     installer_();
-    return { ok: true, id, prenom, parent: urlParentIci_(id), enfant: urlAppli_() || CONFIG.urlEnfant };
+    const x = enfants_().find(y => y.id === id) || {};
+    return { ok: true, id, prenom, classe: classe_(), couleur: Number.isInteger(x.c) ? x.c : null, parent: urlParentIci_(id), enfant: urlAppli_() || CONFIG.urlEnfant };
   });
 }
 /* renommer l'enfant affiché : prénom de la liste (et, pour le premier, celui des réglages) ; son dossier garde son nom */
@@ -1893,6 +1894,36 @@ function copierAussi_(aussi, titre, html) {
     } catch (e) { console.error(e); }
   });
   return faits;
+}
+
+/* partager un quiz déjà créé avec d'autres enfants de la famille (espace parent → Quiz → « Partager ») : le fichier est
+   copié dans leur dossier (mêmes questions, résultats séparés). `aussi` = adresses de leur espace parent, comme pour
+   « Ajouter aussi pour » ; un enfant qui a déjà un quiz du même titre est passé (pas de doublon). */
+function apiPartagerQuiz(nom, aussi) {
+  if (interdit_()) return refusEnfant_();
+  nom = String(nom || '').split('/').pop();
+  if (!/\.html?$/i.test(nom) || nom.length > 200) return { erreur: 'Quiz invalide.' };
+  if (!Array.isArray(aussi) || !aussi.length) return { erreur: 'Choisis au moins un enfant.' };
+  const f = trouverFichier_(installer_().dossier, nom);
+  if (!f) return { erreur: 'Ce quiz n\'existe plus.' };
+  const html = f.getBlob().getDataAsString('UTF-8');
+  const ici = (catalogue_(installer_().dossier).QUIZ || []).find(q => q.fichier === nom) || {};
+  const titre = String(ici.titre || nom.replace(/\.html?$/i, '')).trim();
+  const faits = [], deja = [];
+  familleListe_().forEach(x => {
+    if (x.ici || aussi.indexOf(x.parent) < 0) return;
+    const qui = x.prenom || 'un autre enfant';
+    try {
+      pourEnfant_(x.id, () => {
+        const d = installer_().dossier;
+        if ((catalogue_(d).QUIZ || []).some(q => String(q.titre || '').trim().toLowerCase() === titre.toLowerCase())) { deja.push(qui); return; }
+        d.createFile(nomLibre_(d, titre) + '.html', html, MimeType.HTML);
+        viderCatalogue_();
+        faits.push(qui);
+      });
+    } catch (e) { console.error(e); }
+  });
+  return { ok: true, titre, faits, deja };
 }
 
 /* Format en lignes (voir le message pour l'IA dans page-ajouter.html) :

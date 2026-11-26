@@ -1080,6 +1080,18 @@ try {
     if (process.env.SQ_CAPTURE) { await page.setViewportSize({ width: 390, height: 800 }); await page.screenshot({ path: '/tmp/tb-mobile.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.screenshot({ path: '/tmp/tb-menu.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.setViewportSize({ width: 1100, height: 800 }); await page.screenshot({ path: '/tmp/tb-pc.png' }); }
     ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').textContent()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1,
       'famille : sélecteur en haut de l\'espace parent (enfant affiché, lien vers l\'autre) — ' + fam.replace(/\s+/g, ' '));
+    // « Ajouter un enfant » (Réglages) : le nouvel enfant apparaît tout de suite dans le menu du haut, sans recharger la page ;
+    // le bouton « Partager » de l'onglet Quiz suit la même liste
+    {
+      const avantNav = await page.evaluate(() => performance.getEntriesByType('navigation').length + ':' + (window.__marqueSQ = Math.random()));
+      await page.evaluate(() => { document.getElementById('nouvel-enfant').value = 'Mila'; document.getElementById('ajouter-enfant').click(); });
+      await page.locator('#enfant-msg .ok').waitFor({ state: 'attached', timeout: 10000 }).catch(() => {});
+      const vu = await page.evaluate(() => ({ marque: window.__marqueSQ, menu: Array.from(document.querySelectorAll('#famille a, #famille span.on')).map(x => x.textContent.trim()), msg: (document.getElementById('enfant-msg') || {}).textContent || '', partager: document.querySelectorAll('#liste-quiz button[data-partager]').length }));
+      const idMila = (await ev('(enfants_().find(x => x.prenom === "Mila") || {}).id')).r;
+      ok(vu.marque === Number(avantNav.split(':')[1]) && vu.menu.some(t => /Mila/.test(t)) && /Mila/.test(vu.msg) && /menu des enfants/.test(vu.msg),
+        'famille : enfant ajouté visible tout de suite dans le menu du haut, sans rechargement — ' + JSON.stringify(vu));
+      if (idMila) await ev(`retirerEnfant_(${JSON.stringify(idMila)})`);
+    }
     const g = await ev(`(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); return pourEnfant_("${H}", cleGemini_) === k; })()`);
     ok(g.r === true, 'famille : clé Gemini saisie une fois, la même pour tous les enfants');
     await page.goto(BASE + '/exec?page=ajouter');
@@ -1091,6 +1103,14 @@ try {
     await page.locator('#resultat .ok, #resultat .ko').waitFor({ timeout: 10000 }).catch(() => {});
     const htmlHugo = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo')) + ')')).r.map(q => q.nom).filter(n => n.endsWith('.html'));
     ok(/Ajouté aussi pour Hugo/.test(await page.locator('#resultat').innerText()) && htmlHugo.filter(n => /fractions/i.test(n)).length === 1, 'famille : quiz créé pour les deux enfants — ' + htmlHugo.join(','));
+    // partager après coup un quiz créé pour un seul enfant (onglet Quiz → « Partager ») ; pas de doublon
+    {
+      const T = 'T|Les planètes|Essai|sciences|🪐|🌍\nQ|La plus grosse planète ?|Jupiter|Mars|Vénus|Jupiter.\nQ|La plus proche du Soleil ?|Mercure|Terre|Mars|Mercure.\nQ|La planète rouge ?|Mars|Vénus|Saturne|Mars.';
+      const part = (await ev(`(() => { const r = apiAjouterQuiz(${JSON.stringify(T)}, []); const f = r.page + ".html"; return [r.ok, apiPartagerQuiz(f, ["${P2}"]), apiPartagerQuiz(f, ["${P2}"]), apiPartagerQuiz(f, []).erreur, apiPartagerQuiz("quiz_inconnu.html", ["${P2}"]).erreur, apiPartagerQuiz(f, ["https://ailleurs.test/x"]).faits.length]; })()`)).r;
+      const chezHugo = (await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz – Hugo')) + ')')).r.map(q => q.nom).filter(n => /planetes/i.test(n));
+      ok(part[0] && part[1].ok && JSON.stringify(part[1].faits) === '["Hugo"]' && JSON.stringify(part[2].deja) === '["Hugo"]' && !part[2].faits.length && !!part[3] && !!part[4] && part[5] === 0 && chezHugo.length === 1,
+        'famille : « Partager » un quiz déjà créé avec un autre enfant (copié une fois, doublon évité, enfant hors famille ignoré) — ' + JSON.stringify(part.slice(1, 3)));
+    }
     // espace parent de Hugo (…?e=<id>) : ses réglages, ses quiz ; les appels des pages passent par apiPourEnfant() avec son id
     await page.goto(BASE + '/exec?e=' + H);
     ok(/Hugo/.test(await page.locator('#famille span.on').textContent().catch(() => '')) && await page.locator(`#famille a[href="${P1}"]`).count() === 1, 'famille : espace parent de Hugo (…?e=<id>), lien de retour vers Lana');

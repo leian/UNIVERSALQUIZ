@@ -718,6 +718,8 @@ function afficherAppareil() {
 
 /* ---------- gestion des quiz : suppression avec confirmation (le fichier part dans la corbeille du Drive) ---------- */
 const peutSupprimer = !!(window.google && google.script && google.script.run);
+// les autres enfants de la famille (pour « Partager » un quiz avec eux) ; la liste suit les ajouts faits dans Réglages
+const autresEnfants = () => ((window.__UQ || {}).famille || []).filter(x => !x.ici && x.parent);
 function afficherQuiz() {
   const el = document.getElementById("liste-quiz");
   const Q = (window.QUIZ || []).filter(q => /\.html?$/i.test(q.fichier)).slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));
@@ -734,7 +736,7 @@ function afficherQuiz() {
     Q.map(q => `<tr><td>${esc(q.titre)}${nouvelleV(q) && peutSupprimer ? `<br><span class="small" style="color:#15803d">${I("check")} Version corrigée dans la bibliothèque</span> <button class="btn" type="button" data-majbib="${esc(q.fichier)}">Mettre à jour</button>` : ""}${retire(q) ? `<br><span class="small" style="color:var(--rouge)">⚠️ Retiré de la bibliothèque${typeof BIB_RETIRES[q.biblio] === "string" ? " : " + esc(BIB_RETIRES[q.biblio]) : ""}</span>` : ""}</td>
       <td class="hide-m">${esc((M[q.matiere] || M.autre || {}).emo || "")} ${esc((M[q.matiere] || M.autre || {}).nom || "")}</td>
       <td class="hide-m small">${q.date ? esc(new Date(q.date).toLocaleDateString("fr-FR")) : ""}</td>
-      <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer ? `<button class="btn" type="button" data-p="${esc(q.fichier)}">${I('send')} Proposer</button> ` : ""}${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
+      <td style="text-align:right;white-space:nowrap"><a class="btn tester" href="${encodeURI(q.fichier)}">${I('play')} Tester</a> ${peutSupprimer && autresEnfants().length ? `<button class="btn" type="button" data-partager="${esc(q.fichier)}">${I('copy')} Partager</button> ` : ""}${peutSupprimer ? `<button class="btn" type="button" data-p="${esc(q.fichier)}">${I('send')} Proposer</button> ` : ""}${peutSupprimer ? `<button class="btn danger" type="button" data-f="${esc(q.fichier)}">${I('trash')} Supprimer</button>` : ""}</td></tr>`).join("") +
     `</table></div><p class="small">Un quiz supprimé part dans la corbeille de ton Google Drive : tu peux le récupérer pendant 30 jours. Ses résultats restent dans le suivi.${window.__UQ && __UQ.espace === "parent" ? " Les parties jouées depuis l'espace parent (« ▶ Tester ») ne sont pas comptées dans les résultats de l'enfant." : ""}</p>`;
 }
 // fenêtre de confirmation : <dialog> modal (focus gardé dedans, Échap ferme), le focus revient ensuite où il était
@@ -770,6 +772,38 @@ document.getElementById("liste-quiz").addEventListener("click", async e => {
     })
     .withFailureHandler(err => { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Suppression impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); })
     .apiSupprimerQuiz(q.fichier);
+});
+
+/* ---------- partager un quiz avec d'autres enfants de la famille : copie dans leur dossier (résultats séparés) ---------- */
+let choixPartage = new Set();
+document.addEventListener("change", e => {
+  const c = e.target.closest && e.target.closest("input[data-partage]");
+  if (c) { if (c.checked) choixPartage.add(c.dataset.partage); else choixPartage.delete(c.dataset.partage); }
+});
+document.getElementById("liste-quiz").addEventListener("click", async e => {
+  const b = e.target.closest("button[data-partager]");
+  if (!b) return;
+  const q = (window.QUIZ || []).find(x => x.fichier === b.dataset.partager), autres = autresEnfants();
+  if (!q || !autres.length) return;
+  choixPartage = new Set(autres.length === 1 ? [autres[0].parent] : []);
+  const oui = await boite(`<h3>Partager « ${esc(q.titre)} »</h3>
+    <p>Le quiz est copié sur le site ${autres.length > 1 ? "des enfants choisis" : "de " + esc(autres[0].prenom)} : mêmes questions, mais chacun garde ses propres résultats.</p>
+    <div style="display:grid;gap:6px;margin:10px 0">${autres.map(x => `<label style="display:flex;gap:8px;align-items:center"><input type="checkbox" data-partage="${esc(x.parent)}"${autres.length === 1 ? " checked" : ""}> ${esc(x.prenom || "Sans prénom")}${x.classe ? ` <small>(${esc(x.classe === "adulte" ? "adulte" : x.classe)})</small>` : ""}</label>`).join("")}</div>
+    <div class="bts"><button class="btn" type="button" data-r="non">Annuler</button><button class="btn principal" type="button" data-r="oui">${I('copy')} Partager</button></div>`);
+  if (!oui) return;
+  const aussi = Array.from(choixPartage);
+  if (!aussi.length) { boite(`<h3>Aucun enfant choisi</h3><p>Coche au moins un enfant pour partager ce quiz.</p><div class="bts"><button class="btn" type="button">OK</button></div>`); return; }
+  b.disabled = true;
+  google.script.run
+    .withSuccessHandler(r => {
+      b.disabled = false;
+      if (!r || r.erreur) { boite(`<h3>😕 Oups</h3><p>${esc((r && r.erreur) || "Partage impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); return; }
+      const fait = (r.faits || []).length ? `<p class="ok">✅ Partagé avec ${esc(r.faits.join(", "))} : le quiz apparaît sur ${r.faits.length > 1 ? "leur site" : "son site"} dans moins d'une minute.</p>` : "";
+      const deja = (r.deja || []).length ? `<p class="small">Déjà présent chez ${esc(r.deja.join(", "))} (un quiz du même titre existe) : rien de copié.</p>` : "";
+      boite(`<h3>Partage de « ${esc(r.titre || q.titre)} »</h3>${fait}${deja || (fait ? "" : "<p>Rien n'a été copié.</p>")}<div class="bts"><button class="btn" type="button">OK</button></div>`);
+    })
+    .withFailureHandler(err => { b.disabled = false; boite(`<h3>😕 Oups</h3><p>${esc((err && err.message) || "Partage impossible.")}</p><div class="bts"><button class="btn" type="button">OK</button></div>`); })
+    .apiPartagerQuiz(q.fichier, aussi);
 });
 
 /* ---------- proposer un quiz à la bibliothèque : texte en lignes, envoyé par mail à SoccaQuiz (relu avant publication) ---------- */
@@ -1046,8 +1080,11 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
 
 /* famille : tous les enfants sont dans le même programme ; passer de l'un à l'autre, en ajouter un */
 (() => {
-  const U = window.__UQ || {}, l = U.famille || [], el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
-  if (!el || !r || !l.length) return;
+  const U = window.__UQ || {}, el = document.getElementById("famille"), r = document.getElementById("famille-reglages");
+  if (!el || !r || !(U.famille || []).length) return;
+  const l = U.famille;                       // même tableau que __UQ.famille : un enfant ajouté y est poussé, puis tout est redessiné
+  let fermetureBranchee = false;
+  const dessiner = () => {
   const nom = x => esc(x.prenom || "Sans prénom") + (x.classe ? ` <small>${esc(x.classe === "adulte" ? "adulte" : x.classe)}</small>` : "");
   // une couleur fixe par enfant (x.couleur, donnée une fois par le serveur : couleursEnfants_) ; pas de violet (charte)
   const COULEURS_ENFANTS = ["#C8102E", "#1D6FB8", "#1E7B4A", "#B85A0E", "#0B7A80", "#B03A6A", "#7A5C12", "#4A5A6A"];
@@ -1057,8 +1094,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     el.innerHTML = `<details class="choix-enfant"><summary ${coul(ici)}><span class="on-puce" aria-hidden="true"></span>${nom(l[ici])}<span class="fleche" aria-hidden="true">▾</span></summary><div class="menu-enfants">` +
       l.map((x, i) => x.ici ? `<span class="on" aria-current="page" ${coul(i)}>${nom(x)}</span>` : `<a href="${esc(x.parent)}" target="_top" ${coul(i)}>${nom(x)}</a>`).join("") + `</div></details>`;
     el.hidden = false;
-    const d = el.querySelector("details");
-    document.addEventListener("click", e => { if (d.open && !d.contains(e.target)) d.open = false; });
+    if (!fermetureBranchee) { fermetureBranchee = true; document.addEventListener("click", e => { const d = el.querySelector("details"); if (d && d.open && !d.contains(e.target)) d.open = false; }); }
   } else {
     el.innerHTML = `<span class="seul" ${coul(0)}><span class="on-puce" aria-hidden="true"></span>${nom(l[0])}</span>`;
     el.hidden = false;
@@ -1070,6 +1106,9 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <select id="nouvel-classe" aria-label="Classe" style="padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)"><option value="">Classe…</option>${(U.classes || []).map(c => `<option>${esc(c)}</option>`).join("")}<option value="adulte">Adulte</option></select> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>` +
       `<p style="margin:14px 0 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><label for="renommer-enfant" class="small">Renommer ${esc(l[ici] ? l[ici].prenom : "")} :</label><input type="text" id="renommer-enfant" maxlength="30" value="${esc(l[ici] ? l[ici].prenom : "")}" autocomplete="off" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn" id="renommer-go">Renommer</button></p><div id="renommer-msg"></div>`);
   document.getElementById("box-famille").hidden = false;
+  brancher();
+  };
+  const brancher = () => {
   const bt = document.getElementById("ajouter-enfant");
   if (bt) bt.addEventListener("click", () => {
     const champ = document.getElementById("nouvel-enfant"), msg = document.getElementById("enfant-msg");
@@ -1078,8 +1117,11 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     google.script.run.withSuccessHandler(res => {
       bt.disabled = false;
       if (!res || res.erreur) { msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((res && res.erreur) || "Erreur")}</p>`; return; }
-      champ.value = "";
-      msg.innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(res.prenom)} a sa place dans SoccaQuiz.</p><p style="margin:6px 0 0"><a class="btn principal" href="${esc(res.parent)}" target="_top">Ouvrir l'espace parent de ${esc(res.prenom)}</a></p><p class="small" style="margin:6px 0 0">Choisis sa classe dans ses Réglages, puis envoie-lui son lien.</p>`;
+      // le nouvel enfant apparaît tout de suite dans le sélecteur du haut et dans la liste, sans recharger la page
+      if (res.parent && !l.some(x => x.parent === res.parent)) l.push({ prenom: res.prenom, classe: res.classe || "", parent: res.parent, ici: false, couleur: Number.isInteger(res.couleur) ? res.couleur : l.length });
+      dessiner();
+      if (typeof afficherQuiz === "function") try { afficherQuiz(); } catch (e) {}      // « Partager » apparaît dans l'onglet Quiz
+      document.getElementById("enfant-msg").innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(res.prenom)} a sa place dans SoccaQuiz et dans le menu des enfants en haut de page.</p><p style="margin:6px 0 0"><a class="btn principal" href="${esc(res.parent)}" target="_top">Ouvrir l'espace parent de ${esc(res.prenom)}</a></p><p class="small" style="margin:6px 0 0">${res.classe ? "" : "Choisis sa classe dans ses Réglages, puis "}envoie-lui son lien.</p>`;
     }).withFailureHandler(e => { bt.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
       .apiAjouterEnfant({ prenom: champ.value, classe: (document.getElementById("nouvel-classe") || {}).value || "" });
   });
@@ -1096,6 +1138,8 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
     }).withFailureHandler(e => { ren.disabled = false; msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc(e && e.message || e)}</p>`; })
       .apiRenommerEnfant({ prenom: champ.value });
   });
+  };
+  dessiner();
 })();
 
 /* autre parent et appareils : l'espace parent s'ouvre sans compte Google, sur chaque appareil, avec un lien d'invitation

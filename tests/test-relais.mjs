@@ -158,6 +158,17 @@ ok(ajout.d.r && ajout.d.r.ok && ajout.d.r.nb === 5 && (ajout.d.r.avertissements 
 const qSch = await appel('/f/' + S + '?api=quiz&page=' + encodeURIComponent(ajout.d.r.page));
 const h = String(qSch.d.html || '').replace(/\\u003c/g, '<');
 ok(/"type":"zone"/.test(h) && /"type":"legende"/.test(h) && /<svg viewBox/.test(h), 'schémas : exercices Z et E dans la page du quiz');
+/* partager ce quiz (créé pour le premier enfant) avec Hugo : copié dans ses fichiers, une seule fois */
+{
+  const fam = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'page', page: 'tableau-de-bord' });
+  const autre = ((fam.d.reglages || {}).famille || []).find(x => !x.ici) || null;
+  const p1 = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiPartagerQuiz', args: [ajout.d.r.page + '.html', [autre && autre.parent]] });
+  const p2 = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiPartagerQuiz', args: [ajout.d.r.page + '.html', [autre && autre.parent]] });
+  const catH = await appel('/f/' + S + '?api=etat&e=' + idHugo);
+  const titresH = JSON.stringify(catH.d).match(/Le corps humain/g) || [];
+  ok(!!autre && p1.d.r && p1.d.r.faits.length === 1 && p2.d.r && p2.d.r.deja.length === 1 && titresH.length >= 1,
+    'relais : « Partager » un quiz avec l\'autre enfant (copié une fois, doublon évité) — ' + JSON.stringify([autre && autre.prenom, p1.d.r, p2.d.r]).slice(0, 300));
+}
 ok(!/onload|<script>alert|javascript:|url\(|<a |style=/.test(h.replace(/<script[^>]*>[\s\S]*?MoteurQuiz/, '')) && /id=\\?"coeur\\?"/.test(h) && /Le corps/.test(h), 'schémas : SVG nettoyé (ni script, ni événement, ni adresse, ni style), zones et texte gardés');
 const txt = await appel('/f/' + S, { api: 'parent', cle: app.d.cle, action: 'apiTexteQuiz', args: [ajout.d.r.page + '.html'] });
 const lignes = String(txt.d.r && (txt.d.r.texte || txt.d.r) || '');
