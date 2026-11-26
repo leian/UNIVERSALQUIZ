@@ -258,6 +258,17 @@
       if (e.type === 'click' && !e.button) try { window.parent.location.href = a.href; } catch (x) {}
       return;
     }
+    // même site (app.soccaquiz.fr : « Espace parent » depuis le site de l'enfant, et l'inverse) : même fenêtre.
+    // Un lien « _blank » ouvert depuis l'appli installée sortirait de l'appli : onglet Chrome à part, avec sa barre
+    // rouge (adresse + ✕). Les deux applis couvrent tout le site (scope « / ») : on y reste ; « retour » revient ici.
+    var origine = '';
+    try { origine = window.parent.location.origin; } catch (x) {}
+    if (origine && origine !== 'null' && a.href.indexOf(origine + '/') === 0) {
+      if (e.type !== 'click' || e.button || e.ctrlKey || e.metaKey || e.shiftKey) return;
+      e.preventDefault();
+      try { window.parent.location.href = a.href; } catch (x) {}
+      return;
+    }
     a.setAttribute('target', '_blank');
     a.setAttribute('rel', 'noopener');
   }

@@ -105,6 +105,18 @@ try {
   const [nouvelle] = await Promise.all([contexte.waitForEvent('page', { timeout: 5000 }).catch(() => null), f.locator('#porte-parent a').click()]);
   ok(!!nouvelle && /AKfycbPARENT/.test(nouvelle.url()), 'lien « Espace parent » ouvert à part — ' + (nouvelle && nouvelle.url()));
   if (nouvelle) await nouvelle.close();
+  // famille du relais : l'espace parent est sur le même site (app.soccaquiz.fr/parent/) → même fenêtre, jamais un onglet à part
+  // (depuis l'appli installée, un onglet à part affiche la barre rouge de Chrome avec l'adresse et ✕)
+  {
+    f = await cadre();
+    await f.locator('body').evaluate(b => { const a = document.createElement('a'); a.id = 'meme-site'; a.href = new URL('/parent/?s=rTEST', parent.location.origin).href; a.target = '_top'; a.textContent = 'Espace parent'; b.appendChild(a); });
+    const [autre] = await Promise.all([contexte.waitForEvent('page', { timeout: 2500 }).catch(() => null), f.locator('#meme-site').click()]);
+    await page.waitForURL(/\/parent\/\?s=rTEST/, { timeout: 5000 }).catch(() => {});
+    ok(!autre && /\/parent\/\?s=rTEST/.test(page.url()), 'lien vers l\'espace parent du même site : même fenêtre (pas d\'onglet Chrome à part) — ' + page.url());
+    if (autre) await autre.close();
+    await page.goBack();
+    await page.waitForURL(u => !/\/parent\//.test(String(u)), { timeout: 5000 }).catch(() => {});
+  }
 
   // Google ne répond pas : l'accueil s'affiche quand même, depuis la mémoire de l'appareil
   const p2 = await contexte.newPage();

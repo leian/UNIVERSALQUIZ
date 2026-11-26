@@ -287,7 +287,9 @@
     aller: function (page) {
       page = String(page || '');
       if (page === '' || page === 'index') page = 'tableau-de-bord';
-      if (PAGES.indexOf(page) < 0) { if (appli) window.open(appli + (appli.indexOf('#') < 0 ? '#' + encodeURIComponent(page) : ''), '_blank', 'noopener'); return; }   // un quiz : dans le site de l'enfant
+      // un quiz (« Tester ») : dans le site de l'enfant, dans la même fenêtre (un nouvel onglet sortirait de l'appli installée :
+      // barre rouge avec l'adresse et ✕) ; le bouton retour ramène à l'espace parent
+      if (PAGES.indexOf(page) < 0) { if (appli) location.href = appli + (appli.indexOf('#') < 0 ? '#' + encodeURIComponent(page) : ''); return; }
       if (location.hash.slice(1) === page) afficher(page); else location.hash = page;
     },
     // après un réglage (classe, saison…) : la page est redemandée, à l'onglet voulu (jamais de rechargement du cadre srcdoc)
