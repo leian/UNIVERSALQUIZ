@@ -576,12 +576,19 @@ try {
     else if (q.type === 'classer') { for (const [gi, g] of q.groupes.entries()) for (const x of g.items) { await page.locator('.ex-ligne').first().locator('.ex-puce', { hasText: exact(x) }).click(); const kase = page.locator('.ex-case').nth(gi), bb = await kase.boundingBox(); await kase.click({ position: { x: 8, y: bb.height - 6 } }); } await page.locator('.ex-valider').click(); }
     else if (q.type === 'cliquer') { await page.locator('.ex-motbtn', { hasText: /^dort$/ }).click(); await page.locator('.ex-motbtn', { hasText: /^ronronne$/ }).click(); await page.locator('.ex-valider').click(); }
     else if (q.type === 'nombre') { await page.fill('#ans-input', '1,41'); await page.keyboard.press('Enter'); }
-    else if (q.type === 'parler') { await page.locator('.ex-puce.ok').click(); }
+    else if (q.type === 'parler') {
+      // micro disponible (Chrome) : l'auto-évaluation n'apparaît qu'après un essai raté ; sinon elle est là d'emblée
+      if (!await page.locator('.ex-auto-oui').count()) await page.evaluate(() => { const b = document.querySelector('.ex-micro'); if (b) b.click(); });
+      await page.locator('.ex-auto-oui').waitFor({ timeout: 3000 }).catch(() => {});
+      if (await page.locator('.ex-auto-oui').count()) await page.locator('.ex-auto-oui').click(); else await page.evaluate(() => MoteurQuiz._ex('parler-auto', 1));
+    }
     else if (q.type === 'clavier') { for (const n of ['do', 'ré', 'mi']) await page.locator('.ex-touche', { hasText: new RegExp('^' + n + '$') }).click(); }
     const juste = await page.evaluate(() => { const e = MoteurQuiz._etat(); return !!(e.answers[e.cur] && e.answers[e.cur].ok); });
     if (!juste) console.log('   réponse refusée pour le type', q.type);
     await page.locator('.next-btn').click();
   }
+  const reco = await page.evaluate(() => [MoteurQuiz._ressemblance('Good night.', 'goodnight'), MoteurQuiz._ressemblance('I go there every day.', 'I go there everyday'), MoteurQuiz._ressemblance('Good night.', 'good morning'), MoteurQuiz._ressemblance('I would like a glass of water.', 'I would like')]);
+  ok(reco[0] === 1 && reco[1] === 1 && reco[2] < 0.75 && reco[3] < 0.75, 'micro : mots collés ou coupés par la reconnaissance vocale acceptés (« goodnight » = « Good night »), phrase différente refusée — ' + JSON.stringify(reco));
   ok(/^8/.test(await page.locator('.result-score').innerText()) && new Set(typesJoues).size === 8, 'nouveaux types : texte à trous, ordre, paires, classement, mots à toucher, nombre, micro, clavier jouables au toucher (8/8)');
   // mécanique des exercices au toucher
   const meca = await page.evaluate(() => {

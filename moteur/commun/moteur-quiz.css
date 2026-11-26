@@ -371,3 +371,6 @@ button, .ex-case, .opt-btn { touch-action: manipulation; -webkit-tap-highlight-c
 .ex-schema .sq-pastille.ok circle { fill: #1b7a3a; } .ex-schema .sq-pastille.ko circle { fill: #C8102E; }
 .ex-schema .sq-pastille text { fill: #fff; font-weight: 700; pointer-events: none; }
 .ex-schema .sq-pastille { pointer-events: none; }
+
+/* auto-évaluation de l'exercice « Parler » : deux boutons neutres (rien n'est coché tant qu'on n'a pas choisi) */
+.ex-puce.ex-auto { border-style: solid; }

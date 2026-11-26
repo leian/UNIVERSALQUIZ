@@ -746,6 +746,9 @@
   function ressemblance(cible, dit) {                    // part des mots de la phrase modèle retrouvés, dans l'ordre
     const a = motsNorm(cible), b = motsNorm(dit); if (!a.length) return b.length ? 1 : 0;
     let j = 0, ok = 0; a.forEach(m => { const k = b.indexOf(m, j); if (k >= 0) { ok++; j = k + 1; } });
+    // la reconnaissance vocale colle ou coupe parfois les mots (« goodnight » pour « good night », « every day » / « everyday ») :
+    // mêmes lettres dans le même ordre, sans tenir compte des espaces = phrase bien dite
+    if (ok < a.length && b.length && b.join('').indexOf(a.join('')) >= 0) return 1;
     return ok / a.length;
   }
   // Brave (comme Firefox) n'a pas le service de reconnaissance vocale de Google : on y propose seulement l'auto-évaluation
@@ -1045,8 +1048,11 @@
           `<div class="ecoute-row">${micro}</div>` +
           (s.entendu ? `<div class="ex-legende">J'ai entendu :</div><div class="ex-entendu">« ${esc(s.entendu)} »</div>` : '') +
           (s.erreur ? `<div class="input-note">${esc(s.erreur)}</div>` : '') +
-          `<div class="ex-legende">${Reco() ? 'Le micro ne marche pas ? ' : ''}Dis-le à voix haute, puis indique si tu as réussi :</div>` +
-          `<div class="ecoute-row"><button class="ex-puce ok" onclick="${ex('parler-auto', 1)}">✅ Je l'ai bien dit</button><button class="ex-puce" onclick="${ex('parler-auto', 0)}">🔁 À retravailler</button></div>` +
+          // auto-évaluation : d'emblée si ce navigateur ne reconnaît pas la voix ; sinon seulement après un essai raté au micro
+          // (micro bloqué, rien entendu, phrase pas reconnue), pour ne jamais rester bloqué sur la question
+          ((!Reco() || s.entendu || s.erreur) ?
+            `<div class="ex-legende">${Reco() ? 'Le micro ne t\'a pas compris ? ' : ''}Dis-le à voix haute, puis indique si tu as réussi :</div>` +
+            `<div class="ecoute-row"><button type="button" class="ex-puce ex-auto ex-auto-oui" onclick="${ex('parler-auto', 1)}">👍 Je l'ai bien dit</button><button type="button" class="ex-puce ex-auto" onclick="${ex('parler-auto', 0)}">🔁 À retravailler</button></div>` : '') +
           aideMicro();
       },
       attendu: q => q.phrase === '*' ? 'une réponse à voix haute' : esc(q.phrase)
@@ -1603,6 +1609,6 @@
     angle: s => `<span class="ang">${s}</span>`,           // notation d'angle avec chapeau
     shuffle, norm, esc, forme, comparer: (attendus, v, q) => comparer([].concat(attendus), v, regles(q || {})),
     _etat: () => ({ state, shuffled, cur, answers, selected, duel, pool: C ? C.questions.length : 0, questions: C ? C.questions : [] }),
-    _poids: q => poidsQuestion(q), _cle: q => cleQuestion(q)      // pour les tests
+    _poids: q => poidsQuestion(q), _cle: q => cleQuestion(q), _ressemblance: ressemblance      // pour les tests
   };
 })();
