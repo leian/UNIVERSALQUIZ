@@ -134,6 +134,12 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 .barre{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px}
 .titre-page{margin:10px 0 0;font-size:clamp(1.4rem,4.5vw,1.9rem)}
 .actions-tete{display:flex;flex-wrap:wrap;gap:8px}
+/* site de l'enfant : bouton bien visible, avec sa mascotte (sur téléphone : « Son site ») */
+.lien-enfant{border:2px solid var(--rouge);color:var(--rouge);font-weight:700;background:color-mix(in srgb,var(--rouge) 8%,var(--card))}
+.lien-enfant:hover{background:color-mix(in srgb,var(--rouge) 16%,var(--card))}
+.lien-enfant .txt-court{display:none}
+.avatar-enfant{width:30px;height:30px;object-fit:contain;margin:-6px 0;flex:0 0 auto}
+.avatar-enfant:not([hidden]) + .ic{display:none}      /* la mascotte remplace l'œil dès qu'elle est chargée */
 .adr{word-break:break-all;background:var(--bg);border-radius:8px;padding:4px 8px;display:block;margin:2px 0 8px}
 .marque{display:flex;align-items:center;gap:8px;font:700 1.15rem "Fredoka",sans-serif;margin-bottom:4px}.marque img{border-radius:9px}.marque em{font-style:normal;color:#b3001b}
 @media (prefers-color-scheme: dark){.marque em{color:#ff5c72}}
@@ -192,7 +198,7 @@ dialog.boite.large{max-width:720px}
   .choix-enfant summary,.famille .seul{font-size:.95rem;padding:6px 12px;max-width:100%}
   .actions-tete{flex-wrap:nowrap;gap:6px}
   .actions-tete .creer-tete{display:none}
-  #lien-enfant{padding:0;width:42px;height:42px;border-radius:50%;justify-content:center}#lien-enfant .txt{display:none}
+  #lien-enfant{padding:4px 12px 4px 5px;height:42px;gap:5px;font-size:.9rem}#lien-enfant .txt{display:none}#lien-enfant .txt-court{display:inline}
   .menu-enfants{left:50%;transform:translateX(-50%)}
   .onglets{position:fixed;top:auto;bottom:0;left:0;right:0;margin:0;z-index:20;gap:0;justify-content:space-around;align-items:center;background:var(--card);box-shadow:0 -1px 0 var(--line),0 -6px 18px rgba(0,0,0,.06);padding:4px 4px calc(6px + env(safe-area-inset-bottom));overflow:visible}
   .onglet{flex:1 1 0;flex-direction:column;gap:2px;padding:6px 2px 4px;font-size:.72rem;border-bottom:0;position:relative;min-width:0}
@@ -212,7 +218,7 @@ dialog.boite.large{max-width:720px}
     <div class="marque"><img src="https://leian.github.io/UNIVERSALQUIZ/icone-96.png" width="40" height="40" alt=""><span class="nom-marque">Socca<em>Quiz</em></span><span class="badge-parent"><i data-ic="lock"></i> Espace parent</span></div>
     <nav class="famille" id="famille" aria-label="Choisir l'enfant" hidden></nav>
     <div class="actions-tete">
-      <a class="btn" id="lien-enfant" href="index.html" title="Site de {{PRENOM}}"><i data-ic="eye"></i><span class="txt"> Site de {{PRENOM}}</span></a>
+      <a class="btn lien-enfant" id="lien-enfant" href="index.html" title="Ouvrir le site de {{PRENOM}}"><img class="avatar-enfant" alt="" width="30" height="30" hidden><i data-ic="eye"></i><span class="txt"> Site de {{PRENOM}}</span><span class="txt-court">Son site</span></a>
       <a class="btn principal creer-tete" href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a>
       <a class="pastille-maj" id="pastille-maj" href="#maj" hidden title="Nouvelle version disponible" aria-label="Nouvelle version disponible"><i data-ic="refresh"></i></a>
       <button type="button" class="pastille-aide" id="bouton-aide" title="Aide" aria-label="Aide" aria-haspopup="dialog"><i data-ic="aide"></i></button>
@@ -304,6 +310,12 @@ dialog.boite.large{max-width:720px}
         <div class="bloc" id="box-famille" hidden>
           <h3><i data-ic="cap"></i>Enfants de la famille</h3>
           <div id="famille-reglages" class="small"></div>
+        </div>
+      </div>
+      <div class="box carte">
+        <div class="bloc" id="box-renommer" hidden>
+          <h3><i data-ic="crayon"></i>Renommer {{PRENOM}}</h3>
+          <div id="renommer-zone" class="small"></div>
         </div>
       </div>
       <div class="box carte">
@@ -1011,7 +1023,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
 /* lien direct depuis l'aide (https://app.soccaquiz.fr/parent/#reglages/questions…) : la coquille ouvre l'onglet et passe la
    rubrique (__UQ.cible) ; on y amène l'écran, on ouvre son encadré repliable s'il y en a un, et on la souligne un instant */
 const CIBLES_AIDE = { partager: "actions", classe: "classe", mascotte: "classe", questions: "choix-parpartie", saison: "saison", enfants: "box-famille",
-  parents: "box-parents", appareils: "box-parents", drive: "adresses", supprimer: "box-suppr", remise: "box-suppr", signalements: "signalements" };
+  parents: "box-parents", appareils: "box-parents", renommer: "box-renommer", drive: "adresses", supprimer: "box-suppr", remise: "box-suppr", signalements: "signalements" };
 setTimeout(() => {
   const id = CIBLES_AIDE[(window.__UQ || {}).cible || ""], el = id && document.getElementById(id);
   if (!el) return;
@@ -1029,6 +1041,16 @@ setTimeout(() => {
   // « Site de l'enfant » : l'adresse de l'enfant (espace parent) ; sinon la page d'accueil du site
   // lien de l'enfant : son appli (sans le bandeau Google) dès qu'elle existe, sinon l'adresse du site
   const lienEnfant = U.appli || U.urlEnfant;
+  // la mascotte que voit l'enfant (thème de sa classe, tenue du lycée, allure) sur le bouton de son site
+  (() => {
+    const im = document.querySelector("#lien-enfant .avatar-enfant"); if (!im) return;
+    const g = U.genre && U.genre !== "auto" ? U.genre : (U.genreDevine || "n");
+    const suffixe = (g === "f" || g === "m") && (U.genresDispo || []).indexOf(g) >= 0 ? "-" + g : "";
+    const dossier = (U.theme === "lycee" ? "lycee-" + (U.mascotte || "gothique") : (U.theme || "explorateurs")) + suffixe;
+    im.onload = () => { im.hidden = false; };
+    im.onerror = () => { im.remove(); };
+    im.src = "https:\/\/leian.github.io/UNIVERSALQUIZ/themes/" + dossier + "/accueil.webp";
+  })();
   if (U.urlEnfant) { $("lien-enfant").href = lienEnfant; $("lien-enfant").target = "_top"; }
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + '<span class="txt"> Accueil</span>';
   else $("lien-enfant").hidden = true;
@@ -1119,9 +1141,15 @@ setTimeout(() => {
       ? "<p style=\"margin:0 0 8px\">Le sélecteur « Enfant : » en haut de page passe de l'un à l'autre. Chaque enfant a ses quiz, ses résultats, sa classe et son lien.</p>"
       : "<p style=\"margin:0 0 8px\">Un autre enfant ? Ajoute-le ici : il aura ses propres quiz, ses résultats, sa classe et son lien, sans rien réinstaller.</p>") +
     l.map((x, i) => `<p style="margin:4px 0">${l.length > 1 ? `<span class="pastille-enfant" ${coul(i)} aria-hidden="true"></span>` : ""}${nom(x)}${x.ici ? " <small>(affiché)</small>" : ""}</p>`).join("") +
-    (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <select id="nouvel-classe" aria-label="Classe" style="padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)"><option value="">Classe…</option>${(U.classes || []).map(c => `<option>${esc(c)}</option>`).join("")}<option value="adulte">Adulte</option></select> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>` +
-      `<p style="margin:14px 0 0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><label for="renommer-enfant" class="small">Renommer ${esc(l[ici] ? l[ici].prenom : "")} :</label><input type="text" id="renommer-enfant" maxlength="30" value="${esc(l[ici] ? l[ici].prenom : "")}" autocomplete="off" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn" id="renommer-go">Renommer</button></p><div id="renommer-msg"></div>`);
+    (U.proprio === false ? "" : `<p style="margin:12px 0 0;display:flex;gap:6px;flex-wrap:wrap"><input type="text" id="nouvel-enfant" maxlength="30" placeholder="Prénom" autocomplete="off" style="flex:1;min-width:140px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <select id="nouvel-classe" aria-label="Classe" style="padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--ink)"><option value="">Classe…</option>${(U.classes || []).map(c => `<option>${esc(c)}</option>`).join("")}<option value="adulte">Adulte</option></select> <button type="button" class="btn principal" id="ajouter-enfant">${I("plus")} Ajouter un enfant</button></p><div id="enfant-msg"></div>`);
   document.getElementById("box-famille").hidden = false;
+  // « Renommer » : sa propre carte, pour l'enfant affiché (parent qui a installé seulement)
+  const zr = document.getElementById("renommer-zone");
+  if (zr && U.proprio !== false) {
+    zr.innerHTML = `<p style="margin:0;display:flex;gap:6px;flex-wrap:wrap;align-items:center"><label for="renommer-enfant" class="small">Nouveau prénom :</label><input type="text" id="renommer-enfant" maxlength="30" value="${esc(l[ici] ? l[ici].prenom : "")}" autocomplete="off" style="flex:1;min-width:120px;padding:8px;border:1px solid var(--line);border-radius:10px;font:inherit"> <button type="button" class="btn" id="renommer-go">Renommer</button></p><div id="renommer-msg"></div>` +
+      `<p class="small" style="margin:8px 0 0">Change seulement le prénom affiché sur le site et dans l'espace parent : ses quiz, ses résultats et son lien ne changent pas.</p>`;
+    document.getElementById("box-renommer").hidden = false;
+  }
   brancher();
   };
   const brancher = () => {

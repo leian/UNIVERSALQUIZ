@@ -1117,6 +1117,19 @@ try {
     await page.goto(BASE + '/exec');
     const fam = await page.locator('#famille').innerText().catch(() => '');
     if (process.env.SQ_CAPTURE) { await page.setViewportSize({ width: 390, height: 800 }); await page.screenshot({ path: '/tmp/tb-mobile.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.screenshot({ path: '/tmp/tb-menu.png' }); await page.locator('#famille summary').click().catch(() => {}); await page.setViewportSize({ width: 1100, height: 800 }); await page.screenshot({ path: '/tmp/tb-pc.png' }); }
+    // bouton du site de l'enfant : visible et nommé, même sur téléphone (plus un simple œil)
+    {
+      const avantV = page.viewportSize(), avantU = (await ev('CONFIG.urlEnfant || ""')).r;
+      await ev('CONFIG.urlEnfant = "https://script.google.com/macros/s/AKfycbENFANT/exec"');
+      await page.setViewportSize({ width: 390, height: 800 });
+      await page.goto(BASE + '/exec');
+      const b = await page.evaluate(() => { const a = document.getElementById('lien-enfant'), r = a.getBoundingClientRect(), t = [...a.querySelectorAll('.txt, .txt-court')].filter(x => getComputedStyle(x).display !== 'none').map(x => x.textContent.trim()); return { texte: t.join('|'), droite: Math.round(r.right), largeur: innerWidth, haut: Math.round(r.height), avatar: !!a.querySelector('.avatar-enfant') || !!a.querySelector('svg.ic') }; });   /* images bloquées dans le test : l'œil reste en repli */
+      await page.screenshot({ path: '/tmp/entete-tel.png', clip: { x: 0, y: 0, width: 390, height: 80 } }).catch(() => {});
+      if (avantV) await page.setViewportSize(avantV);
+      await ev('CONFIG.urlEnfant = ' + JSON.stringify(avantU));
+      await page.goto(BASE + '/exec');
+      ok(b.texte === 'Son site' && b.droite <= b.largeur && b.haut >= 36 && b.avatar, 'espace parent sur téléphone : bouton « Son site » avec la mascotte (ou l\'œil en repli), dans l\'écran — ' + JSON.stringify(b));
+    }
     ok(await page.locator('#famille').isVisible() && /Lana/.test(await page.locator('#famille span.on').textContent()) && await page.locator(`#famille a[href="${P2}"]`).count() === 1,
       'famille : sélecteur en haut de l\'espace parent (enfant affiché, lien vers l\'autre) — ' + fam.replace(/\s+/g, ' '));
     // « Ajouter un enfant » (Réglages) : le nouvel enfant apparaît tout de suite dans le menu du haut, sans recharger la page ;
@@ -1129,6 +1142,8 @@ try {
       const idMila = (await ev('(enfants_().find(x => x.prenom === "Mila") || {}).id')).r;
       ok(vu.marque === Number(avantNav.split(':')[1]) && vu.menu.some(t => /Mila/.test(t)) && /Mila/.test(vu.msg) && /menu des enfants/.test(vu.msg),
         'famille : enfant ajouté visible tout de suite dans le menu du haut, sans rechargement — ' + JSON.stringify(vu));
+      const cartes = await page.evaluate(() => ({ seul: !!document.querySelector('#box-renommer #renommer-enfant') && !document.querySelector('#box-famille #renommer-enfant'), separees: document.getElementById('box-renommer').closest('.carte') !== document.getElementById('box-famille').closest('.carte') }));
+      ok(cartes.seul && cartes.separees, 'Réglages : « Renommer » dans sa propre carte, séparée de « Enfants de la famille » — ' + JSON.stringify(cartes));
       if (idMila) await ev(`retirerEnfant_(${JSON.stringify(idMila)})`);
     }
     const g = await ev(`(() => { const k = "AIza" + "x".repeat(35); apiGeminiCle({ cle: k }); return pourEnfant_("${H}", cleGemini_) === k; })()`);
