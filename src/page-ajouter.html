@@ -43,13 +43,24 @@ input[type=file]:focus-visible + .choix{outline:3px solid #e8a83a;outline-offset
 input[type=file]:disabled + .choix{opacity:.6;cursor:wait}
 .choix{display:inline-flex;align-items:center;gap:6px;font:600 1rem system-ui,sans-serif;border-radius:999px;padding:10px 18px;cursor:pointer;background:var(--card);color:var(--ink);border:2px solid var(--line)}
 ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
-/* aperçu de la réponse de l'IA : on montre où toucher, pas le contenu */
-.apercu{position:relative;margin:10px 0;border-radius:12px;background:#f3efe9;border:2px solid var(--line);padding:30px 12px 12px;max-width:340px}
-.apercu i{display:block;height:8px;border-radius:4px;background:#d9cfc2;margin:7px 0;filter:blur(1px)}
-.apercu i:nth-child(2){width:80%}.apercu i:nth-child(3){width:90%}.apercu i:nth-child(4){width:60%}
-.apercu b{position:absolute;top:6px;right:8px;font:700 .8rem system-ui,sans-serif;background:var(--accent);color:#fff;border-radius:999px;padding:2px 10px;animation:pouls 1.6s ease-in-out infinite}
-@keyframes pouls{50%{box-shadow:0 0 0 6px color-mix(in srgb,var(--accent) 25%,transparent)}}
-@media (prefers-reduced-motion:reduce){.apercu b{animation:none}}
+/* étape 3 : trois temps numérotés, un seul bouton principal */
+ol.ia-pas{list-style:none;counter-reset:p;margin:8px 0 0;padding:0}
+ol.ia-pas>li{counter-increment:p;position:relative;padding:0 0 14px 40px;margin:0}
+ol.ia-pas>li::before{content:counter(p,lower-alpha);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:color-mix(in srgb,var(--accent) 14%,var(--card));color:var(--accent);font:700 .95rem system-ui,sans-serif;display:grid;place-items:center}
+ol.ia-pas>li:not(:last-child)::after{content:"";position:absolute;left:13px;top:32px;bottom:4px;width:2px;background:var(--line)}
+ol.ia-pas .ias{margin-top:8px}
+.btn.grand{font-size:1.1rem;padding:14px 22px;margin-top:8px}
+.btn[hidden]{display:none}
+/* aperçu fidèle d'un bloc de réponse de Claude / ChatGPT / Grok : en-tête sombre, icône « copier » (deux carrés) en haut à droite */
+.bloc-ia{margin:10px 0 4px;max-width:360px;border-radius:12px;overflow:hidden;background:#1e1e22;border:1px solid #34343c;box-shadow:0 2px 8px rgba(0,0,0,.15)}
+.bloc-tete{display:flex;justify-content:space-between;align-items:center;padding:6px 8px 6px 12px;background:#2a2a31;color:#a3a3ad;font:12px system-ui,sans-serif}
+.bloc-copier{display:inline-flex;align-items:center;gap:5px;color:#fff;padding:4px 8px;border-radius:7px;animation:pouls-c 1.6s ease-in-out infinite}
+.bloc-copier svg{width:15px;height:15px}
+@keyframes pouls-c{50%{background:#ffffff1f;box-shadow:0 0 0 2px var(--accent)}}
+.bloc-ia pre{margin:0;padding:10px 12px;color:#d8d8de;font:12.5px/1.55 ui-monospace,Menlo,Consolas,monospace;white-space:pre;overflow:hidden;-webkit-mask-image:linear-gradient(180deg,#000 55%,transparent)}
+.ico-copie{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.15em}
+button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
+@media (prefers-reduced-motion:reduce){.bloc-copier{animation:none;box-shadow:0 0 0 2px var(--accent)}}
 .barre-retour{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:2px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.12);padding:12px 16px calc(12px + env(safe-area-inset-bottom));text-align:center}
 .barre-retour .btn{font-size:1.1rem;padding:14px 22px}
 .barre-retour p{margin:6px 0 0}
@@ -126,28 +137,33 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
 
   <section class="etape">
     <h2><span class="num">3</span> Ou avec une autre IA</h2>
-    <p>Appuie sur une IA, joins les photos de la leçon (📎 ou +) et envoie.</p>
-    <div class="ias">
-      <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
-      <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
-      <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
-    </div>
-    <p class="petit" id="copie-ok"></p>
-    <p>L'IA répond par un bloc de texte : c'est le quiz, écrit pour le site. <b>Pas besoin de le lire</b>, clique simplement sur son bouton <b>Copier</b> :</p>
-    <div class="apercu" aria-hidden="true"><b>Copier</b><i></i><i></i><i></i><i></i></div>
-    <p>Puis reviens ici et clique sur :</p>
-    <button class="btn" id="coller-creer" type="button">📥 Coller et créer le quiz</button>
+    <ol class="ia-pas">
+      <li><b>Ouvre une IA</b>, joins les photos de la leçon (📎 ou +) et envoie : la demande est déjà écrite.
+        <div class="ias">
+          <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
+          <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
+          <a class="btn leger ia" data-ia="https://grok.com/?q=" href="https://grok.com/" target="_blank" rel="noopener">Grok</a>
+        </div>
+        <p class="petit" id="copie-ok"></p></li>
+      <li><b>Copie sa réponse.</b> L'IA répond par un bloc de texte : pas besoin de le lire, clique sur l'icône <span class="ico-copie" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></span> en haut à droite du bloc.
+        <div class="bloc-ia" aria-hidden="true"><div class="bloc-tete"><span>texte</span><span class="bloc-copier"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="12" height="12" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg> Copier</span></div><pre>T|Les volcans|Volcans et éruptions|sciences|🌋|🔥
+## Les volcans|🌋
+Q|Comment s'appelle l'ouverture au sommet ?|le cratère|…
+V|La lave est de la roche fondue.|V|…</pre></div></li>
+      <li><b>Reviens ici</b> et clique sur :<br>
+        <button class="btn grand" id="coller-creer" type="button">📥 Coller et créer le quiz</button></li>
+    </ol>
+    <div id="resultat" aria-live="polite"></div>
     <details id="secours">
-      <summary>Un souci ?</summary>
-      <p class="petit">L'IA répond « 📋 Colle-moi les consignes » : <button class="btn leger" id="copier" type="button">📋 Copier les consignes</button> puis colle-les dans l'IA.</p>
-      <p class="petit">Le bouton « Coller et créer » ne marche pas : colle la réponse de l'IA ici (appui long ou Ctrl+V), puis clique sur « Créer ».</p>
+      <summary>Ça ne marche pas ?</summary>
+      <p class="petit">Colle la réponse de l'IA ici (appui long, puis « Coller »), puis clique sur « Créer le quiz ».</p>
       <textarea id="reponse" rows="6" placeholder="Colle ici la réponse de l'IA…"></textarea>
       <button class="btn leger" id="creer" type="button">✨ Créer le quiz</button>
+      <p class="petit">L'IA te demande les consignes ? <button class="lien" id="copier" type="button">Copier les consignes</button>, puis colle-les dans l'IA.</p>
     </details>
-    <div id="resultat" aria-live="polite"></div>
   </section>
   <div class="barre-retour" id="barre-retour" hidden>
-    <button class="btn" id="coller-retour" type="button">📥 J'ai copié la réponse : créer le quiz</button>
+    <button class="btn" id="coller-retour" type="button">📥 Coller et créer le quiz</button>
     <p class="petit">L'IA n'a pas encore fini ? <a href="#" id="fermer-retour">Plus tard</a></p>
   </div>
 
@@ -276,18 +292,20 @@ ol.pas{margin:6px 0;padding-left:22px}ol.pas li{margin:4px 0}
   // retour depuis l'IA : grand bouton en bas de l'écran, sans avoir à chercher l'étape 3
   let partiIA = false;
   liensIA.forEach(a => a.addEventListener('click', () => { partiIA = true; }));
-  const montrerRetour = () => { if (partiIA && document.visibilityState === 'visible') $('barre-retour').hidden = false; };
+  // un seul bouton « Coller et créer » à l'écran : celui de la barre du bas au retour de l'IA, sinon celui de l'étape 3
+  const barre = vu => { $('barre-retour').hidden = !vu; $('coller-creer').hidden = vu; };
+  const montrerRetour = () => { if (partiIA && document.visibilityState === 'visible') barre(true); };
   document.addEventListener('visibilitychange', montrerRetour);
   window.addEventListener('focus', montrerRetour);
-  $('fermer-retour').addEventListener('click', e => { e.preventDefault(); $('barre-retour').hidden = true; });
-  $('coller-retour').addEventListener('click', () => { $('barre-retour').hidden = true; partiIA = false; $('coller-creer').scrollIntoView({ block: 'center' }); $('coller-creer').click(); });
+  $('fermer-retour').addEventListener('click', e => { e.preventDefault(); partiIA = false; barre(false); });
+  $('coller-retour').addEventListener('click', () => { partiIA = false; barre(false); $('coller-creer').scrollIntoView({ block: 'center' }); $('coller-creer').click(); });
 
   $('coller-creer').addEventListener('click', async () => {
     let texte = '';
     try { texte = await navigator.clipboard.readText(); } catch (e) {}
     if (!texte.trim()) {
       $('secours').open = true; $('reponse').focus();
-      $('resultat').innerHTML = '<p class="petit">Ce navigateur ne me laisse pas lire le presse-papiers : colle la réponse dans le cadre ci-dessus (appui long ou Ctrl+V), puis clique sur « Créer le quiz ».</p>';
+      $('resultat').innerHTML = '<p class="petit">Ce navigateur ne me laisse pas lire le presse-papiers : colle la réponse dans le cadre juste en dessous (appui long, puis « Coller »), puis clique sur « Créer le quiz ».</p>';
       return;
     }
     creer(texte, $('resultat'), $('coller-creer'));
