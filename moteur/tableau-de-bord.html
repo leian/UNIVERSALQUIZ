@@ -50,7 +50,6 @@ details.bloc[open]>summary{margin-bottom:8px}
 .sommaire a{display:none}
 #p-reglages:has(#g-enfant .bloc:not([hidden])) .sommaire a[href="#g-enfant"],
 #p-reglages:has(#g-famille .bloc:not([hidden])) .sommaire a[href="#g-famille"],
-#p-reglages:has(#g-appareil .bloc:not([hidden])) .sommaire a[href="#g-appareil"],
 #p-reglages:has(#g-soccaquiz .bloc:not([hidden])) .sommaire a[href="#g-soccaquiz"],
 #p-reglages:has(#g-danger .bloc:not([hidden])) .sommaire a[href="#g-danger"]{display:inline-block}
 .msg{border-radius:12px;padding:12px 14px;margin-top:12px;font-size:.95rem}
@@ -273,7 +272,7 @@ dialog.boite.large{max-width:720px}
     <!-- Réglages rangés par sujet (le plus utilisé d'abord, les actions définitives à la fin) ; chaque « bloc » garde son id :
          le script l'affiche ou le cache, et une carte ou un groupe dont tous les blocs sont cachés disparaît (règles .carte / .groupe) -->
     <nav class="sommaire" aria-label="Rubriques des réglages">
-      <a href="#g-enfant">{{PRENOM}}</a><a href="#g-famille">Famille et accès</a><a href="#g-appareil">Cet appareil</a><a href="#g-soccaquiz">SoccaQuiz</a><a href="#g-danger" class="rouge">Zone sensible</a>
+      <a href="#g-enfant">{{PRENOM}}</a><a href="#g-famille">Famille et accès</a><a href="#g-soccaquiz">SoccaQuiz</a><a href="#g-danger" class="rouge">Zone sensible</a>
     </nav>
 
     <section class="groupe" id="g-enfant">
@@ -312,28 +311,9 @@ dialog.boite.large{max-width:720px}
       </div>
     </section>
 
-    <section class="groupe" id="g-appareil">
-      <h2 class="groupe-titre">Cet appareil</h2>
-      <div class="box carte">
-        <div class="bloc">
-          <div id="appareil"></div>
-        </div>
-        <details class="bloc avance" id="box-chrono" hidden>
-          <summary><i data-ic="phone"></i>Mesurer la vitesse</summary>
-          <div id="chrono" class="small"></div>
-        </details>
-      </div>
-    </section>
-
     <section class="groupe" id="g-soccaquiz">
       <h2 class="groupe-titre">SoccaQuiz</h2>
       <div class="box carte">
-        <div class="bloc">
-          <h3><i data-ic="tool"></i>Version et mises à jour</h3>
-          <p class="small" id="info-version" style="margin:0"></p>
-          <p class="small" id="info-gemini" style="margin:4px 0 0"></p>
-          <div class="filtres" style="margin-top:8px"><a class="btn" id="lien-installateur" href="#" target="_top" hidden><i data-ic="tool"></i> Installateur</a></div>
-        </div>
         <details class="bloc avance">
           <summary><i data-ic="link"></i>Adresses et dossier Drive</summary>
           <div id="adresses" class="small"></div>
@@ -724,7 +704,8 @@ function afficherSaison() {
 }
 afficherSaison();
 
-function afficherAppareil() {
+function afficherAppareil() {       // section « Cet appareil » retirée des Réglages (26 nov. 2026) : rien à afficher
+  if (!document.getElementById("appareil")) return;
   if ((window.__UQ || {}).espace === "parent") {      // l'espace parent n'enregistre jamais de partie (Code.gs, apiEnregistrer)
     document.getElementById("appareil").innerHTML = `<p>Les quiz essayés ici, dans l'espace parent, <b>ne sont jamais comptés</b> dans les résultats de {{PRENOM}}.</p><p class="small">Seules les parties jouées sur le site de l'enfant sont enregistrées.</p>`;
     return;
@@ -1028,7 +1009,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
 /* ---------- actions de l'espace parent : site de l'enfant, lien à envoyer, installateur, version, clé Gemini ---------- */
 (function () {
   const U = window.__UQ || {}, $ = id => document.getElementById(id);
-  if (U.installateur) { $("lien-installateur").href = U.installateur; $("lien-installateur").hidden = false; }
+  if (U.installateur && $("lien-installateur")) { $("lien-installateur").href = U.installateur; $("lien-installateur").hidden = false; }
   // « Site de l'enfant » : l'adresse de l'enfant (espace parent) ; sinon la page d'accueil du site
   // lien de l'enfant : son appli (sans le bandeau Google) dès qu'elle existe, sinon l'adresse du site
   const lienEnfant = U.appli || U.urlEnfant;
@@ -1036,7 +1017,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
   else if (U.espace !== "parent") $("lien-enfant").innerHTML = I("eye") + '<span class="txt"> Accueil</span>';
   else $("lien-enfant").hidden = true;
   // chronomètre (pont.html) : s'allume sur l'appareil qui ouvre le site de l'enfant avec chrono=1 et y reste
-  if (U.urlEnfant) {
+  if (U.urlEnfant && $("box-chrono")) {          // « Mesurer la vitesse » : section retirée des Réglages (26 nov. 2026)
     const avec = v => U.appli ? U.appli + "&q=chrono%3D" + v : U.urlEnfant + "?chrono=" + v;
     $("box-chrono").hidden = false;
     $("chrono").innerHTML = `<p style="margin:0 0 10px">Ouvre le site de {{PRENOM}} avec un petit chronomètre en bas de l'écran : temps de chaque page et de chaque échange avec Google. Il reste allumé sur ce téléphone, appli installée comprise, jusqu'à « Arrêter le chrono ».</p>` +
@@ -1059,16 +1040,16 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
         `Ta messagerie ne s'est pas ouverte ? <a href="${esc(gmail)}" target="_blank" rel="noopener">Écrire le mail dans Gmail</a>, ou ${copie ? "colle le lien" : "copie ce lien"} dans un message.`;
     };
   }
-  $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk
+  // « Mises à jour et clé Gemini » retirée des Réglages (26 nov. 2026) : le relais est toujours à jour, la clé se gère sur « Créer un quiz »
+  const info = t => { if ($("info-version")) $("info-version").textContent = t; };
+  if ($("info-gemini")) $("info-gemini").innerHTML = U.geminiOk === undefined ? "" : U.geminiOk
     ? "🔑 Clé Gemini enregistrée : les quiz se créent directement à partir des photos."
     : "🔑 Pas encore de clé Gemini : <a href=\"ajouter.html\">ajoute-la sur « Créer un quiz »</a> pour créer les quiz directement à partir des photos.";
   if (U.version === "relais") {   // nouvelle installation : le relais sert toujours la dernière version, rien à mettre à jour
-    const h = $("info-version").parentNode.querySelector("h3"); if (h) h.innerHTML = `${I("tool")}Mises à jour et clé Gemini`;
-    $("info-version").textContent = "✅ Ton SoccaQuiz est toujours à jour : les nouveautés arrivent toutes seules, il n'y a rien à faire.";
     return;
   }
   if (!U.version || !U.installateur) return;
-  $("info-version").textContent = "Version " + U.version + ".";
+  info("Version " + U.version + ".");
   // une nouvelle version est-elle publiée ? (dernière Release GitHub, même source que l'installateur)
   (async function () {
     const vnum = v => String(v || '').replace(/^v/i, '').split('.').map(n => parseInt(n, 10) || 0), plusRecente = (a, b) => { const x = vnum(a), y = vnum(b); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
@@ -1085,7 +1066,7 @@ else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|re
       } catch (e) { return; }
     }
     if (!derniere) return;
-    if (!plusRecente(derniere, U.version)) { $("info-version").textContent = "Version " + U.version + " : c'est la dernière."; return; }
+    if (!plusRecente(derniere, U.version)) { info("Version " + U.version + " : c'est la dernière."); return; }
     if (!U.installateur) return;
     // pastille ronde en haut à droite : on la voit même quand le bandeau est loin (onglets Quiz, Réglages)
     const p = $("pastille-maj"); p.hidden = false; p.title = "Nouvelle version disponible (" + derniere + ") : clique pour mettre à jour ton site depuis l'installateur";

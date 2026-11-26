@@ -578,8 +578,7 @@ try {
     else if (q.type === 'nombre') { await page.fill('#ans-input', '1,41'); await page.keyboard.press('Enter'); }
     else if (q.type === 'parler') {
       // micro disponible (Chrome) : l'auto-évaluation n'apparaît qu'après un essai raté ; sinon elle est là d'emblée
-      if (!await page.locator('.ex-auto-oui').count()) await page.evaluate(() => { const b = document.querySelector('.ex-micro'); if (b) b.click(); });
-      await page.locator('.ex-auto-oui').waitFor({ timeout: 3000 }).catch(() => {});
+      // (on n'allume pas le vrai micro du navigateur de test : sa réponse tardive rendait le test instable)
       if (await page.locator('.ex-auto-oui').count()) await page.locator('.ex-auto-oui').click(); else await page.evaluate(() => MoteurQuiz._ex('parler-auto', 1));
     }
     else if (q.type === 'clavier') { for (const n of ['do', 'ré', 'mi']) await page.locator('.ex-touche', { hasText: new RegExp('^' + n + '$') }).click(); }
@@ -660,7 +659,8 @@ try {
   await page.locator('.boite button[data-r=oui]').click();
   await page.waitForFunction(() => !/Les volcans/.test(document.getElementById('liste-quiz').innerText));
   await page.locator('.onglet[data-o=reglages]').click();
-  ok(await page.locator('#appareil button').isVisible() && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').textContent()), 'page parents : l\'onglet « Réglages » montre l\'appareil et les adresses');
+  ok(await page.locator('#appareil').count() === 0 && await page.locator('#info-version').count() === 0 && !/Cet appareil|Mises à jour et clé|Mesurer la vitesse/.test(await page.locator('#p-reglages').innerText()) && /installé à la main|Site de l'enfant/.test(await page.locator('#adresses').textContent()),
+    'page parents : l\'onglet « Réglages » montre les adresses, plus les sections « Cet appareil » ni « Mises à jour et clé Gemini »');
   await page.goto(BASE + '/exec');
   ok(await page.locator('a.card', { hasText: 'Les volcans' }).count() === 0 && !(await ev('quizDuDossier(' + JSON.stringify(join(DRIVE, 'SoccaQuiz')) + ')')).r.some(q => /les-volcans/.test(q.nom)), 'page parents : quiz supprimé (fichier à la corbeille, absent de « Mes quiz »)');
 
@@ -695,7 +695,7 @@ try {
   ok(await page.locator('#porte-parent').count() === 0, 'espace parent : pas de lien vers lui-même en bas de page');
   ok((await page.locator('.actions-tete a.principal').isVisible() && /Créer un quiz/.test(await page.locator('.actions-tete').innerText()) || await page.locator('.onglet-plus[aria-label="Créer un quiz"]').isVisible()) && await page.locator('#onglets').isVisible() && await page.locator('a.card').count() === 0, 'espace parent : l\'accueil est le tableau de bord des parents (« Créer un quiz » en haut, onglets, pas la page de l\'enfant)');
   ok(await page.locator('#liste-quiz a.tester').count() > 0 && await page.locator('#liste-quiz button[data-f]').count() > 0, 'espace parent : chaque quiz peut être testé ou supprimé');
-  ok(/Clé Gemini/.test(await page.locator('#info-gemini').innerText()), 'espace parent : état de la clé Gemini affiché');
+  ok(await page.locator('#info-gemini').count() === 0 && await page.locator('#g-appareil').count() === 0, 'espace parent : plus de sections « Cet appareil » ni « Mises à jour et clé Gemini » dans Réglages');
   // classe et thème : choix dans Réglages, thème posé sur <html>, montée automatique au 1er septembre
   ok(await page.locator('html').getAttribute('data-theme') === 'explorateurs' && await page.locator('#choix-classe').count() === 1, 'espace parent : thème par défaut « explorateurs » et choix de la classe dans Réglages');
   const cl = await ev('[apiClasse({ classe: "CP" }), apiClasse({ classe: "Z" }), (PropertiesService.getScriptProperties().setProperty("CLASSE_ANNEE", String(anneeScolaire_() - 2)), classe_()), apiClasse({ classe: "Tle" }), (PropertiesService.getScriptProperties().setProperty("CLASSE_ANNEE", String(anneeScolaire_() - 3)), classe_()), apiClasse({ classe: "adulte" }).theme]');
