@@ -110,11 +110,11 @@
 
   /* ---------- postures du collège : récompense gagnée avec les bonnes réponses ----------
      Ordre de déblocage ; noms affichés. Une posture : bande de 6 images 384 × 384 (outils/pose-planche.py). */
-  const POSES = [['six-seven', 'Six-Seven (67)'], ['moue', 'La moue'], ['for-sure', 'For sure'], ['je-men-fous', 'Je m’en fous'],
-    ['retourne', 'Le regard qui se retourne'], ['clin-doeil', 'Clin d’œil pistolet'], ['mewing', 'Mewing'], ['toc-toc', 'Toc toc'],
-    ['aura', 'Battle d’aura'], ['sigma', 'Sigma'], ['duckface', 'Duckface'], ['soupir', 'Le soupir à la française'],
-    ['pas-french', 'I don’t wanna be French'], ['spiki', 'Spiki'], ['ehho', 'Ehho Ehho'], ['ours', 'L’ours polaire'],
-    ['last-dance', 'The Last Dance'], ['uk', 'U+K'], ['babydoll', 'Babydoll'], ['cri', 'Cri de victoire']];
+  const POSES = [['six-seven', '67 (Six-Seven)'], ['moue', 'Gen Z Pout'], ['for-sure', 'For Sure (Macron)'], ['je-men-fous', 'Je m’en fiche'],
+    ['retourne', 'Distracted Boyfriend'], ['clin-doeil', 'Clin d’œil pistolet'], ['mewing', 'Mewing'], ['toc-toc', 'Toc Toc (Patrick Sébastien)'],
+    ['aura', 'Battle d’aura'], ['sigma', 'Sigma Boy'], ['duckface', 'Duckface'], ['soupir', 'Chouette française'],
+    ['pas-french', 'I don’t wanna be French'], ['spiki', 'Spiki (ｽﾋﾟｷ)'], ['ehho', 'Ehho Ehho'], ['ours', 'Ours polaire (November 2026)'],
+    ['last-dance', 'The Last Dance'], ['uk', 'U+K Dance'], ['babydoll', 'Babydoll Dance'], ['cri', 'Chicken Jockey']];
   const PREMIERE = 10, PAS = 25;        // 1re posture à 10 bonnes réponses, puis une toutes les 25
   const IMAGES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/themes/';
   function etatPoses() {
