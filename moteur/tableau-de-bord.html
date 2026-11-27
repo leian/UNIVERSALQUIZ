@@ -1163,6 +1163,11 @@ setTimeout(() => {
       if (!res || res.erreur) { msg.innerHTML = `<p class="ko" style="margin:8px 0 0">${esc((res && res.erreur) || "Erreur")}</p>`; return; }
       // le nouvel enfant apparaît tout de suite dans le sélecteur du haut et dans la liste, sans recharger la page
       if (res.parent && !l.some(x => x.parent === res.parent)) l.push({ prenom: res.prenom, classe: res.classe || "", parent: res.parent, ici: false, couleur: Number.isInteger(res.couleur) ? res.couleur : l.length });
+      { // rangé à sa place : du plus petit au plus grand, comme la liste envoyée par le serveur (même classe : ordre d'ajout)
+        const CL = (U.classes || []).concat(["adulte"]), rang = c => { const i = CL.indexOf(c || ""); return i >= 0 ? i : CL.length; };
+        const tri = l.map((x, i) => [x, i]).sort((a, b) => rang(a[0].classe) - rang(b[0].classe) || a[1] - b[1]).map(a => a[0]);
+        l.length = 0; tri.forEach(x => l.push(x));
+      }
       dessiner();
       if (typeof afficherQuiz === "function") try { afficherQuiz(); } catch (e) {}      // « Partager » apparaît dans l'onglet Quiz
       document.getElementById("enfant-msg").innerHTML = `<p class="ok" style="margin:8px 0 0">✅ C'est fait : ${esc(res.prenom)} a sa place dans SoccaQuiz et dans le menu des enfants en haut de page.</p><p style="margin:6px 0 0"><a class="btn principal" href="${esc(res.parent)}" target="_top">Ouvrir l'espace parent de ${esc(res.prenom)}</a></p><p class="small" style="margin:6px 0 0">${res.classe ? "" : "Choisis sa classe dans ses Réglages, puis "}envoie-lui son lien.</p>`;

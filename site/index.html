@@ -105,7 +105,7 @@
   function retenirVu(e) {
     if (!e || !e.enfant || !e.prenom) return;
     var l = vus.filter(function (x) { return x.e !== e.enfant; });
-    l.unshift({ e: e.enfant, p: String(e.prenom).slice(0, 30) });
+    l.unshift({ e: e.enfant, p: String(e.prenom).slice(0, 30), c: String((e.reglages || {}).classe || '').slice(0, 10) });
     vus = l.slice(0, 12); ecrireJ(K_VUS, vus);
   }
   var appliLancee = false;
@@ -117,7 +117,10 @@
     msg.textContent = 'Qui révise ?';
     var choix = document.createElement('div');
     choix.style.cssText = 'display:flex;flex-direction:column;gap:10px;width:min(320px,90vw)';
-    vus.slice().sort(function (a, b) { return a.p.localeCompare(b.p, 'fr'); }).forEach(function (x) {
+    // du plus petit au plus grand (classe), comme dans l'espace parent ; même classe ou classe inconnue : par prénom
+    var CL = ['PS', 'MS', 'GS', 'CP', 'CE1', 'CE2', 'CM1', 'CM2', '6e', '5e', '4e', '3e', '2de', '1re', 'Tle', 'adulte'];
+    var rang = function (c) { var i = CL.indexOf(c || ''); return i >= 0 ? i : CL.length; };
+    vus.slice().sort(function (a, b) { return rang(a.c) - rang(b.c) || a.p.localeCompare(b.p, 'fr'); }).forEach(function (x) {
       var b = document.createElement('button'); b.type = 'button'; b.textContent = x.p;
       b.style.cssText = 'font-size:20px;padding:14px 22px';
       b.addEventListener('click', function () { var q = new URLSearchParams(location.search); if (!local) q.set('s', id); q.set('e', x.e); location.replace(location.pathname + '?' + q.toString() + location.hash); });

@@ -1524,13 +1524,20 @@ function ecrireFamille_(modifier) {
 // les enfants sont tous dans ce programme : plus d'inscription dans un fichier de la famille
 function inscrireFamille_() {}
 // enfants de la famille (ce programme) : prénom, classe, espace parent de chacun, dossier de ses quiz
+/* rang d'une classe pour trier les enfants : les plus petits d'abord (PS … Tle), puis les adultes ; classe inconnue à la fin */
+function rangClasse_(c) { const i = CLASSES.indexOf(String(c || '')); return i >= 0 ? i : c === 'adulte' ? CLASSES.length : CLASSES.length + 1; }
 function familleListe_() {
   const ici = enfantId_();
-  return couleursEnfants_(enfants_()).map(x => pourEnfant_(x.id, () => {
+  const l = couleursEnfants_(enfants_()).map((x, ordre) => pourEnfant_(x.id, () => {
     let dossier = '';
     try { dossier = String(props_().getProperty('DOSSIER') || ''); } catch (e) {}
-    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: urlParentIci_(x.id) || urlIci_(), dossier, ici: x.id === ici, couleur: x.c };
+    return { id: x.id, prenom: String(CONFIG.prenom || x.prenom || '').slice(0, 40), classe: classe_(), parent: urlParentIci_(x.id) || urlIci_(), dossier, ici: x.id === ici, couleur: x.c, ordre };
   }));
+  // partout (menu des enfants, Réglages, « Ajouter aussi pour », « Partager ») : du plus petit au plus grand ;
+  // même classe : ordre d'ajout. La couleur de chaque enfant ne change pas (elle est rangée avec lui).
+  l.sort((a, b) => rangClasse_(a.classe) - rangClasse_(b.classe) || a.ordre - b.ordre);
+  l.forEach(x => { delete x.ordre; });
+  return l;
 }
 
 /* une question du quiz (format JSON interne), vérifiée et nettoyée ; null si elle est inutilisable.

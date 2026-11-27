@@ -162,13 +162,13 @@ try {
     await cx.addInitScript(() => {
       const mm = window.matchMedia.bind(window);
       window.matchMedia = q => /display-mode: standalone/.test(q) ? { matches: true, media: q, addEventListener() {}, removeEventListener() {} } : mm(q);
-      if (!localStorage.getItem('sq-vus:local')) localStorage.setItem('sq-vus:local', JSON.stringify([{ e: 'a', p: 'Lana' }, { e: 'b7', p: 'Tom' }]));
+      if (!localStorage.getItem('sq-vus:local')) localStorage.setItem('sq-vus:local', JSON.stringify([{ e: 'a', p: 'Lana', c: 'CM1' }, { e: 'b7', p: 'Tom', c: 'CP' }]));
     });
     const pa = await cx.newPage();
     await pa.goto(ADRESSE);
     await pa.locator('#demarrage button', { hasText: 'Tom' }).waitFor({ timeout: 5000 }).catch(() => {});
     const noms = await pa.locator('#demarrage button:not([hidden])').allInnerTexts();
-    ok(/Qui révise/.test(await pa.locator('#msg').innerText()) && noms.join() === 'Lana,Tom', 'une icône pour tous les enfants : « Qui révise ? » au lancement — ' + noms.join());
+    ok(/Qui révise/.test(await pa.locator('#msg').innerText()) && noms.join() === 'Tom,Lana', 'une icône pour tous les enfants : « Qui révise ? » au lancement, du plus petit au plus grand (Tom CP avant Lana CM1) — ' + noms.join());
     await pa.locator('#demarrage button', { hasText: 'Lana' }).click();
     await pa.waitForURL(/[?&]e=a(&|#|$)/, { timeout: 5000 }).catch(() => {});
     await pa.frameLocator('iframe.page').last().locator('a.card').first().waitFor({ timeout: 10000 }).catch(() => {});
