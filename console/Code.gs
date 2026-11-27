@@ -724,7 +724,7 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['mascottes', 'star', 'Mascottes'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['reglages', 'settings', 'Réglages']]
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['mascottes', 'star', 'Mascottes'], ['recompenses', 'gift', 'Récompenses'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['reglages', 'settings', 'Réglages']]
       .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : o[0] === 'aide' ? ' <span class="nb" id="nb-aide" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
@@ -786,6 +786,7 @@ function client_() {
   var ICONES = {
     inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>',
     book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    gift: '<path d="M20 12v10H4V12M2 7h20v5H2zM12 22V7M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7zM12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
     star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
@@ -840,7 +841,7 @@ function client_() {
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
     if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, mascottes: vueMascottes, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, mascottes: vueMascottes, recompenses: vueRecompenses, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, reglages: vueReglages }[onglet])(c);
   }
 
 
@@ -945,6 +946,105 @@ function client_() {
     $('m-quoi').onchange = function () { C.quoi = this.value; vueMascottes(c); };
     if ($('m-classe')) $('m-classe').onchange = function () { C.classe = this.value; vueMascottes(c); };
     $('m-allure').onchange = function () { C.allure = this.value; vueMascottes(c); };
+  }
+
+
+  /* ---------- Récompenses : prompts pour les récompenses de chaque niveau, et placement des accessoires des petits ---------- */
+  var R_ACC = [['chapeau de chef', 206, 45, 167, 132], ['couronne', 204, 45, 148, 122], ['casquette', 204, 56, 135, 111], ['écharpe', 209, 268, 228, 137],
+    ['lunettes de soleil', 210, 164, 175, 73], ['nœud papillon', 211, 243, 111, 58], ['cape', 201, 305, 343, 130], ['bonnet', 205, 62, 149, 139],
+    ['bandeau étoile', 207, 108, 128, 58], ['chapeau de pirate', 207, 68, 223, 151], ['chapeau de fête', 207, 60, 122, 146], ['étoile', 268, 224, 70, 66]];
+  var R_CURIOSITES = ['sablier', 'astrolabe', 'globe terrestre', 'plume et encrier', 'microscope', 'boussole', 'lyre', 'longue-vue', 'livre ancien', 'fossile d\'ammonite', 'balance de Roberval', 'loupe',
+    'carte au trésor', 'papillon épinglé', 'prisme', 'métronome', 'squelette de dinosaure', 'fiole de chimiste', 'rouleau de parchemin', 'planétaire', 'cristal de quartz', 'compas de marine', 'masque de théâtre', 'clé ancienne'];
+  var R_MATIERES = ['français', 'maths', 'sciences', 'anglais', 'histoire', 'géographie'];
+  var R_CHOIX = { type: 'poupee', allure: 'f', theme: 'animaux de la forêt', nom: '', desc: '', acc: R_ACC.map(function (a) { return a[0]; }).join('\n'), pos: {} };
+  function rCopier(t, ok) { var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); var r = false; try { r = document.execCommand('copy'); } catch (e) {} a.remove(); if (!r && navigator.clipboard) navigator.clipboard.writeText(t).then(ok); else if (r) ok(); }
+  function vueRecompenses(c) {
+    var C = R_CHOIX, TOUS = '*', allures = C.allure === TOUS ? ['f', 'm', 'n'] : [C.allure];
+    var sel = function (id, opts, val) { return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
+    var TYPES = [['poupee', 'Petits — socca à habiller (sans accessoire)'], ['accessoires', 'Petits — nouvelle planche de 12 accessoires'], ['placer', 'Petits — placer les accessoires sur la socca'],
+      ['autocollants', 'Primaire — nouvel album de 24 autocollants'], ['posture', 'Collège — nouvelle posture (mème)'], ['curiosites', 'Lycée et adultes — cabinet de curiosités (24 objets)']];
+    var avecAllure = ['poupee', 'posture', 'placer'].indexOf(C.type) >= 0;
+    var tete = '<div class="chiffres" style="grid-template-columns:repeat(auto-fit,minmax(200px,1fr))"><label>Quoi<br>' + sel('r-type', TYPES, C.type) + '</label>' +
+      (avecAllure ? '<label>Allure<br>' + sel('r-allure', [['f', M_ALLURES.f[0]], ['m', M_ALLURES.m[0]], ['n', M_ALLURES.n[0]]].concat(C.type === 'placer' ? [] : [[TOUS, 'Toutes les allures']]), C.allure === TOUS && C.type === 'placer' ? 'f' : C.allure) + '</label>' : '') + '</div>';
+    if (C.type === 'placer') { if (C.allure === TOUS) C.allure = 'f'; return placerAccessoires(c, tete); }
+    var champs = '', prompt = '', fichiers = [], joindre = [], cadre = 'Contraintes : fond blanc uni, aucune ligne de séparation, aucun cadre, aucun texte, aucun numéro, aucune ombre au sol ; chaque élément entier dans sa case avec de la marge ; rien d\'une case ne déborde sur une autre.';
+    if (C.type === 'poupee') {
+      joindre = allures;
+      allures.forEach(function (al) { fichiers.push('poupee-' + al + '.png'); });
+      prompt = M_LIRE(allures) + '\n\n' + allures.map(function (al, k) {
+        return (allures.length > 1 ? '— Image n°' + (k + 1) + ' : poupee-' + al + '.png\n' : '') + 'Dessine UNE image carrée 1024 × 1024 : la mascotte de la case « Petits » de la ' + M_PLANCHE[al] + ', comme une poupée à habiller : SANS AUCUN accessoire (ni bonnet, ni chapeau, ni foulard, ni écharpe, ni lunettes, ni vêtement), debout bien de face, droite et symétrique, bras légèrement écartés du corps, mains en bas, petit sourire doux, yeux ouverts. Tête de la case « Tête »' + (al === 'f' ? ' (pointe de la socca vers le BAS, barrette étoile gardée)' : ' (pointe de la socca vers le HAUT)') + '.\nÂGE ET SILHOUETTE — ' + M_THEMES[0][3] + '.\nLa mascotte entière, centrée, pieds en bas avec un peu de marge, de la place libre au-dessus de la tête (on y posera des chapeaux). ' + cadre;
+      }).join('\n\n') + (allures.length > 1 ? '\n\nDessine les ' + allures.length + ' images d\'une traite, sans attendre ma réponse ; écris le nom de fichier dans ton message au-dessus de chaque image.' : '');
+    } else if (C.type === 'accessoires') {
+      champs = '<label for="r-acc">Les 12 accessoires (un par ligne, dans l\'ordre)</label><textarea id="r-acc" rows="6" style="width:100%">' + esc(C.acc) + '</textarea>';
+      var acc = C.acc.split('\n').map(function (x) { return x.trim(); }).filter(Boolean).slice(0, 12);
+      fichiers = ['accessoires.png'];
+      prompt = 'Dessine une planche de 12 accessoires pour habiller une petite mascotte de dessin animé (une part de socca de 3 à 5 ans, style mignon, trait brun foncé, couleurs vives), format paysage 1536 × 1024, 4 colonnes × 3 lignes de cases de même taille, lues de gauche à droite puis de haut en bas. Chaque case contient UN seul accessoire, SEUL (sans personnage), vu de face, entier et centré, à la taille qu\'il aurait sur la mascotte : ' + acc.map(function (a, k) { return (k + 1) + '. ' + a; }).join(' ; ') + '.\nLes chapeaux et bonnets sont vus de face, prêts à poser sur une tête ; les lunettes et nœuds bien symétriques ; une cape s\'ouvre vers le bas. ' + cadre;
+    } else if (C.type === 'autocollants') {
+      champs = '<label for="r-theme">Thème de l\'album</label><input id="r-theme" value="' + esc(C.theme) + '">';
+      fichiers = ['autocollants.png'];
+      prompt = 'Dessine un album de 24 autocollants ronds pour des enfants de 6 à 10 ans, sur le thème « ' + C.theme + ' », format paysage 1536 × 1024, 6 colonnes × 4 lignes de cases de même taille. Numérote-les en pensée de 1 à 24 dans l\'ordre de lecture (de gauche à droite, puis ligne suivante) : ' + R_MATIERES.map(function (m, k) { return 'autocollants ' + (4 * k + 1) + ' à ' + (4 * k + 4) + ' : un clin d\'œil au ' + m + ' (objet ou scène du thème liés à cette matière)'; }).join(' ; ') + '. Chaque autocollant : un dessin rond avec un liseré blanc épais et un fin contour, couleurs vives, style mignon et joyeux, tous à la même taille. ' + cadre;
+    } else if (C.type === 'posture') {
+      joindre = allures;
+      champs = '<label for="r-nom">Nom du mème</label><input id="r-nom" value="' + esc(C.nom) + '" placeholder="ex. Le pas du crabe">' +
+        '<label for="r-desc">Le geste, en une ou deux phrases</label><textarea id="r-desc" rows="3" style="width:100%" placeholder="ex. Pas chassés de côté, bras en pinces de crabe qui claquent, air très sérieux.">' + esc(C.desc) + '</textarea>';
+      var id = (C.nom || 'nouvelle-posture').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 30) || 'nouvelle-posture';
+      allures.forEach(function (al) { fichiers.push(id + '-' + al + '.png'); });
+      prompt = M_LIRE(allures) + '\n\n' + allures.map(function (al, k) {
+        var pl = { images: [{ c: 'Tête', t: 'la tête de la mascotte (' + M_ALLURES[al][2] + ')' }, { c: 'Collège', t: 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou)' }], allure: al };
+        return '— Planche n°' + (k + 1) + ' : ' + id + '-' + al + '.png\n' + mLiens(pl) + '\nDessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de la mascotte de l\'image 2, avec la tête de l\'image 1 et la tenue de l\'image 2 (sans le skateboard), qui fait le mème « ' + (C.nom || '…') + ' » : ' + (C.desc || '…') + '\nÂGE ET SILHOUETTE — ' + M_THEMES[3][3] + '.\nSENS DE LA SOCCA — ' + (al === 'f' ? 'pointe vers le BAS.' : 'pointe vers le HAUT.') + '\nFormat paysage 1536 × 1024, fond blanc uni, 3 colonnes × 2 lignes lues de gauche à droite puis de haut en bas ; d\'une case à l\'autre, seuls le geste et l\'expression changent un peu ; la 6e image enchaîne sur la 1re. Pour des élèves de 11 à 15 ans, drôle et bienveillant, aucune personne réelle ni personnage connu.';
+      }).join('\n\n') + '\n\n' + M_REGLES(allures.length > 1 ? 'n' : allures[0]) + '\n\n' + M_CONTRAINTES + (allures.length > 1 ? '\n\nDessine les ' + allures.length + ' planches d\'une traite, sans attendre ma réponse ; écris le nom de fichier dans ton message au-dessus de chaque image.' : '');
+    } else {
+      fichiers = ['curiosites.png'];
+      prompt = 'Dessine un « cabinet de curiosités » de 24 objets du savoir pour des lycéens et des adultes, format paysage 1536 × 1024, 6 colonnes × 4 lignes de cases de même taille, dans cet ordre de lecture (de gauche à droite, puis ligne suivante) : ' + R_CURIOSITES.map(function (o, k) { return (k + 1) + '. ' + o; }).join(' ; ') + '.\nStyle : illustration élégante façon gravure ancienne rehaussée d\'aquarelle, traits fins, palette sépia, laiton, bleu nuit et rouge profond, lumière douce ; chaque objet seul, entier, centré, tous à la même échelle visuelle ; sobre et raffiné, rien d\'enfantin, aucune mascotte. ' + cadre;
+    }
+    var msgClaude = 'Intègre ces récompenses dans SoccaQuiz : ' + fichiers.join(', ') + '. Suis « Intégrer des planches de mascottes » de CLAUDE.md (python3 outils/integrer-planches.py' + (C.type === 'accessoires' ? ' ne gère pas les accessoires : utilise outils/accessoires2-decouper.py puis outils/accessoires2-planches.py, avec les noms dans cet ordre : ' + C.acc.split('\n').filter(Boolean).join(', ') : '') + (C.type === 'posture' ? ' ; ajoute d\'abord « ' + (C.nom || '') + ' » à POSES de moteur/commun/animations.js' : '') + '), regarde l\'aperçu, tests, commit et push. Refuse une planche ratée et dis-moi laquelle refaire.';
+    c.innerHTML = '<div class="box"><h2>' + I('gift') + 'Générateur de récompenses</h2>' +
+      '<p class="petit">Ce qui existe : petits = socca à habiller (12 accessoires, un par notion acquise) ; primaire = album de 24 autocollants (un par notion maîtrisée) ; collège = postures animées (une par tranche de bonnes réponses) ; lycée et adultes = cabinet de curiosités (24 objets, un par notion maîtrisée). Choisis quoi refaire : la console prépare le prompt ChatGPT.</p>' + tete + champs +
+      (joindre.length ? '<h3>1. Joins ' + (joindre.length > 1 ? 'les planches' : 'la planche') + ' de références</h3><p>' + joindre.map(function (a) { return '<a class="btn principal" href="' + esc(IMG + 'reference/planche-' + a + '.png') + '" target="_blank" rel="noopener" download>' + I('upload') + ' ' + esc(M_PLANCHE[a]) + '</a>'; }).join(' ') + '</p>' : '') +
+      '<h3>' + (joindre.length ? '2. ' : '1. ') + 'Colle ce prompt dans ChatGPT</h3><textarea id="r-prompt" readonly rows="12" style="width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(prompt) + '</textarea>' +
+      '<div class="actions"><button type="button" class="btn principal" id="r-copier">' + I('upload') + ' Copier le prompt</button> <span id="r-copie" class="petit" role="status"></span></div>' +
+      '<h3>' + (joindre.length ? '3. ' : '2. ') + 'Donne les images à Claude</h3><p>Nom' + (fichiers.length > 1 ? 's' : '') + ' de fichier : ' + fichiers.map(function (f) { return '<code>' + esc(f) + '</code>'; }).join(', ') + '. Joins-les avec ce message :</p>' +
+      '<textarea id="r-claude" readonly rows="4" style="width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(msgClaude) + '</textarea>' +
+      '<div class="actions"><button type="button" class="btn" id="r-copier-claude">' + I('upload') + ' Copier le message pour Claude</button> <span id="r-copie-claude" class="petit" role="status"></span></div>' +
+      (C.type === 'poupee' ? '<p class="petit">Ensuite : « Petits — placer les accessoires sur la socca », pour poser les 12 accessoires sur la nouvelle socca.</p>' : '') + '</div>';
+    rBrancher(c);
+    $('r-copier').onclick = function () { rCopier(prompt, function () { $('r-copie').textContent = '✅ Prompt copié'; }); };
+    $('r-copier-claude').onclick = function () { rCopier(msgClaude, function () { $('r-copie-claude').textContent = '✅ Message copié'; }); };
+    [['r-acc', 'acc'], ['r-theme', 'theme'], ['r-nom', 'nom'], ['r-desc', 'desc']].forEach(function (x) { var e = $(x[0]); if (e) e.onchange = function () { C[x[1]] = this.value; setTimeout(function () { vueRecompenses(c); }, 0); }; });
+  }
+  function rBrancher(c) {
+    $('r-type').onchange = function () { R_CHOIX.type = this.value; vueRecompenses(c); };
+    if ($('r-allure')) $('r-allure').onchange = function () { R_CHOIX.allure = this.value; vueRecompenses(c); };
+  }
+  /* placer les 12 accessoires sur la socca à habiller d'une allure : glisser pour déplacer, poignée pour agrandir */
+  function placerAccessoires(c, tete) {
+    var C = R_CHOIX, al = C.allure, P = C.pos[al] = C.pos[al] || R_ACC.map(function (a) { return a.slice(1); }), k = C.accK || 0, E = Math.max(0.6, Math.min(1.2, ((c.clientWidth || 500) - 40) / 384)), HAUT = 90;
+    var doll = IMG + (al === 'n' ? 'base/accueil.webp' : 'recompenses/poupee-' + al + '.webp');
+    var json = JSON.stringify(P.map(function (p) { return p.map(function (v) { return Math.round(v); }); }));
+    var msg = 'Places des accessoires de la socca à habiller (' + M_ALLURES[al][0].toLowerCase() + ') : lance python3 outils/integrer-planches.py --positions ' + al + ' \'' + json + '\' puis tests, commit et push.';
+    c.innerHTML = '<div class="box"><h2>' + I('gift') + 'Placer les accessoires</h2>' + tete +
+      '<p class="petit">Choisis un accessoire, puis fais-le glisser sur la socca ; la poignée en bas à droite change sa taille. Les autres restent en pointillés. La socca est celle de l\'allure choisie (<a href="' + esc(doll) + '" target="_blank" rel="noopener">image</a> ; si elle ne s\'affiche pas, elle n\'est pas encore intégrée).</p>' +
+      '<div class="actions">' + R_ACC.map(function (a, i) { return '<button type="button" class="btn' + (i === k ? ' principal' : '') + '" data-acc="' + i + '">' + esc(a[0]) + '</button>'; }).join(' ') + '</div>' +
+      '<div id="r-scene" style="position:relative;width:' + 384 * E + 'px;height:' + (384 + HAUT) * E + 'px;margin:10px auto;background:var(--bg);border-radius:12px;overflow:hidden;touch-action:none">' +
+      '<img src="' + esc(doll) + '" alt="" style="position:absolute;left:0;top:' + HAUT * E + 'px;width:' + 384 * E + 'px;height:' + 384 * E + 'px;pointer-events:none">' +
+      P.map(function (p, i) { return '<div data-a="' + i + '" style="position:absolute;left:' + (p[0] - p[2] / 2) * E + 'px;top:' + (HAUT + p[1] - p[3] / 2) * E + 'px;width:' + p[2] * E + 'px;height:' + p[3] * E + 'px;' + (i === k ? 'background:url(' + IMG + 'recompenses/accessoires2-avant.webp) ' + (i * 100 / 11) + '% 0/1200% 100% no-repeat;outline:2px solid var(--rouge);cursor:move' : 'border:1px dashed var(--soft);opacity:.5;pointer-events:none') + '">' + (i === k ? '<span data-poignee="1" style="position:absolute;right:-8px;bottom:-8px;width:18px;height:18px;border-radius:50%;background:var(--rouge);cursor:nwse-resize"></span>' : '') + '</div>'; }).join('') + '</div>' +
+      '<p class="petit" style="text-align:center">' + esc(R_ACC[k][0]) + ' : centre ' + Math.round(P[k][0]) + ', ' + Math.round(P[k][1]) + ' — taille ' + Math.round(P[k][2]) + ' × ' + Math.round(P[k][3]) + ' <button type="button" class="btn" id="r-reinit">Remettre la place d\'origine</button></p>' +
+      '<h3>Quand les 12 sont placés : donne ce message à Claude</h3><textarea id="r-claude" readonly rows="4" style="width:100%;font:inherit;font-size:.85rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(msg) + '</textarea>' +
+      '<div class="actions"><button type="button" class="btn principal" id="r-copier-claude">' + I('upload') + ' Copier le message pour Claude</button> <span id="r-copie-claude" class="petit" role="status"></span></div></div>';
+    rBrancher(c);
+    $('r-copier-claude').onclick = function () { rCopier(msg, function () { $('r-copie-claude').textContent = '✅ Message copié'; }); };
+    $('r-reinit').onclick = function () { P[k] = R_ACC[k].slice(1); placerAccessoires(c, tete); };
+    Array.prototype.forEach.call(c.querySelectorAll('[data-acc]'), function (b) { b.onclick = function () { C.accK = +b.getAttribute('data-acc'); placerAccessoires(c, tete); }; });
+    var scene = $('r-scene'), el = scene.querySelector('[data-a="' + k + '"]'), depart = null;
+    el.addEventListener('pointerdown', function (e) { e.preventDefault(); el.setPointerCapture(e.pointerId); depart = { x: e.clientX, y: e.clientY, p: P[k].slice(), taille: !!e.target.getAttribute('data-poignee') }; });
+    el.addEventListener('pointermove', function (e) {
+      if (!depart) return;
+      var f = E, dx = (e.clientX - depart.x) / f, dy = (e.clientY - depart.y) / f;
+      if (depart.taille) { P[k][2] = Math.max(10, depart.p[2] + 2 * dx); P[k][3] = Math.max(10, depart.p[3] + 2 * dy); }
+      else { P[k][0] = depart.p[0] + dx; P[k][1] = depart.p[1] + dy; }
+      el.style.left = (P[k][0] - P[k][2] / 2) * E + 'px'; el.style.top = (HAUT + P[k][1] - P[k][3] / 2) * E + 'px'; el.style.width = P[k][2] * E + 'px'; el.style.height = P[k][3] * E + 'px';
+    });
+    el.addEventListener('pointerup', function () { depart = null; placerAccessoires(c, tete); });
   }
 
   /* ---------- Statistiques : compteurs anonymes (relais, ancien installateur) ---------- */
