@@ -36,13 +36,11 @@
   .fx-son:active { transform:scale(.94); }
   .fx-son svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
 
-  .fx-pose { display:block; aspect-ratio:1; background:no-repeat 0 0 / 600% 100%; }
-  .fx-pose.go { animation:fx-pose-img .9s steps(5, jump-none) var(--tours, 2); }
-  @keyframes fx-pose-img { from { background-position:0 0; } to { background-position:100% 0; } }
+  .fx-pose { display:block; aspect-ratio:1; background:no-repeat 0 0 / 600% 100%; transition:none; }
   #fx-pose-coin { position:fixed; right:10px; bottom:10px; z-index:60; height:clamp(100px, 22vw, 150px); pointer-events:none; opacity:0; }
-  #fx-pose-coin.go { animation:fx-pose-img .9s steps(5, jump-none) 2, fx-pose-vu 1.9s ease forwards; }
+  #fx-pose-coin.go { animation:fx-pose-vu 1.9s ease forwards; }
   @keyframes fx-pose-vu { 0% { opacity:0; transform:translateY(20px); } 12%, 85% { opacity:1; transform:none; } 100% { opacity:0; } }
-  .compagnon.fx-pose-en-cours { background-size:600% 100% !important; background-position:0 0; animation:fx-pose-img .9s steps(5, jump-none) 2 !important; transform:scale(1.35); }
+  .compagnon.fx-pose-en-cours { background-size:600% 100% !important; background-repeat:no-repeat !important; animation:none !important; transition:none !important; transform:scale(1.35); }
   .fx-poses h3 { margin:0 0 4px; font-size:1rem; display:flex; align-items:center; gap:8px; }
   .fx-poses h3 span { margin-left:auto; font-size:.85rem; color:var(--soft); font-weight:600; }
   .fx-poses p { margin:0 0 10px; font-size:.82rem; color:var(--soft); }
@@ -59,8 +57,8 @@
   .fx-grille button.neuf { animation:fx-entree .6s cubic-bezier(.2,.8,.3,1) both; }
   .fx-grille button:focus-visible { outline:3px solid var(--dore, #e8a83a); outline-offset:1px; }
   .fx-info { margin-top:8px; font-size:.85rem; min-height:1.2em; }
-  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie, .fx-bond, .fx-penche, .fx-pose.go, .fx-grille button.neuf { animation:none !important; }
-    .fx-pose.go, .compagnon.fx-pose-en-cours { background-position:40% 0 !important; animation:none !important; } #fx-pose-coin { display:none; } }`;
+  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie, .fx-bond, .fx-penche, .fx-grille button.neuf { animation:none !important; }
+    #fx-pose-coin { display:none; } }`;
 
   // lycée et parent : sobre (pas de pastille de série, sons coupés par défaut)
   const SOBRE = { lycee: 1, parent: 1 };
@@ -136,13 +134,27 @@
     liste.forEach((p, k) => { p.seuil = PREMIERE + k * PAS; p.ok = apercu || bonnes >= p.seuil; });
     return { liste, bonnes, apercu, gagnees: liste.filter(p => p.ok) };
   }
+  /* les 6 images d'une bande montrées une à une (jamais de glissement) : la position de fond saute d'image en image */
+  const IMG_MS = 150, LENT = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (e) { return false; } };
+  function defiler(el, tours, fin) {
+    clearInterval(el._fxPose);
+    const image = k => { el.style.backgroundPosition = (k * 20) + '% 0'; };
+    image(0);
+    if (!tours) { el.classList.remove('go'); return; }
+    if (LENT()) { image(2); el.classList.add('go'); el._fxPose = setTimeout(() => { el.classList.remove('go'); fin && fin(); }, 1500); return; }
+    el.classList.add('go');
+    let k = 0; const total = 6 * tours;
+    el._fxPose = setInterval(() => {
+      k++;
+      if (k >= total) { clearInterval(el._fxPose); image(0); el.classList.remove('go'); fin && fin(); return; }
+      image(k % 6);
+    }, IMG_MS);
+  }
   function jouerPose(el, p, tours) {
     if (!el || !p) return;
     el.style.backgroundImage = 'url("' + p.src + '")';
-    el.classList.remove('go');
-    if (!tours) return;                              // image fixe (première image)
-    el.style.setProperty('--tours', tours);
-    void el.offsetWidth; el.classList.add('go');
+    el.style.backgroundSize = '600% 100%';
+    defiler(el, tours);
   }
   // à chaque bonne réponse : une posture gagnée au hasard ; 6e-5e dans la mascotte compagne, sinon dans le coin
   function poseReponse() {
@@ -151,13 +163,15 @@
     const comp = document.querySelector('.q-compagnon .compagnon');
     if (comp) {
       comp.style.backgroundImage = 'url("' + p.src + '")';
-      comp.classList.remove('fx-pose-en-cours'); void comp.offsetWidth; comp.classList.add('fx-pose-en-cours');
+      comp.classList.add('fx-pose-en-cours');
+      defiler(comp, 2);                                  // reste ensuite sur la 1re image de la posture
       return true;
     }
     let m = document.getElementById('fx-pose-coin');
     if (!m) { m = document.createElement('span'); m.id = 'fx-pose-coin'; m.className = 'fx-pose'; m.setAttribute('aria-hidden', 'true'); document.body.appendChild(m); }
     m.style.backgroundImage = 'url("' + p.src + '")';
-    m.classList.remove('go'); void m.offsetWidth; m.classList.add('go');
+    m.classList.remove('go'); void m.offsetWidth;
+    defiler(m, 2);
     return true;
   }
   function panneauPoses(el) {
