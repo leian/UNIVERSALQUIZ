@@ -19,7 +19,7 @@ But : redessiner les mascottes **au féminin** de tous les thèmes avec la nouve
 Image 1 : la nouvelle tête de ma mascotte (une part de socca niçoise, pointe vers le BAS, grand bord croustillant en haut, barrette étoile dorée dans le coin en haut à droite, grands yeux avec cils). Ignore ses vêtements.
 Image 2 : l'ancienne version de cette mascotte, avec la tenue à garder.
 
-Redessine la mascotte de l'image 2 avec EXACTEMENT la tête de l'image 1 (même forme à l'envers, même texture, mêmes couleurs, même visage, même barrette, même style de trait), et EXACTEMENT la tenue de l'image 2 : [TENUE]. Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l'image 2.
+Redessine la mascotte de l'image 2 avec EXACTEMENT la tête de l'image 1 (même forme à l'envers, même texture, mêmes couleurs, mêmes yeux et cils — mais l'expression change selon la case —, même barrette, même style de trait), et EXACTEMENT la tenue de l'image 2 : [TENUE]. Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l'image 2.
 
 Planche de 4 images, format carré 1024 × 1024, fond blanc uni, 2 colonnes × 2 lignes de cases de même taille :
 - en haut à gauche : accueil — elle fait coucou d'une main, grand sourire, comme sur l'image 2 ;
@@ -36,7 +36,7 @@ Contraintes : aucune ligne de séparation, aucun cadre, aucun texte, aucune ombr
 Image 1 : la nouvelle tête de ma mascotte (une part de socca niçoise, pointe vers le BAS, grand bord croustillant en haut, barrette étoile dorée dans le coin en haut à droite, grands yeux avec cils). Ignore ses vêtements.
 Image 2 : l'ancienne version de cette mascotte, en costume de saison.
 
-Redessine la mascotte de l'image 2 avec EXACTEMENT la tête de l'image 1 (même forme à l'envers, même texture, mêmes couleurs, même visage, même barrette, même style de trait), et EXACTEMENT le costume de l'image 2 : [TENUE].
+Redessine la mascotte de l'image 2 avec EXACTEMENT la tête de l'image 1 (même forme à l'envers, même texture, mêmes couleurs, mêmes yeux et cils — mais l'expression change selon la case —, même barrette, même style de trait), et EXACTEMENT le costume de l'image 2 : [TENUE].
 
 Planche de 2 images, format paysage 1536 × 1024, fond blanc uni, 2 cases côte à côte de même taille :
 - à gauche : accueil — elle fait coucou d'une main, grand sourire ;
