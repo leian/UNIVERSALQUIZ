@@ -120,9 +120,9 @@
   function etatPoses() {
     const U = window.__UQ || {}, P = U.poses;
     if (!P) return null;
-    // aperçu pour les parents : app.soccaquiz.fr/?s=…&poses=1 débloque tout sur cet appareil (poses=0 l'arrête)
+    // aperçu pour les parents (Réglages → Mascotte, ou &poses=1) : tout débloqué sur cet appareil, pour un enfant au collège
     let apercu = false; try { apercu = localStorage.getItem('uq-apercu-poses') === '1'; } catch (e) {}
-    if (P.college === false && !apercu) return null;
+    if (P.college === false) return null;          // seulement de la 6e à la 3e, aperçu compris
     const allure = P.allure === 'f' || P.allure === 'm' ? P.allure : '';
     const liste = POSES.map(([id, nom]) => {
       const dossier = allure && (P[allure] || []).indexOf(id) >= 0 ? 'poses-' + allure : (P.n || []).indexOf(id) >= 0 ? 'poses' : '';

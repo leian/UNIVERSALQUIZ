@@ -659,7 +659,7 @@ function afficherClasse() {
   if (zoneM) {
     let ap = false; try { ap = localStorage.getItem("uq-apercu-poses") === "1"; } catch (e) {}
     zoneM.insertAdjacentHTML("beforeend", `<label class="ligne-case" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="apercu-poses"${ap ? " checked" : ""}>
-      <span>Débloquer toutes les postures du collège <b>sur cet appareil</b>, pour les voir (aperçu). Ouvre ensuite le site de l'enfant sur ce même appareil.</span></label>
+      <span>Débloquer toutes les postures du collège <b>sur cet appareil</b>, pour les voir (aperçu). Ouvre ensuite le site d'un enfant de 6e, 5e, 4e ou 3e sur ce même appareil (les postures n'existent qu'au collège).</span></label>
       <p class="enreg" id="enreg-apercu" role="status" hidden></p>`);
     document.getElementById("apercu-poses").addEventListener("change", e => {
       try { if (e.target.checked) localStorage.setItem("uq-apercu-poses", "1"); else localStorage.removeItem("uq-apercu-poses"); } catch (er) {}

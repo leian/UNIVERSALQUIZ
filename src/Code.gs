@@ -595,7 +595,7 @@ function reglagesPage_(page, inst, cat) {
   if (!genreDessine_(cfg.theme, cfg.genreAuto)) cfg.genreAuto = 'n';
   cfg.genresSaisons = cfg.genreEffectif === 'n' ? [] : SAISONS_GENRE[cfg.genreEffectif];
   // postures du collège : seulement celles dont le dessin animé est déposé (rien tant que la liste est vide)
-  // (envoyées partout pour l'aperçu « ?poses=1 » d'un appareil ; sans aperçu, seulement au collège)
+  // (college : seules les classes de 6e à 3e les affichent, aperçu compris)
   cfg.poses = { n: POSES_DESSINEES.n, f: POSES_DESSINEES.f, m: POSES_DESSINEES.m, allure: cfg.genreEffectif, college: cfg.theme === 'college' };
   if (resultats) cfg.resultats = resultats;
   chrono_('revisions et maitrise');
