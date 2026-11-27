@@ -47,6 +47,11 @@
   .fx-scene { aspect-ratio:2 / 1; display:flex; justify-content:center; align-items:flex-end; margin-bottom:8px; border-radius:12px;
     background:radial-gradient(ellipse at 50% 92%, color-mix(in srgb, var(--line) 70%, transparent) 0 22%, transparent 23%); }
   .fx-scene .fx-pose { height:100%; }
+  .fx-scene { position:relative; }
+  html body .fx-poses .fx-scene .fx-pose-nom { position:absolute; left:2%; top:50%; width:23%; transform:translateY(-50%) rotate(-6deg); text-align:center; pointer-events:none;
+    font-family:"Fredoka", "Nunito", system-ui, sans-serif !important; font-weight:700; font-size:clamp(.85rem, 3.4vw, 1.25rem); line-height:1.1;
+    color:var(--accent, #e8573a); text-shadow:0 2px 0 var(--card, #fff), 0 -1px 0 var(--card, #fff), 2px 0 0 var(--card, #fff), -2px 0 0 var(--card, #fff); overflow-wrap:anywhere; }
+  .fx-scene .fx-pose-nom:empty { display:none; }
   .fx-grille { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
   .fx-grille button { position:relative; aspect-ratio:1; padding:0; border:2px solid var(--line); border-radius:12px; background:var(--card); cursor:pointer; overflow:hidden; }
   .fx-grille button i { position:absolute; inset:6%; background:no-repeat 0 0 / 600% 100%; }
@@ -187,7 +192,7 @@
     const msg = !n ? 'Encore ' + pl(reste) + ' pour gagner ta première posture !'
       : (neufs ? (neufs > 1 ? neufs + ' nouvelles postures' : 'Nouvelle posture') + ' ! ' : '') + 'Touche une posture pour la voir.' + (prochaine ? ' Prochaine dans ' + pl(reste) + '.' : ' Tu les as toutes !');
     el.innerHTML = '<div class="panneau fx-poses"><h3>🕺 Mes postures <span>' + n + '/' + E.liste.length + '</span></h3><p>' + esc(E.apercu ? 'Aperçu : toutes les postures sont débloquées sur cet appareil. Touche une posture pour la voir.' : msg) + '</p>' +
-      (n ? '<div class="fx-scene"><span class="fx-pose" role="img"></span></div>' : '') +
+      (n ? '<div class="fx-scene"><span class="fx-pose-nom" aria-hidden="true"></span><span class="fx-pose" role="img"></span></div>' : '') +
       '<div class="fx-grille">' + E.liste.map((p, k) => '<button type="button" data-k="' + k + '" class="' + (p.ok ? (k >= n - neufs ? 'neuf' : '') : 'verrou') + '"' +
         ' aria-label="' + esc(p.ok ? p.nom : 'Posture à gagner') + '" title="' + esc(p.ok ? p.nom : 'À gagner : ' + pl(p.seuil - E.bonnes) + ' de plus') + '">' +
         '<i style="background-image:url(&quot;' + esc(p.src) + '&quot;)"></i></button>').join('') + '</div><div class="fx-info" aria-live="polite"></div></div>';
@@ -196,7 +201,7 @@
       const p = E.liste[k];
       el.querySelectorAll('.fx-grille button').forEach(b => b.classList.toggle('choisi', +b.dataset.k === k && p.ok));
       if (!p.ok) { info.textContent = 'À gagner : encore ' + pl(p.seuil - E.bonnes) + '.'; return; }
-      scene.setAttribute('aria-label', p.nom); info.innerHTML = '<b>' + esc(p.nom) + '</b>';
+      scene.setAttribute('aria-label', p.nom); info.textContent = ''; el.querySelector('.fx-pose-nom').textContent = p.nom;   // nom à côté de la socca, dans la scène
       jouerPose(scene, p, tours);
     };
     el.querySelector('.fx-grille').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) montrer(+b.dataset.k, 3); });

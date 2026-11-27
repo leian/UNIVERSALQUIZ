@@ -370,7 +370,8 @@ try {
     const sc = el.querySelector('.fx-scene'), pz = el.querySelector('.fx-scene .fx-pose'), alb = sc.getBoundingClientRect();
     r.hauteur = Math.abs(alb.height - alb.width / 2) < 2 && Math.abs(pz.getBoundingClientRect().height - alb.height) < 2;   // 3 autocollants de l'album (6 par ligne)
     r.nouveau = pz.classList.contains('go');            // posture gagnée depuis la dernière visite : jouée
-    b[0].click(); r.joue = pz.classList.contains('go') && /Six-Seven/.test(el.querySelector('.fx-info').textContent);
+    b[0].click(); r.joue = pz.classList.contains('go') && /Six-Seven/.test(el.querySelector('.fx-pose-nom').textContent);
+    { const n = el.querySelector('.fx-pose-nom').getBoundingClientRect(), z = pz.getBoundingClientRect(); r.nomACote = n.width > 0 && n.right <= z.left + 2 && getComputedStyle(el.querySelector('.fx-pose-nom')).fontFamily.includes('Fredoka'); }
     const vues = new Set(); for (let i = 0; i < 20; i++) { vues.add(pz.style.backgroundPosition); await new Promise(f => setTimeout(f, 50)); }
     r.images = [...vues].every(v => /^(0|20|40|60|80|100)% 0(px|%)?$/.test(v)) && vues.size >= 4;   // image par image, jamais de glissement
     r.vues = [...vues].join(' ; ');
@@ -387,7 +388,7 @@ try {
     coin && coin.remove(); el.innerHTML = ''; delete U.poses;
     return r;
   });
-  ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin && poses.horsCollege && poses.apercu && poses.images,
+  ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin && poses.horsCollege && poses.apercu && poses.images && poses.nomACote,
     'collège : « Mes postures » (rien sans dessin ; 10 puis 25 bonnes réponses par posture, duel exclu ; allure ; scène haute comme 3 autocollants ; touchée = jouée ; une posture gagnée jouée à chaque bonne réponse, au collège seulement ; aperçu : tout débloqué sur l\'appareil, mais jamais hors du collège) — ' + JSON.stringify(poses));
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
 
