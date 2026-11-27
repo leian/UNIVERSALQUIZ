@@ -597,6 +597,7 @@ function reglagesPage_(page, inst, cat) {
   // postures du collège : seulement celles dont le dessin animé est déposé (rien tant que la liste est vide)
   // (college : seules les classes de 6e à 3e les affichent, aperçu compris)
   cfg.poses = { n: POSES_DESSINEES.n, f: POSES_DESSINEES.f, m: POSES_DESSINEES.m, allure: cfg.genreEffectif, college: cfg.theme === 'college' };
+  cfg.styleSaison = styleSaison_(cfg, page);       // mascotte de saison dessinée pour ce thème (sinon celle de toujours)
   if (resultats) cfg.resultats = resultats;
   chrono_('revisions et maitrise');
   // adresse de l'appli de l'enfant : liens « site de l'enfant » de l'espace parent, retour du site ouvert hors de l'appli (pont.html)
@@ -655,7 +656,8 @@ function assembler_(html, page, inst) {
   // polices (Fredoka, Nunito, Andika) servies par GitHub Pages : aucune requête vers Google Fonts depuis le site de l'enfant
   const styleTheme = '<link rel="stylesheet" href="' + POLICES + '">\n' + lib_(COMMUN['themes.css'], false);
   html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') + (cfg.genreEffectif !== 'n' ? ' data-genre="' + cfg.genreEffectif + '"' + (cfg.genresSaisons.indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
-  html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
+  const styleTout = styleTheme + (cfg.styleSaison ? '\n<style>' + cfg.styleSaison + '</style>' : '');
+  html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTout + '\n</head>') : styleTout + html;
   return /<head\b[^>]*>/i.test(html)
     ? html.replace(/<head\b[^>]*>/i, m => m + tete)
     : tete + html;
@@ -1398,6 +1400,18 @@ const TOUTES_POSES_ = ['six-seven', 'moue', 'for-sure', 'je-men-fous', 'retourne
   'duckface', 'soupir', 'pas-french', 'spiki', 'ehho', 'ours', 'last-dance', 'uk', 'babydoll', 'cri'];
 const POSES_DESSINEES = { n: [], f: TOUTES_POSES_, m: TOUTES_POSES_ };   // au masculin et au féminin : 27 nov. 2026
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
+/* mascottes de saison adaptées à chaque thème (classe) : docs/themes/saisons/<saison>-<thème>[-f|-m]/ (accueil, bravo),
+   <thème> = petits, lecteurs, explorateurs, college, lycee-gothique, lycee-rap, parent. Ajouter la saison ici une fois les images en ligne
+   (onglet « Mascottes » de la console pour les prompts). Sans dessin : la mascotte de saison de toujours (primaire) ou rien. */
+const SAISONS_THEMES = {};   // ex. { 'college-f': ['noel', 'hiver'] }
+function styleSaison_(cfg, page) {
+  if (!cfg.saison) return '';
+  const th = PAGES_PARENT.indexOf(page) >= 0 ? 'parent' : cfg.theme === 'lycee' ? 'lycee-' + cfg.mascotte : cfg.theme;
+  const cle = th + (cfg.genreEffectif === 'f' || cfg.genreEffectif === 'm' ? '-' + cfg.genreEffectif : '');
+  if ((SAISONS_THEMES[cle] || []).indexOf(cfg.saison) < 0) return '';
+  const base = 'https:\/\/leian.github.io/UNIVERSALQUIZ/themes/saisons/' + cfg.saison + '-' + cle + '/';
+  return 'html body .m-accueil{background-image:url("' + base + 'accueil.webp")!important}html body .m-bravo{background-image:url("' + base + 'bravo.webp")!important}';
+}
 const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'] };
 const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé
 function genreDessine_(theme, g) { return !!DESSINS_GENRE[g] && DESSINS_GENRE[g].indexOf(theme) >= 0; }

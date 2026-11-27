@@ -271,6 +271,7 @@
     html = html.replace(/<html\b/i, '<html data-theme="' + cfg.theme + '"' + (cfg.theme === 'lycee' ? ' data-mascotte="' + cfg.mascotte + '"' : '') +
       (genre ? ' data-genre="' + cfg.genreEffectif + '"' + ((cfg.genresSaisons || []).indexOf(cfg.saison) >= 0 ? ' data-genre-saison="' + cfg.genreEffectif + '"' : '') : '') +
       (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+    if (cfg.styleSaison) styleTheme += '\n<style>' + cfg.styleSaison + '<\/style>';   // mascotte de saison du thème (Code.gs : styleSaison_)
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
     return /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, function (m) { return m + tete; }) : tete + html;
   }

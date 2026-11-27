@@ -1137,6 +1137,15 @@ try {
     ok(r[0].ok && r[1] === 30 && !!r[2] && /\b12 questions\b/.test(t30) && /\b10 questions\b/.test(t10) && auto[0] && auto[1] === 0 && reg.length === 5 && /Automatique/.test(reg[0]),
       'questions par partie : réglage par enfant (30 plafonné aux 12 questions du quiz, 10), choix inconnu refusé, retour à l\'automatique, liste dans Réglages — ' + JSON.stringify(reg));
   }
+  // mascotte de saison adaptée au thème (classe) : seulement si dessinée (SAISONS_THEMES), sinon rien de changé
+  {
+    const r = (await ev(`(function () { var cfg = { saison: 'noel', theme: 'college', mascotte: 'gothique', genreEffectif: 'f' };
+      var sans = styleSaison_(cfg, 'index'); SAISONS_THEMES['college-f'] = ['noel'];
+      var avec = styleSaison_(cfg, 'index'), autre = styleSaison_({ saison: 'hiver', theme: 'college', genreEffectif: 'f' }, 'index'),
+        parent = styleSaison_(cfg, 'tableau-de-bord'); delete SAISONS_THEMES['college-f']; return [sans, avec, autre, parent]; })()`)).r;
+    ok(r[0] === '' && /saisons\/noel-college-f\/accueil\.webp/.test(r[1]) && /m-bravo/.test(r[1]) && r[2] === '' && r[3] === '',
+      'saisons : mascotte de saison du thème et de l\'allure (noel-college-f) seulement quand elle est dessinée — ' + JSON.stringify(r));
+  }
   // famille : un seul programme pour tous les enfants (étape 1b du chantier « sans alerte »)
   {
     const avant = (await ev('JSON.stringify({ e: CONFIG.espace, u: CONFIG.urlParent, p: CONFIG.prenom })')).r;

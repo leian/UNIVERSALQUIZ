@@ -895,51 +895,68 @@ function client_() {
   var M_ALLURES = { f: ['Au féminin', 'socca-f-nouvelle.png', 'une part de socca niçoise, pointe vers le BAS, grand bord croustillant en haut, barrette étoile dorée dans le coin en haut à droite, grands yeux avec cils'],
     m: ['Au masculin', 'socca-m.png', 'une part de socca niçoise, pointe vers le HAUT, bord croustillant en bas, sourcils un peu épais, petit épi de cheveux au sommet'],
     n: ['Neutre (socca de toujours)', 'socca-n.png', 'une part de socca niçoise, pointe vers le HAUT, bord croustillant en bas, grands yeux ronds, sans barrette, sans cils, sans épi'] };
-  var M_CHOIX = { type: 'theme', quoi: 'petits', allure: 'f' };
-  function vueMascottes(c) {
-    var C = M_CHOIX, suf = C.allure === 'n' ? '' : '-' + C.allure, A = M_ALLURES[C.allure];
-    var liste = C.type === 'theme' ? M_THEMES : C.type === 'saison' ? M_SAISONS : M_POSES;
-    if (!liste.some(function (x) { return x[0] === C.quoi; })) C.quoi = liste[0][0];
-    var el = liste.filter(function (x) { return x[0] === C.quoi; })[0];
-    var tete = IMG + 'reference/' + A[1], dossier, image2, actuelles = [], nom, prompt;
-    var contraintes = 'Contraintes : aucune ligne de séparation, aucun cadre, aucun texte, aucun numéro, aucune ombre au sol ; la mascotte entière dans chaque case, à la même taille, au même endroit, pieds à la même hauteur, avec de la marge (rien, confettis compris, ne touche le bord de sa case) ; ton drôle et bienveillant pour des enfants ; aucune personne réelle, aucun logo, aucun personnage connu.';
-    var debut = function (i2) { return 'Image 1 (si elle n\'est pas jointe, ouvre ce lien : ' + tete + ') : la tête de ma mascotte (' + A[2] + '). Ignore ses vêtements et son expression.\nImage 2 (si elle n\'est pas jointe, ouvre ce lien : ' + i2 + ') : '; };
-    var garder = 'EXACTEMENT la tête de l\'image 1 (même forme, même texture, mêmes couleurs, mêmes yeux — l\'expression change selon la case —, même style de trait)';
-    if (C.type === 'theme') {
-      dossier = C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = dossier + '.png';
-      actuelles = ['accueil', 'bravo', 'encouragement', 'reflexion'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
-      prompt = debut(image2) + 'la mascotte actuelle de ce thème, avec la tenue à garder.\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT la tenue de l\'image 2 (' + el[2] + '). Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l\'image 2.\n\n' +
-        'Planche de 4 images, format carré 1024 × 1024, fond blanc uni, 2 colonnes × 2 lignes de cases de même taille :\n- en haut à gauche : accueil — coucou d\'une main, grand sourire ;\n- en haut à droite : bravo — explose de joie, les deux bras levés, bouche ouverte, quelques confettis ;\n- en bas à gauche : encouragement — sourire doux, pouce levé ;\n- en bas à droite : réflexion — une main au menton, regard vers le haut, petit point d\'interrogation.\n\n' + contraintes;
-    } else if (C.type === 'saison') {
-      dossier = 'saisons/' + C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = C.quoi + suf + '.png';
-      actuelles = ['accueil', 'bravo'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
-      prompt = debut(image2) + 'la mascotte actuelle en costume de saison (' + el[1] + ').\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT le costume de l\'image 2.\n\n' +
-        'Planche de 2 images, format paysage 1536 × 1024, fond blanc uni, 2 cases côte à côte de même taille :\n- à gauche : accueil — coucou d\'une main, grand sourire ;\n- à droite : bravo — explose de joie, les deux bras levés, quelques confettis aux couleurs de la saison.\n\n' + contraintes;
-    } else {
-      dossier = 'poses' + suf; image2 = IMG + 'college' + suf + '/accueil.webp'; nom = C.quoi + (C.allure === 'n' ? '-n' : suf) + '.png';
-      actuelles = [IMG + dossier + '/' + C.quoi + '.webp'];
-      prompt = debut(image2) + 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou).\n\nDessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de cette mascotte, avec ' + garder + ' et la tenue de l\'image 2 (sans le skateboard), qui fait la posture suivante :\n' + el[2] + '\n\n' +
-        'Format paysage 1536 × 1024, fond blanc uni, 3 colonnes × 2 lignes de cases de même taille, lues de gauche à droite puis de haut en bas. D\'une case à l\'autre, seuls le geste et l\'expression changent un peu ; la 6e image doit pouvoir enchaîner sur la 1re. Pour des élèves de 11 à 15 ans.\n\n' + contraintes;
+  var M_CHOIX = { type: 'theme', quoi: 'petits', classe: 'petits', allure: 'f' };
+  var M_LIRE = 'AVANT DE DESSINER : ouvre les liens d\'images ci-dessous (ou regarde les images jointes) et observe-les attentivement. Si tu ne peux pas les voir, dis-le-moi et attends que je les joigne : ne dessine rien sans les avoir vues.';
+  var M_CONTRAINTES = 'Contraintes : aucune ligne de séparation, aucun cadre, aucun texte, aucun numéro, aucune ombre au sol ; la mascotte entière dans chaque case, à la même taille, au même endroit, pieds à la même hauteur, avec de la marge (rien, confettis compris, ne touche le bord de sa case) ; ton drôle et bienveillant pour des enfants ; aucune personne réelle, aucun logo, aucun personnage connu.';
+  /* une planche : liens à joindre, dossier, nom du fichier et ce qu'il faut dessiner */
+  function mPlanche(type, quoi, classe, allure) {
+    var suf = allure === 'n' ? '' : '-' + allure, A = M_ALLURES[allure], tete = { t: 'la tête de la mascotte (' + A[2] + ')', u: IMG + 'reference/' + A[1] };
+    var th = M_THEMES.filter(function (x) { return x[0] === classe; })[0] || M_THEMES[0];
+    var garder = 'EXACTEMENT la tête de l\'image 1 (même forme, même texture, mêmes couleurs, mêmes yeux — l\'expression change selon la case —, même style de trait ; ignore ses vêtements)';
+    if (type === 'theme') {
+      var t = M_THEMES.filter(function (x) { return x[0] === quoi; })[0], d = quoi + suf;
+      return { nom: d + '.png', dossier: d, titre: t[1], images: [tete, { t: 'la mascotte actuelle de ce thème, avec sa tenue', u: IMG + d + '/accueil.webp' }],
+        actuelles: ['accueil', 'bravo', 'encouragement', 'reflexion'].map(function (n) { return IMG + d + '/' + n + '.webp'; }),
+        tache: 'Redessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT la tenue de l\'image 2 (' + t[2] + '). Même corps, mêmes bras et jambes jaunes, mêmes chaussures.\nPlanche de 4 images, format carré 1024 × 1024, fond blanc uni, 2 colonnes × 2 lignes : en haut à gauche accueil (coucou d\'une main, grand sourire) ; en haut à droite bravo (explose de joie, les deux bras levés, quelques confettis) ; en bas à gauche encouragement (sourire doux, pouce levé) ; en bas à droite réflexion (une main au menton, regard vers le haut, petit point d\'interrogation).' };
     }
+    if (type === 'saison') {
+      var sa = M_SAISONS.filter(function (x) { return x[0] === quoi; })[0], ds = 'saisons/' + quoi + '-' + classe + suf;
+      return { nom: quoi + '-' + classe + suf + '.png', dossier: ds, titre: sa[1] + ' — ' + th[1], images: [tete, { t: 'la mascotte de ce thème, avec sa tenue de tous les jours', u: IMG + classe + suf + '/accueil.webp' }, { t: 'l\'ancien costume de saison (' + sa[1] + '), pour l\'idée du costume', u: IMG + 'saisons/' + quoi + suf + '/accueil.webp' }],
+        actuelles: ['accueil', 'bravo'].map(function (n) { return IMG + ds + '/' + n + '.webp'; }),
+        tache: 'Dessine la mascotte de l\'image 2 (' + th[1] + ', tenue : ' + th[2] + ') avec ' + garder + ', habillée pour la saison « ' + sa[1] + ' » : ajoute à sa tenue les accessoires et le costume de saison inspirés de l\'image 3, adaptés à son âge, en gardant sa tenue du thème reconnaissable.\nPlanche de 2 images, format paysage 1536 × 1024, fond blanc uni, 2 cases côte à côte : à gauche accueil (coucou d\'une main, grand sourire) ; à droite bravo (explose de joie, les deux bras levés, quelques confettis aux couleurs de la saison).' };
+    }
+    var po = M_POSES.filter(function (x) { return x[0] === quoi; })[0], dp = 'poses' + suf;
+    return { nom: quoi + (allure === 'n' ? '-n' : suf) + '.png', dossier: dp, titre: po[1], images: [tete, { t: 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou)', u: IMG + 'college' + suf + '/accueil.webp' }],
+      actuelles: [IMG + dp + '/' + quoi + '.webp'],
+      tache: 'Dessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de la mascotte, avec ' + garder + ' et la tenue de l\'image 2 (sans le skateboard), qui fait la posture « ' + po[1] + ' » : ' + po[2] + '\nFormat paysage 1536 × 1024, fond blanc uni, 3 colonnes × 2 lignes lues de gauche à droite puis de haut en bas ; d\'une case à l\'autre, seuls le geste et l\'expression changent un peu ; la 6e image enchaîne sur la 1re. Pour des élèves de 11 à 15 ans.' };
+  }
+  function mLiens(pl) { return pl.images.map(function (im, k) { return 'Image ' + (k + 1) + ' — ' + im.t + ' : ' + im.u; }).join('\n'); }
+  function vueMascottes(c) {
+    var C = M_CHOIX, TOUS = '*';
+    var liste = C.type === 'theme' ? M_THEMES : C.type === 'saison' ? M_SAISONS : M_POSES;
+    if (C.quoi !== TOUS && !liste.some(function (x) { return x[0] === C.quoi; })) C.quoi = liste[0][0];
+    var quois = C.quoi === TOUS ? liste.map(function (x) { return x[0]; }) : [C.quoi];
+    var classes = C.type !== 'saison' ? [''] : C.classe === TOUS ? M_THEMES.map(function (x) { return x[0]; }) : [C.classe];
+    var planches = [];
+    classes.forEach(function (cl) { quois.forEach(function (q) { planches.push(mPlanche(C.type, q, cl, C.allure)); }); });
+    var seule = planches.length === 1, P0 = planches[0], prompt;
+    if (seule) prompt = M_LIRE + '\n\n' + mLiens(P0) + '\n\n' + P0.tache + '\n\n' + M_CONTRAINTES;
+    else prompt = M_LIRE + '\n\nJe vais te demander ' + planches.length + ' planches, UNE SEULE IMAGE PAR MESSAGE. Commence par la planche n°1 ; quand je réponds « suivante », dessine la suivante. Garde exactement le même personnage, le même style et le même cadrage d\'une planche à l\'autre. Au-dessus de chaque image, écris seulement son nom de fichier.\n\n' +
+      planches.map(function (pl, k) { return '— Planche n°' + (k + 1) + ' : ' + pl.nom + ' (' + pl.titre + ')\n' + mLiens(pl) + '\n' + pl.tache; }).join('\n\n') + '\n\n' + M_CONTRAINTES;
     var sel = function (id, opts, val) { return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
     var lien = function (u, t) { return '<li><a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a> <button type="button" class="btn" data-copie="' + esc(u) + '">Copier le lien</button></li>'; };
+    var tousLib = C.type === 'theme' ? 'Tous les thèmes' : C.type === 'saison' ? 'Toutes les saisons' : 'Toutes les postures';
     c.innerHTML = '<div class="box"><h2>' + I('star') + 'Générateur de mascottes et de postures</h2>' +
-      '<p class="petit">Choisis ce qu\'il faut redessiner : la console prépare le prompt pour ChatGPT et les deux images à lui joindre. Ensuite, envoie la planche à Claude sous le nom indiqué.</p>' +
-      '<div class="chiffres" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">' +
+      '<p class="petit">Choisis ce qu\'il faut redessiner : la console prépare le prompt pour ChatGPT, avec les liens des images. Avec « Tous » ou « Toutes », un seul prompt fait dessiner les planches l\'une après l\'autre dans la même conversation (réponds « suivante » à ChatGPT).</p>' +
+      '<div class="chiffres" style="grid-template-columns:repeat(auto-fit,minmax(170px,1fr))">' +
       '<label>Quoi<br>' + sel('m-type', [['theme', 'Mascotte d\'un thème (4 images)'], ['saison', 'Costume de saison (2 images)'], ['pose', 'Posture du collège (animation, 6 images)']], C.type) + '</label>' +
-      '<label>Lequel<br>' + sel('m-quoi', liste.map(function (x) { return [x[0], x[1]]; }), C.quoi) + '</label>' +
+      '<label>Lequel<br>' + sel('m-quoi', [[TOUS, tousLib]].concat(liste.map(function (x) { return [x[0], x[1]]; })), C.quoi) + '</label>' +
+      (C.type === 'saison' ? '<label>Classe<br>' + sel('m-classe', [[TOUS, 'Toutes les classes']].concat(M_THEMES.map(function (x) { return [x[0], x[1]]; })), C.classe) + '</label>' : '') +
       '<label>Allure<br>' + sel('m-allure', [['f', M_ALLURES.f[0]], ['m', M_ALLURES.m[0]], ['n', M_ALLURES.n[0]]], C.allure) + '</label></div>' +
-      '<h3>Images actuelles</h3><p>' + actuelles.map(function (u) { return '<img src="' + esc(u) + '" alt="" style="height:110px;max-width:100%;object-fit:contain;background:var(--bg);border-radius:10px;margin:0 6px 6px 0" onerror="this.replaceWith(document.createTextNode(\'(pas encore dessinée) \'))">'; }).join('') + '</p>' +
-      '<h3>1. Joins ces deux images dans une nouvelle conversation ChatGPT</h3><ol class="etapes">' + lien(tete, 'Image 1 — la tête (' + A[0] + ')') + lien(image2, 'Image 2 — la tenue à garder') + '</ol>' +
-      '<p class="petit">ChatGPT ne lit pas toujours une adresse : ouvre le lien, enregistre l\'image, puis joins-la.</p>' +
-      '<h3>2. Colle ce prompt</h3><textarea id="m-prompt" readonly rows="14" style="width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(prompt) + '</textarea>' +
+      (seule ? '<h3>Images actuelles</h3><p>' + P0.actuelles.map(function (u) { return '<img src="' + esc(u) + '" alt="" style="height:110px;max-width:100%;object-fit:contain;background:var(--bg);border-radius:10px;margin:0 6px 6px 0" onerror="this.replaceWith(document.createTextNode(\'(pas encore dessinée) \'))">'; }).join('') + '</p>' +
+        '<h3>1. Joins ces images dans une nouvelle conversation ChatGPT</h3><ol class="etapes">' + P0.images.map(function (im, k) { return lien(im.u, 'Image ' + (k + 1) + ' — ' + im.t); }).join('') + '</ol>' +
+        '<p class="petit">Les liens sont aussi dans le prompt, et ChatGPT est prié de les ouvrir ; les joindre reste le plus sûr.</p>'
+        : '<p><b>' + planches.length + ' planches</b> dans ce prompt. Les liens de chaque planche y sont écrits ; ChatGPT doit les ouvrir avant de dessiner.</p>') +
+      '<h3>' + (seule ? '2. ' : '') + 'Colle ce prompt</h3><textarea id="m-prompt" readonly rows="14" style="width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(prompt) + '</textarea>' +
       '<div class="actions"><button type="button" class="btn principal" id="m-copier">' + I('upload') + ' Copier le prompt</button> <span id="m-copie" class="petit" role="status"></span></div>' +
-      '<h3>3. Envoie la planche à Claude</h3><p>Nomme le fichier <code>' + esc(nom) + '</code> : Claude la découpe et la met dans <code>docs/themes/' + esc(dossier) + '</code>' + (C.type === 'pose' ? ', puis l\'ajoute à la liste des postures dessinées.' : '.') + ' Case ratée : dans ChatGPT, « Refais exactement la même planche, mais corrige la case N : … ».</p></div>';
+      '<h3>' + (seule ? '3. ' : '') + 'Envoie les planches à Claude</h3><p>' + (seule ? 'Nomme le fichier <code>' + esc(P0.nom) + '</code>' : 'Nomme chaque fichier comme indiqué au-dessus de son image (ex. <code>' + esc(P0.nom) + '</code>)') +
+      ' : Claude les découpe, les range (dossier <code>docs/themes/' + esc(seule ? P0.dossier : P0.dossier.replace(/[^\/]*$/, '…')) + '</code>) et les active' + (C.type === 'pose' ? ' dans la liste des postures dessinées' : C.type === 'saison' ? ' pour la classe et la saison concernées' : '') + '. Case ratée : « Refais exactement la même planche, mais corrige la case N : … ».</p></div>';
     var copier = function (t, ok) { var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); var r = false; try { r = document.execCommand('copy'); } catch (e) {} a.remove(); if (!r && navigator.clipboard) navigator.clipboard.writeText(t).then(ok); else if (r) ok(); };
     $('m-copier').onclick = function () { copier(prompt, function () { $('m-copie').textContent = '✅ Prompt copié'; }); };
     Array.prototype.forEach.call(c.querySelectorAll('[data-copie]'), function (b) { b.onclick = function () { copier(b.getAttribute('data-copie'), function () { b.textContent = '✅ Copié'; }); }; });
     $('m-type').onchange = function () { C.type = this.value; vueMascottes(c); };
     $('m-quoi').onchange = function () { C.quoi = this.value; vueMascottes(c); };
+    if ($('m-classe')) $('m-classe').onchange = function () { C.classe = this.value; vueMascottes(c); };
     $('m-allure').onchange = function () { C.allure = this.value; vueMascottes(c); };
   }
 

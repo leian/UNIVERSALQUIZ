@@ -234,6 +234,7 @@
       '\n<script>\nvar QUIZ = ' + jsonScript(d.quiz || []) + ';\nvar MATIERES = ' + jsonScript(d.matieres || {}) + ';\n<\/script>\n';
     var styleTheme = '<link rel="stylesheet" href="' + (d.polices || '') + '">\n' + L[COMMUN['themes.css']];
     html = html.replace(/<html\b/i, '<html data-theme="' + (cfg.theme || 'parent') + '"' + (cfg.saison ? ' data-saison="' + cfg.saison + '"' : ''));
+    if (cfg.styleSaison) styleTheme += '\n<style>' + cfg.styleSaison + '<\/style>';   // mascotte de saison du thème (Code.gs : styleSaison_)
     html = /<\/head>/i.test(html) ? html.replace(/<\/head>/i, styleTheme + '\n</head>') : styleTheme + html;
     return /<head\b[^>]*>/i.test(html) ? html.replace(/<head\b[^>]*>/i, function (m) { return m + tete; }) : tete + html;
   }
