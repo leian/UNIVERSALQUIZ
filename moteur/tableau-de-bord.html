@@ -294,8 +294,14 @@ dialog.boite.large{max-width:720px}
       </div>
       <div class="box carte">
         <div class="bloc">
-          <h3><i data-ic="cap"></i>Classe et apparence</h3>
+          <h3><i data-ic="cap"></i>Classe et questions</h3>
           <div id="classe"></div>
+        </div>
+      </div>
+      <div class="box carte">
+        <div class="bloc" id="box-mascotte" hidden>
+          <h3><i data-ic="star"></i>Mascotte de {{PRENOM}}</h3>
+          <div id="mascotte-zone"></div>
         </div>
         <div class="bloc">
           <h3><i data-ic="snow"></i>Décorations de saison</h3>
@@ -366,6 +372,7 @@ const ICONES = {
   tool: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.8-3.8a6 6 0 0 1-7.9 7.9l-6.9 6.9a2.1 2.1 0 0 1-3-3l6.9-6.9a6 6 0 0 1 7.9-7.9Z"/>',
   cap: '<path d="M22 10 12 5 2 10l10 5 10-5Z"/><path d="M6 12v5c3 2.5 9 2.5 12 0v-5"/>',
   snow: '<path d="M12 2v20M4.9 4.9l14.2 14.2M2 12h20M4.9 19.1 19.1 4.9"/>',
+  star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
   phone: '<rect x="6" y="2" width="12" height="20" rx="2"/><path d="M11 18h2"/>',
   link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
   calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>',
@@ -635,7 +642,9 @@ function afficherClasse() {
         (U.parPartieChoix || [10, 15, 20, 30]).map(n => `<option value="${n}" ${+U.parPartie === n ? "selected" : ""}>${n} questions</option>`).join("") + `</select></p>` +
         `<p class="small">Pour tous les quiz de {{PRENOM}}. Des parties courtes et fréquentes font mieux retenir qu'une longue partie de temps en temps. À chaque partie, les questions sont tirées dans tout le quiz, en reposant plus souvent celles qui ont été ratées ; un quiz qui a moins de questions les pose toutes.</p>` +
         `<p class="enreg" id="enreg-parpartie" role="status" hidden></p>`;
-    })() +
+    })();
+  const zoneM = document.getElementById("mascotte-zone"), boxM = document.getElementById("box-mascotte");
+  if (zoneM) zoneM.innerHTML =
     (U.theme === "lycee" && U.mascottes ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       U.mascottes.map(m => `<option value="${esc(m)}" ${m === U.mascotte ? "selected" : ""}>${esc(NOMS_MASCOTTES[m] || m)}</option>`).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
@@ -646,6 +655,7 @@ function afficherClasse() {
           return `<option value="${v}" ${v === (U.genre || "auto") ? "selected" : ""} ${manque && v !== U.genre ? "disabled" : ""}>${esc(t + (manque ? " (dessins bientôt prêts)" : ""))}</option>`; }).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +
       `<p class="enreg" id="enreg-genre" role="status" hidden></p>` : "");
+  if (boxM) boxM.hidden = !(zoneM && zoneM.innerHTML);
   // aperçu : la mascotte que verra l'enfant (thème de sa classe, tenue du lycée, allure), jamais le costume de saison
   const majApercu = () => {
     const tenue = (document.getElementById("choix-mascotte") || {}).value || U.mascotte || "gothique";
@@ -1022,7 +1032,7 @@ else if (/^#(quiz|bibliotheque|reglages)$/.test(location.hash)) ouvrirOnglet(loc
 else try { google.script.url.getLocation(l => { if (l && /^(quiz|bibliotheque|reglages)$/.test(l.hash)) ouvrirOnglet(l.hash); }); } catch (e) {}
 /* lien direct depuis l'aide (https://app.soccaquiz.fr/parent/#reglages/questions…) : la coquille ouvre l'onglet et passe la
    rubrique (__UQ.cible) ; on y amène l'écran, on ouvre son encadré repliable s'il y en a un, et on la souligne un instant */
-const CIBLES_AIDE = { partager: "actions", classe: "classe", mascotte: "classe", questions: "choix-parpartie", saison: "saison", enfants: "box-famille",
+const CIBLES_AIDE = { partager: "actions", classe: "classe", mascotte: "box-mascotte", questions: "choix-parpartie", saison: "saison", enfants: "box-famille",
   parents: "box-parents", appareils: "box-parents", renommer: "box-renommer", drive: "adresses", supprimer: "box-suppr", remise: "box-suppr", signalements: "signalements" };
 setTimeout(() => {
   const id = CIBLES_AIDE[(window.__UQ || {}).cible || ""], el = id && document.getElementById(id);
