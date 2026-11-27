@@ -80,6 +80,8 @@
   try {
     if (p.get('chrono') === '1') localStorage.setItem('uq-chrono', '1');
     if (p.get('chrono') === '0') localStorage.removeItem('uq-chrono');
+    if (p.get('poses') === '1') localStorage.setItem('uq-apercu-poses', '1');   // aperçu des postures du collège (parents)
+    if (p.get('poses') === '0') localStorage.removeItem('uq-apercu-poses');
   } catch (e) {}
 
   // site de la famille : ?s=… (gardé sur l'appareil si l'adresse le perd) ; essais sur l'ordinateur : ?exec=<adresse locale>

@@ -372,14 +372,18 @@ try {
     r.nouveau = pz.classList.contains('go');            // posture gagnée depuis la dernière visite : jouée
     b[0].click(); r.joue = pz.classList.contains('go') && /Six-Seven/.test(el.querySelector('.fx-info').textContent);
     b[2].click(); r.verrouInfo = /encore 20 bonnes réponses/.test(el.querySelector('.fx-info').textContent);
-    Animations.reponse(true, 1, 'explorateurs'); r.pasPrimaire = !document.getElementById('fx-pose-coin');
+    U.poses.college = false; Animations.panneauPoses(el); r.horsCollege = !el.querySelector('.fx-poses');
+    localStorage.setItem('uq-apercu-poses', '1'); Animations.panneauPoses(el);
+    r.apercu = el.querySelectorAll('.fx-grille button.verrou').length === 0 && /Aperçu/.test(el.textContent);
+    localStorage.removeItem('uq-apercu-poses'); U.poses.college = true; Animations.panneauPoses(el);
+    U.poses.college = false; Animations.reponse(true, 1, 'explorateurs'); U.poses.college = true; r.pasPrimaire = !document.getElementById('fx-pose-coin');
     Animations.reponse(true, 1, 'college'); const coin = document.getElementById('fx-pose-coin');
     r.coin = !!coin && coin.classList.contains('go') && /poses(-f)?\/(six-seven|moue)\.webp/.test(coin.style.backgroundImage);
     coin && coin.remove(); el.innerHTML = ''; delete U.poses;
     return r;
   });
-  ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin,
-    'collège : « Mes postures » (rien sans dessin ; 10 puis 25 bonnes réponses par posture, duel exclu ; allure ; scène haute comme 3 autocollants ; touchée = jouée ; une posture gagnée jouée à chaque bonne réponse, au collège seulement) — ' + JSON.stringify(poses));
+  ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin && poses.horsCollege && poses.apercu,
+    'collège : « Mes postures » (rien sans dessin ; 10 puis 25 bonnes réponses par posture, duel exclu ; allure ; scène haute comme 3 autocollants ; touchée = jouée ; une posture gagnée jouée à chaque bonne réponse, au collège seulement ; aperçu « poses=1 » : tout débloqué sur l\'appareil) — ' + JSON.stringify(poses));
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
 
   // tableau de bord

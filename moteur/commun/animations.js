@@ -122,6 +122,9 @@
   function etatPoses() {
     const U = window.__UQ || {}, P = U.poses;
     if (!P) return null;
+    // aperçu pour les parents : app.soccaquiz.fr/?s=…&poses=1 débloque tout sur cet appareil (poses=0 l'arrête)
+    let apercu = false; try { apercu = localStorage.getItem('uq-apercu-poses') === '1'; } catch (e) {}
+    if (P.college === false && !apercu) return null;
     const allure = P.allure === 'f' || P.allure === 'm' ? P.allure : '';
     const liste = POSES.map(([id, nom]) => {
       const dossier = allure && (P[allure] || []).indexOf(id) >= 0 ? 'poses-' + allure : (P.n || []).indexOf(id) >= 0 ? 'poses' : '';
@@ -130,8 +133,8 @@
     if (!liste.length) return null;
     // bonnes réponses des parties enregistrées (le duel se joue à deux : il ne compte pas)
     const bonnes = (U.resultats || []).reduce((n, r) => n + (r && r.mode !== 'duel' ? Math.max(0, +r.score || 0) : 0), 0);
-    liste.forEach((p, k) => { p.seuil = PREMIERE + k * PAS; p.ok = bonnes >= p.seuil; });
-    return { liste, bonnes, gagnees: liste.filter(p => p.ok) };
+    liste.forEach((p, k) => { p.seuil = PREMIERE + k * PAS; p.ok = apercu || bonnes >= p.seuil; });
+    return { liste, bonnes, apercu, gagnees: liste.filter(p => p.ok) };
   }
   function jouerPose(el, p, tours) {
     if (!el || !p) return;
@@ -159,7 +162,8 @@
   }
   function panneauPoses(el) {
     installer();
-    const E = etatPoses(); if (!el || !E) return;
+    const E = etatPoses(); if (!el) return;
+    if (!E) { el.innerHTML = ''; return; }
     let vu = 0; try { vu = +localStorage.getItem('sq.poses') || 0; } catch (e) {}
     const n = E.gagnees.length, neufs = Math.max(0, n - vu);
     try { localStorage.setItem('sq.poses', n); } catch (e) {}
@@ -168,7 +172,7 @@
     const pl = k => k + ' bonne' + (k > 1 ? 's' : '') + ' réponse' + (k > 1 ? 's' : '');
     const msg = !n ? 'Encore ' + pl(reste) + ' pour gagner ta première posture !'
       : (neufs ? (neufs > 1 ? neufs + ' nouvelles postures' : 'Nouvelle posture') + ' ! ' : '') + 'Touche une posture pour la voir.' + (prochaine ? ' Prochaine dans ' + pl(reste) + '.' : ' Tu les as toutes !');
-    el.innerHTML = '<div class="panneau fx-poses"><h3>🕺 Mes postures <span>' + n + '/' + E.liste.length + '</span></h3><p>' + esc(msg) + '</p>' +
+    el.innerHTML = '<div class="panneau fx-poses"><h3>🕺 Mes postures <span>' + n + '/' + E.liste.length + '</span></h3><p>' + esc(E.apercu ? 'Aperçu : toutes les postures sont débloquées sur cet appareil. Touche une posture pour la voir.' : msg) + '</p>' +
       (n ? '<div class="fx-scene"><span class="fx-pose" role="img"></span></div>' : '') +
       '<div class="fx-grille">' + E.liste.map((p, k) => '<button type="button" data-k="' + k + '" class="' + (p.ok ? (k >= n - neufs ? 'neuf' : '') : 'verrou') + '"' +
         ' aria-label="' + esc(p.ok ? p.nom : 'Posture à gagner') + '" title="' + esc(p.ok ? p.nom : 'À gagner : ' + pl(p.seuil - E.bonnes) + ' de plus') + '">' +
@@ -189,7 +193,7 @@
     reponse(ok, serie, theme) {
       installer();
       const q = s => document.querySelector(s);
-      const pose = ok && theme === 'college' && poseReponse();
+      const pose = ok && poseReponse();
       if (!pose) animer(q('.compagnon'), ok ? 'fx-bond' : 'fx-penche');
       if (ok) {
         animer(q('.opt-btn.correct') || q('.explanation'), 'fx-pop');

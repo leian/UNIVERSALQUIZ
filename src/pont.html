@@ -15,7 +15,7 @@
      Chaque site range la sienne à part (« sq:<site>:<clé> ») : deux enfants sur une même tablette ne mélangent
      ni leurs parties en attente ni leurs badges. Seul le chrono est commun à l'appareil. */
   if (CFG.direct && CFG.site) try {
-    var vraie = window.localStorage, pre = 'sq:' + CFG.site + (CFG.enfant ? '.' + CFG.enfant : '') + ':', commun = /^uq-chrono/;
+    var vraie = window.localStorage, pre = 'sq:' + CFG.site + (CFG.enfant ? '.' + CFG.enfant : '') + ':', commun = /^uq-(chrono|apercu-poses)/;
     var cle = function (k) { k = String(k); return commun.test(k) ? k : pre + k; };
     var mesCles = function () { var l = []; for (var i = 0; i < vraie.length; i++) { var k = vraie.key(i); if (k && k.indexOf(pre) === 0) l.push(k.slice(pre.length)); } return l; };
     var rangement = {
