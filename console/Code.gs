@@ -903,22 +903,22 @@ function client_() {
     var el = liste.filter(function (x) { return x[0] === C.quoi; })[0];
     var tete = IMG + 'reference/' + A[1], dossier, image2, actuelles = [], nom, prompt;
     var contraintes = 'Contraintes : aucune ligne de séparation, aucun cadre, aucun texte, aucun numéro, aucune ombre au sol ; la mascotte entière dans chaque case, à la même taille, au même endroit, pieds à la même hauteur, avec de la marge (rien, confettis compris, ne touche le bord de sa case) ; ton drôle et bienveillant pour des enfants ; aucune personne réelle, aucun logo, aucun personnage connu.';
-    var debut = 'Image 1 : la tête de ma mascotte (' + A[2] + '). Ignore ses vêtements et son expression.\nImage 2 : ';
+    var debut = function (i2) { return 'Image 1 (si elle n\'est pas jointe, ouvre ce lien : ' + tete + ') : la tête de ma mascotte (' + A[2] + '). Ignore ses vêtements et son expression.\nImage 2 (si elle n\'est pas jointe, ouvre ce lien : ' + i2 + ') : '; };
     var garder = 'EXACTEMENT la tête de l\'image 1 (même forme, même texture, mêmes couleurs, mêmes yeux — l\'expression change selon la case —, même style de trait)';
     if (C.type === 'theme') {
       dossier = C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = dossier + '.png';
       actuelles = ['accueil', 'bravo', 'encouragement', 'reflexion'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
-      prompt = debut + 'la mascotte actuelle de ce thème, avec la tenue à garder.\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT la tenue de l\'image 2 (' + el[2] + '). Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l\'image 2.\n\n' +
+      prompt = debut(image2) + 'la mascotte actuelle de ce thème, avec la tenue à garder.\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT la tenue de l\'image 2 (' + el[2] + '). Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l\'image 2.\n\n' +
         'Planche de 4 images, format carré 1024 × 1024, fond blanc uni, 2 colonnes × 2 lignes de cases de même taille :\n- en haut à gauche : accueil — coucou d\'une main, grand sourire ;\n- en haut à droite : bravo — explose de joie, les deux bras levés, bouche ouverte, quelques confettis ;\n- en bas à gauche : encouragement — sourire doux, pouce levé ;\n- en bas à droite : réflexion — une main au menton, regard vers le haut, petit point d\'interrogation.\n\n' + contraintes;
     } else if (C.type === 'saison') {
       dossier = 'saisons/' + C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = C.quoi + suf + '.png';
       actuelles = ['accueil', 'bravo'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
-      prompt = debut + 'la mascotte actuelle en costume de saison (' + el[1] + ').\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT le costume de l\'image 2.\n\n' +
+      prompt = debut(image2) + 'la mascotte actuelle en costume de saison (' + el[1] + ').\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT le costume de l\'image 2.\n\n' +
         'Planche de 2 images, format paysage 1536 × 1024, fond blanc uni, 2 cases côte à côte de même taille :\n- à gauche : accueil — coucou d\'une main, grand sourire ;\n- à droite : bravo — explose de joie, les deux bras levés, quelques confettis aux couleurs de la saison.\n\n' + contraintes;
     } else {
       dossier = 'poses' + suf; image2 = IMG + 'college' + suf + '/accueil.webp'; nom = C.quoi + (C.allure === 'n' ? '-n' : suf) + '.png';
       actuelles = [IMG + dossier + '/' + C.quoi + '.webp'];
-      prompt = debut + 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou).\n\nDessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de cette mascotte, avec ' + garder + ' et la tenue de l\'image 2 (sans le skateboard), qui fait la posture suivante :\n' + el[2] + '\n\n' +
+      prompt = debut(image2) + 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou).\n\nDessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de cette mascotte, avec ' + garder + ' et la tenue de l\'image 2 (sans le skateboard), qui fait la posture suivante :\n' + el[2] + '\n\n' +
         'Format paysage 1536 × 1024, fond blanc uni, 3 colonnes × 2 lignes de cases de même taille, lues de gauche à droite puis de haut en bas. D\'une case à l\'autre, seuls le geste et l\'expression changent un peu ; la 6e image doit pouvoir enchaîner sur la 1re. Pour des élèves de 11 à 15 ans.\n\n' + contraintes;
     }
     var sel = function (id, opts, val) { return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
