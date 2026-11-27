@@ -526,7 +526,8 @@ function lireBilan_(jeton) {
   const r = UrlFetchApp.fetch(RELAIS_ + '/bilan', { headers: { Authorization: 'Bearer ' + jeton }, muteHttpExceptions: true });
   let j = null; try { j = JSON.parse(r.getContentText()); } catch (e) {}
   if (r.getResponseCode() !== 200 || !j || !j.ok) return null;
-  return { familles: +j.familles || 0, actives7: +j.actives7 || 0, actives30: +j.actives30 || 0,
+  const pf = j.parFamille && typeof j.parFamille === 'object' ? j.parFamille : {};
+  return { familles: +j.familles || 0, enfants: Math.max(0, +j.enfants || 0), parFamille: ['1', '2', '3', '4+'].map(k => ({ k, n: Math.max(0, +pf[k] || 0) })), actives7: +j.actives7 || 0, actives30: +j.actives30 || 0,
     semaines: (Array.isArray(j.semaines) ? j.semaines : []).filter(w => w && /^\d{4}-\d{2}-\d{2}$/.test(w.semaine)).slice(0, 12).map(w => ({ semaine: w.semaine, n: +w.n || 0 })),
     drive: driveDuBilan_(j.drive) };
 }
@@ -910,9 +911,10 @@ function client_() {
       if (r.sansJeton) { zone.innerHTML = titre + '<p class="petit">Pas encore relié au relais : onglet <b>Réglages</b> → « Bilan du relais ».</p>'; afficherUsage({ erreur: 'Pas encore relié au relais : onglet Réglages → « Bilan du relais ».' }); return; }
       if (r.erreur || !r.bilan) { zone.innerHTML = titre + '<p class="petit">' + esc(r.erreur || 'Bilan indisponible.') + '</p>'; afficherUsage({ erreur: r.erreur || 'Bilan indisponible.' }); return; }
       var B = r.bilan; afficherUsage(B.drive);
-      zone.innerHTML = titre + '<div class="chiffres">' + chiffre(B.familles, 'familles inscrites', 'en ce moment, dans le relais') + chiffre(B.actives7, 'actives sur 7 jours') + chiffre(B.actives30, 'actives sur 30 jours') + '</div>' +
+      zone.innerHTML = titre + '<div class="chiffres">' + chiffre(B.familles, 'familles inscrites', 'en ce moment, dans le relais') + chiffre(B.enfants, 'enfants', B.familles ? 'soit ' + (Math.round(B.enfants / B.familles * 10) / 10).toString().replace('.', ',') + ' par famille' : '') + chiffre(B.actives7, 'actives sur 7 jours') + chiffre(B.actives30, 'actives sur 30 jours') + '</div>' +
+        (B.familles ? '<table class="stats"><tr><th>Enfants par famille</th>' + B.parFamille.map(function (x) { return '<th>' + esc(x.k) + '</th>'; }).join('') + '</tr><tr><td>Familles</td>' + B.parFamille.map(function (x) { return '<td>' + x.n + '</td>'; }).join('') + '</tr></table>' : '') +
         (B.semaines.length ? '<table class="stats"><tr><th>Semaine du</th><th>Inscriptions (familles encore inscrites)</th></tr>' + B.semaines.map(function (w) { return '<tr><td>' + esc(jour(w.semaine)) + '</td><td>' + w.n + '</td></tr>'; }).join('') + '</table>' : '') +
-        '<p class="petit">Totaux calculés par le relais : « active » = au moins une partie jouée ou un réglage enregistré. Aucun identifiant ni aucune donnée de famille ne sort du relais.</p>';
+        '<p class="petit">Totaux calculés par le relais : « active » = au moins une partie jouée ou un réglage enregistré ; « enfants » = profils d\'enfants des familles inscrites (le relais ne garde que leur nombre en clair). Aucun identifiant ni aucune donnée de famille ne sort du relais.</p>';
     }, function (m) { if (zone) zone.innerHTML = titre + '<p class="petit">' + esc(m) + '</p>'; afficherUsage({ erreur: m }); });
   }
 

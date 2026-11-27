@@ -84,8 +84,8 @@ ok((await bilan('')).statut === 404 && (await bilan('x'.repeat(40))).statut === 
 env.JETON_CONSOLE = 'j'.repeat(48);
 const b0 = await bilan('mauvais-jeton-mauvais-jeton-mauvais-jeton'), b1 = await bilan('j'.repeat(48));
 ok(b0.statut === 404 && b1.statut === 200 && b1.d.familles === 1 && b1.d.actives7 === 1 && b1.d.actives30 === 1 && b1.d.semaines.length === 1 && b1.d.semaines[0].n === 1
-  && Object.keys(b1.d).sort().join() === 'actives30,actives7,drive,familles,ok,semaines,t' && !JSON.stringify(b1.d).includes(S) && !/Lana|parent\.test/.test(JSON.stringify(b1.d)),
-  'bilan : mauvais jeton refusé ; bon jeton → totaux seulement (familles, actives, inscriptions par semaine), sans identifiant — ' + JSON.stringify(b1.d));
+  && Object.keys(b1.d).sort().join() === 'actives30,actives7,drive,enfants,familles,ok,parFamille,semaines,t' && b1.d.enfants === 1 && b1.d.parFamille['1'] === 1 && !JSON.stringify(b1.d).includes(S) && !/Lana|parent\.test/.test(JSON.stringify(b1.d)),
+  'bilan : mauvais jeton refusé ; bon jeton → totaux seulement (familles, enfants, actives, inscriptions par semaine), sans identifiant — ' + JSON.stringify(b1.d));
 ok([...fichiers.values()].some(f => f.name === 'SoccaQuiz' && f.mimeType === 'application/vnd.google-apps.folder') && [...fichiers.values()].some(f => f.name === 'SoccaQuiz – famille.json'), 'Drive : dossier « SoccaQuiz » et fichier de la famille créés');
 
 /* 2. site de l'enfant */
@@ -188,6 +188,10 @@ ok(supM.d.r && supM.d.r.ok, 'supprimer Mathilde — ' + JSON.stringify(supM.d).s
 /* compteur des appels à l'API Drive (bilan pour la console) */
 {
   const bd = await bilan('j'.repeat(48));
+  ok(bd.d.enfants === 2 && bd.d.parFamille['2'] === 1 && bd.d.parFamille['1'] === 0, 'bilan : enfant ajouté depuis l\'espace parent compté (2 enfants, 1 famille de 2) — ' + JSON.stringify([bd.d.enfants, bd.d.parFamille]));
+  sql.prepare('UPDATE familles SET nb_enfants = NULL').run();
+  const bAncien = await bilan('j'.repeat(48));
+  ok(bAncien.d.enfants === 2 && sql.prepare('SELECT nb_enfants FROM familles').get().nb_enfants === 2, 'bilan : famille inscrite avant le compteur → enfants comptés une fois, nombre gardé');
   const d = bd.d.drive || {};
   ok(bd.statut === 200 && Array.isArray(d.jours) && d.jours.length === 1 && d.jours[0].appels > 5 && /^\d{4}-\d{2}-\d{2}$/.test(d.jours[0].jour) && d.pointeMinute > 0 && d.pointeMinute <= d.jours[0].appels && !JSON.stringify(d).includes(S),
     'bilan : appels à l\'API Drive comptés par jour et pointe par minute, sans identifiant — ' + JSON.stringify(d).slice(0, 160));

@@ -94,7 +94,7 @@ const ctx = {
         return rep(200, { timeSeries: [{ points: [{ interval: { endTime: '2026-11-25T08:01:00Z' }, value: { int64Value: '42' } }, { interval: { endTime: '2026-11-25T08:02:00Z' }, value: { int64Value: '7' } }] }] });
       }
       if (url === 'https://soccaquiz-relais.soccaquiz.workers.dev/bilan') return (o.headers || {}).Authorization === 'Bearer ' + 'k'.repeat(64)
-        ? rep(200, { ok: true, t: 1, familles: 5, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }], drive: { jours: [{ jour: '2026-11-25', appels: 1203, refus: 3, erreurs: 0 }, { jour: '2026-11-24', appels: 805, refus: 0, erreurs: 5 }, { jour: '<x>', appels: 99999 }], pointeMinute: 42, pointeA: '2026-11-25T08:01:00.000Z' } }) : rep(404, { erreur: 'Introuvable.' });
+        ? rep(200, { ok: true, t: 1, familles: 5, enfants: 8, parFamille: { '1': 3, '2': 1, '3': 0, '4+': 1, '<x>': 9 }, actives7: 2, actives30: 4, semaines: [{ semaine: '2026-11-23', n: 3 }, { semaine: '<x>', n: 9 }], drive: { jours: [{ jour: '2026-11-25', appels: 1203, refus: 3, erreurs: 0 }, { jour: '2026-11-24', appels: 805, refus: 0, erreurs: 5 }, { jour: '<x>', appels: 99999 }], pointeMinute: 42, pointeA: '2026-11-25T08:01:00.000Z' } }) : rep(404, { erreur: 'Introuvable.' });
       const m = url.match(/^https:\/\/api\.github\.com\/repos\/leian\/UNIVERSALQUIZ(.*)$/);
       if (!m) return rep(404, {});
       if (o.headers && o.headers.Authorization && !jetonValide) return rep(401, { message: 'Bad credentials' });
@@ -291,7 +291,7 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
   ok(ctx.apiBilanRelais().sansJeton && ctx.apiEtat().jetonRelais === false, 'bilan du relais : rien sans jeton');
   ok(ctx.apiJetonRelais('court').erreur && ctx.apiJetonRelais('z'.repeat(64)).erreur && ctx.apiEtat().jetonRelais === false, 'bilan du relais : jeton mal formé ou inconnu du relais refusé, rien d\'enregistré');
   const r = ctx.apiJetonRelais('k'.repeat(64)), b = ctx.apiBilanRelais().bilan;
-  ok(r.ok && ctx.apiEtat().jetonRelais === true && b.familles === 5 && b.actives7 === 2 && b.actives30 === 4 && b.semaines.length === 1 && b.semaines[0].n === 3, 'bilan du relais : jeton vérifié puis retenu ; totaux lus, semaine douteuse écartée');
+  ok(r.ok && ctx.apiEtat().jetonRelais === true && b.familles === 5 && b.enfants === 8 && b.parFamille.map(x => x.n).join() === '3,1,0,1' && b.actives7 === 2 && b.actives30 === 4 && b.semaines.length === 1 && b.semaines[0].n === 3, 'bilan du relais : jeton vérifié puis retenu ; totaux lus, semaine douteuse écartée');
   const page = ctx.doGet({ parameter: {} }).h;
   ok(/bilan-relais/.test(page) && /JETON_CONSOLE/.test(page) && /Journal du relais/.test(page) && /En cas de souci/.test(page) && /already exists/.test(page) && /CLE_CHIFFREMENT/.test(page), 'console : bloc « Familles inscrites », réglage du jeton, lien vers le journal');
   ok(ctx.apiJetonRelais('').ok && ctx.apiEtat().jetonRelais === false, 'bilan du relais : délier');

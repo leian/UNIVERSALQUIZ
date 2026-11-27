@@ -64,10 +64,13 @@ let SCHEMA_OK_ = false;
 async function schema_(env) {
   if (SCHEMA_OK_) return;
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS familles (id TEXT PRIMARY KEY, email_h TEXT UNIQUE, email_c TEXT, jeton_c TEXT, dossier TEXT, index_id TEXT, props_c TEXT, rev INTEGER NOT NULL DEFAULT 0, verrou INTEGER NOT NULL DEFAULT 0, cree INTEGER, maj INTEGER)').run();
+  // nombre d'enfants de la famille, en clair (un simple nombre, pour le bilan de la console ; les prénoms restent chiffrés)
+  try { await env.DB.prepare('ALTER TABLE familles ADD COLUMN nb_enfants INTEGER').run(); } catch (e) {}
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS usage_jour (jour TEXT PRIMARY KEY, appels INTEGER NOT NULL DEFAULT 0, refus INTEGER NOT NULL DEFAULT 0, erreurs INTEGER NOT NULL DEFAULT 0)').run();
   await env.DB.prepare('CREATE TABLE IF NOT EXISTS usage_minute (minute INTEGER PRIMARY KEY, n INTEGER NOT NULL DEFAULT 0)').run();
   SCHEMA_OK_ = true;
 }
+const nbEnfants_ = props => { try { const l = JSON.parse(props.ENFANTS || '[]'); return Array.isArray(l) ? Math.min(l.length, 99) : 0; } catch (e) { return 0; } };
 const familleD1_ = (env, id) => env.DB.prepare('SELECT * FROM familles WHERE id = ?').bind(id).first();
 
 /* ---------- chiffrement (AES-GCM) ---------- */
@@ -266,7 +269,7 @@ async function demande_(env, id, parametres, corps, url) {
       const fichiers = Object.assign({}, mem.fichiers);
       if (ctx.sale.size) await enregistrerMagasin_(env, fam, ctx, fichiers);
       const props_c = ctx.propsSales ? await chiffrer_(env, JSON.stringify(ctx.props)) : fam.props_c;
-      await env.DB.prepare('UPDATE familles SET props_c = ?, rev = rev + 1, verrou = 0, maj = ? WHERE id = ?').bind(props_c, Date.now(), id).run();
+      await env.DB.prepare('UPDATE familles SET props_c = ?, nb_enfants = ?, rev = rev + 1, verrou = 0, maj = ? WHERE id = ?').bind(props_c, nbEnfants_(ctx.props), Date.now(), id).run();
       MEMOIRE_.set(id, Object.assign(MEMOIRE_.get(id) || {}, { rev: fam.rev + 1, magasin: ctx.magasin, fichiers, cache: ctx.cache }));
       return { objet, statut };
     } catch (e) {
@@ -327,7 +330,7 @@ async function connexion_(env, o, url) {
   const indexId = await creerFichier_(j.access_token, NOM_INDEX_, dossier, JSON.stringify({ v: 1, dossiers: {}, tableurs: {}, permissions: {} }));
   const id = idFamille_(), t = Date.now(), an = new Date(), annee = an.getMonth() >= 7 ? an.getFullYear() : an.getFullYear() - 1;
   const props = { PROPRIO: email, __CONFIG: JSON.stringify({ prenom, nomDossier: 'SoccaQuiz', classe, classeAnnee: classe ? annee : 0, version: 'relais' }), ENFANTS: JSON.stringify([{ id: 'a', prenom }]) };
-  await env.DB.prepare('INSERT INTO familles (id, email_h, email_c, jeton_c, dossier, index_id, props_c, rev, verrou, cree, maj) VALUES (?, ?, ?, ?, ?, ?, ?, 0, 0, ?, ?)')
+  await env.DB.prepare('INSERT INTO familles (id, email_h, email_c, jeton_c, dossier, index_id, props_c, nb_enfants, rev, verrou, cree, maj) VALUES (?, ?, ?, ?, ?, ?, ?, 1, 0, 0, ?, ?)')
     .bind(id, emailH, await chiffrer_(env, email), await chiffrer_(env, j.refresh_token), dossier, indexId, await chiffrer_(env, JSON.stringify(props)), t, t).run();
   const code = await codeAppareil_(env, id, nomAppareil);
   await compterRelais_('installation');
@@ -350,7 +353,7 @@ async function demandeInterne_(env, id, fn) {
     try {
       const fichiers = Object.assign({}, mem.fichiers);
       if (ctx.sale.size) await enregistrerMagasin_(env, fam, ctx, fichiers);
-      await env.DB.prepare('UPDATE familles SET props_c = ?, rev = rev + 1, verrou = 0, maj = ? WHERE id = ?').bind(await chiffrer_(env, JSON.stringify(ctx.props)), Date.now(), id).run();
+      await env.DB.prepare('UPDATE familles SET props_c = ?, nb_enfants = ?, rev = rev + 1, verrou = 0, maj = ? WHERE id = ?').bind(await chiffrer_(env, JSON.stringify(ctx.props)), nbEnfants_(ctx.props), Date.now(), id).run();
       MEMOIRE_.set(id, Object.assign(MEMOIRE_.get(id) || {}, { rev: fam.rev + 1, magasin: ctx.magasin, fichiers, cache: ctx.cache }));
       return ctx;
     } catch (e) { await env.DB.prepare('UPDATE familles SET verrou = 0 WHERE id = ?').bind(id).run(); MEMOIRE_.delete(id); throw e; }
@@ -375,10 +378,19 @@ async function bilan_(env, req, json) {
     const k = lundi.toISOString().slice(0, 10); semaines[k] = (semaines[k] || 0) + 1;
   });
   await enregistrerAppels_(env);
+  // enfants : familles inscrites avant ce compteur, comptées une fois (props déchiffrées ici, seul le nombre est gardé)
+  const anciens = await env.DB.prepare('SELECT id, props_c FROM familles WHERE nb_enfants IS NULL LIMIT 200').all();
+  for (const f of anciens.results || []) {
+    let n = 0; try { n = nbEnfants_(JSON.parse(await dechiffrer_(env, f.props_c) || '{}')); } catch (e) {}
+    await env.DB.prepare('UPDATE familles SET nb_enfants = ? WHERE id = ? AND nb_enfants IS NULL').bind(n, f.id).run();
+  }
+  const ne = await env.DB.prepare('SELECT nb_enfants AS k, COUNT(*) AS n FROM familles GROUP BY nb_enfants').all();
+  const parFamille = { '1': 0, '2': 0, '3': 0, '4+': 0 }; let enfants = 0;
+  (ne.results || []).forEach(x => { const k = +x.k || 0, n = +x.n || 0; enfants += k * n; if (k >= 1) parFamille[k >= 4 ? '4+' : String(k)] += n; });
   const uj = await env.DB.prepare('SELECT jour, appels, refus, erreurs FROM usage_jour WHERE jour >= ? ORDER BY jour DESC').bind(jourParis_(t - 30 * J)).all();
   const pm = await env.DB.prepare('SELECT minute, n FROM usage_minute WHERE minute >= ? ORDER BY n DESC LIMIT 1').bind(Math.floor(t / 60000) - 1440).first();
   const jours = (uj.results || []).map(x => ({ jour: x.jour, appels: +x.appels || 0, refus: +x.refus || 0, erreurs: +x.erreurs || 0 }));
-  return json({ ok: true, t, familles: +(tot && tot.n) || 0, actives7: +(tot && tot.a7) || 0, actives30: +(tot && tot.a30) || 0,
+  return json({ ok: true, t, familles: +(tot && tot.n) || 0, enfants, parFamille, actives7: +(tot && tot.a7) || 0, actives30: +(tot && tot.a30) || 0,
     semaines: Object.keys(semaines).sort().reverse().map(k => ({ semaine: k, n: semaines[k] })),
     drive: { jours, pointeMinute: pm ? +pm.n || 0 : 0, pointeA: pm ? new Date(pm.minute * 60000).toISOString() : '' } });
 }
