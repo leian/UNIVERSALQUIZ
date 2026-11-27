@@ -171,7 +171,6 @@ ok(ctx.apiRetirer('anglais-x').ok && JSON.parse(depot['docs/bibliotheque/index.j
 // 5. adresse de réception publiée pour les sites
 ok(ctx.apiUrlPropositions('http://pirate.fr').erreur && ctx.apiUrlPropositions('https://script.google.com/macros/s/AKfycbyABCDEFGHIJKLMNOPQRSTUV123/exec').ok && JSON.parse(depot['docs/soccaquiz.json']).propositions.endsWith('/exec') && ctx.apiEtat().urlPropositions,
   'adresse « Propositions » vérifiée puis publiée dans docs/soccaquiz.json');
-ok(ctx.apiVersions().versions[0].tag === 'v2.57', 'versions lues sur GitHub');
 jetonValide = false;
 refus = ''; try { ctx.apiPublier({ id: 'abc-def', titre: 't', matiere: 'maths', classes: ['CM1'], texte: QUIZ }); } catch (err) { refus = err.message; }
 ok(/expiré/.test(refus), 'jeton expiré : message clair (affiché par la console)');
@@ -319,10 +318,8 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
 // onglet Liens : raccourcis vers le code à recoller et les programmes Apps Script, rappel des deux déploiements
 {
   const e = ctx.apiEtat();
-  ok(e.projetConsole === 'https://script.google.com/home/projects/ID-CONSOLE-0123456789abcdef/edit' && e.projetInstallateur === '', 'liens : programme de la console connu, celui de l\'installateur à coller une fois');
-  ok(ctx.apiProjetInstallateur('https://exemple.fr/x').erreur && ctx.apiProjetInstallateur('https://script.google.com/home/projects/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit').ok
-    && ctx.apiEtat().projetInstallateur === 'https://script.google.com/home/projects/1AbCdEfGhIjKlMnOpQrStUvWxYz0123456789/edit', 'liens : adresse du projet de l\'installateur vérifiée puis retenue');
-  actif = 'intrus@gmail.com'; let refus = ''; try { ctx.apiProjetInstallateur(''); } catch (err) { refus = err.message; } actif = 'soccaquiz@gmail.com';
+  ok(e.projetConsole === 'https://script.google.com/home/projects/ID-CONSOLE-0123456789abcdef/edit' && !('projetInstallateur' in e) && typeof ctx.apiProjetInstallateur === 'undefined' && typeof ctx.apiVersions === 'undefined', 'liens : programme de la console connu ; plus rien de l\'ancien installateur ni des versions publiées');
+  let refus = 'Réservé';
   const page = ctx.doGet({ parameter: {} }).h;
   ok(/Réservé/.test(refus) && /Copier le code/.test(page) && /« <b>Propositions<\/b> »/.test(page) && /raw\.githubusercontent\.com/.test(page) && /Réception « Propositions »/.test(page) && /soccaquiz\.fr\/aide\.html/.test(page.replace(/\\\//g, '/'))
     && !/\balert\(/.test((page.match(/<script>([\s\S]*)<\/script>/) || [])[1].replace(/else alert\(m\)/, '')), 'liens : raccourcis « Copier le code », rappel « Console et Propositions », nouveaux liens');

@@ -5,8 +5,9 @@ Une seule page pour tout gérer, réservée au compte soccaquiz, rangée en ongl
 - **Propositions** : les quiz envoyés par les familles avec « Proposer ». « Relire et publier » ouvre le texte (modifiable), l'aperçu des questions, le titre, la matière, les classes, puis publie dans la bibliothèque. « Refuser » les range à part. « Coller un quiz reçu par mail » sert pour ceux arrivés par mail.
 - **Bibliothèque** : les quiz publiés, à modifier ou retirer (ceux qui l'ont déjà ajouté le gardent). « Ajouter un quiz à la main » pour un quiz que tu as fait toi-même.
 - **Invitations** : l'envoi des mails d'invitation (remplace l'ancien projet « Envoi des invitations »).
-- **Liens** : toutes les adresses utiles du projet, rangées par thème.
-- **Versions** : les versions publiées du site et le lien pour en publier une nouvelle.
+- **Liens** : toutes les adresses utiles du projet, rangées par thème, et le raccourci pour recopier le code de la console.
+- **Statistiques** : familles inscrites, enfants, appels à Google Drive, compteurs anonymes.
+- **Mascottes** : prompts ChatGPT pour redessiner une mascotte, un costume de saison (par classe) ou une posture du collège, au féminin, au masculin ou neutre.
 - **Réglages** : le jeton GitHub et la réception directe des propositions.
 
 ## Mise en place (une seule fois, sur ordinateur, environ 10 minutes)

@@ -155,7 +155,7 @@ function recevoirAide_(d) {
     return { ok: true };
   } finally { verrou.releaseLock(); }
 }
-/* ---------------- compteurs anonymes envoyés par l'installateur (onglet Statistiques) ----------------
+/* ---------------- compteurs anonymes envoyés par le relais et l'ancien installateur (onglet Statistiques) ----------------
    Corps : JSON { type: 'stat', evts: [{ e: 'installation'|'maj'|'suppression', v: 'v2.93' } | { e: 'existant', n }] }.
    Rien d'autre : ni identifiant, ni adresse, ni prénom (l'envoi part des serveurs de Google, pas de l'appareil). */
 const COL_STAT_ = ['date', 'evenement', 'version', 'n'];
@@ -359,7 +359,7 @@ function apiEtat() {
   let projetConsole = ''; try { projetConsole = lienProjetId_(ScriptApp.getScriptId()); } catch (e) {}
   return {
     propositions: props, retires, erreurs, aide, stats,
-    projetConsole, projetInstallateur: lienProjetId_(p.getProperty('PROJET_INSTALLATEUR') || ''),
+    projetConsole,
     jeton: !!p.getProperty('GITHUB_JETON'), jetonRelais: !!p.getProperty('RELAIS_JETON'),
     urlPropositions: p.getProperty('URL_PROPOSITIONS') || '',
     feuille: p.getProperty('PROPOSITIONS') ? 'https:\/\/docs.google.com/spreadsheets/d/' + p.getProperty('PROPOSITIONS') : '',
@@ -587,26 +587,9 @@ function apiUrlPropositions(url) {
 }
 
 /* ---------------- raccourcis de l'onglet Liens : programmes Apps Script ----------------
-   Console : son propre projet (ScriptApp). Installateur : un autre projet, dont l'adresse est collée une fois. */
+   Console : son propre projet (ScriptApp). */
 const PROJET_ = /^https:\/\/script\.google\.com\/(?:u\/\d+\/)?(?:home\/projects\/|d\/)([\w-]{20,})(?:\/[\w-]*)*\/?(?:\?.*)?$/;
 function lienProjetId_(id) { return id ? 'https:\/\/script.google.com/home/projects/' + id + '/edit' : ''; }
-function apiProjetInstallateur(url) {
-  exiger_();
-  url = String(url || '').trim();
-  const m = url.match(PROJET_);
-  if (url && !m) return { erreur: 'Colle l\'adresse du projet de l\'installateur, ouvert dans l\'éditeur Apps Script (elle commence par https:\/\/script.google.com/home/projects/…).' };
-  const p = PropertiesService.getScriptProperties();
-  if (m) p.setProperty('PROJET_INSTALLATEUR', m[1]); else p.deleteProperty('PROJET_INSTALLATEUR');
-  return { ok: true, lien: lienProjetId_(m ? m[1] : '') };
-}
-
-/* ---------------- versions publiées (lecture seule) ---------------- */
-function apiVersions() {
-  exiger_();
-  const r = github_('get', '/releases?per_page=8');
-  if (r.code !== 200 || !Array.isArray(r.j)) return { erreur: 'GitHub ne répond pas (erreur ' + r.code + ').' };
-  return { ok: true, versions: r.j.map(v => ({ tag: v.tag_name, date: v.published_at, pre: !!v.prerelease, url: v.html_url })) };
-}
 
 /* ---------------- invitations (anciennement le projet « Envoi des invitations ») ---------------- */
 /* « Lucie <lucie@gmail.com> », « Lucie, lucie@gmail.com », « lucie@gmail.com » … une personne par ligne.
@@ -678,15 +661,14 @@ const LIENS_ = [
   ['Cette console', [
     ['Console SoccaQuiz', ADR_CONSOLE_, 'Déploiement « Console » (Seulement moi). Après chaque collage de son code : Nouvelle version de « Console » ET de « Propositions ».'],
     ['Réception « Propositions »', ADR_PROPOSITIONS_, '⚠️ Ne jamais oublier de la republier (Nouvelle version) : c\'est par elle qu\'arrivent quiz proposés, erreurs, demandes d\'aide et compteurs. Adresse publiée dans docs/soccaquiz.json.'],
-    ['Liste publiée par la console (soccaquiz.json)', PAGES + 'soccaquiz.json', 'Adresse « Propositions » lue par les sites et l\'installateur, et interrupteur de l\'appli.']
+    ['Liste publiée par la console (soccaquiz.json)', PAGES + 'soccaquiz.json', 'Adresse « Propositions » lue par les sites, et interrupteur de l\'appli.']
   ]],
   ['Pour les familles', [
-    ['Installateur SoccaQuiz', 'https:\/\/script.google.com/macros/s/AKfycbxseeW1yjc6MLMFTW1hy2b7RXCiI8Yt6nQKzJLs_k_DT2VhBVgQStarPp8-Dk03jjv1/exec', 'Déploiement « Install officielle » : le lien à donner aux parents, avec « Mettre à jour mon site ».'],
     ['Lien des anciens mails d\'invitation', PAGES + 'installer.html', 'Redirige vers la nouvelle installation (app.soccaquiz.fr/connexion). Le mail actuel pointe directement sur app.soccaquiz.fr/connexion.'],
     ['Mail d\'invitation (aperçu)', PAGES + 'invitation.html', 'Lu aussi par l\'onglet Invitations.'],
     ['Page d\'accueil publique', 'https:\/\/soccaquiz.fr/', 'Celle que vérifie Google (dépôt leian/soccaquiz.fr).'],
     ['Règles de confidentialité', 'https:\/\/soccaquiz.fr/confidentialite.html', 'Copie aussi dans docs/ : modifier les deux.'],
-    ['Page d\'aide', 'https:\/\/soccaquiz.fr/aide.html', 'Ouverte par le bouton « ? » de l\'installateur et de l\'espace parent ; son formulaire arrive dans l\'onglet Aide.'],
+    ['Page d\'aide', 'https:\/\/soccaquiz.fr/aide.html', 'Ouverte par le bouton « ? » de l\'espace parent ; son formulaire arrive dans l\'onglet Aide.'],
     ['Créer une clé Gemini gratuite', 'https:\/\/aistudio.google.com/apikey', 'Projet « Default Gemini Project ».'],
     ['Appli de l\'enfant (Cloudflare Pages)', 'https:\/\/app.soccaquiz.fr/', 'Ouverte avec ?s=<identifiant du site> ; l\'enveloppe leian.github.io/app choisit le mode (soccaquiz.json → « appli »).']
   ]],
@@ -702,15 +684,14 @@ const LIENS_ = [
   ['Site public soccaquiz.fr', [
     ['Dépôt leian/soccaquiz.fr', 'https:\/\/github.com/leian/soccaquiz.fr', 'Accueil, aide et confidentialité (en ligne dès le push).'],
     ['Domaine chez Gandi', 'https:\/\/admin.gandi.net/', 'DNS : A/AAAA vers GitHub Pages, CNAME www et app ; renouvellement chaque année.'],
-    ['Cloudflare (compte soccaquiz)', 'https:\/\/dash.cloudflare.com/', 'Projet Pages « soccaquiz » (app.soccaquiz.fr), publié par l\'Action « Publier ».']
+    ['Cloudflare (compte soccaquiz)', 'https:\/\/dash.cloudflare.com/', 'Projet Pages « soccaquiz » (app.soccaquiz.fr), publié par l\'Action « Relais ».']
   ]],
   ['Bibliothèque', [
     ['Liste publiée (index.json)', PAGES + 'bibliotheque/index.json', 'Lue par l\'onglet Bibliothèque des sites.'],
     ['Dossier sur GitHub', 'https:\/\/github.com/' + DEPOT + '/tree/main/docs/bibliotheque', '']
   ]],
   ['Apps Script (compte soccaquiz)', [
-    ['Mes projets Apps Script', 'https:\/\/script.google.com/home', 'Installateur : toujours mettre à jour le déploiement « Install officielle ». Console : déploiements « Console » et « Propositions ».'],
-    ['Code de l\'installateur à recoller', 'https:\/\/github.com/' + DEPOT + '/blob/main/en-ligne/Code.gs', 'Bouton « Copy raw file », puis Nouvelle version.'],
+    ['Mes projets Apps Script', 'https:\/\/script.google.com/home', 'Console : déploiements « Console » et « Propositions ».'],
     ['Code de cette console', 'https:\/\/github.com/' + DEPOT + '/blob/main/console/Code.gs', 'Même chose : recoller, puis Nouvelle version des deux déploiements.'],
     ['Activer l\'API Apps Script', 'https:\/\/script.google.com/home/usersettings', ''],
     ['Accès accordés aux applications', 'https:\/\/myaccount.google.com/permissions', 'Pour retirer SoccaQuiz et revoir les écrans d\'autorisation.']
@@ -726,8 +707,6 @@ const LIENS_ = [
   ]],
   ['GitHub (compte leian)', [
     ['Dépôt', 'https:\/\/github.com/' + DEPOT, ''],
-    ['Publier une nouvelle version', 'https:\/\/github.com/' + DEPOT + '/actions/workflows/publier.yml', 'Run workflow avec un nouveau tag.'],
-    ['Toutes les versions', 'https:\/\/github.com/' + DEPOT + '/releases', ''],
     ['Jetons d\'accès', 'https:\/\/github.com/settings/personal-access-tokens', 'Le jeton de la console : à renouveler avant son expiration.'],
     ['Double authentification', 'https:\/\/github.com/settings/security', 'À activer avant le 25 décembre 2026.']
   ]],
@@ -745,7 +724,7 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['mascottes', 'star', 'Mascottes'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['mascottes', 'star', 'Mascottes'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['reglages', 'settings', 'Réglages']]
       .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : o[0] === 'aide' ? ' <span class="nb" id="nb-aide" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
@@ -861,7 +840,7 @@ function client_() {
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
     if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, mascottes: vueMascottes, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, mascottes: vueMascottes, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, reglages: vueReglages }[onglet])(c);
   }
 
 
@@ -960,7 +939,7 @@ function client_() {
     $('m-allure').onchange = function () { C.allure = this.value; vueMascottes(c); };
   }
 
-  /* ---------- Statistiques : compteurs anonymes envoyés par l'installateur ---------- */
+  /* ---------- Statistiques : compteurs anonymes (relais, ancien installateur) ---------- */
   function vueStats(c) {
     var S = ETAT.stats;
     if (!S) { c.innerHTML = MSG + '<div class="box"><p class="petit">Statistiques indisponibles pour l\'instant.</p></div>'; return; }
@@ -1016,7 +995,7 @@ function client_() {
   }
 
   /* ---------- Demandes d'aide des familles : réponse par mail depuis ce compte ---------- */
-  var ORIGINES = { parent: 'Espace parent', installateur: 'Installateur', aide: 'Page d\'aide' };
+  var ORIGINES = { parent: 'Espace parent', installateur: 'Ancien installateur', aide: 'Page d\'aide' };
   function carteAide(x) {
     var lib = { nouveau: 'À répondre', repondu: 'Répondu', classe: 'Classé' }[x.statut] || x.statut;
     return '<div class="carte" data-aide="' + esc(x.id) + '"><h3>' + esc(x.email) + ' <span class="etiq ' + (x.statut === 'nouveau' ? 'nouveau' : x.statut === 'repondu' ? 'publie' : 'refuse') + '">' + esc(lib) + '</span></h3>' +
@@ -1266,7 +1245,7 @@ function client_() {
 
   /* ---------- Liens ---------- */
   /* raccourcis : copier le code à recoller, ouvrir le programme Apps Script, rappel des déploiements */
-  var CODES = { installateur: { fichier: 'en-ligne/Code.gs' }, console: { fichier: 'console/Code.gs' } };
+  var CODES = { console: { fichier: 'console/Code.gs' } };
   function chargerCode(k, relire) {
     var x = CODES[k]; if (x.charge || (x.texte && !relire)) return;   /* en cours, ou déjà lu (relu à chaque ouverture de l'onglet) */
     x.charge = true;
@@ -1277,8 +1256,7 @@ function client_() {
   }
   function etatCode(k) {
     var x = CODES[k]; if (!x.texte) return 'lecture sur GitHub…';
-    var rep = (x.texte.match(/INSTALLATEUR_V = '([^']+)'/) || [])[1];   /* repère affiché en bas de la page de l'installateur */
-    return 'prêt (' + x.texte.split('\n').length + ' lignes' + (rep ? ', repère « ' + rep + ' » : à retrouver en bas de l\'installateur après Nouvelle version' : '') + ')';
+    return 'prêt (' + x.texte.split('\n').length + ' lignes)';
   }
   function copierCode(k) {
     var x = CODES[k], e = $('code-' + k);
@@ -1293,42 +1271,23 @@ function client_() {
   function raccourcis() {
     var gh = function (f) { return 'https:\/\/github.com/leian/UNIVERSALQUIZ/blob/main/' + f; };
     var bouton = function (href, ic, txt, cls) { return '<a class="btn' + (cls ? ' ' + cls : '') + '" href="' + esc(href) + '" target="_blank" rel="noopener">' + I(ic) + ' ' + txt + '</a>'; };
-    var projetI = ETAT.projetInstallateur
-      ? bouton(ETAT.projetInstallateur, 'ext', 'Ouvrir son programme Apps Script') + ' <button class="btn" data-l="changer-projet">' + I('settings') + ' Changer</button>'
-      : '<span class="petit" style="display:block;margin-top:6px">Une seule fois : ouvre le projet de l\'installateur dans Apps Script, copie l\'adresse de la page et colle-la ici.</span><div class="actions"><input id="projet-i" placeholder="https:\/\/script.google.com/home/projects/…/edit" style="flex:1;min-width:220px"><button class="btn" data-l="projet">' + I('check') + ' Enregistrer</button></div>';
-    return '<div class="box"><h2>' + I('upload') + 'Mettre à jour le code (raccourcis)</h2>' +
-      '<div class="carte"><h3>Installateur <span class="etiq">en-ligne/Code.gs</span></h3>' +
-        '<div class="actions"><button class="btn principal" data-l="copier" data-k="installateur">' + I('upload') + ' Copier le code</button>' + bouton(gh('en-ligne/Code.gs'), 'ext', 'Voir sur GitHub') + (ETAT.projetInstallateur ? projetI : '') + '</div>' +
-        (ETAT.projetInstallateur ? '' : projetI) +
-        '<p class="petit" style="margin:6px 0 0">Code : <span id="code-installateur">' + etatCode('installateur') + '</span><br>Ensuite : Déployer → Gérer les déploiements → « <b>Install officielle</b> » → ✏️ → Nouvelle version → Déployer.</p></div>' +
+    return '<div class="box"><h2>' + I('upload') + 'Mettre à jour le code de la console (raccourcis)</h2>' +
       '<div class="carte"><h3>Console <span class="etiq">console/Code.gs</span></h3>' +
         '<div class="actions"><button class="btn principal" data-l="copier" data-k="console">' + I('upload') + ' Copier le code</button>' + bouton(gh('console/Code.gs'), 'ext', 'Voir sur GitHub') + (ETAT.projetConsole ? bouton(ETAT.projetConsole, 'ext', 'Ouvrir son programme Apps Script') : '') + '</div>' +
         '<p class="petit" style="margin:6px 0 0">Code : <span id="code-console">' + etatCode('console') + '</span></p>' +
         '<p class="message" style="margin:8px 0 0">⚠️ Après le collage : Nouvelle version des <b>deux</b> déploiements, « <b>Console</b> » <b>et</b> « <b>Propositions</b> ». Sans « Propositions », les quiz proposés, erreurs, demandes d\'aide et compteurs envoyés par les familles sont refusés.</p></div>' +
-      '<div class="actions">' + bouton('https:\/\/github.com/leian/UNIVERSALQUIZ/actions/workflows/publier.yml', 'tag', 'Publier une version du site') + bouton('https:\/\/script.google.com/home', 'ext', 'Mes projets Apps Script') + '</div></div>';
+      '<div class="actions">' + bouton('https:\/\/github.com/leian/UNIVERSALQUIZ/actions/workflows/relais.yml', 'tag', 'Action « Relais » (publication)') + bouton('https:\/\/script.google.com/home', 'ext', 'Mes projets Apps Script') + '</div></div>';
   }
   $('contenu').addEventListener('click', function (e) {
     var b = e.target.closest('[data-l]'); if (!b || onglet !== 'liens') return;
     if (b.dataset.l === 'copier') copierCode(b.dataset.k);
-    else if (b.dataset.l === 'changer-projet') { ETAT.projetInstallateur = ''; afficher(); }
-    else if (b.dataset.l === 'projet') { b.disabled = true; appel('apiProjetInstallateur', [$('projet-i').value], function (r) { ETAT.projetInstallateur = r.lien; afficher(); }, function (m) { b.disabled = false; erreur(m); }); }
   });
-  function vueLiensAvant() { chargerCode('installateur', true); chargerCode('console', true); }   /* toujours la dernière version de GitHub */
+  function vueLiensAvant() { chargerCode('console', true); }   /* toujours la dernière version de GitHub */
   function vueLiens(c) {
     vueLiensAvant();
     c.innerHTML = MSG + raccourcis() + '<p class="petit">Ouvre les pages Google avec le compte soccaquiz, et GitHub avec le compte leian.</p>' + LIENS.map(function (s) {
       return '<div class="box liens"><h2>' + I('link') + esc(s[0]) + '</h2><ul>' + s[1].map(function (l) { return '<li><a href="' + esc(l[1]) + '" target="_blank" rel="noopener">' + esc(l[0]) + '</a>' + (l[2] ? '<span class="d">' + esc(l[2]) + '</span>' : '') + '</li>'; }).join('') + '</ul></div>';
     }).join('');
-  }
-
-  /* ---------- Versions ---------- */
-  function vueVersions(c) {
-    c.innerHTML = MSG + '<div class="box"><h2>' + I('tag') + 'Versions publiées</h2><div id="v-liste"><p class="petit">Lecture sur GitHub…</p></div>' +
-      '<div class="actions" style="margin-top:8px"><a class="btn principal" href="https:\/\/github.com/leian/UNIVERSALQUIZ/actions/workflows/publier.yml" target="_blank" rel="noopener">' + I('ext') + ' Publier une nouvelle version</a><a class="btn" href="https:\/\/github.com/leian/UNIVERSALQUIZ/releases" target="_blank" rel="noopener">' + I('ext') + ' Toutes les versions</a></div>' +
-      '<p class="petit">Chaque famille voit « nouvelle version disponible » dans son espace parent, puis touche « Mettre à jour mon site ».</p></div>';
-    appel('apiVersions', [], function (r) {
-      $('v-liste').innerHTML = '<ul style="padding-left:20px;margin:0">' + r.versions.map(function (v, i) { return '<li><a href="' + esc(v.url) + '" target="_blank" rel="noopener"><b>' + esc(v.tag) + '</b></a> · ' + esc(date(v.date)) + (v.pre ? ' · <span class="etiq">essai</span>' : i === 0 ? ' · <span class="etiq publie">en service</span>' : '') + '</li>'; }).join('') + '</ul>';
-    }, function (m) { $('v-liste').innerHTML = '<p class="ko">' + esc(m) + '</p>'; });
   }
 
   /* ---------- Réglages ---------- */
