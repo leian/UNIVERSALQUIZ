@@ -594,6 +594,8 @@ function reglagesPage_(page, inst, cat) {
   if (!genreDessine_(cfg.theme, cfg.genreEffectif)) cfg.genreEffectif = 'n';
   if (!genreDessine_(cfg.theme, cfg.genreAuto)) cfg.genreAuto = 'n';
   cfg.genresSaisons = cfg.genreEffectif === 'n' ? [] : SAISONS_GENRE[cfg.genreEffectif];
+  // postures du collège : seulement celles dont le dessin animé est déposé (rien tant que la liste est vide)
+  if (cfg.theme === 'college') cfg.poses = { n: POSES_DESSINEES.n, f: POSES_DESSINEES.f, m: POSES_DESSINEES.m, allure: cfg.genreEffectif };
   if (resultats) cfg.resultats = resultats;
   chrono_('revisions et maitrise');
   // adresse de l'appli de l'enfant : liens « site de l'enfant » de l'espace parent, retour du site ouvert hors de l'appli (pont.html)
@@ -1388,6 +1390,10 @@ function apiMascotte(d) {
    Images : docs/themes/<thème>-f/ et docs/themes/<thème>-m/ (accueil, bravo, encouragement, reflexion). */
 // dessins disponibles, par allure : un thème ou une saison n'apparaît ici qu'une fois ses images déposées
 // (au lycée : les deux tenues). Une allure sans dessin pour le thème en cours retombe sur la socca de toujours.
+/* postures animées du collège (récompense « Mes postures ») : identifiants des bandes de 6 images déposées dans
+   docs/themes/poses/<id>.webp (socca de toujours), poses-f/ et poses-m/ (allures). Ordre de déblocage : celui de
+   POSES dans moteur/commun/animations.js. Ajouter un id ici une fois l'image en ligne. */
+const POSES_DESSINEES = { n: [], f: [], m: [] };
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
 const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'] };
 const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé

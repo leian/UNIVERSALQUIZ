@@ -6,6 +6,11 @@
                                           pastille « 3 d'affilée » sous la barre
    Animations.fin(pct, theme)           → petite mélodie sur l'écran de résultat
    Animations.boutonSon(theme)          → bouton « Sons » de l'écran d'accueil du quiz
+   Animations.panneauPoses(el)          → collège : « Mes postures » sur l'accueil (postures gagnées,
+                                          rejouées en grand au toucher de leur icône)
+   Postures du collège : bandes de 6 images (docs/themes/poses/<id>.webp, poses-f/, poses-m/),
+   une posture gagnée jouée à chaque bonne réponse ; seules celles listées par le serveur
+   (__UQ.poses, POSES_DESSINEES de Code.gs) existent. Déblocage : bonnes réponses enregistrées.
    Rien ici ne dépend du contenu du quiz : ajouter un effet ne coûte aucun
    token à la création d'un quiz. Fichier autonome (il injecte son CSS),
    ajouté automatiquement après moteur-quiz.js par le serveur.
@@ -30,7 +35,32 @@
     color:#475569; font:inherit; font-size:13px; cursor:pointer; transition:transform .12s; }
   .fx-son:active { transform:scale(.94); }
   .fx-son svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
-  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie, .fx-bond, .fx-penche { animation:none !important; } }`;
+
+  .fx-pose { display:block; aspect-ratio:1; background:no-repeat 0 0 / 600% 100%; }
+  .fx-pose.go { animation:fx-pose-img .9s steps(5, jump-none) var(--tours, 2); }
+  @keyframes fx-pose-img { from { background-position:0 0; } to { background-position:100% 0; } }
+  #fx-pose-coin { position:fixed; right:10px; bottom:10px; z-index:60; height:clamp(100px, 22vw, 150px); pointer-events:none; opacity:0; }
+  #fx-pose-coin.go { animation:fx-pose-img .9s steps(5, jump-none) 2, fx-pose-vu 1.9s ease forwards; }
+  @keyframes fx-pose-vu { 0% { opacity:0; transform:translateY(20px); } 12%, 85% { opacity:1; transform:none; } 100% { opacity:0; } }
+  .compagnon.fx-pose-en-cours { background-size:600% 100% !important; background-position:0 0; animation:fx-pose-img .9s steps(5, jump-none) 2 !important; transform:scale(1.35); }
+  .fx-poses h3 { margin:0 0 4px; font-size:1rem; display:flex; align-items:center; gap:8px; }
+  .fx-poses h3 span { margin-left:auto; font-size:.85rem; color:var(--soft); font-weight:600; }
+  .fx-poses p { margin:0 0 10px; font-size:.82rem; color:var(--soft); }
+  .fx-scene { aspect-ratio:2 / 1; display:flex; justify-content:center; align-items:flex-end; margin-bottom:8px; border-radius:12px;
+    background:radial-gradient(ellipse at 50% 92%, color-mix(in srgb, var(--line) 70%, transparent) 0 22%, transparent 23%); }
+  .fx-scene .fx-pose { height:100%; }
+  .fx-grille { display:grid; grid-template-columns:repeat(5, 1fr); gap:6px; }
+  .fx-grille button { position:relative; aspect-ratio:1; padding:0; border:2px solid var(--line); border-radius:12px; background:var(--card); cursor:pointer; overflow:hidden; }
+  .fx-grille button i { position:absolute; inset:6%; background:no-repeat 0 0 / 600% 100%; }
+  .fx-grille button.verrou { cursor:default; }
+  .fx-grille button.verrou i { filter:grayscale(1) brightness(1.2); opacity:.25; }
+  .fx-grille button.verrou::after { content:"🔒"; position:absolute; inset:0; display:grid; place-items:center; font-size:15px; }
+  .fx-grille button.choisi { border-color:var(--dore, #e8a83a); }
+  .fx-grille button.neuf { animation:fx-entree .6s cubic-bezier(.2,.8,.3,1) both; }
+  .fx-grille button:focus-visible { outline:3px solid var(--dore, #e8a83a); outline-offset:1px; }
+  .fx-info { margin-top:8px; font-size:.85rem; min-height:1.2em; }
+  @media (prefers-reduced-motion: reduce) { .fx-pop, .fx-secousse, .fx-serie, .fx-bond, .fx-penche, .fx-pose.go, .fx-grille button.neuf { animation:none !important; }
+    .fx-pose.go, .compagnon.fx-pose-en-cours { background-position:40% 0 !important; animation:none !important; } #fx-pose-coin { display:none; } }`;
 
   // lycée et parent : sobre (pas de pastille de série, sons coupés par défaut)
   const SOBRE = { lycee: 1, parent: 1 };
@@ -80,11 +110,87 @@
     el.addEventListener('animationend', () => el.classList.remove(cls), { once: true });
   }
 
+  /* ---------- postures du collège : récompense gagnée avec les bonnes réponses ----------
+     Ordre de déblocage ; noms affichés. Une posture : bande de 6 images 384 × 384 (outils/pose-planche.py). */
+  const POSES = [['six-seven', 'Six-Seven (67)'], ['moue', 'La moue'], ['for-sure', 'For sure'], ['je-men-fous', 'Je m’en fous'],
+    ['retourne', 'Le regard qui se retourne'], ['clin-doeil', 'Clin d’œil pistolet'], ['mewing', 'Mewing'], ['toc-toc', 'Toc toc'],
+    ['aura', 'Battle d’aura'], ['sigma', 'Sigma'], ['duckface', 'Duckface'], ['soupir', 'Le soupir à la française'],
+    ['pas-french', 'I don’t wanna be French'], ['spiki', 'Spiki'], ['ehho', 'Ehho Ehho'], ['ours', 'L’ours polaire'],
+    ['last-dance', 'The Last Dance'], ['uk', 'U+K'], ['babydoll', 'Babydoll'], ['cri', 'Cri de victoire']];
+  const PREMIERE = 10, PAS = 25;        // 1re posture à 10 bonnes réponses, puis une toutes les 25
+  const IMAGES = 'https:\/\/leian.github.io/UNIVERSALQUIZ/themes/';
+  function etatPoses() {
+    const U = window.__UQ || {}, P = U.poses;
+    if (!P) return null;
+    const allure = P.allure === 'f' || P.allure === 'm' ? P.allure : '';
+    const liste = POSES.map(([id, nom]) => {
+      const dossier = allure && (P[allure] || []).indexOf(id) >= 0 ? 'poses-' + allure : (P.n || []).indexOf(id) >= 0 ? 'poses' : '';
+      return dossier ? { id, nom, src: IMAGES + dossier + '/' + id + '.webp' } : null;
+    }).filter(Boolean);
+    if (!liste.length) return null;
+    // bonnes réponses des parties enregistrées (le duel se joue à deux : il ne compte pas)
+    const bonnes = (U.resultats || []).reduce((n, r) => n + (r && r.mode !== 'duel' ? Math.max(0, +r.score || 0) : 0), 0);
+    liste.forEach((p, k) => { p.seuil = PREMIERE + k * PAS; p.ok = bonnes >= p.seuil; });
+    return { liste, bonnes, gagnees: liste.filter(p => p.ok) };
+  }
+  function jouerPose(el, p, tours) {
+    if (!el || !p) return;
+    el.style.backgroundImage = 'url("' + p.src + '")';
+    el.classList.remove('go');
+    if (!tours) return;                              // image fixe (première image)
+    el.style.setProperty('--tours', tours);
+    void el.offsetWidth; el.classList.add('go');
+  }
+  // à chaque bonne réponse : une posture gagnée au hasard ; 6e-5e dans la mascotte compagne, sinon dans le coin
+  function poseReponse() {
+    const E = etatPoses(); if (!E || !E.gagnees.length) return false;
+    const p = E.gagnees[Math.floor(Math.random() * E.gagnees.length)];
+    const comp = document.querySelector('.q-compagnon .compagnon');
+    if (comp) {
+      comp.style.backgroundImage = 'url("' + p.src + '")';
+      comp.classList.remove('fx-pose-en-cours'); void comp.offsetWidth; comp.classList.add('fx-pose-en-cours');
+      return true;
+    }
+    let m = document.getElementById('fx-pose-coin');
+    if (!m) { m = document.createElement('span'); m.id = 'fx-pose-coin'; m.className = 'fx-pose'; m.setAttribute('aria-hidden', 'true'); document.body.appendChild(m); }
+    m.style.backgroundImage = 'url("' + p.src + '")';
+    m.classList.remove('go'); void m.offsetWidth; m.classList.add('go');
+    return true;
+  }
+  function panneauPoses(el) {
+    installer();
+    const E = etatPoses(); if (!el || !E) return;
+    let vu = 0; try { vu = +localStorage.getItem('sq.poses') || 0; } catch (e) {}
+    const n = E.gagnees.length, neufs = Math.max(0, n - vu);
+    try { localStorage.setItem('sq.poses', n); } catch (e) {}
+    const esc = t => String(t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' })[c]);
+    const prochaine = E.liste.find(p => !p.ok), reste = prochaine ? prochaine.seuil - E.bonnes : 0;
+    const pl = k => k + ' bonne' + (k > 1 ? 's' : '') + ' réponse' + (k > 1 ? 's' : '');
+    const msg = !n ? 'Encore ' + pl(reste) + ' pour gagner ta première posture !'
+      : (neufs ? (neufs > 1 ? neufs + ' nouvelles postures' : 'Nouvelle posture') + ' ! ' : '') + 'Touche une posture pour la voir.' + (prochaine ? ' Prochaine dans ' + pl(reste) + '.' : ' Tu les as toutes !');
+    el.innerHTML = '<div class="panneau fx-poses"><h3>🕺 Mes postures <span>' + n + '/' + E.liste.length + '</span></h3><p>' + esc(msg) + '</p>' +
+      (n ? '<div class="fx-scene"><span class="fx-pose" role="img"></span></div>' : '') +
+      '<div class="fx-grille">' + E.liste.map((p, k) => '<button type="button" data-k="' + k + '" class="' + (p.ok ? (k >= n - neufs ? 'neuf' : '') : 'verrou') + '"' +
+        ' aria-label="' + esc(p.ok ? p.nom : 'Posture à gagner') + '" title="' + esc(p.ok ? p.nom : 'À gagner : ' + pl(p.seuil - E.bonnes) + ' de plus') + '">' +
+        '<i style="background-image:url(&quot;' + esc(p.src) + '&quot;)"></i></button>').join('') + '</div><div class="fx-info" aria-live="polite"></div></div>';
+    const scene = el.querySelector('.fx-scene .fx-pose'), info = el.querySelector('.fx-info');
+    const montrer = (k, tours) => {
+      const p = E.liste[k];
+      el.querySelectorAll('.fx-grille button').forEach(b => b.classList.toggle('choisi', +b.dataset.k === k && p.ok));
+      if (!p.ok) { info.textContent = 'À gagner : encore ' + pl(p.seuil - E.bonnes) + '.'; return; }
+      scene.setAttribute('aria-label', p.nom); info.innerHTML = '<b>' + esc(p.nom) + '</b>';
+      jouerPose(scene, p, tours);
+    };
+    el.querySelector('.fx-grille').addEventListener('click', e => { const b = e.target.closest('button[data-k]'); if (b) montrer(+b.dataset.k, 3); });
+    if (n) montrer(n - 1, neufs ? 3 : 0);      // la dernière gagnée, jouée si elle est nouvelle
+  }
+
   window.Animations = {
     reponse(ok, serie, theme) {
       installer();
       const q = s => document.querySelector(s);
-      animer(q('.compagnon'), ok ? 'fx-bond' : 'fx-penche');
+      const pose = ok && theme === 'college' && poseReponse();
+      if (!pose) animer(q('.compagnon'), ok ? 'fx-bond' : 'fx-penche');
       if (ok) {
         animer(q('.opt-btn.correct') || q('.explanation'), 'fx-pop');
         animer(q('.score-badge'), 'fx-pop');
@@ -102,6 +208,8 @@
         }
       }
     },
+    panneauPoses,
+    _etatPoses: etatPoses,
     fin(pct, theme) {
       if (sonsActifs(theme)) setTimeout(() => jouer(pct >= 60 ? SON_FIN : SON_FIN_DOUX, 0.1), 250);
     },

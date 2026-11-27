@@ -355,6 +355,31 @@ try {
     return r;
   });
   ok(habit.libres === 2 && habit.porte && habit.choix, 'petits : 2 notions acquises = 2 accessoires, la socca porte le nouveau, on peut en changer — ' + JSON.stringify(habit));
+  const poses = await page.evaluate(async () => {
+    const r = { avant: !!document.querySelector('#poses .fx-poses'), sansDessin: true };
+    const U = window.__UQ, el = document.getElementById('poses');
+    U.poses = { n: [], f: [], m: [], allure: 'n' }; Animations.panneauPoses(el); r.sansDessin = !el.querySelector('.fx-poses');
+    localStorage.removeItem('sq.poses');
+    U.poses = { n: ['six-seven', 'moue', 'for-sure'], f: ['moue'], m: [], allure: 'f' };
+    U.resultats = [{ score: 30, mode: 'normal' }, { score: 99, mode: 'duel' }, { score: 10, mode: 'erreurs' }];   // 40 bonnes (le duel ne compte pas)
+    Animations.panneauPoses(el);
+    const b = [...el.querySelectorAll('.fx-grille button')];
+    r.n = b.length; r.verrous = b.filter(x => x.classList.contains('verrou')).length;
+    r.compte = el.querySelector('h3 span').textContent;
+    r.allure = /poses-f\/moue\.webp/.test(b[1].querySelector('i').style.backgroundImage) && /poses\/six-seven\.webp/.test(b[0].querySelector('i').style.backgroundImage);
+    const sc = el.querySelector('.fx-scene'), pz = el.querySelector('.fx-scene .fx-pose'), alb = sc.getBoundingClientRect();
+    r.hauteur = Math.abs(alb.height - alb.width / 2) < 2 && Math.abs(pz.getBoundingClientRect().height - alb.height) < 2;   // 3 autocollants de l'album (6 par ligne)
+    r.nouveau = pz.classList.contains('go');            // posture gagnée depuis la dernière visite : jouée
+    b[0].click(); r.joue = pz.classList.contains('go') && /Six-Seven/.test(el.querySelector('.fx-info').textContent);
+    b[2].click(); r.verrouInfo = /encore 20 bonnes réponses/.test(el.querySelector('.fx-info').textContent);
+    Animations.reponse(true, 1, 'explorateurs'); r.pasPrimaire = !document.getElementById('fx-pose-coin');
+    Animations.reponse(true, 1, 'college'); const coin = document.getElementById('fx-pose-coin');
+    r.coin = !!coin && coin.classList.contains('go') && /poses(-f)?\/(six-seven|moue)\.webp/.test(coin.style.backgroundImage);
+    coin && coin.remove(); el.innerHTML = ''; delete U.poses;
+    return r;
+  });
+  ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin,
+    'collège : « Mes postures » (rien sans dessin ; 10 puis 25 bonnes réponses par posture, duel exclu ; allure ; scène haute comme 3 autocollants ; touchée = jouée ; une posture gagnée jouée à chaque bonne réponse, au collège seulement) — ' + JSON.stringify(poses));
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
 
   // tableau de bord

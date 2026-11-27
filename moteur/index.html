@@ -59,7 +59,7 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
 .card .maitrise .seg{display:flex;gap:3px;flex:1;max-width:140px}
 .card .maitrise .seg i{flex:1;height:7px;border-radius:99px;background:var(--line)}
 .card .maitrise .seg i.n1{background:#f59e0b}.card .maitrise .seg i.n2{background:#16a34a}.card .maitrise .seg i.n3{background:#e8a83a;box-shadow:0 0 0 1px #c98a1e inset}
-#socca .panneau,#album .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+#socca .panneau,#album .panneau,#poses .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
 #album h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
 #album .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
 #album p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
@@ -162,11 +162,12 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <main id="list"></main>
   <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
  </div>
- <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="socca"></div><div id="recompenses"></div></aside>
+ <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="poses"></div><div id="socca"></div><div id="recompenses"></div></aside>
 </div>
 
 <script src="commun/catalogue.js"></script>
 <script src="commun/badges.js"></script>
+<script src="commun/animations.js"></script>
 <script src="commun/suivi.js"></script>
 <script>
 /* La liste des quiz est dans commun/catalogue.js */
@@ -443,6 +444,7 @@ chargerScores();
 Badges.monter();
 album();
 socca();
+if (window.Animations && Animations.panneauPoses) Animations.panneauPoses(document.getElementById("poses"));
 /* ---------- site de l'enfant / espace parent ---------- */
 (function () {
   var U = window.__UQ || {}, f = document.getElementById("foot");
