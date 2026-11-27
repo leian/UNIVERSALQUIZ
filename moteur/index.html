@@ -59,7 +59,7 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
 .card .maitrise .seg{display:flex;gap:3px;flex:1;max-width:140px}
 .card .maitrise .seg i{flex:1;height:7px;border-radius:99px;background:var(--line)}
 .card .maitrise .seg i.n1{background:#f59e0b}.card .maitrise .seg i.n2{background:#16a34a}.card .maitrise .seg i.n3{background:#e8a83a;box-shadow:0 0 0 1px #c98a1e inset}
-#socca .panneau,#album .panneau,#poses .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
+#socca .panneau,#album .panneau,#poses .panneau,#curiosites .panneau{background:var(--card);border:2px solid var(--line);border-radius:16px;padding:14px;margin-bottom:14px}
 #album h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
 #album .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
 #album p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
@@ -74,6 +74,15 @@ a.card:focus-visible,a.mis-en-avant:focus-visible,.btn-icone:focus-visible,.filt
 #album .alb span.neuf{animation:colle .9s cubic-bezier(.3,1.6,.5,1) both}
 @keyframes colle{0%{transform:scale(0) rotate(-30deg)}100%{transform:none}}
 @media (prefers-reduced-motion:reduce){#album .alb span.neuf,#socca .garde button.neuf{animation:none}}
+/* lycée et adultes : cabinet de curiosités (un objet du savoir par notion maîtrisée) */
+#curiosites h3{margin:0 0 4px;font-size:1rem;display:flex;align-items:center;gap:8px}
+#curiosites .alb-n{margin-left:auto;font-size:.85rem;color:var(--soft);font-weight:600}
+#curiosites p{margin:0 0 10px;font-size:.82rem;color:var(--soft)}
+#curiosites .cab{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+#curiosites .cab span{aspect-ratio:1;border-radius:10px;border:1px solid var(--line);background:var(--bg) url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/curiosites.webp") no-repeat;background-size:600% 400%;cursor:pointer}
+#curiosites .cab span.vide{filter:grayscale(1) brightness(1.2);opacity:.25}
+#curiosites .cab span.choisi,#curiosites .cab span:focus-visible{outline:3px solid var(--dore,#e8a83a);outline-offset:1px}
+#curiosites .cab-info{margin-top:8px;font-size:.85rem;min-height:1.2em}
 /* petits : la socca à habiller (mascotte sans bonnet + accessoire posé par-dessus) */
 .poupee{position:relative;display:block}
 .poupee span{position:absolute;background-repeat:no-repeat}
@@ -162,7 +171,7 @@ a.mis-en-avant .new{position:static;margin-left:auto}
   <main id="list"></main>
   <p class="foot" id="foot"><a href="ajouter.html"><i data-ic="plus"></i> Créer un quiz</a> · <a href="tableau-de-bord.html"><i data-ic="chart"></i> Suivi des résultats (parents)</a></p>
  </div>
- <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="poses"></div><div id="socca"></div><div id="recompenses"></div></aside>
+ <aside id="cote"><div id="semaine"></div><div id="album"></div><div id="poses"></div><div id="curiosites"></div><div id="socca"></div><div id="recompenses"></div></aside>
 </div>
 
 <script src="commun/catalogue.js"></script>
@@ -325,10 +334,17 @@ document.addEventListener("keydown", infoAlbum);
 const ACCESSOIRES = [["chapeau de chef",206,45,167,132],["couronne",204,45,148,122],["casquette",204,56,135,111],["écharpe",209,268,228,137],
   ["lunettes de soleil",210,164,175,73],["nœud papillon",211,243,111,58],["cape",201,305,343,130],["bonnet",205,62,149,139],
   ["bandeau étoile",207,108,128,58],["chapeau de pirate",207,68,223,151],["chapeau de fête",207,60,122,146],["étoile",268,224,70,66]];
+/* socca à habiller de l'allure (dessinée pour cette allure : recompenses/poupee[-f|-m].webp, accessoires replacés
+   d'après DESSINS_PRETS_.recompenses.positions de Code.gs) ; sinon la socca de toujours et les places ci-dessus */
+function accessoire(k) {
+  const R = (window.__UQ || {}).recompenses || {}, a = ACCESSOIRES[k], p = R.poupee && Array.isArray(R.positions) && R.positions[k];
+  return a && p && p.length === 4 ? [a[0]].concat(p) : a;
+}
 function poupee(k, cls) {
-  const a = ACCESSOIRES[k], pc = v => (v / 3.84).toFixed(2) + "%";
+  const R = (window.__UQ || {}).recompenses || {}, a = accessoire(k), pc = v => (v / 3.84).toFixed(2) + "%";
+  const doll = R.poupee ? ` style="background-image:url('https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/poupee${R.poupee === "n" ? "" : "-" + R.poupee}.webp')"` : "";
   const calque = c => a ? `<span class="acc${c}" style="left:${pc(a[1] - a[3] / 2)};top:${pc(a[2] - a[4] / 2)};width:${pc(a[3])};height:${pc(a[4])};background-position:${(k * 100 / 11).toFixed(3)}% 0"></span>` : "";
-  return `<span class="poupee ${cls}" aria-hidden="true"><span class="in">${calque(" dos")}<span class="doll"></span>${calque("")}</span></span>`;
+  return `<span class="poupee ${cls}" aria-hidden="true"><span class="in">${calque(" dos")}<span class="doll"${doll}></span>${calque("")}</span></span>`;
 }
 function socca() {
   const el = document.getElementById("socca");
@@ -353,6 +369,32 @@ function socca() {
     }));
   };
   dessiner();
+}
+/* ---------- lycée et adultes : cabinet de curiosités. Chaque notion maîtrisée ajoute un objet du savoir (24) ---------- */
+const CURIOSITES = ["sablier", "astrolabe", "globe terrestre", "plume et encrier", "microscope", "boussole", "lyre", "longue-vue",
+  "livre ancien", "fossile d'ammonite", "balance de Roberval", "loupe", "carte au trésor", "papillon épinglé", "prisme", "métronome",
+  "squelette de dinosaure", "fiole de chimiste", "rouleau de parchemin", "planétaire", "cristal de quartz", "compas de marine", "masque de théâtre", "clé ancienne"];
+function curiosites() {
+  const el = document.getElementById("curiosites"), th = document.documentElement.dataset.theme;
+  if (!el || !["lycee", "parent"].includes(th) || !((window.__UQ || {}).recompenses || {}).curiosites) return;
+  const N = ((window.__UQ || {}).maitrise || {}).notions || {}, gagnes = [];
+  QUIZ.forEach(q => { const cats = N[cle(q.fichier)] || {}; Object.keys(cats).filter(c => niv(cats[c]) === 3).forEach(c => gagnes.push({ n: c, t: q.titre })); });
+  const nb = Math.min(24, gagnes.length);
+  let vu = 0; try { vu = +localStorage.getItem("sq.curiosites") || 0; localStorage.setItem("sq.curiosites", nb); } catch (e) {}
+  const cases = CURIOSITES.map((nom, k) => `<span role="button" tabindex="0" data-k="${k}" class="${k < nb ? "" : "vide"}" title="${esc(k < nb ? nom : "Objet à découvrir")}" aria-label="${esc(k < nb ? nom : "Objet à découvrir")}" style="background-position:${(k % 6) * 20}% ${Math.floor(k / 6) * 100 / 3}%"></span>`).join("");
+  el.innerHTML = `<div class="panneau"><h3>🏛️ Cabinet de curiosités <span class="alb-n">${nb}/24</span></h3>
+    <p>${nb ? (nb > vu ? (nb - vu > 1 ? (nb - vu) + " nouveaux objets" : "Un nouvel objet") + " ! " : "") + "Chaque notion maîtrisée ajoute un objet du savoir." : "Maîtrise une notion pour ouvrir ton cabinet de curiosités."}</p>
+    <div class="cab">${cases}</div><div class="cab-info" aria-live="polite"></div></div>`;
+  const info = el.querySelector(".cab-info");
+  const voir = e => {
+    const s = e.target.closest(".cab span[data-k]"); if (!s) return;
+    if (e.type === "keydown" && e.key !== "Enter" && e.key !== " ") return;
+    if (e.type === "keydown") e.preventDefault();
+    const k = +s.dataset.k; el.querySelectorAll(".cab span.choisi").forEach(x => x.classList.remove("choisi"));
+    if (k < nb) { s.classList.add("choisi"); info.innerHTML = `<b>${esc(CURIOSITES[k])}</b> — gagné avec « ${esc(gagnes[k].n)} » (${esc(gagnes[k].t)})`; }
+    else info.textContent = "À découvrir : maîtrise encore " + (k - nb + 1) + " notion" + (k - nb ? "s" : "") + ".";
+  };
+  el.addEventListener("click", voir); el.addEventListener("keydown", voir);
 }
 function calculerStats(liste) {
   STATS = {};
@@ -444,6 +486,7 @@ chargerScores();
 Badges.monter();
 album();
 socca();
+curiosites();
 if (window.Animations && Animations.panneauPoses) Animations.panneauPoses(document.getElementById("poses"));
 /* ---------- site de l'enfant / espace parent ---------- */
 (function () {

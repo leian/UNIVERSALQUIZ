@@ -597,6 +597,10 @@ function reglagesPage_(page, inst, cat) {
   // postures du collège : seulement celles dont le dessin animé est déposé (rien tant que la liste est vide)
   // (college : seules les classes de 6e à 3e les affichent, aperçu compris)
   cfg.poses = { n: POSES_DESSINEES.n, f: POSES_DESSINEES.f, m: POSES_DESSINEES.m, allure: cfg.genreEffectif, college: cfg.theme === 'college' };
+  { // récompenses dessinées : socca à habiller de l'allure (petits), cabinet de curiosités (lycée, adultes)
+    const R = DESSINS_PRETS_.recompenses || {}, al = cfg.genreEffectif || 'n';
+    cfg.recompenses = { poupee: (R.poupee || []).indexOf(al) >= 0 ? al : '', positions: (R.positions || {})[al] || null, curiosites: !!R.curiosites };
+  }
   cfg.styleSaison = styleSaison_(cfg, page);       // mascotte de saison dessinée pour ce thème (sinon celle de toujours)
   if (resultats) cfg.resultats = resultats;
   chrono_('revisions et maitrise');
@@ -1397,8 +1401,10 @@ function apiMascotte(d) {
    docs/themes/poses/<id>.webp (socca de toujours), poses-f/ et poses-m/ (allures). Ordre de déblocage : celui de
    POSES dans moteur/commun/animations.js. Ajouter un id ici une fois l'image en ligne. */
 /* dessins déposés, TENUS À JOUR PAR outils/integrer-planches.py (une seule ligne JSON, ne pas la reformater) :
-   poses = postures du collège par allure ; saisons = mascottes de saison par « <thème>[-f|-m] » */
-const DESSINS_PRETS_ = {"poses":{"n":[],"f":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"],"m":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"]},"saisons":{}};
+   poses = postures du collège par allure ; saisons = mascottes de saison par « <thème>[-f|-m] » ;
+   recompenses : poupee = allures dont la socca à habiller est dessinée, positions = places des 12 accessoires par allure
+   ([x, y, largeur, hauteur] dans l'image 384 × 384), curiosites = cabinet de curiosités dessiné (lycée et adultes) */
+const DESSINS_PRETS_ = {"poses":{"n":[],"f":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"],"m":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"]},"saisons":{},"recompenses":{"poupee":[],"positions":{},"curiosites":false}};
 const POSES_DESSINEES = DESSINS_PRETS_.poses;
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
 /* mascottes de saison adaptées à chaque thème (classe) : docs/themes/saisons/<saison>-<thème>[-f|-m]/ (accueil, bravo),

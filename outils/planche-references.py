@@ -17,6 +17,8 @@ TH = [('petits', 'Petits'), ('lecteurs', 'Lecteurs'), ('explorateurs', 'Explorat
 SA = [('noel', 'Noël'), ('hiver', 'Hiver'), ('paques', 'Pâques'), ('printemps', 'Printemps'), ('ete', 'Été'),
       ('rentree', 'Rentrée'), ('halloween', 'Halloween'), ('automne', 'Automne')]
 REF = {'f': 'socca-f-nouvelle.png', 'm': 'socca-m.png', 'n': 'socca-n.png'}
+TITRE = {'f': 'PLANCHE FÉMININ', 'm': 'PLANCHE MASCULIN', 'n': 'PLANCHE NEUTRE'}
+HAUT = 56
 C, L = 300, 44
 for a in 'fmn':
     suf = '' if a == 'n' else '-' + a
@@ -24,9 +26,11 @@ for a in 'fmn':
     cases = [('Tête', t('reference/' + REF[a]))] + [(n, t(k + suf + '/accueil.webp')) for k, n in TH] + \
             [('Saison : ' + n, t('saisons/' + k + suf + '/accueil.webp')) for k, n in SA]
     cols = 4; rows = (len(cases) + cols - 1) // cols
-    out = Image.new('RGB', (cols * C, rows * (C + L)), 'white'); d = ImageDraw.Draw(out)
+    out = Image.new('RGB', (cols * C, HAUT + rows * (C + L)), 'white'); d = ImageDraw.Draw(out)
+    gros = ImageFont.truetype(F, 34) if os.path.exists(F) else font
+    w = d.textlength(TITRE[a], font=gros); d.text(((cols * C - w) / 2, 10), TITRE[a], fill=(200, 16, 46), font=gros)
     for i, (lab, pth) in enumerate(cases):
-        x = (i % cols) * C; y = (i // cols) * (C + L)
+        x = (i % cols) * C; y = HAUT + (i // cols) * (C + L)
         d.rectangle([x + 2, y + 2, x + C - 3, y + C + L - 3], outline=(200, 200, 200), width=2)
         if os.path.exists(pth):
             im = Image.open(pth).convert('RGBA'); im.thumbnail((C - 24, C - 24))

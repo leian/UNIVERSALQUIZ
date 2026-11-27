@@ -388,6 +388,19 @@ try {
     coin && coin.remove(); el.innerHTML = ''; delete U.poses;
     return r;
   });
+  const recomp = await page.evaluate(() => {
+    const U = window.__UQ, h = document.documentElement, avant = h.dataset.theme, r = {};
+    U.recompenses = { poupee: '', positions: null, curiosites: false };
+    r.base = /base\/accueil/.test(getComputedStyle(document.createElement('div')).color) || !/poupee-f/.test(poupee(0, ''));
+    U.recompenses = { poupee: 'f', positions: Array.from({ length: 12 }, () => [192, 96, 192, 96]), curiosites: true };
+    const html = poupee(0, ''); r.dollF = /poupee-f\.webp/.test(html) && /left:25\.00%;top:12\.50%;width:50\.00%;height:25\.00%/.test(html);
+    h.dataset.theme = 'lycee'; curiosites(); const cab = document.querySelectorAll('#curiosites .cab span');
+    r.cabinet = cab.length === 24 && /Cabinet de curiosités/.test(document.getElementById('curiosites').textContent);
+    h.dataset.theme = 'college'; document.getElementById('curiosites').innerHTML = ''; curiosites(); r.pasCollege = !document.querySelector('#curiosites .cab');
+    h.dataset.theme = avant; U.recompenses = { poupee: '', positions: null, curiosites: false };
+    return r;
+  });
+  ok(recomp.base && recomp.dollF && recomp.cabinet && recomp.pasCollege, 'récompenses : socca à habiller de l\'allure avec ses places d\'accessoires ; cabinet de curiosités au lycée et chez les adultes seulement — ' + JSON.stringify(recomp));
   ok(!poses.avant && poses.sansDessin && poses.n === 3 && poses.verrous === 1 && poses.compte === '2/3' && poses.allure && poses.hauteur && poses.nouveau && poses.joue && poses.verrouInfo && poses.pasPrimaire && poses.coin && poses.horsCollege && poses.apercu && poses.images && poses.nomACote,
     'collège : « Mes postures » (rien sans dessin ; 10 puis 25 bonnes réponses par posture, duel exclu ; allure ; scène haute comme 3 autocollants ; touchée = jouée ; une posture gagnée jouée à chaque bonne réponse, au collège seulement ; aperçu : tout débloqué sur l\'appareil, mais jamais hors du collège) — ' + JSON.stringify(poses));
   ok(await page.locator('a.card .maitrise .seg i').count() >= 1 && /maîtrisée/.test(await page.locator('a.card .maitrise').first().innerText()), 'accueil : barre de maîtrise des notions sur la carte du quiz joué');
