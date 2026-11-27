@@ -1393,7 +1393,9 @@ function apiMascotte(d) {
 /* postures animées du collège (récompense « Mes postures ») : identifiants des bandes de 6 images déposées dans
    docs/themes/poses/<id>.webp (socca de toujours), poses-f/ et poses-m/ (allures). Ordre de déblocage : celui de
    POSES dans moteur/commun/animations.js. Ajouter un id ici une fois l'image en ligne. */
-const POSES_DESSINEES = { n: [], f: [], m: [] };
+const POSES_DESSINEES = { n: [], f: [],
+  m: ['six-seven', 'moue', 'for-sure', 'je-men-fous', 'retourne', 'clin-doeil', 'mewing', 'toc-toc', 'aura', 'sigma',
+    'duckface', 'soupir', 'pas-french', 'spiki', 'ehho', 'ours', 'last-dance', 'uk', 'babydoll', 'cri'] };   // au masculin : 27 nov. 2026
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
 const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'] };
 const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé
