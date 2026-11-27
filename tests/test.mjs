@@ -764,6 +764,8 @@ try {
   const prenomAvant = (await ev('CONFIG.prenom')).r;
   await ev('CONFIG.prenom = ""; var dessinsM = DESSINS_GENRE.m.slice(), saisonsM = SAISONS_GENRE.m.slice(); DESSINS_GENRE.m.length = 0; SAISONS_GENRE.m.length = 0');
   await page.goto(BASE + '/exec');
+  await page.evaluate(() => document.getElementById('apercu-poses').click()); ok(await page.evaluate(() => localStorage.getItem('uq-apercu-poses')) === '1', 'réglages : « Débloquer toutes les postures sur cet appareil » allume l\'aperçu');
+  await page.evaluate(() => document.getElementById('apercu-poses').click()); ok(await page.evaluate(() => localStorage.getItem('uq-apercu-poses')) === null, 'réglages : aperçu des postures arrêté');
   ok(await page.locator('#box-mascotte #choix-genre').count() === 1 && await page.locator('#classe #choix-genre').count() === 0 && await page.locator('#classe #choix-parpartie').count() === 1, 'réglages : allure de la mascotte dans sa propre carte, séparée de la classe et du nombre de questions');
   ok(await page.locator('#choix-genre option').count() === 4 && await page.locator('#choix-genre option[value="m"]').isDisabled() && await page.locator('html').getAttribute('data-genre') === null, 'mascotte : sans prénom, la socca de toujours ; « au masculin » grisé tant que ses dessins manquent');
   await ev('CONFIG.prenom = "Lana"');

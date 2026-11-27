@@ -655,6 +655,18 @@ function afficherClasse() {
           return `<option value="${v}" ${v === (U.genre || "auto") ? "selected" : ""} ${manque && v !== U.genre ? "disabled" : ""}>${esc(t + (manque ? " (dessins bientôt prêts)" : ""))}</option>`; }).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +
       `<p class="enreg" id="enreg-genre" role="status" hidden></p>` : "");
+  // aperçu des postures du collège : tout débloqué sur CET appareil (même mémoire que le site de l'enfant : app.soccaquiz.fr)
+  if (zoneM) {
+    let ap = false; try { ap = localStorage.getItem("uq-apercu-poses") === "1"; } catch (e) {}
+    zoneM.insertAdjacentHTML("beforeend", `<label class="ligne-case" style="display:flex;gap:8px;align-items:flex-start;margin-top:12px"><input type="checkbox" id="apercu-poses"${ap ? " checked" : ""}>
+      <span>Débloquer toutes les postures du collège <b>sur cet appareil</b>, pour les voir (aperçu). Ouvre ensuite le site de l'enfant sur ce même appareil.</span></label>
+      <p class="enreg" id="enreg-apercu" role="status" hidden></p>`);
+    document.getElementById("apercu-poses").addEventListener("change", e => {
+      try { if (e.target.checked) localStorage.setItem("uq-apercu-poses", "1"); else localStorage.removeItem("uq-apercu-poses"); } catch (er) {}
+      const m = document.getElementById("enreg-apercu");
+      m.hidden = false; m.textContent = e.target.checked ? "✓ Aperçu activé sur cet appareil" : "✓ Aperçu arrêté";
+    });
+  }
   if (boxM) boxM.hidden = !(zoneM && zoneM.innerHTML);
   // aperçu : la mascotte que verra l'enfant (thème de sa classe, tenue du lycée, allure), jamais le costume de saison
   const majApercu = () => {
