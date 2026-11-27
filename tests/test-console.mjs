@@ -1,6 +1,6 @@
 /* Test de la console de l'éditeur (console/Code.gs) : propositions, publication sur GitHub (simulé),
    invitations, accès réservé. Usage : node tests/test-console.mjs */
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import vm from 'node:vm';
@@ -266,6 +266,12 @@ ok(/http-equiv="refresh" content="0; url=https:\/\/app\.soccaquiz\.fr\/connexion
     'demande remise à répondre, classée, puis supprimée');
   const page = ctx.doGet({ parameter: {} }).h;
   ok(/data-o="aide"/.test(page) && /nb-aide/.test(page) && !/[^:]\/\/(?!\s)/.test((page.match(/<script>([\s\S]*)<\/script>/) || [])[1].replace(/https?:\\\/\\\//g, '')), 'console : onglet « Aide » avec son compteur');
+}
+{
+  const page = ctx.doGet({ parameter: {} }).h, js = (page.match(/<script>([\s\S]*)<\/script>/) || [])[1] || '';
+  let compile = true; try { new Function(js); } catch (e) { compile = false; }
+  const refs = ['socca-f-nouvelle.png', 'socca-m.png', 'socca-n.png'].every(f => existsSync(new URL('../docs/themes/reference/' + f, import.meta.url)));
+  ok(/data-o="mascottes"/.test(page) && /vueMascottes/.test(js) && compile && refs, 'console : onglet « Mascottes » (prompts ChatGPT, 3 allures, images de référence en ligne), script valide');
 }
 // compteurs anonymes de l'installateur → onglet Statistiques
 {

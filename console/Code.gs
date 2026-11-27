@@ -745,7 +745,7 @@ function pageHtml_() {
   return '<!DOCTYPE html><html lang="fr"><head><meta charset="UTF-8"><base target="_top"><link rel="stylesheet" href="' + PAGES + 'polices/polices.css"><style>' + CSS_ + '</style></head><body>' +
     '<header class="tete"><img src="' + PAGES + 'icone-96.png" width="40" height="40" alt=""><span class="marque">Socca<em>Quiz</em></span><span class="badge">Console</span></header>' +
     '<nav class="onglets" id="onglets" role="tablist">' +
-    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
+    [['propositions', 'inbox', 'Propositions'], ['erreurs', 'flag', 'Erreurs'], ['aide', 'aide', 'Aide'], ['stats', 'chart', 'Statistiques'], ['mascottes', 'star', 'Mascottes'], ['bibliotheque', 'book', 'Bibliothèque'], ['invitations', 'mail', 'Invitations'], ['liens', 'link', 'Liens'], ['versions', 'tag', 'Versions'], ['reglages', 'settings', 'Réglages']]
       .map((o, i) => '<button type="button" role="tab" class="onglet' + (i ? '' : ' on') + '" data-o="' + o[0] + '"><i data-ic="' + o[1] + '"></i> ' + o[2] + (o[0] === 'propositions' ? ' <span class="nb" id="nb-prop" hidden></span>' : o[0] === 'erreurs' ? ' <span class="nb" id="nb-err" hidden></span>' : o[0] === 'aide' ? ' <span class="nb" id="nb-aide" hidden></span>' : '') + '</button>').join('') +
     '</nav><main id="contenu"><p class="petit">Chargement…</p></main>' +
     '<script>var LIENS = ' + liens + ';(' + client_.toString() + ')();</script></body></html>';
@@ -807,6 +807,7 @@ function client_() {
   var ICONES = {
     inbox: '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>',
     book: '<path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/>',
+    star: '<path d="m12 2 3.1 6.3 6.9 1-5 4.9 1.2 6.8L12 17.8 5.8 21l1.2-6.8-5-4.9 6.9-1z"/>',
     mail: '<rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/>',
     link: '<path d="M10 13a5 5 0 0 0 7.5.5l3-3a5 5 0 0 0-7-7l-1.7 1.7"/><path d="M14 11a5 5 0 0 0-7.5-.5l-3 3a5 5 0 0 0 7 7l1.7-1.7"/>',
     tag: '<path d="M12.6 2.6A2 2 0 0 0 11.2 2H4a2 2 0 0 0-2 2v7.2a2 2 0 0 0 .6 1.4l8.7 8.7a2.4 2.4 0 0 0 3.4 0l6.6-6.6a2.4 2.4 0 0 0 0-3.4Z"/><circle cx="7.5" cy="7.5" r="1.5"/>',
@@ -860,7 +861,86 @@ function client_() {
     if (!ETAT) { c.innerHTML = '<p class="petit">Chargement…</p>'; return; }
     if (edition && edition.erreur) return editeurErreur(c);
     if (edition) return editeur(c);
-    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+    ({ propositions: vuePropositions, erreurs: vueErreurs, aide: vueAide, stats: vueStats, mascottes: vueMascottes, bibliotheque: vueBibliotheque, invitations: vueInvitations, liens: vueLiens, versions: vueVersions, reglages: vueReglages }[onglet])(c);
+  }
+
+
+  /* ---------- Mascottes : prompts ChatGPT pour redessiner une mascotte ou une posture (au féminin, au masculin, neutre) ---------- */
+  var IMG = 'https:\/\/leian.github.io/UNIVERSALQUIZ/themes/';
+  var M_THEMES = [['petits', 'Petits (maternelle)', 'bonnet à pompon, foulard rouge noué au cou'], ['lecteurs', 'Lecteurs (CP-CE1)', 'cartable sur le dos, livre ouvert à la main'],
+    ['explorateurs', 'Explorateurs (CE2-CM2)', 'chapeau d\'explorateur, sac à dos, loupe à la main'], ['college', 'Collège', 'sweat à capuche bleu, casque audio autour du cou, skateboard à côté (accueil seulement)'],
+    ['lycee-gothique', 'Lycée gothique', 'veste noire style cuir, t-shirt violet avec une lune, bracelets noirs, bottes noires'], ['lycee-rap', 'Lycée rap', 'casquette rouge, t-shirt noir large, grosse chaîne dorée, baskets rouges et blanches'],
+    ['parent', 'Parent', 'tenue de bureau de l\'image 2, tasse de café à la main']];
+  var M_SAISONS = [['noel', 'Noël'], ['hiver', 'Hiver'], ['paques', 'Pâques'], ['printemps', 'Printemps'], ['ete', 'Été'], ['rentree', 'Rentrée'], ['halloween', 'Halloween (gentil, pas effrayant)'], ['automne', 'Automne']];
+  var M_POSES = [['six-seven', '67 (Six-Seven)', 'Les deux mains tendues devant, paumes vers le haut, qui montent et descendent en alternance comme une balance qui pèse deux options, air faussement sérieux.'],
+    ['moue', 'Gen Z Pout', 'Regard vide et blasé, lèvres pincées et poussées vers le haut en petite moue, tête immobile, léger battement de paupières.'],
+    ['for-sure', 'For Sure', 'Lunettes de soleil d\'aviateur, sourire nonchalant, tête légèrement penchée, petit hochement de tête sûr de soi.'],
+    ['je-men-fous', 'Je m\'en fiche', 'Hausse les épaules, une paille à la bouche, tient un verre de grenadine ; hausse les épaules puis reprend tranquillement une gorgée.'],
+    ['retourne', 'Distracted Boyfriend', 'Marche vers l\'avant puis tourne brusquement la tête par-dessus l\'épaule, bouche en « o », pour fixer une étoile dorée qui passe à côté.'],
+    ['clin-doeil', 'Clin d\'œil pistolet', 'Les deux mains en « pistolets de doigts » pointés vers l\'avant, clin d\'œil complice et grand sourire, petit mouvement des mains en rythme.'],
+    ['mewing', 'Mewing', 'Menton levé très haut, mâchoire serrée et bien dessinée, regard vers le haut, air très concentré et un peu fier.'],
+    ['toc-toc', 'Toc Toc', 'Saute à cloche-pied tout en mimant de frapper à une porte invisible avec le poing, deux petits coups à chaque saut.'],
+    ['aura', 'Battle d\'aura', 'Enchaîne des gestes absurdes et dramatiques pour dégager du charisme : main sur le front, pose de héros, tour sur soi, doigt pointé vers le ciel.'],
+    ['sigma', 'Sigma Boy', 'Regard déterminé, épaules en arrière, poing serré levé à hauteur de poitrine, petit mouvement de tête décidé.'],
+    ['duckface', 'Duckface', 'Joues creusées, lèvres en bec de canard, regard en coin, téléphone tenu à bout de bras comme pour un selfie.'],
+    ['soupir', 'Chouette française', 'Tête penchée, bouche ouverte en « ouhh », gros soupir exagéré, une main qui balaie l\'air d\'un geste blasé (sans cigarette).'],
+    ['pas-french', 'I don\'t wanna be French', 'Bras croisés, regard de mépris face à nous, menton levé, petit mouvement de tête de refus.'],
+    ['spiki', 'Spiki', 'Corps penché en avant, totalement absorbé par une action (taper très vite sur un petit clavier), regard fixe et yeux ronds.'],
+    ['ehho', 'Ehho Ehho', 'Tête de travers, yeux écarquillés, les deux mains près des joues en surprise dramatique, petits sursauts.'],
+    ['ours', 'Ours polaire', 'Déguisé en ours polaire (capuche avec oreilles rondes), assis dans la neige, regard fixe vers nous, quelques flocons.'],
+    ['last-dance', 'The Last Dance', 'Deux exemplaires identiques de la mascotte côte à côte qui dansent parfaitement en synchronisation : bras qui balancent, pas de côté. Les deux tiennent ensemble dans chaque case.'],
+    ['uk', 'U+K Dance', 'Les bras qui forment la lettre U au-dessus de la tête, puis la lettre K, en rythme, avec énergie.'],
+    ['babydoll', 'Babydoll Dance', 'Deux pas de côté avec une rotation des hanches, bras souples, petit sourire.'],
+    ['cri', 'Chicken Jockey', 'Bras tendus droit devant, bouche grande ouverte en train de pousser un cri de victoire joyeux.']];
+  var M_ALLURES = { f: ['Au féminin', 'socca-f-nouvelle.png', 'une part de socca niçoise, pointe vers le BAS, grand bord croustillant en haut, barrette étoile dorée dans le coin en haut à droite, grands yeux avec cils'],
+    m: ['Au masculin', 'socca-m.png', 'une part de socca niçoise, pointe vers le HAUT, bord croustillant en bas, sourcils un peu épais, petit épi de cheveux au sommet'],
+    n: ['Neutre (socca de toujours)', 'socca-n.png', 'une part de socca niçoise, pointe vers le HAUT, bord croustillant en bas, grands yeux ronds, sans barrette, sans cils, sans épi'] };
+  var M_CHOIX = { type: 'theme', quoi: 'petits', allure: 'f' };
+  function vueMascottes(c) {
+    var C = M_CHOIX, suf = C.allure === 'n' ? '' : '-' + C.allure, A = M_ALLURES[C.allure];
+    var liste = C.type === 'theme' ? M_THEMES : C.type === 'saison' ? M_SAISONS : M_POSES;
+    if (!liste.some(function (x) { return x[0] === C.quoi; })) C.quoi = liste[0][0];
+    var el = liste.filter(function (x) { return x[0] === C.quoi; })[0];
+    var tete = IMG + 'reference/' + A[1], dossier, image2, actuelles = [], nom, prompt;
+    var contraintes = 'Contraintes : aucune ligne de séparation, aucun cadre, aucun texte, aucun numéro, aucune ombre au sol ; la mascotte entière dans chaque case, à la même taille, au même endroit, pieds à la même hauteur, avec de la marge (rien, confettis compris, ne touche le bord de sa case) ; ton drôle et bienveillant pour des enfants ; aucune personne réelle, aucun logo, aucun personnage connu.';
+    var debut = 'Image 1 : la tête de ma mascotte (' + A[2] + '). Ignore ses vêtements et son expression.\nImage 2 : ';
+    var garder = 'EXACTEMENT la tête de l\'image 1 (même forme, même texture, mêmes couleurs, mêmes yeux — l\'expression change selon la case —, même style de trait)';
+    if (C.type === 'theme') {
+      dossier = C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = dossier + '.png';
+      actuelles = ['accueil', 'bravo', 'encouragement', 'reflexion'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
+      prompt = debut + 'la mascotte actuelle de ce thème, avec la tenue à garder.\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT la tenue de l\'image 2 (' + el[2] + '). Même corps, mêmes bras et jambes jaunes, mêmes chaussures que l\'image 2.\n\n' +
+        'Planche de 4 images, format carré 1024 × 1024, fond blanc uni, 2 colonnes × 2 lignes de cases de même taille :\n- en haut à gauche : accueil — coucou d\'une main, grand sourire ;\n- en haut à droite : bravo — explose de joie, les deux bras levés, bouche ouverte, quelques confettis ;\n- en bas à gauche : encouragement — sourire doux, pouce levé ;\n- en bas à droite : réflexion — une main au menton, regard vers le haut, petit point d\'interrogation.\n\n' + contraintes;
+    } else if (C.type === 'saison') {
+      dossier = 'saisons/' + C.quoi + suf; image2 = IMG + dossier + '/accueil.webp'; nom = C.quoi + suf + '.png';
+      actuelles = ['accueil', 'bravo'].map(function (n) { return IMG + dossier + '/' + n + '.webp'; });
+      prompt = debut + 'la mascotte actuelle en costume de saison (' + el[1] + ').\n\nRedessine la mascotte de l\'image 2 avec ' + garder + ', et EXACTEMENT le costume de l\'image 2.\n\n' +
+        'Planche de 2 images, format paysage 1536 × 1024, fond blanc uni, 2 cases côte à côte de même taille :\n- à gauche : accueil — coucou d\'une main, grand sourire ;\n- à droite : bravo — explose de joie, les deux bras levés, quelques confettis aux couleurs de la saison.\n\n' + contraintes;
+    } else {
+      dossier = 'poses' + suf; image2 = IMG + 'college' + suf + '/accueil.webp'; nom = C.quoi + (C.allure === 'n' ? '-n' : suf) + '.png';
+      actuelles = [IMG + dossier + '/' + C.quoi + '.webp'];
+      prompt = debut + 'la mascotte du collège, avec la tenue à garder (sweat à capuche bleu, casque audio autour du cou).\n\nDessine une planche de 6 images qui forment une petite animation en boucle (environ 1 seconde) de cette mascotte, avec ' + garder + ' et la tenue de l\'image 2 (sans le skateboard), qui fait la posture suivante :\n' + el[2] + '\n\n' +
+        'Format paysage 1536 × 1024, fond blanc uni, 3 colonnes × 2 lignes de cases de même taille, lues de gauche à droite puis de haut en bas. D\'une case à l\'autre, seuls le geste et l\'expression changent un peu ; la 6e image doit pouvoir enchaîner sur la 1re. Pour des élèves de 11 à 15 ans.\n\n' + contraintes;
+    }
+    var sel = function (id, opts, val) { return '<select id="' + id + '">' + opts.map(function (o) { return '<option value="' + esc(o[0]) + '"' + (o[0] === val ? ' selected' : '') + '>' + esc(o[1]) + '</option>'; }).join('') + '</select>'; };
+    var lien = function (u, t) { return '<li><a href="' + esc(u) + '" target="_blank" rel="noopener">' + esc(t) + '</a> <button type="button" class="btn" data-copie="' + esc(u) + '">Copier le lien</button></li>'; };
+    c.innerHTML = '<div class="box"><h2>' + I('star') + 'Générateur de mascottes et de postures</h2>' +
+      '<p class="petit">Choisis ce qu\'il faut redessiner : la console prépare le prompt pour ChatGPT et les deux images à lui joindre. Ensuite, envoie la planche à Claude sous le nom indiqué.</p>' +
+      '<div class="chiffres" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">' +
+      '<label>Quoi<br>' + sel('m-type', [['theme', 'Mascotte d\'un thème (4 images)'], ['saison', 'Costume de saison (2 images)'], ['pose', 'Posture du collège (animation, 6 images)']], C.type) + '</label>' +
+      '<label>Lequel<br>' + sel('m-quoi', liste.map(function (x) { return [x[0], x[1]]; }), C.quoi) + '</label>' +
+      '<label>Allure<br>' + sel('m-allure', [['f', M_ALLURES.f[0]], ['m', M_ALLURES.m[0]], ['n', M_ALLURES.n[0]]], C.allure) + '</label></div>' +
+      '<h3>Images actuelles</h3><p>' + actuelles.map(function (u) { return '<img src="' + esc(u) + '" alt="" style="height:110px;max-width:100%;object-fit:contain;background:var(--bg);border-radius:10px;margin:0 6px 6px 0" onerror="this.replaceWith(document.createTextNode(\'(pas encore dessinée) \'))">'; }).join('') + '</p>' +
+      '<h3>1. Joins ces deux images dans une nouvelle conversation ChatGPT</h3><ol class="etapes">' + lien(tete, 'Image 1 — la tête (' + A[0] + ')') + lien(image2, 'Image 2 — la tenue à garder') + '</ol>' +
+      '<p class="petit">ChatGPT ne lit pas toujours une adresse : ouvre le lien, enregistre l\'image, puis joins-la.</p>' +
+      '<h3>2. Colle ce prompt</h3><textarea id="m-prompt" readonly rows="14" style="width:100%;font:inherit;font-size:.9rem;padding:10px;border-radius:10px;border:1px solid var(--line)">' + esc(prompt) + '</textarea>' +
+      '<div class="actions"><button type="button" class="btn principal" id="m-copier">' + I('upload') + ' Copier le prompt</button> <span id="m-copie" class="petit" role="status"></span></div>' +
+      '<h3>3. Envoie la planche à Claude</h3><p>Nomme le fichier <code>' + esc(nom) + '</code> : Claude la découpe et la met dans <code>docs/themes/' + esc(dossier) + '</code>' + (C.type === 'pose' ? ', puis l\'ajoute à la liste des postures dessinées.' : '.') + ' Case ratée : dans ChatGPT, « Refais exactement la même planche, mais corrige la case N : … ».</p></div>';
+    var copier = function (t, ok) { var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); var r = false; try { r = document.execCommand('copy'); } catch (e) {} a.remove(); if (!r && navigator.clipboard) navigator.clipboard.writeText(t).then(ok); else if (r) ok(); };
+    $('m-copier').onclick = function () { copier(prompt, function () { $('m-copie').textContent = '✅ Prompt copié'; }); };
+    Array.prototype.forEach.call(c.querySelectorAll('[data-copie]'), function (b) { b.onclick = function () { copier(b.getAttribute('data-copie'), function () { b.textContent = '✅ Copié'; }); }; });
+    $('m-type').onchange = function () { C.type = this.value; vueMascottes(c); };
+    $('m-quoi').onchange = function () { C.quoi = this.value; vueMascottes(c); };
+    $('m-allure').onchange = function () { C.allure = this.value; vueMascottes(c); };
   }
 
   /* ---------- Statistiques : compteurs anonymes envoyés par l'installateur ---------- */
