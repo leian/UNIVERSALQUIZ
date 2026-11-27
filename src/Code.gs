@@ -1396,14 +1396,15 @@ function apiMascotte(d) {
 /* postures animées du collège (récompense « Mes postures ») : identifiants des bandes de 6 images déposées dans
    docs/themes/poses/<id>.webp (socca de toujours), poses-f/ et poses-m/ (allures). Ordre de déblocage : celui de
    POSES dans moteur/commun/animations.js. Ajouter un id ici une fois l'image en ligne. */
-const TOUTES_POSES_ = ['six-seven', 'moue', 'for-sure', 'je-men-fous', 'retourne', 'clin-doeil', 'mewing', 'toc-toc', 'aura', 'sigma',
-  'duckface', 'soupir', 'pas-french', 'spiki', 'ehho', 'ours', 'last-dance', 'uk', 'babydoll', 'cri'];
-const POSES_DESSINEES = { n: [], f: TOUTES_POSES_, m: TOUTES_POSES_ };   // au masculin et au féminin : 27 nov. 2026
+/* dessins déposés, TENUS À JOUR PAR outils/integrer-planches.py (une seule ligne JSON, ne pas la reformater) :
+   poses = postures du collège par allure ; saisons = mascottes de saison par « <thème>[-f|-m] » */
+const DESSINS_PRETS_ = {"poses":{"n":[],"f":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"],"m":["six-seven","moue","for-sure","je-men-fous","retourne","clin-doeil","mewing","toc-toc","aura","sigma","duckface","soupir","pas-french","spiki","ehho","ours","last-dance","uk","babydoll","cri"]},"saisons":{}};
+const POSES_DESSINEES = DESSINS_PRETS_.poses;
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
 /* mascottes de saison adaptées à chaque thème (classe) : docs/themes/saisons/<saison>-<thème>[-f|-m]/ (accueil, bravo),
    <thème> = petits, lecteurs, explorateurs, college, lycee-gothique, lycee-rap, parent. Ajouter la saison ici une fois les images en ligne
    (onglet « Mascottes » de la console pour les prompts). Sans dessin : la mascotte de saison de toujours (primaire) ou rien. */
-const SAISONS_THEMES = {};   // ex. { 'college-f': ['noel', 'hiver'] }
+const SAISONS_THEMES = DESSINS_PRETS_.saisons;   // ex. { 'college-f': ['noel', 'hiver'] }
 function styleSaison_(cfg, page) {
   if (!cfg.saison) return '';
   const th = PAGES_PARENT.indexOf(page) >= 0 ? 'parent' : cfg.theme === 'lycee' ? 'lycee-' + cfg.mascotte : cfg.theme;
