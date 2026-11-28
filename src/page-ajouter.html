@@ -142,7 +142,17 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
   <section class="etape" id="autre-ia">
     <h2><span class="num">3</span> Ou avec une autre IA</h2>
     <ol class="ia-pas">
-      <li><b>Ouvre une IA</b>, joins les photos (📎 ou +) et envoie : la demande est déjà écrite.
+      <li id="partage" hidden><b>Choisis les photos, puis envoie-les à une IA</b> : elle reçoit les photos et la demande déjà écrite, en une fois.
+        <div>
+          <input type="file" id="p-photos" accept="image/*" multiple>
+          <label class="choix" for="p-photos">📷 Choisir les photos</label>
+          <div id="p-vignettes" class="vignettes"></div>
+          <button class="btn" id="partager" type="button" disabled>📤 Envoyer à une IA</button>
+          <p class="petit">Ton téléphone propose ses applis : choisis Claude, ChatGPT, Mistral, Grok ou Gemini (l'appli doit être installée), puis envoie. Si la case de l'IA est vide, fais un appui long puis « Coller » : la demande est aussi copiée.</p>
+          <p class="petit" id="partage-info" aria-live="polite"></p>
+        </div>
+        <details class="petit" id="partage-autre"><summary>Ou ouvrir le site d'une IA et y joindre les photos</summary></details></li>
+      <li id="ouvrir-ia"><b>Ouvre une IA</b>, joins les photos (📎 ou +) et envoie : la demande est déjà écrite.
         <div class="ias">
           <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
           <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
@@ -358,6 +368,54 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     $('g-cle').value = m[0];
     $('g-enregistrer').click();
   });
+  /* ---------- autres IA : photos + demande envoyées ensemble par le menu Partager du téléphone ----------
+     Un lien vers l'IA ne transporte que du texte ; le partage (Web Share) envoie aussi les photos à l'appli choisie.
+     Sans partage de fichiers (ordinateur, navigateur intégré à une appli) : les liens vers les sites des IA, comme avant. */
+  let fichiersPartage = [];
+  const peutPartager = (() => { try { return !!(navigator.share && navigator.canShare && navigator.canShare({ files: [new File(['x'], 'p.jpg', { type: 'image/jpeg' })] })); } catch (e) { return false; } })();
+  if (peutPartager) {
+    $('partage').hidden = false;
+    // les liens vers les sites des IA restent, repliés sous le partage
+    const li = $('ouvrir-ia'); li.hidden = true;
+    const d = $('partage-autre'); d.appendChild(li.querySelector('.ias')); d.appendChild($('copie-ok'));
+  }
+  $('p-photos').addEventListener('change', async ev => {
+    const input = ev.target, tous = Array.from(input.files || []), fichiers = tous.slice(0, MAX_PHOTOS), info = $('partage-info');
+    fichiersPartage = []; $('p-vignettes').innerHTML = ''; $('partager').disabled = true; input.disabled = true;
+    const ecartees = [];
+    for (let i = 0; i < fichiers.length; i++) {
+      info.textContent = 'Préparation des photos ' + (i + 1) + '/' + fichiers.length + '…';
+      try {
+        const p = await reduire(fichiers[i]);
+        const blob = await (await fetch(p)).blob();
+        fichiersPartage.push(new File([blob], 'lecon-' + (fichiersPartage.length + 1) + '.jpg', { type: 'image/jpeg' }));
+        $('p-vignettes').insertAdjacentHTML('beforeend', '<img alt="Photo ' + fichiersPartage.length + '" src="' + p + '">');
+      } catch (e) { ecartees.push(fichiers[i]); }
+    }
+    input.value = ''; input.disabled = false;
+    const m = [];
+    if (tous.length > MAX_PHOTOS) m.push('Seules les ' + MAX_PHOTOS + ' premières photos sont gardées.');
+    if (ecartees.length) m.push((ecartees.length > 1 ? 'Photos écartées, illisibles par ce navigateur : ' : 'Photo écartée, illisible par ce navigateur : ') + ecartees.map(f => f.name).join(', ') + '.');
+    info.textContent = m.join(' ');
+    $('partager').disabled = !fichiersPartage.length;
+  });
+  $('partager').addEventListener('click', async () => {
+    const info = $('partage-info'), texte = messageCourt(), data = { files: fichiersPartage, text: texte };
+    if (!fichiersPartage.length) return;
+    copier(texte);                             // au cas où l'appli de l'IA ne garde que les photos
+    partiIA = true;
+    try {
+      if (navigator.canShare && !navigator.canShare(data)) throw Object.assign(new Error('refus'), { name: 'NotAllowedError' });
+      await navigator.share(data);
+      info.textContent = '✅ Envoyé. Quand l\'IA a répondu, copie sa réponse et reviens ici.';
+    } catch (e) {
+      if (e && e.name === 'AbortError') { partiIA = false; info.textContent = ''; return; }
+      partiIA = false;
+      info.textContent = 'Ce navigateur n\'a pas pu envoyer les photos. Ouvre plutôt le site d\'une IA ci-dessous et joins-y les photos.';
+      $('partage-autre').open = true;
+    }
+  });
+
   $('g-changer').addEventListener('click', ev => { ev.preventDefault(); cle = ''; etatGemini(); $('g-resultat').innerHTML = ''; });
 
   // photos réduites dans le navigateur (1600 px, JPEG) : envoi plus rapide, rien n'est gardé.

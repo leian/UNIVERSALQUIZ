@@ -426,7 +426,7 @@ try {
   ok(msgs.complet.includes('Q|question|BONNE réponse') && !/Q\|question/.test(await page.locator('main').innerText()), 'page « Ajouter » : consignes prêtes, jamais affichées');
   const phrase = await ev(`(() => { const d = lireFormatLignes_('✅ Quiz prêt ! Touche Copier sur le bloc, puis reviens sur SoccaQuiz.\\n\\u0060\\u0060\\u0060\\nT|Titre|Accroche|maths|🔢|🧮\\nQ|2+2 ?|4|3|5|Deux plus deux.\\n\\u0060\\u0060\\u0060'); return d && d.titre + '/' + d.questions.length; })()`);
   ok(phrase.r === 'Titre/1', 'réponse de l\'IA : la phrase « ✅ Quiz prêt ! » avant le bloc est ignorée — ' + JSON.stringify(phrase.r));
-  ok(msgs.complet.includes('✅ Quiz prêt !') && await page.locator('.bloc-ia .bloc-copier svg').count() === 1 && await page.locator('ol.ia-pas > li').count() === 3 && await page.locator('main #coller-creer:visible').count() === 1 && await page.locator('#secours:not([open])').count() === 1,
+  ok(msgs.complet.includes('✅ Quiz prêt !') && await page.locator('.bloc-ia .bloc-copier svg').count() === 1 && await page.locator('ol.ia-pas > li:not([hidden])').count() === 3 && await page.locator('#partage[hidden]').count() === 1 && await page.locator('main #coller-creer:visible').count() === 1 && await page.locator('#secours:not([open])').count() === 1,
     'page « Ajouter » : étape 3 en trois temps, aperçu d\'un vrai bloc de réponse d\'IA (icône copier en haut à droite), un seul bouton principal, secours replié');
   await page.evaluate(() => { const a = document.querySelector('a.ia'); a.addEventListener('click', e => e.preventDefault(), { once: true }); a.click(); window.dispatchEvent(new Event('focus')); });
   ok(await page.locator('#barre-retour:not([hidden]) #coller-retour').count() === 1 && await page.locator('#coller-creer:visible').count() === 0, 'retour depuis l\'IA : grand bouton « Coller et créer » en bas de l\'écran, et lui seul (celui de l\'étape 3 est masqué)');
@@ -446,6 +446,28 @@ try {
     const ordre = await page.locator('a.ia').evaluateAll(l => l.map(a => a.textContent.trim()).join(','));
     if (avantV) await page.setViewportSize(avantV);
     ok(!deb.length && ordre === 'Claude,ChatGPT,Mistral,Grok', 'page « Ajouter » sur téléphone (360 px) : listes déroulantes dans la largeur de l\'écran ; Mistral après ChatGPT — ' + JSON.stringify(deb) + ' ' + ordre);
+  }
+  // téléphone qui sait partager des fichiers : photos + demande envoyées ensemble à l'appli de l'IA
+  {
+    const c2 = await browser.newContext({ viewport: { width: 400, height: 800 } }), p2 = await c2.newPage();
+    await p2.addInitScript(() => {
+      window.__partages = [];
+      Object.defineProperty(navigator, 'canShare', { configurable: true, value: d => !!(d && d.files && d.files.length) });
+      Object.defineProperty(navigator, 'share', { configurable: true, value: async d => { window.__partages.push({ n: d.files.length, types: d.files.map(f => f.type), tailles: d.files.map(f => f.size), text: d.text }); } });
+    });
+    await p2.goto(BASE + '/exec?page=ajouter');
+    const PNG2 = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
+    const avant = await p2.locator('#partage:visible').count() === 1 && await p2.locator('#ouvrir-ia[hidden]').count() === 1 && await p2.locator('#partage-autre a.ia').count() === 4 && await p2.locator('#partager:disabled').count() === 1;
+    await p2.setInputFiles('#p-photos', [{ name: 'a.png', mimeType: 'image/png', buffer: PNG2 }, { name: 'b.png', mimeType: 'image/png', buffer: PNG2 }]);
+    await p2.waitForFunction(() => !document.getElementById('partager').disabled);
+    await p2.locator('#partager').click();
+    await p2.waitForFunction(() => window.__partages.length === 1);
+    const pt = await p2.evaluate(() => ({ p: window.__partages[0], court: window.__consignes.messageCourt(), info: document.getElementById('partage-info').textContent }));
+    await p2.evaluate(() => window.dispatchEvent(new Event('focus')));
+    const barreP = await p2.locator('#barre-retour:not([hidden])').count() === 1;
+    await c2.close();
+    ok(avant && pt.p.n === 2 && pt.p.types.every(t => t === 'image/jpeg') && pt.p.tailles.every(t => t > 0) && pt.p.text === pt.court && /Envoyé/.test(pt.info) && barreP,
+      'autres IA : photos choisies sur la page, puis envoyées avec la demande par le menu Partager (JPEG réduits) ; liens vers les sites des IA repliés dessous ; « Coller et créer » au retour');
   }
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',

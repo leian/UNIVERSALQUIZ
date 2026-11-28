@@ -258,7 +258,7 @@
   function montrer(html) {
     var n = ++numero, f = document.createElement('iframe');
     f.className = 'page'; f.title = 'SoccaQuiz – Espace parent';
-    f.setAttribute('allow', 'clipboard-read; clipboard-write');
+    f.setAttribute('allow', 'clipboard-read; clipboard-write; web-share');
     f.style.zIndex = String(n); f.numero = n;
     f.addEventListener('load', function () { prete(f); });
     f.srcdoc = html;
