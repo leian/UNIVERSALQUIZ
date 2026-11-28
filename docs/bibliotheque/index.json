@@ -2,6 +2,33 @@
   "version": 1,
   "quiz": [
     {
+      "id": "autre-les-specialites-nicoises",
+      "titre": "Les spécialités niçoises",
+      "matiere": "autre",
+      "classes": [
+        "PS",
+        "MS",
+        "GS",
+        "CP",
+        "CE1",
+        "CE2",
+        "CM1",
+        "CM2",
+        "6e",
+        "5e",
+        "4e",
+        "3e",
+        "2de",
+        "1re",
+        "Tle",
+        "adulte"
+      ],
+      "nb": 40,
+      "icone": "🍽️",
+      "description": "Connais-tu la cuisine nissarde ?",
+      "ajoute": "2026-11-28"
+    },
+    {
       "id": "anglais-listen-and-repeat",
       "titre": "Listen and repeat",
       "matiere": "anglais",
