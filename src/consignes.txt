@@ -32,10 +32,10 @@ Comment le demander :
 - G : les [crochets] portent sur ce qu'il faut savoir, jamais sur un mot que la phrase rend évident (mauvais « La daube à la [niçoise] est une spécialité niçoise. »).
 - V : une affirmation nette sur une notion, sans double négation ni piège sur un détail. Un C ou un V doit avoir un sens tout seul (pas « 4 × 2 : à faire en premier » sans calcul autour) ; C avec au moins 2 éléments par catégorie, sinon A.
 - Varie les exercices : au moins 4 types différents, aucun au-delà de 40 % des lignes. Choisis le type selon ce qu'il faut apprendre :
-  règle (grammaire, orthographe, conjugaison) → G, X, Q, S ; vocabulaire, traduction, définition → A, S, Q ; chronologie, étapes, cycle, méthode → O ; catégories, familles → C ; calcul, mesure → S (exact), N (valeur approchée) ; idée reçue, propriété → V (autant de V que de F) ; compréhension orale, dictée → Q ou S avec dire= ; prononciation en langue étrangère, lecture à voix haute en maternelle-CP → P (2 au plus, jamais dans les autres matières) ; musique → notes= (sons à comparer avec /), K, L (lecture de notes sur la portée).
+  règle (grammaire, orthographe, conjugaison) → G, X, Q, S ; vocabulaire, traduction, définition, « qu'est-ce que X ? » → D d'abord, puis S, Q ; chronologie, étapes, cycle, méthode → O ; catégories, familles → C ; calcul, tables, heure, numération, lecture de notes → R d'abord, puis S (exact), N (valeur approchée) pour les problèmes ; idée reçue, propriété → V (autant de V que de F) ; compréhension orale, dictée → Q ou S avec dire= ; prononciation en langue étrangère, lecture à voix haute en maternelle-CP → P (2 au plus, jamais dans les autres matières) ; musique → notes= (sons à comparer avec /), K, L (lecture de notes sur la portée).
 - Au plus un A, C ou O par catégorie (ils valent plusieurs questions).
 - Niveau : maternelle-CP → phrases très courtes, 2 ou 3 choix, emojis (compter 🍎🍎🍎, A avec emojis), hors langue étrangère, dire= avec la question en français et langue=fr-FR pour la lire, pas de S long ; collège-lycée → plus de S, N, X et O de méthode.
-- Écris exactement le nombre de questions demandé (lignes Q, V, S, G, O, A, C, X, N, P, K, L, Z, E ; pas F ni M). Si les notions manquent, fais-les appliquer autrement (autre exemple, autre type d'exercice, sens inverse : mot → définition puis définition → mot), jamais hors sujet.
+- Écris exactement le nombre de questions demandé (lignes Q, V, S, G, O, A, C, X, N, P, K, L, Z, E ; une ligne D compte pour 2 questions, une ligne R pour son nombre ; pas F ni M). Si les notions manquent, fais-les appliquer autrement (autre exemple, autre type d'exercice, sens inverse : mot → définition puis définition → mot), jamais hors sujet.
 
 Format : écris seulement « ✅ Quiz prêt ! Touche Copier sur le bloc, puis reviens sur SoccaQuiz. », puis le bloc de code, rien après. Une ligne par élément, champs séparés par |.
 # Sujet, # Notions, # Supports : les 3 lignes d'analyse, en tête du bloc
@@ -56,6 +56,8 @@ L|consigne|note à placer sur la portée en clé de sol (ex. L|Place le sol|G4)
 F|nom|<svg viewBox="0 0 300 200">…</svg> : schéma simple sur UNE ligne (formes avec fill et stroke, text), chaque partie à trouver avec un id="mot" (lettres sans accent)
 Z|consigne|id de la bonne zone|explication|sch=nom (toucher la bonne partie du schéma)
 E|consigne|id=étiquette|id=étiquette|explication|sch=nom (2 à 6 étiquettes à placer)
+D|terme avec son article|définition courte avec son article (10 mots au plus)|explication facultative : un fait à savoir. Le site en fabrique seul un QCM dans chaque sens, un vrai/faux et un « Relie » (mauvais choix pris parmi les autres D) : au moins 4 D de même nature par catégorie, et pas de Q, A ou S en plus sur le même fait. Langue étrangère : D|mot étranger|traduction.
+R|exercice|min-max|nombre : questions fabriquées par le site avec des nombres tirés au hasard. Exercices : addition, soustraction, multiplication, division (min-max = nombres utilisés, ex. R|multiplication|6-9|8 pour les tables de 6 à 9), heure (min = pas en minutes : 5, 15 ou 30), chiffre (min-max = le nombre, ex. 1000-999999 : chiffre des centaines…), ranger (4 nombres entre min et max), note (ex. R|note|C4-C5 : lire la note sur la portée). Seulement si la leçon porte sur ce savoir-faire.
 M|point clé à retenir (3 à 6 lignes M à la fin)
 - X : l'élève TOUCHE des mots dans une phrase (« Touche les verbes au futur. »), avec au moins 2 mots à ne pas toucher ; jamais pour écrire un mot (→ G ou S). Phrase à reconstituer : toujours O (le site mélange les mots), jamais X.
 - Q : 2 ou 3 mauvais choix, la bonne réponse toujours en premier (le site mélange).
@@ -91,6 +93,11 @@ S|Complète avec be : They ___ happy.|are|Avec they, on emploie are.|indice=They
 Q|Que veut dire la phrase entendue ?|Es-tu content ?|Es-tu triste ?|Je suis content.|Are you happy? = Es-tu content ?|dire=Are you happy?
 G|We [are] friends and she [is] my sister. (be)|we → are, she → is.
 A|Relie.|I am=I'm|you are=you're|he is=he's
+## Vocabulaire|📖
+D|happy|content
+D|sad|triste
+D|tired|fatigué
+D|hungry|affamé
 O|Remets la phrase dans l'ordre.|Are|you|ten|?
 P|Répète.|I am happy.
 M|I am → I'm, you are → you're

@@ -1309,6 +1309,8 @@ function lignesDeQuiz_(c) {
     if (q.hint) l.push('indice=' + f(q.hint));
     if (q.notes && q.type !== 'clavier' && q.type !== 'placer') l.push('notes=' + q.notes.map(n => Array.isArray(n) ? n.map(f).join('+') : f(n)).join(' '));
     if (q.portee) l.push(q.portee === 'seule' ? 'portee=seule' : 'portee=oui');
+    if (q.g) l.push('g=' + f(q.g));                 // question tirée d'un fait (ligne D)
+    if (q.r) l.push('r=1');                         // exercice fabriqué par le site (ligne R)
     L.push(l.join('|'));
   });
   const memo = String(c.memo || '').match(/<li>[\s\S]*?<\/li>/g) || [];
@@ -1617,6 +1619,8 @@ function normaliserQuestion_(q, i, avert, d, souple) {   // souple : question ra
   const type = String(q.type || 'qcm').toLowerCase();
   const base = { cat: txt(q.cat || q.categorie, 60) || 'Questions', q: txt(q.q || q.question, 500), exp: txt(q.exp || q.explication, 500) };
   if (!base.q && type !== 'trous') return null;
+  if (/^f\d{1,3}$/.test(String(q.g || ''))) base.g = String(q.g);   // questions tirées d'un même fait (ligne D) : une seule par partie
+  if (q.r === 1) base.r = 1;                                         // exercice fabriqué par le site (ligne R)
   // écoute : phrase lue à voix haute (anglais…) et notes de musique
   const img = emoji_(q.img || q.image) || (DESSIN_.test(String(q.img || '')) ? String(q.img) : '');
   if (img) base.img = img;
@@ -1995,7 +1999,7 @@ function emoji_(v) {
 }
 
 function lireFormatLignes_(texte) {
-  const d = { questions: [], memo: [], icones: {}, schemas: {} };
+  const d = { questions: [], memo: [], icones: {}, schemas: {}, faits: [], gens: [] };
   let cat = '', vu = false;
   // un schéma SVG écrit sur plusieurs lignes par l'IA est remis sur une seule
   String(texte).replace(/<svg[\s\S]*?<\/svg>/gi, m => m.replace(/\s*\r?\n\s*/g, ' ')).split(/\r?\n/).forEach(brute => {
@@ -2009,15 +2013,19 @@ function lireFormatLignes_(texte) {
     }
     const f = l.match(/^F\s*\|\s*([\w-]{1,30})\s*\|\s*(<svg[\s\S]*<\/svg>)/i);   // F|nom|<svg …>…</svg> : schéma pour Z, E ou sch=nom
     if (f) { d.schemas[f[1]] = f[2]; return; }
-    const m = l.match(/^([TQVSMGOACXNPKLZE])\s*[|:]\s*(.*)$/i);
+    const m = l.match(/^([TQVSMGOACXNPKLZEDR])\s*[|:]\s*(.*)$/i);
     if (!m) return;
     const sorte = m[1].toUpperCase();
     const champs = m[2].split('|').map(s => s.trim());
+    // D|terme|définition|explication : un fait, dont le site tire lui-même plusieurs exercices (faitsEnQuestions_)
+    if (sorte === 'D') { if (champs[0] && champs[1]) { d.faits.push({ t: champs[0], d: champs[1], exp: champs[2] || '', cat }); vu = true; } return; }
+    // R|exercice|min-max|nombre : exercices fabriqués par le site avec des nombres tirés au hasard (exercicesGeneres_)
+    if (sorte === 'R') { if (champs[0]) { d.gens.push({ sorte: champs[0], p: champs[1] || '', n: champs[2] || '', cat }); vu = true; } return; }
     const extra = {}, pos = [];
     // champs nommés : toujours avec = (une bonne réponse « dire » ou « notes » reste une réponse) ;
     // seul « portee » peut être écrit seul, et seulement après la question et sa réponse
     champs.forEach(c => {
-      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img|fig|sch)\s*=\s*(.+)$/i);
+      const k = c.match(/^(dire|notes|portee|portée|indice|langue|img|fig|sch|g|r)\s*=\s*(.+)$/i);
       if (k) extra[k[1].toLowerCase().replace('é', 'e')] = k[2].trim();
       else if (/^port[eé]e$/i.test(c) && pos.length >= 3) extra.portee = true;
       else pos.push(c);
@@ -2078,11 +2086,117 @@ function lireFormatLignes_(texte) {
     if (typeof extra.indice === 'string') q.hint = extra.indice;
     if (typeof extra.notes === 'string' && q.type !== 'clavier' && q.type !== 'placer') q.notes = extra.notes.split(/[\s,]+/).filter(Boolean).map(n => n.includes('+') ? n.split('+') : n);
     if (extra.portee) q.portee = extra.portee === 'seule' ? 'seule' : true;
+    if (typeof extra.g === 'string') q.g = extra.g;
+    if (extra.r === '1') q.r = 1;
     vu = true;
     d.questions.push(q);
   });  d.questions.forEach(q => { if (q.sch && d.schemas[q.sch]) q.svg = d.schemas[q.sch]; delete q.sch; });
+  faitsEnQuestions_(d).concat(exercicesGeneres_(d.gens)).forEach(q => d.questions.push(q));
+  delete d.faits; delete d.gens;
 
   return vu && d.questions.length ? d : null;
+}
+
+/* ---------------- exercices fabriqués par le site (aucun token d'IA) ----------------
+   D|terme|définition : l'IA n'écrit que le fait ; le site en tire un QCM dans chaque sens et un vrai/faux
+   (mauvais choix pris parmi les autres faits, de la même catégorie d'abord), plus un « Relie » par catégorie.
+   Les questions d'un même fait portent le même groupe `g` : le moteur n'en tire qu'une par partie. */
+function faitsEnQuestions_(d) {
+  const faits = (d.faits || []).map(f => ({ t: String(f.t).slice(0, 80), d: String(f.d).slice(0, 120), exp: String(f.exp || '').slice(0, 300), cat: f.cat }))
+    .filter((f, i, l) => f.t && f.d && l.findIndex(x => x.t.toLowerCase() === f.t.toLowerCase()) === i).slice(0, 40);
+  if (!faits.length) return [];
+  const langue = !!d.langue || /^(anglais|langues?|espagnol|allemand|italien)/i.test(String(d.matiere || ''));
+  const cap = s => s.charAt(0).toUpperCase() + s.slice(1), sansPoint = s => s.replace(/[.!\s]+$/, '');
+  const melange = l => { const c = l.slice(); for (let i = c.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [c[i], c[j]] = [c[j], c[i]]; } return c; };
+  // 2 mauvais choix : d'autres faits de la même catégorie d'abord, puis du reste du quiz
+  const autres = (f, champ) => {
+    const pris = new Set([f[champ].toLowerCase()]), res = [];
+    melange(faits.filter(x => x !== f && x.cat === f.cat)).concat(melange(faits.filter(x => x.cat !== f.cat)))
+      .forEach(x => { const v = x[champ]; if (res.length < 2 && !pris.has(v.toLowerCase())) { pris.add(v.toLowerCase()); res.push(v); } });
+    return res;
+  };
+  const qs = [];
+  faits.forEach((f, i) => {
+    const exp = f.exp || cap(f.t) + (langue ? ' veut dire « ' + sansPoint(f.d) + ' ».' : ' : ' + sansPoint(f.d) + '.'), g = 'f' + (i + 1);
+    const fauxD = autres(f, 'd'), fauxT = autres(f, 't');
+    if (fauxD.length) qs.push({ type: 'qcm', cat: f.cat, g, q: langue ? 'Que veut dire « ' + f.t + ' » ?' : 'Que désigne « ' + f.t + ' » ?', opts: [f.d].concat(fauxD), a: f.d, exp });
+    if (fauxT.length) qs.push({ type: 'qcm', cat: f.cat, g, q: langue ? 'Comment dit-on « ' + sansPoint(f.d) + ' » ?' : 'De quoi s\'agit-il : ' + sansPoint(f.d) + ' ?', opts: [f.t].concat(fauxT), a: f.t, exp });
+    // vrai/faux : un sur deux avec la bonne définition, l'autre avec celle d'un autre fait
+    const vrai = i % 2 === 0 || !fauxD.length, def = vrai ? f.d : fauxD[0];
+    qs.push({ type: 'vf', cat: f.cat, g, q: langue ? '« ' + f.t + ' » veut dire « ' + sansPoint(def) + ' ».' : cap(f.t) + ', c\'est ' + sansPoint(def) + '.', a: vrai, exp });
+  });
+  // un « Relie » par catégorie (2 à 4 faits aux définitions courtes)
+  const cats = [];
+  faits.forEach(f => { if (cats.indexOf(f.cat) < 0) cats.push(f.cat); });
+  cats.forEach(c => {
+    const l = faits.filter(f => f.cat === c && f.d.length <= 60 && f.t.length <= 60);
+    for (let i = 0; i + 1 < l.length; i += 4) {
+      const lot = l.slice(i, i + 4); if (lot.length < 2) break;
+      qs.push({ type: 'paires', cat: c, q: langue ? 'Relie chaque mot à sa traduction.' : 'Relie chaque nom à ce qu\'il désigne.', paires: lot.map(f => [f.t, sansPoint(f.d)]), exp: '' });
+    }
+  });
+  return qs;
+}
+
+/* R|exercice|min-max|nombre : questions tirées au hasard à la création (le moteur en pioche ensuite à chaque partie).
+   addition, soustraction, multiplication, division (min-max = nombres utilisés ; tables : 2-9), heure (pas en minutes : 5, 15, 30),
+   chiffre (min-max = taille du nombre), ranger (nombres à ranger), note (C4-C5 : notes à lire sur la portée). */
+const EXERCICES_R_ = ['addition', 'soustraction', 'multiplication', 'division', 'heure', 'chiffre', 'ranger', 'note'];
+function exercicesGeneres_(gens) {
+  const qs = [];
+  const hasard = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
+  const fr = n => String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');            // 4293876 → 4 293 876
+  (gens || []).slice(0, 12).forEach(r => {
+    const sorte = String(r.sorte).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/s$/, '').trim();
+    const type = EXERCICES_R_.find(x => x === sorte || x.replace(/s$/, '') === sorte);
+    if (!type) return;
+    const bornes = String(r.p).replace(/\s/g, '').match(/^(\d{1,7})-(\d{1,7})$/);
+    let min = bornes ? +bornes[1] : 0, max = bornes ? +bornes[2] : 0;
+    if (min > max) [min, max] = [max, min];
+    const n = Math.max(1, Math.min(12, parseInt(r.n, 10) || 6)), vues = new Set();
+    const ajouter = q => { const k = JSON.stringify([q.q, q.items, q.img, q.notes, q.a]); if (vues.has(k)) return false; vues.add(k); qs.push(Object.assign({ cat: r.cat || '', r: 1 }, q)); return true; };
+    for (let essai = 0, faits = 0; faits < n && essai < n * 20; essai++) {
+      let q = null;
+      if (type === 'addition' || type === 'soustraction' || type === 'multiplication' || type === 'division') {
+        const lo = bornes ? min : (type === 'multiplication' || type === 'division' ? 2 : 10), hi = bornes ? Math.min(max, 999999) : (type === 'multiplication' || type === 'division' ? 9 : 99);
+        let a = hasard(lo, hi), b = hasard(lo, hi);
+        if (type === 'addition') q = { q: 'Calcule : ' + fr(a) + ' + ' + fr(b), a: a + b };
+        else if (type === 'soustraction') { if (a < b) [a, b] = [b, a]; q = { q: 'Calcule : ' + fr(a) + ' − ' + fr(b), a: a - b }; }
+        else if (type === 'multiplication') q = { q: 'Calcule : ' + fr(a) + ' × ' + fr(b), a: a * b };
+        else { if (!a) a = 1; q = { q: 'Calcule : ' + fr(a * b) + ' ÷ ' + fr(a), a: b }; }
+        q = Object.assign(q, { type: 'nombre', tol: 0, exp: q.q.replace('Calcule : ', '') + ' = ' + fr(q.a) + '.' });
+      } else if (type === 'heure') {
+        const pas = [5, 15, 30, 60].indexOf(min || max) >= 0 ? (min || max) : 15;
+        const h = hasard(1, 12), mn = pas === 60 ? 0 : hasard(0, 60 / pas - 1) * pas, ecrit = (x, y) => x + ' h ' + String(y).padStart(2, '0');
+        const bonne = ecrit(h, mn), faux = new Set();
+        [ecrit(mn ? Math.min(12, Math.max(1, Math.round(mn / 5))) : (h % 12) + 1, h * 5 % 60), ecrit(h, (mn + 30) % 60), ecrit((h % 12) + 1, mn), ecrit(h === 1 ? 12 : h - 1, mn)]
+          .forEach(x => { if (x !== bonne && faux.size < 2) faux.add(x); });
+        q = { type: 'qcm', q: 'Quelle heure indique l\'horloge ?', img: 'heure:' + h + 'h' + String(mn).padStart(2, '0'), opts: [bonne].concat(Array.from(faux)), a: bonne, exp: 'La petite aiguille montre les heures, la grande les minutes : ' + bonne + '.' };
+      } else if (type === 'chiffre') {
+        const RANGS = ['unités', 'dizaines', 'centaines', 'unités de mille', 'dizaines de mille', 'centaines de mille', 'unités de millions'];
+        const lo = Math.max(10, bornes ? min : 100), hi = Math.max(lo, bornes ? Math.min(max, 9999999) : 9999), x = hasard(lo, hi), s = String(x);
+        const r0 = hasard(0, s.length - 1);
+        q = { type: 'nombre', tol: 0, q: 'Dans ' + fr(x) + ', quel est le chiffre des ' + RANGS[r0] + ' ?', a: +s[s.length - 1 - r0], exp: 'Dans ' + fr(x) + ', le chiffre des ' + RANGS[r0] + ' est ' + s[s.length - 1 - r0] + '.' };
+      } else if (type === 'ranger') {
+        const lo = bornes ? min : 0, hi = bornes ? Math.min(max, 9999999) : 1000, l = new Set();
+        if (hi - lo < 4) return;
+        while (l.size < 4) l.add(hasard(lo, hi));
+        const items = Array.from(l).sort((a, b) => a - b).map(fr);
+        q = { type: 'ordre', q: 'Range du plus petit au plus grand.', items, exp: items.join(' < ') };
+      } else if (type === 'note') {
+        const NOMS = { C: 'do', D: 'ré', E: 'mi', F: 'fa', G: 'sol', A: 'la', B: 'si' }, ORDRE = 'CDEFGAB';
+        const rang = s => { const m = String(s || '').match(/^([A-G])(\d)$/i); return m ? +m[2] * 7 + ORDRE.indexOf(m[1].toUpperCase()) : null; };
+        const p = String(r.p).replace(/\s/g, '').split('-');
+        let a = rang(p[0]), b = rang(p[1]); if (a == null) a = rang('C4'); if (b == null) b = rang('C5'); if (a > b) [a, b] = [b, a];
+        a = Math.max(a, rang('A3')); b = Math.min(b, rang('C6'));
+        const k = hasard(a, b), note = ORDRE[k % 7] + Math.floor(k / 7), nom = NOMS[ORDRE[k % 7]];
+        const faux = Object.values(NOMS).filter(x => x !== nom).sort(() => Math.random() - 0.5).slice(0, 2);
+        q = { type: 'qcm', q: 'Quelle est cette note ?', notes: [note], portee: 'seule', opts: [nom].concat(faux), a: nom, exp: 'C\'est un ' + nom + '.' };
+      }
+      if (q && ajouter(q)) faits++;
+    }
+  });
+  return qs;
 }
 
 function fabriquerQuizHtml_(c) {

@@ -961,8 +961,8 @@ const Bib = (function () {
     const ex = carte.querySelector(".bib-apercu");
     if (ex) { ex.remove(); return; }
     texte(q.id).then(t => {
-      const qs = t.split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^([QVSGOACXNPKLZE])\|([^|]*)(?:\|([^|]*))?/)).filter(Boolean)
-        .map(m => m[1] === "G" ? m[2].replace(/\[([^\]]*)\]/g, "…") : m[1] === "P" ? m[2] + " « " + (m[3] || "") + " »" : m[2]);
+      const qs = t.split(/\r?\n/).map(l => l.trim()).map(l => l.match(/^([QVSGOACXNPKLZEDR])\|([^|]*)(?:\|([^|]*))?/)).filter(Boolean)
+        .map(m => m[1] === "G" ? m[2].replace(/\[([^\]]*)\]/g, "…") : m[1] === "P" ? m[2] + " « " + (m[3] || "") + " »" : m[1] === "D" ? m[2] + " : " + (m[3] || "") : m[1] === "R" ? "Exercices fabriqués : " + m[2] : m[2]);
       const ul = document.createElement("ol"); ul.className = "bib-apercu";
       ul.innerHTML = qs.slice(0, 30).map(x => `<li>${esc(x)}</li>`).join("");
       carte.appendChild(ul);

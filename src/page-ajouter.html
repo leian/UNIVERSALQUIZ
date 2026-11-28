@@ -464,18 +464,70 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     }
     throw new Error(derniere || 'Gemini ne répond pas. Réessaie dans un instant.');
   }
-  const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPKLZE]\s*\|/gim) || []).length;
-  // 1. création ; 2. relecture par Flash-Lite (autre quota gratuit), qui corrige les questions hors sujet ou ambiguës.
-  // Si la relecture échoue (ou dépasse le délai) ou perd des questions, on garde le premier quiz.
+  const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPKLZEDR]\s*\|/gim) || []).length;
+
+  /* lignes douteuses, repérées sans IA : seules celles-ci partent en relecture (sans les photos ni les consignes).
+     Un faux signalement coûte peu (Gemini recopie la ligne) ; aucun signalement = aucune relecture. */
+  function suspects(quiz) {
+    const sans = s => String(s || '').toLowerCase().replace(/œ/g, 'oe').replace(/æ/g, 'ae').normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const VIDES = new Set('avec dans pour quel quelle quels quelles comment combien laquelle lequel elles cette celui celle entre faire autre autres chaque sont etait aussi apres avant'.split(' '));
+    const mots = s => sans(s).split(/[^a-z0-9]+/).filter(m => m.length >= 5 && !VIDES.has(m));
+    // même mot au pluriel ou au féminin près (niçoise / niçoises)
+    const pareil = (a, b) => { let i = 0; while (i < a.length && a[i] === b[i]) i++; return i >= 5 && i >= Math.min(a.length, b.length) - 2; };
+    const commun = (a, b) => { const B = mots(b); return mots(a).some(m => B.some(x => pareil(m, x))); };
+    const dist = (a, b) => { const d = Array.from({ length: b.length + 1 }, (_, i) => i); for (let i = 1; i <= a.length; i++) { let p = d[0]; d[0] = i; for (let j = 1; j <= b.length; j++) { const t = d[j]; d[j] = Math.min(d[j] + 1, d[j - 1] + 1, p + (a[i - 1] === b[j - 1] ? 0 : 1)); p = t; } } return d[b.length]; };
+    const ressemble = (a, b) => { const B = sans(b).split(/[^a-z]+/).filter(m => m.length >= 4); return sans(a).split(/[^a-z]+/).filter(m => m.length >= 4).some(m => B.some(x => dist(m, x) <= Math.max(1, Math.floor(Math.max(m.length, x.length) * 0.34)))); };
+    const lignes = String(quiz).split(/\r?\n/);
+    const titre = ((lignes.find(l => /^\s*T\s*\|/i.test(l)) || '').split('|')[1]) || '';
+    const vues = {}, res = [];
+    lignes.forEach((brute, i) => {
+      const m = brute.trim().match(/^([QVSGA])\s*\|(.*)$/i); if (!m) return;
+      const t = m[1].toUpperCase(), ch = m[2].split('|').map(s => s.trim()).filter(c => !/^(dire|notes|portee|portée|indice|langue|img|fig|sch|g|r)\s*=/i.test(c));
+      const q = t === 'G' ? (ch[0] || '').replace(/\[[^\]]*\]/g, '___') : ch[0] || '';
+      const rep = t === 'Q' ? ch[1] : t === 'S' ? String(ch[1] || '').split(';')[0] : t === 'G' ? ((ch[0] || '').match(/\[[^\]]*\]/g) || []).map(x => x.slice(1, -1).split(';')[0]).join(' ') : '';
+      const motifs = [];
+      if (/mentionn|figure parmi|d'apr[eè]s (le|la|les) (texte|document|le[cç]on)|dans (le|la|l') ?(bilan|le[cç]on|document|texte|exp[ée]rience)|l'exemple donn|sur le document|comme dans la le[cç]on/i.test(q)) motifs.push('renvoie au document');
+      if (t === 'V' && /^(il existe|il y a (une?|des) )/i.test(q)) motifs.push('demande seulement si une chose existe');
+      if (rep) {
+        // mots donnés entre parenthèses ou guillemets (infinitif, singulier…) : la base à transformer, pas la réponse
+        if (commun(rep, q.replace(/\([^)]*\)|«[^»]*»|"[^"]*"/g, ' '))) motifs.push('la réponse se lit dans la question');
+        else if (commun(rep, titre)) motifs.push('la réponse se lit dans le titre');
+        if (/signifi|veut dire|tradui|se dit|dit-on|correspond|en fran[cç]ais/i.test(q) && ressemble(rep, q)) motifs.push('traduction qui se devine à la ressemblance des mots');
+        const k = sans(rep).replace(/^(le|la|les|un|une|des|l')\s*/, '').trim();
+        if (k.length >= 3) { if (vues[k]) motifs.push('même réponse qu\'une autre question'); else vues[k] = 1; }
+      }
+      if (t === 'Q') {
+        const reste = ch.slice(1); if (reste.length >= 4) reste.pop();     // dernier champ = explication
+        const bonne = reste[0] || '', autres = reste.slice(1);
+        if (autres.length && bonne.length >= 20 && bonne.length > 1.8 * Math.max(...autres.map(x => x.length))) motifs.push('la bonne réponse est bien plus longue que les autres');
+      }
+      if (t === 'A' && ch.slice(1).some(p => { const x = p.split('='); return x.length === 2 && ressemble(x[0], x[1]); })) motifs.push('paires qui se devinent à la ressemblance des mots');
+      if (motifs.length) res.push({ i, ligne: brute.trim(), motifs });
+    });
+    return res;
+  }
+  window.__suspects = suspects;              // pour les tests
+
+  // 1. création ; 2. relecture ciblée par Flash-Lite (autre quota gratuit) des seules lignes douteuses,
+  // sans photos ni consignes. Si elle échoue ou répond mal, on garde le premier quiz.
   async function demanderGemini(lot, texte, etape) {
     const quiz = await appelGemini(lot, MODELES, CONSIGNES, texte);
-    const n = nbQuestions(quiz);
-    if (n < 3) return quiz;
-    etape && etape();
+    if (nbQuestions(quiz) < 3) return quiz;
+    const s = suspects(quiz).slice(0, 15);
+    if (!s.length) return quiz;
+    etape && etape(s.length);
     try {
-      const relu = await appelGemini(lot, MODELES.slice().reverse(), RELECTURE + '\n\n--- Consignes du quiz ---\n' + CONSIGNES,
-        texte + '\n\nQuiz à relire :\n' + quiz);
-      if (/^\s*T\s*\|/m.test(relu) && nbQuestions(relu) >= Math.ceil(n * 0.8)) return relu;
+      const relu = await appelGemini([], MODELES.slice().reverse(), RELECTURE,
+        'Quiz complet :\n' + quiz + '\n\nLignes à revoir :\n' + s.map(x => '[' + x.i + '] ' + x.ligne + '\n    défaut repéré : ' + x.motifs.join(' ; ')).join('\n'));
+      const lignes = quiz.split(/\r?\n/), permises = new Set(s.map(x => x.i));
+      String(relu).split(/\r?\n/).forEach(l => {
+        const m = l.trim().match(/^\[(\d+)\]\s*(.+)$/);
+        if (!m || !permises.has(+m[1])) return;
+        const nouvelle = m[2].trim(), avant = lignes[+m[1]].trim();
+        // même sorte de ligne qu'avant (une question reste une question), au bon format
+        if (/^[QVSGOACXN]\s*\|/i.test(nouvelle) && /^[QVSGOACXN]\s*\|/i.test(avant)) lignes[+m[1]] = nouvelle;
+      });
+      return lignes.join('\n');
     } catch (e) {}
     return quiz;
   }
@@ -485,7 +537,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     creation = true; b.disabled = true; choixPhotos(false);
     res.innerHTML = '<p class="petit" role="status">⏳ Gemini lit les photos et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
     try {
-      const texte = await demanderGemini(lot, demande() + '.', () => { res.innerHTML = '<p class="petit" role="status">🔎 Gemini relit chaque question pour vérifier qu\'elle porte bien sur la leçon… (encore quelques secondes)</p>'; });
+      const texte = await demanderGemini(lot, demande() + '.', n => { res.innerHTML = '<p class="petit" role="status">🔎 Gemini revoit ' + n + (n > 1 ? ' questions douteuses' : ' question douteuse') + '… (encore quelques secondes)</p>'; });
       const r = await creer(texte, res, null);
       if (r && r.erreur) res.innerHTML += '<p class="petit">Réponse de Gemini : « ' + h(texte.slice(0, 300)) + (texte.length > 300 ? '…' : '') + ' »</p>';
       else if (r) {                            // quiz créé : on vide les photos, pour ne pas créer deux fois le même quiz

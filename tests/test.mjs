@@ -519,6 +519,26 @@ try {
   await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
   ok(/3 questions/.test(await page.locator('#resultat').innerText()), 'bouton « Coller et créer » : quiz créé en un geste');
 
+  // lignes D (faits) et R (exercices fabriqués) : le site écrit lui-même les questions
+  await page.goto(BASE + '/exec?page=ajouter');
+  await page.evaluate(() => { document.getElementById('secours').open = true; });
+  await page.fill('#reponse', ['T|Cuisine niçoise|Découvre|autre|🫓|🫒', '## Plats|🥘', 'D|la trouchia|une omelette aux blettes', 'D|la pissaladière|une tarte aux oignons', 'D|le pan bagnat|un pain rond garni', 'D|la socca|une galette de pois chiches',
+    '## Calcul|➕', 'R|multiplication|6-9|5', 'R|heure|15|3', 'R|note|C4-C5|2', 'R|inconnu|1-2|3'].join('\n'));
+  await page.locator('#creer').click();
+  await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
+  const nbDR = (await page.locator('#resultat').innerText()).match(/(\d+) questions/);
+  const htmlDR = await (await fetch(BASE + '/exec?page=' + (await page.locator('#resultat a.btn').getAttribute('href')).match(/page=([^&#]+)/)[1])).text();
+  const iDR = htmlDR.lastIndexOf('MoteurQuiz.lancer('), cfgDR = JSON.parse(htmlDR.slice(iDR + 18, htmlDR.indexOf(');\n', iDR)));
+  const qDR = cfgDR.questions, fait1 = qDR.filter(q => q.g === 'f1');
+  ok(nbDR && +nbDR[1] === 4 * 3 + 1 + 5 + 3 + 2 && fait1.length === 3 && fait1.some(q => q.q === 'Que désigne « la trouchia » ?' && q.opts.length === 3 && q.a === 'une omelette aux blettes')
+     && fait1.some(q => /De quoi s'agit-il : une omelette aux blettes/.test(q.q) && q.a === 'la trouchia') && fait1.some(q => q.type === 'vf')
+     && qDR.some(q => q.type === 'paires' && q.paires.length === 4) && qDR.filter(q => q.r === 1 && q.type === 'nombre' && /^Calcule : [6-9] × [6-9]$/.test(q.q)).length === 5
+     && qDR.filter(q => q.r === 1 && /^heure:\d{1,2}h(00|15|30|45)$/.test(q.img || '') && q.opts.includes(q.a)).length === 3
+     && qDR.filter(q => q.r === 1 && q.portee === 'seule' && q.notes.length === 1).length === 2,
+    'lignes D : QCM dans les deux sens, vrai/faux et « Relie » fabriqués par le site (même groupe par fait) ; lignes R : tables, heures et notes tirées au hasard, exercice inconnu ignoré');
+  const suspDR = await page.evaluate(() => window.__suspects('T|Les spécialités niçoises|x|autre|🍽️|👨‍🍳\nS|Quel légume donne son nom au gratin de courge ?|Courge|x\nS|Traduis Lou mesclun en français.|Mesclun|x\nV|La trucha figure parmi les spécialités.|V|x\nG|Le vent [soufflera] les feuilles. (souffler, futur)|x\nQ|Quel est le pluriel de « cheval » ?|chevaux|chevals|chevaus|x').map(x => x.i));
+  ok(JSON.stringify(suspDR) === '[1,2,3]', 'relecture ciblée : réponse dans la question, traduction devinable et renvoi au document repérés ; infinitif ou mot donné entre guillemets non signalés — ' + JSON.stringify(suspDR));
+
   // Gemini : clé vérifiée et gardée par le site, photos envoyées depuis le navigateur, repli sur le second modèle
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');
   const appels = [];
@@ -528,7 +548,9 @@ try {
     if (cleUtilisee !== 'AQ.Ab8TEST-cle_de_test_0123456789abcdef') return r.fulfill({ status: 400, contentType: 'application/json', body: JSON.stringify({ error: { status: 'INVALID_ARGUMENT', message: 'API key not valid. API_KEY_INVALID' } }) });
     if (/\/models\?/.test(u)) return r.fulfill({ status: 200, contentType: 'application/json', body: '{"models":[]}' });
     if (/gemini-flash-latest:/.test(u)) return r.fulfill({ status: 503, contentType: 'application/json', body: '{"error":{"status":"UNAVAILABLE","message":"overloaded"}}' });
-    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '```\nT|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐\n## Conjugaison\nS|They ___ happy.|are|Avec they : are.\nQ|He is = ?|He\'s|His|He is → He\'s.\nV|I am = I\'m|V|Oui.\n```' }] } }] }) });
+    // relecture ciblée : seules les lignes douteuses reviennent, avec leur numéro
+    if (/Lignes à revoir/.test(r.request().postData() || '')) return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '```\n[5] Q|Comment dit-on « je suis » en anglais ?|I am|I is|I are|Avec I : am.\n[2] T|piège\n```' }] } }] }) });
+    return r.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify({ candidates: [{ content: { parts: [{ text: '```\nT|Le verbe BE|Conjugue to be|anglais|🇬🇧|⭐\n## Conjugaison\nS|They ___ happy.|are|Avec they : are.\nQ|He is = ?|He\'s|His|He is → He\'s.\nQ|Quel verbe est mentionné dans la leçon ?|be|have|do|Le verbe be.\nV|I am = I\'m|V|Oui.\n```' }] } }] }) });
   });
   await page.goto(BASE + '/exec?page=ajouter');
   ok(await page.locator('#g-sans-cle').isVisible() && !(await page.locator('#g-avec-cle').isVisible()), 'Gemini : sans clé, la procédure de création de clé est affichée');
@@ -549,11 +571,13 @@ try {
   await page.locator('#g-creer').click();
   await page.locator('#g-resultat .ok').waitFor({ timeout: 8000 });
   const gen = appels.filter(a => /generateContent/.test(a.u));
-  ok(/3 questions/.test(await page.locator('#g-resultat').innerText()) && gen.length === 3 && /flash-lite/.test(gen[1].u)
+  ok(/4 questions/.test(await page.locator('#g-resultat').innerText()) && gen.length === 3 && /flash-lite/.test(gen[1].u)
      && (gen[1].corps.match(/"inline_data"/g) || []).length === 2 && /"system_instruction".*Q\|question\|BONNE réponse/.test(gen[1].corps),
     'Gemini : 2 photos + consignes (instruction système) envoyées, repli sur le 2e modèle, quiz créé sans copier-coller');
-  ok(/flash-lite/.test(gen[2].u) && gen[2].corps.includes('relit un quiz') && gen[2].corps.includes('Quiz à relire') && (gen[2].corps.match(/"inline_data"/g) || []).length === 2,
-    'Gemini : 2e passage de relecture (Flash-Lite, avec les photos) avant la création du quiz');
+  const htmlBE = await (await fetch(BASE + '/exec?page=' + (await page.locator('#g-resultat a.btn').getAttribute('href')).match(/page=([^&#]+)/)[1])).text();
+  ok(/flash-lite/.test(gen[2].u) && gen[2].corps.includes('Lignes à revoir') && /\[5\] Q\|Quel verbe est mentionn/.test(gen[2].corps) && !/\[3\] S/.test(gen[2].corps)
+     && !/"inline_data"/.test(gen[2].corps) && !gen[2].corps.includes('BONNE réponse') && htmlBE.includes('Comment dit-on') && !htmlBE.includes('mentionn') && !htmlBE.includes('piège'),
+    'Gemini : relecture ciblée (Flash-Lite, sans photos ni consignes) des seules lignes douteuses, remplacées à leur place');
   await page.unroute(/generativelanguage\.googleapis\.com/);
 
   // quiz d'anglais et de musique : phrases à écouter, notes jouées, portée, badge

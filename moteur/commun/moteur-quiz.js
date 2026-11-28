@@ -287,6 +287,7 @@
     // formule d'origine (les clés des quiz existants ne changent pas) ; contenu ajouté seulement pour les questions
     // dont le libellé seul ne suffit pas (« Relie. », « Répète. », « Que veut dire la phrase entendue ? »)
     let t = [C.titre, src.type || '', src.q || '', src.texte || '', Array.isArray(src.items) ? src.items.join('|') : ''].join('§');
+    if (src.r) t += '§' + [j(src.img), j(src.notes), j(src.a)].join('§');      // exercice fabriqué par le site (ligne R) : même libellé, contenu différent
     if (['paires', 'classer', 'parler', 'clavier', 'placer'].includes(typeDe(src)) || src.dire) t += '§' + [j(src.phrase), j(src.paires), j(src.groupes), j(src.notes), j(src.dire)].join('§');
     let h = 5381; for (let i = 0; i < t.length; i++) h = ((h << 5) + h + t.charCodeAt(i)) | 0;
     return 'q' + (h >>> 0).toString(36);
@@ -305,8 +306,13 @@
     if (no) w *= no[0] === 3 ? 0.6 : no[0] === 1 ? 1.4 : 1;
     return w;
   }
-  const tirer = (pool, n) => pool.map(q => ({ q, c: Math.pow(Math.random(), 1 / poidsQuestion(q)) }))
-    .sort((a, b) => b.c - a.c).slice(0, n).map(x => x.q);
+  // questions d'un même fait (champ g, lignes D) : une seule par partie, tant qu'il en reste assez d'autres
+  const tirer = (pool, n) => {
+    const tri = pool.map(q => ({ q, c: Math.pow(Math.random(), 1 / poidsQuestion(q)) })).sort((a, b) => b.c - a.c).map(x => x.q);
+    const vus = new Set(), pris = [], apres = [];
+    tri.forEach(q => { if (q.g && vus.has(q.g)) apres.push(q); else { if (q.g) vus.add(q.g); pris.push(q); } });
+    return pris.concat(apres).slice(0, n);
+  };
   // passage à l'écrit : un QCM réussi 2 fois de suite revient sans les choix, si la réponse s'écrit facilement
   // et si la question se comprend sans les propositions
   const SANS_CHOIX_IMPOSSIBLE = /parmi|laquelle|lequel|lesquel|quelle (phrase|proposition|réponse|écriture)|ci-dessous|suivant|intrus|correcte?\b|juste|bien écrit|choisis|entoure|vrai|faux/i;
