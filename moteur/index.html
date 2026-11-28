@@ -373,7 +373,7 @@ function socca() {
 /* ---------- lycée et adultes : cabinet de curiosités. Chaque notion maîtrisée ajoute un objet du savoir (24) ---------- */
 const CURIOSITES = ["sablier", "astrolabe", "globe terrestre", "plume et encrier", "microscope", "boussole", "lyre", "longue-vue",
   "livre ancien", "fossile d'ammonite", "balance de Roberval", "loupe", "carte au trésor", "papillon épinglé", "prisme", "métronome",
-  "squelette de dinosaure", "fiole de chimiste", "rouleau de parchemin", "planétaire", "cristal de quartz", "compas de marine", "masque de théâtre", "clé ancienne"];
+  "squelette de dinosaure", "fiole de chimiste", "rouleau de parchemin", "planétaire", "cristal de quartz", "sextant", "masque de théâtre", "clé ancienne"];
 function curiosites() {
   const el = document.getElementById("curiosites"), th = document.documentElement.dataset.theme;
   if (!el || !["lycee", "parent"].includes(th) || !((window.__UQ || {}).recompenses || {}).curiosites) return;

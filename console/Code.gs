@@ -953,7 +953,7 @@ function client_() {
     ['lunettes de soleil', 210, 164, 175, 73], ['nœud papillon', 211, 243, 111, 58], ['cape', 201, 305, 343, 130], ['bonnet', 205, 62, 149, 139],
     ['bandeau étoile', 207, 108, 128, 58], ['chapeau de pirate', 207, 68, 223, 151], ['chapeau de fête', 207, 60, 122, 146], ['étoile', 268, 224, 70, 66]];
   var R_CURIOSITES = ['sablier', 'astrolabe', 'globe terrestre', 'plume et encrier', 'microscope', 'boussole', 'lyre', 'longue-vue', 'livre ancien', 'fossile d\'ammonite', 'balance de Roberval', 'loupe',
-    'carte au trésor', 'papillon épinglé', 'prisme', 'métronome', 'squelette de dinosaure', 'fiole de chimiste', 'rouleau de parchemin', 'planétaire', 'cristal de quartz', 'compas de marine', 'masque de théâtre', 'clé ancienne'];
+    'carte au trésor', 'papillon épinglé', 'prisme', 'métronome', 'squelette de dinosaure', 'fiole de chimiste', 'rouleau de parchemin', 'planétaire', 'cristal de quartz', 'sextant', 'masque de théâtre', 'clé ancienne'];
   var R_MATIERES = ['français', 'maths', 'sciences', 'anglais', 'histoire', 'géographie'];
   var R_CHOIX = { type: 'poupee', allure: 'f', theme: 'animaux de la forêt', nom: '', desc: '', acc: R_ACC.map(function (a) { return a[0]; }).join('\n'), pos: {} };
   function rCopier(t, ok) { var a = document.createElement('textarea'); a.value = t; a.style.position = 'fixed'; a.style.opacity = '0'; document.body.appendChild(a); a.select(); var r = false; try { r = document.execCommand('copy'); } catch (e) {} a.remove(); if (!r && navigator.clipboard) navigator.clipboard.writeText(t).then(ok); else if (r) ok(); }
