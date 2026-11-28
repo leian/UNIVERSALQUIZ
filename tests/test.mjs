@@ -466,8 +466,8 @@ try {
     await p2.evaluate(() => window.dispatchEvent(new Event('focus')));
     const barreP = await p2.locator('#barre-retour:not([hidden])').count() === 1;
     await c2.close();
-    ok(avant && pt.p.n === 2 && pt.p.types.every(t => t === 'image/jpeg') && pt.p.tailles.every(t => t > 0) && pt.p.text === pt.court && /Photos envoyées/.test(pt.info) && barreP,
-      'autres IA : photos choisies sur la page, puis envoyées avec la demande par le menu Partager (JPEG réduits) ; liens vers les sites des IA repliés dessous ; « Coller et créer » au retour');
+    ok(avant && pt.p.n === 3 && pt.p.types.every(t => t === 'image/jpeg') && pt.p.tailles.every(t => t > 0) && pt.p.text === pt.court && /Photos envoyées/.test(pt.info) && barreP,
+      'autres IA : photos choisies sur la page, puis envoyées avec la demande par le menu Partager (JPEG réduits, demande aussi écrite sur une 1re image) ; liens vers les sites des IA repliés dessous ; « Coller et créer » au retour');
   }
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
     titre: 'Les fractions', sousTitre: 'CM1', matiere: 'Mathématiques', icone: '🍕',
@@ -563,6 +563,9 @@ try {
     'lignes D : QCM dans les deux sens, vrai/faux et « Relie » fabriqués par le site (même groupe par fait) ; lignes R : tables, heures et notes tirées au hasard, exercice inconnu ignoré');
   const suspDR = await page.evaluate(() => window.__suspects('T|Les spécialités niçoises|x|autre|🍽️|👨‍🍳\nS|Quel légume donne son nom au gratin de courge ?|Courge|x\nS|Traduis Lou mesclun en français.|Mesclun|x\nV|La trucha figure parmi les spécialités.|V|x\nG|Le vent [soufflera] les feuilles. (souffler, futur)|x\nQ|Quel est le pluriel de « cheval » ?|chevaux|chevals|chevaus|x').map(x => x.i));
   ok(JSON.stringify(suspDR) === '[1,2,3]', 'relecture ciblée : réponse dans la question, traduction devinable et renvoi au document repérés ; infinitif ou mot donné entre guillemets non signalés — ' + JSON.stringify(suspDR));
+
+  const suspDbl = await page.evaluate(() => window.__suspects('T|Test|x|autre|📘|⭐\nQ|Quelle est la capitale de la France ?|Paris|Lyon|paris|x\nQ|Combien de pattes a une araignée ?|huit|six|dix|x\nQ|Combien de pattes a une araignée ?|huit pattes|six pattes|dix pattes|x').map(x => x.i + ':' + x.motifs.join(',')));
+  ok(suspDbl.length === 2 && /^1:.*deux propositions identiques/.test(suspDbl[0]) && /^3:.*même question/.test(suspDbl[1]), 'contrôle sans IA : propositions identiques et question en double repérées — ' + JSON.stringify(suspDbl));
 
   // Gemini : clé vérifiée et gardée par le site, photos envoyées depuis le navigateur, repli sur le second modèle
   const PNG = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFklEQVR4nGP4z8DAwMDAxMDAwMDAAAANHQEDasKb6QAAAABJRU5ErkJggg==', 'base64');

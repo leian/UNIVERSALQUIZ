@@ -296,6 +296,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
         const url = (U.url || '') + '?page=' + encodeURIComponent(r.page);
         res.innerHTML = '<div class="ok"><p>🎉 Le quiz <b>' + h(r.titre) + '</b> est prêt' + (r.nb ? ' (' + r.nb + ' questions)' : '') + '.</p>' +
           (r.avertissements && r.avertissements.length ? '<p class="petit">' + r.avertissements.map(h).join('<br>') + '</p>' : '') +
+          aVerifier(texte) +
           (r.aussi && r.aussi.length ? '<p>Ajouté aussi pour ' + r.aussi.map(h).join(', ') + '.</p>' : '') +
           '<p><a class="btn brille" href="' + h(url) + '" target="_top">▶ Jouer au quiz</a></p>' +
           '<p class="petit">Joue deux ou trois questions pour vérifier : l\'IA peut se tromper si une photo est floue.</p></div>';
@@ -305,6 +306,14 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
       })
       .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; fini(null); })
       .apiAjouterQuiz(texte, aussiCoches()));
+  }
+  // questions encore douteuses après la création (repérées sans IA) : le parent sait lesquelles essayer ou corriger
+  function aVerifier(texte) {
+    const s = suspects(texte); if (!s.length) return '';
+    const q = l => (l.split('|')[1] || l).replace(/\[[^\]]*\]/g, '___').trim();
+    return '<details class="petit a-verifier"><summary>⚠️ ' + s.length + (s.length > 1 ? ' questions à vérifier' : ' question à vérifier') + '</summary><ul>' +
+      s.slice(0, 15).map(x => '<li>« ' + h(q(x.ligne)) + ' » : ' + h(x.motifs.join(' ; ')) + '</li>').join('') +
+      '</ul><p>Joue-les pour vérifier : une question fausse se signale avec le drapeau, puis se corrige depuis l\'espace parent.</p></details>';
   }
   // quiz créé : l'écran descend jusqu'au résultat et le bouton « Jouer » brille.
   // Clavier d'abord fermé, défilement ensuite (un défilement pendant la fermeture du clavier fige les touchers sur Android).
@@ -343,9 +352,20 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
       $('resultat').innerHTML = '<p class="petit">Ce navigateur ne me laisse pas lire le presse-papiers : colle la réponse dans le cadre juste en dessous (appui long, puis « Coller »), puis clique sur « Créer le quiz ».</p>';
       return;
     }
-    creer(texte, $('resultat'), $('coller-creer'));
+    creerColle(texte, $('resultat'), $('coller-creer'));
   });
-  $('creer').addEventListener('click', () => creer($('reponse').value, $('resultat'), $('creer')));
+  $('creer').addEventListener('click', () => creerColle($('reponse').value, $('resultat'), $('creer')));
+  // quiz collé (Claude, ChatGPT, Mistral, Grok) : avec une clé Gemini, les seules lignes douteuses sont revues
+  // (sans photos ni consignes, quota gratuit) ; sans clé, elles sont signalées au parent après la création
+  async function creerColle(texte, res, bouton) {
+    let t = String(texte || '');
+    if (cle && t.trim() && nbQuestions(t) >= 3 && suspects(t).length) {
+      if (bouton) bouton.disabled = true;
+      try { t = await relire(t, n => { res.innerHTML = '<p class="petit" role="status">🔎 Gemini revoit ' + n + (n > 1 ? ' questions douteuses' : ' question douteuse') + '… (quelques secondes)</p>'; }); } catch (e) {}
+      if (bouton) bouton.disabled = false;
+    }
+    return creer(t, res, bouton);
+  }
 
   /* ---------- Gemini : les photos partent du navigateur vers Google, la clé est gardée par le site ---------- */
   const API_GEMINI = 'https:\/\/generativelanguage.googleapis.com/v1beta/models/';
@@ -418,14 +438,16 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     $('partager').disabled = !fichiersPartage.length;
   });
   $('partager').addEventListener('click', async () => {
-    const info = $('partage-info'), texte = messageCourt(), data = { files: fichiersPartage, text: texte };
+    const info = $('partage-info'), texte = messageCourt();
     if (!fichiersPartage.length) return;
+    let image = null; try { image = await imageDemande(texte); } catch (e) {}
+    const data = { files: image ? [image].concat(fichiersPartage) : fichiersPartage, text: texte };
     copier(texte);                             // au cas où l'appli de l'IA ne garde que les photos
     partiIA = true;
     try {
       if (navigator.canShare && !navigator.canShare(data)) throw Object.assign(new Error('refus'), { name: 'NotAllowedError' });
       await navigator.share(data);
-      info.textContent = '✅ Photos envoyées. Case du message vide (Claude, Mistral, Grok) ? Appui long, « Coller », puis envoie. Quand l\'IA a répondu, copie sa réponse et reviens ici.';
+      info.textContent = '✅ Photos envoyées. Case du message vide (Claude, Mistral, Grok) ? Envoie quand même : la demande est écrite sur la 1re image (ou appui long, « Coller »). Quand l\'IA a répondu, copie sa réponse et reviens ici.';
     } catch (e) {
       if (e && e.name === 'AbortError') { partiIA = false; info.textContent = ''; return; }
       partiIA = false;
@@ -434,6 +456,26 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     }
   });
 
+  // image « demande » jointe en tête des photos : Claude, Grok et Mistral perdent le texte du menu Partager,
+  // mais lisent toujours une image. Texte noir sur blanc, gros caractères, coupé en lignes.
+  function imageDemande(texte) {
+    const L = 1000, M = 40, T = 30, H = T * 1.35, c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = T + 'px sans-serif';
+    const lignes = [];
+    ('DEMANDE (à suivre) :\n' + texte).split('\n').forEach(par => {
+      let l = '';
+      // mots trop longs (l'adresse des consignes) coupés en morceaux de 30 caractères
+      par.split(/(\s+)/).filter(Boolean).forEach(w => (w.match(/.{1,30}/g) || []).forEach(m => {
+        if (l && x.measureText(l + m).width > L - 2 * M) { lignes.push(l.trimEnd()); l = m.trimStart(); } else l += m;
+      }));
+      lignes.push(l);
+    });
+    c.width = L; c.height = Math.round(2 * M + lignes.length * H);
+    x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height);
+    x.fillStyle = '#000'; x.font = T + 'px sans-serif'; x.textBaseline = 'top';
+    lignes.forEach((l, i) => x.fillText(l, M, M + i * H));
+    return new Promise((ok, ko) => c.toBlob(b => { c.width = c.height = 0; b ? ok(new File([b], 'demande.jpg', { type: 'image/jpeg' })) : ko(new Error('image')); }, 'image/jpeg', 0.9));
+  }
   $('g-changer').addEventListener('click', ev => { ev.preventDefault(); cle = ''; etatGemini(); $('g-resultat').innerHTML = ''; });
 
   // photos réduites dans le navigateur (1600 px, JPEG) : envoi plus rapide, rien n'est gardé.
@@ -555,7 +597,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     const ressemble = (a, b) => { const B = sans(b).split(/[^a-z]+/).filter(m => m.length >= 4); return sans(a).split(/[^a-z]+/).filter(m => m.length >= 4).some(m => B.some(x => dist(m, x) <= Math.max(1, Math.floor(Math.max(m.length, x.length) * 0.34)))); };
     const lignes = String(quiz).split(/\r?\n/);
     const titre = ((lignes.find(l => /^\s*T\s*\|/i.test(l)) || '').split('|')[1]) || '';
-    const vues = {}, res = [];
+    const vues = {}, enonces = {}, res = [];
     lignes.forEach((brute, i) => {
       const m = brute.trim().match(/^([QVSGA])\s*\|(.*)$/i); if (!m) return;
       const t = m[1].toUpperCase(), ch = m[2].split('|').map(s => s.trim()).filter(c => !/^(dire|notes|portee|portée|indice|langue|img|fig|sch|g|r)\s*=/i.test(c));
@@ -575,9 +617,13 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
       if (t === 'Q') {
         const reste = ch.slice(1); if (reste.length >= 4) reste.pop();     // dernier champ = explication
         const bonne = reste[0] || '', autres = reste.slice(1);
+        const vu = new Set(), dbl = reste.slice(0, 1 + autres.length).some(x => { const k = sans(x).replace(/[^a-z0-9]+/g, ''); if (vu.has(k)) return true; vu.add(k); return false; });
+        if (dbl) motifs.push('deux propositions identiques');
         if (autres.length && bonne.length >= 20 && bonne.length > 1.8 * Math.max(...autres.map(x => x.length))) motifs.push('la bonne réponse est bien plus longue que les autres');
       }
       if (t === 'A' && ch.slice(1).some(p => { const x = p.split('='); return x.length === 2 && ressemble(x[0], x[1]); })) motifs.push('paires qui se devinent à la ressemblance des mots');
+      const e = sans(q).replace(/[^a-z0-9]+/g, '');
+      if (e.length >= 12) { if (enonces[e]) motifs.push('même question qu\'une autre'); else enonces[e] = 1; }
       if (motifs.length) res.push({ i, ligne: brute.trim(), motifs });
     });
     return res;
@@ -587,7 +633,10 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
   // 1. création ; 2. relecture ciblée par Flash-Lite (autre quota gratuit) des seules lignes douteuses,
   // sans photos ni consignes. Si elle échoue ou répond mal, on garde le premier quiz.
   async function demanderGemini(lot, texte, etape) {
-    const quiz = await appelGemini(lot, MODELES, CONSIGNES, texte);
+    return relire(await appelGemini(lot, MODELES, CONSIGNES, texte), etape);
+  }
+  // relecture seule : sert aussi aux quiz collés depuis Claude, ChatGPT, Mistral ou Grok quand la famille a une clé Gemini
+  async function relire(quiz, etape) {
     if (nbQuestions(quiz) < 3) return quiz;
     const s = suspects(quiz).slice(0, 15);
     if (!s.length) return quiz;
