@@ -241,6 +241,7 @@ dialog.boite.large{max-width:720px}
     <div class="filtres">
       <label class="small" for="periode">Période :</label>
       <select id="periode" onchange="afficher()">
+        <option value="j">Aujourd'hui</option>
         <option value="7">7 derniers jours</option>
         <option value="30" selected>30 derniers jours</option>
         <option value="90">3 mois</option>
@@ -453,9 +454,17 @@ function remplirFiltres() {
   fj.value = joueurs.includes(vj) ? vj : "";
 }
 
+// nombre de jours de la période (1 = aujourd'hui, 0 = tout) et début de la période
+function periodeJours() { const v = document.getElementById("periode").value; return v === "j" ? 1 : +v || 0; }
+function debutPeriode() {
+  const v = document.getElementById("periode").value;
+  if (v === "j") { const d = new Date(); d.setHours(0, 0, 0, 0); return d.getTime(); }
+  return +v ? Date.now() - +v * 864e5 : 0;
+}
+function filtreActif() { return !!debutPeriode() || !!document.getElementById("fmat").value || !!document.getElementById("fjoueur").value; }
 function filtrer() {
-  const jours = +document.getElementById("periode").value, m = document.getElementById("fmat").value, j = document.getElementById("fjoueur").value;
-  const lim = jours ? Date.now() - jours * 864e5 : 0;
+  const m = document.getElementById("fmat").value, j = document.getElementById("fjoueur").value;
+  const lim = debutPeriode();
   return TOUT.filter(r => (!lim || new Date(r.date) >= lim) && (!m || r.matiere === m) && (!j || r.joueur === j));
 }
 
@@ -468,7 +477,7 @@ function afficher() {
   const nq = L.reduce((s, r) => s + r.total, 0), nok = L.reduce((s, r) => s + r.score, 0), pcG = nq ? Math.round(nok / nq * 100) : 0;
   const temps = L.reduce((s, r) => s + (r.duree || 0), 0);
   const joursActifs = new Set(L.map(r => jour(r.date))).size;
-  const tousJours = new Set(TOUT.map(r => jour(r.date)));
+  const tousJours = new Set(L.map(r => jour(r.date)));          // série comptée sur la sélection (période, matière, joueur)
   let serie = 0; const d = new Date();
   if (!tousJours.has(jour(d))) d.setDate(d.getDate() - 1);
   while (tousJours.has(jour(d))) { serie++; d.setDate(d.getDate() - 1); }
@@ -482,7 +491,7 @@ function afficher() {
   </div>`;
 
   // --- activité par jour
-  const nbJ = Math.min(+document.getElementById("periode").value || 60, 60);     // au plus 60 barres (« 3 mois » et « Tout » : 60 derniers jours)
+  const nbJ = Math.min(periodeJours() || 60, 60);     // au plus 60 barres (« 3 mois » et « Tout » : 60 derniers jours ; « Aujourd'hui » : 1)
   const parJour = {};
   L.forEach(r => { const k = jour(r.date); (parJour[k] = parJour[k] || { n: 0, ok: 0, t: 0 }); parJour[k].n++; parJour[k].ok += r.score; parJour[k].t += r.total; });
   const jl = []; for (let i = nbJ - 1; i >= 0; i--) { const x = new Date(); x.setDate(x.getDate() - i); jl.push(jour(x)); }
@@ -491,7 +500,7 @@ function afficher() {
     const pc = Math.round(p.ok / p.t * 100);
     return `<div class="b" style="height:${Math.max(8, p.n / maxN * 100)}%;background:${couleur(pc)}" title="${k} : ${p.n} partie(s), ${pc} %">${nbJ <= 31 ? `<span>${p.n}</span>` : ""}</div>`; }).join("");
   const activite = `<div class="box"><h2>${I('calendar')}Activité${nbJ === 60 ? ` <span class="small">(60 derniers jours)</span>` : ""}</h2><div class="bars${nbJ > 31 ? " serre" : ""}">${bars}</div>
-    <div class="axis"><span>${new Date(jl[0]).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span><span>aujourd'hui</span></div>
+    <div class="axis">${nbJ > 1 ? `<span>${new Date(jl[0]).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</span>` : ""}<span>aujourd'hui</span></div>
     <div class="legend"><span>Hauteur = nombre de parties ; couleur = réussite du jour :</span><span><i style="background:var(--ok)"></i>≥ 70 %</span><span><i style="background:var(--moy)"></i>40–69 %</span><span><i style="background:var(--ko)"></i>&lt; 40 %</span></div></div>`;
 
   // --- par matière
@@ -514,13 +523,13 @@ function afficher() {
     <tbody>${lignesQuiz}</tbody></table></div></div>`;
 
   // --- maîtrise des notions (calculée par le serveur sur tous les résultats, révisions comprises)
-  const MN = ((window.__UQ || {}).maitrise || {}), NIV = ["Découverte", "En progrès", "Acquis", "Maîtrisé"], COUL = ["var(--line)", "var(--moy)", "var(--ok)", "var(--dore)"];
+  const MN = filtreActif() ? maitriseDe(L) : ((window.__UQ || {}).maitrise || {}), NIV = ["Découverte", "En progrès", "Acquis", "Maîtrisé"], COUL = ["var(--line)", "var(--moy)", "var(--ok)", "var(--dore)"];
   const toutes = [];
   Object.entries(MN.notions || {}).forEach(([quiz, cats]) => { const c = CAT[quiz], titre = c ? c.titre : ((MN.titres || {})[quiz] || quiz).replace(/^Quiz\s*[–-]\s*/, "");
     Object.entries(cats || {}).forEach(([cat, v]) => { v = Array.isArray(v) ? v : []; toutes.push({ quiz, titre, cat, niv: Math.max(0, Math.min(3, Math.round(nb(v[0])))), taux: Math.max(0, Math.min(100, Math.round(nb(v[1])))), n: nb(v[2]) }); }); });
   const parNiv = [0, 1, 2, 3].map(k => toutes.filter(x => x.niv === k).length);
   const fragiles = toutes.filter(x => x.niv === 1).sort((a, b) => a.taux - b.taux).slice(0, 10);
-  const themes = toutes.length ? `<div class="box"><h2>${I('target')}Maîtrise des notions</h2>
+  const themes = toutes.length ? `<div class="box"><h2>${I('target')}Maîtrise des notions${filtreActif() ? ` <span class="small">(sur cette sélection)</span>` : ""}</h2>
     <div class="niv-barre">${[3, 2, 1, 0].map(k => parNiv[k] ? `<span style="flex:${parNiv[k]};background:${COUL[k]}" title="${NIV[k]} : ${parNiv[k]}"></span>` : "").join("")}</div>
     <div class="legend">${[3, 2, 1, 0].map(k => `<span><img class="emb" src="https:\/\/leian.github.io/UNIVERSALQUIZ/themes/recompenses/niveau-${k}.webp" alt="">${NIV[k]} : <b>${parNiv[k]}</b></span>`).join("")}</div>
     ${fragiles.length ? `<div class="small" style="margin:12px 0 6px">Notions encore fragiles (moins de 70 % sur leurs 10 dernières réponses), à retravailler en priorité :</div>${fragiles.map(x =>
@@ -533,23 +542,57 @@ function afficher() {
   let partiesDetail = 0;
   L.forEach(r => { if (Array.isArray(r.questions)) partiesDetail++; (Array.isArray(r.questions) ? r.questions : []).forEach(q => { if (!q || typeof q !== "object") return; if (!q.q) q.q = "(question avec image ou son)"; const k = r.titre + "§" + q.q; const p = pqq[k] = pqq[k] || { titre: r.titre, q: q.q, attendu: q.attendu, donnes: Object.create(null), ko: 0, t: 0 };
     p.t++; if (!q.ok) { p.ko++; if (q.donne) p.donnes[q.donne] = (p.donnes[q.donne] || 0) + 1; } }); });
-  const ratees = Object.values(pqq).filter(p => p.ko > 0).sort((a, b) => b.ko - a.ko || (b.ko / b.t) - (a.ko / a.t)).slice(0, 15);
+  const rateesTout = Object.values(pqq).filter(p => p.ko > 0).sort((a, b) => b.ko - a.ko || (b.ko / b.t) - (a.ko / a.t)).slice(0, 15);
+  const ratees = deplie.ratees ? rateesTout : rateesTout.slice(0, 5);
   const questions = ratees.length ? `<div class="box"><h2>${I('x')}Questions les plus ratées</h2><div class="tablewrap"><table>
     <thead><tr><th>Question</th><th>Bonne réponse</th><th class="hide-m">Réponse fréquente de {{PRENOM}}</th><th>Ratée</th></tr></thead><tbody>${ratees.map(p => {
       const freq = Object.entries(p.donnes).sort((a, b) => b[1] - a[1])[0];
-      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td>${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td style="white-space:nowrap"><b class="ko">${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div>${partiesDetail < L.length ? `<p class="small" style="margin:8px 0 0">Calculé sur les ${partiesDetail} parties les plus récentes de cette sélection (le détail n'est chargé que pour les 200 dernières parties).</p>` : ""}</div>` : "";
+      return `<tr><td>${esc(p.q)}<div class="small">${esc(p.titre)}</div></td><td>${esc(p.attendu)}</td><td class="hide-m ko">${freq ? esc(freq[0]) : "—"}</td><td style="white-space:nowrap"><b class="ko">${p.ko}</b>/${p.t}</td></tr>`; }).join("")}</tbody></table></div>${boutonPlus("ratees", rateesTout.length)}${partiesDetail < L.length ? `<p class="small" style="margin:8px 0 0">Calculé sur les ${partiesDetail} parties les plus récentes de cette sélection (le détail n'est chargé que pour les 200 dernières parties).</p>` : ""}</div>` : "";
 
   // --- historique
-  const hist = `<div class="box"><h2>${I('clock')}Historique des parties</h2>${L.slice(0, 150).map(r => {
+  const nbH = Math.min(L.length, 150);
+  const hist = `<div class="box"><h2>${I('clock')}Historique des parties</h2>${L.slice(0, deplie.hist ? 150 : 5).map(r => {
     const open = ouverts.has(r.id);
     return `<div class="sess"><button type="button" class="sess-h" data-id="${esc(r.id)}" aria-expanded="${open}">
         <span class="pill" style="background:${fond(r.pct)}">${nb(r.score)}/${nb(r.total)}</span>
         <span class="t">${esc(r.titre)}</span>
         <span class="m">${esc(fmtDate(r.date))} · ${fmtDuree(r.duree)}${r.appareil ? " · " + esc(r.appareil) : ""}${r.joueur ? " · " + esc(r.joueur) : ""}</span>
         <span class="m" aria-hidden="true">${open ? "▲" : "▼"}</span></button>
-      ${open ? detail(r) : ""}</div>`; }).join("")}${L.length > 150 ? `<div class="small">… ${L.length - 150} parties plus anciennes non affichées.</div>` : ""}</div>`;
+      ${open ? detail(r) : ""}</div>`; }).join("")}${boutonPlus("hist", nbH)}${deplie.hist && L.length > 150 ? `<div class="small">… ${L.length - 150} parties plus anciennes non affichées.</div>` : ""}</div>`;
 
   C.innerHTML = kpis + activite + matieres + themes + quiz + questions + hist;
+}
+
+// listes longues : 5 lignes, puis « Tout afficher » / « Réduire » (replié par défaut)
+const deplie = { ratees: false, hist: false };
+function boutonPlus(nom, n) {
+  if (n <= 5) return "";
+  return `<p style="margin:8px 0 0;text-align:center"><button class="btn" type="button" data-plus="${nom}" aria-expanded="${deplie[nom]}">${deplie[nom] ? "▲ Réduire" : `▼ Tout afficher (${n})`}</button></p>`;
+}
+// maîtrise des notions recalculée sur les parties de la sélection (même règle que maitrise_() du serveur)
+function maitriseDe(L) {
+  const origine = Object.create(null), notions = Object.create(null), titres = Object.create(null);
+  [...L].filter(r => Array.isArray(r.questions)).sort((a, b) => String(a.date).localeCompare(String(b.date))).forEach(l => {
+    const qz = cle(l.quiz), virtuel = qz === "revisions" || qz === "defi", j = jour(l.date);
+    if (!virtuel && l.titre) titres[qz] = l.titre;
+    l.questions.forEach(x => {
+      if (!x || typeof x !== "object") return;
+      let quiz = qz, cat = x.cat || "—";
+      if (x.k) { if (virtuel) { const o = origine[x.k]; if (!o) return; quiz = o[0]; cat = o[1]; } else origine[x.k] = [quiz, cat]; }
+      else if (virtuel) return;
+      const v = x.ok ? (x.i ? 0.5 : 1) : 0;
+      const n = ((notions[quiz] = notions[quiz] || Object.create(null))[cat] = notions[quiz][cat] || { r: [], j: Object.create(null) });
+      n.r.push(v); if (n.r.length > 10) n.r.shift();
+      const d = n.j[j] = n.j[j] || [0, 0]; d[0] += v; d[1]++;
+    });
+  });
+  const res = { notions: {}, titres };
+  Object.keys(notions).forEach(quiz => { res.notions[quiz] = {};
+    Object.keys(notions[quiz]).forEach(cat => { const n = notions[quiz][cat], tot = Object.keys(n.j).reduce((t, d) => t + n.j[d][1], 0);
+      const taux = Math.round(n.r.reduce((a, b) => a + b, 0) / n.r.length * 100);
+      const bons = Object.keys(n.j).filter(d => n.j[d][0] / n.j[d][1] >= 0.8).length;
+      res.notions[quiz][cat] = [tot < 3 ? 0 : taux < 70 ? 1 : taux >= 90 && bons >= 2 ? 3 : 2, taux, tot]; }); });
+  return res;
 }
 
 function detail(r) {
@@ -603,6 +646,7 @@ async function supprimer(id) {
   const b = [...document.querySelectorAll("button[data-suppr]")].find(x => x.dataset.suppr === id); if (b) b.focus();
 }
 document.getElementById("contenu").addEventListener("click", e => {
+  const p = e.target.closest("button[data-plus]"); if (p) { const n = p.dataset.plus; deplie[n] = !deplie[n]; afficher(); const b = document.querySelector(`button[data-plus="${n}"]`); if (b) b.focus(); return; }
   const s = e.target.closest("button[data-suppr]"); if (s) { supprimer(s.dataset.suppr); return; }
   const c = e.target.closest("button[data-recharger]"); if (c) { const r = TOUT.find(x => x.id === c.dataset.recharger); if (r) { chargerDetail(r); afficher(); } return; }
   const h = e.target.closest("button.sess-h"); if (h) basculer(h.dataset.id);
