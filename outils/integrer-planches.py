@@ -21,7 +21,7 @@ Le NOM du fichier dit ce que c'est (c'est le nom donné par la console) :
 
   python3 outils/integrer-planches.py --positions <f|m|n> '<JSON de la console>'
                                 places des 12 accessoires sur la socca à habiller de cette allure
-thème = petits, lecteurs, explorateurs, college, lycee-gothique, lycee-rap, parent
+thème = petits, lecteurs, explorateurs, college, lycee-gothique, parent (toujours -f ou -m : plus de neutre)
 saison = noel, hiver, paques, printemps, ete, rentree, halloween, automne
 Sans -f / -m : la socca de toujours (neutre). Un nom inconnu est refusé (rien n'est touché).
 
@@ -34,7 +34,7 @@ from PIL import Image
 
 ICI = os.path.dirname(os.path.abspath(__file__))
 RACINE = os.path.dirname(ICI)
-THEMES = ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee-gothique', 'lycee-rap', 'parent']
+THEMES = ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee-gothique', 'parent']   # plus de lycée rap ni de neutre (28 nov. 2026)
 SAISONS = ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'halloween', 'automne']
 ANIM = open(os.path.join(RACINE, 'moteur', 'commun', 'animations.js'), encoding='utf-8').read()
 POSES = re.findall(r"\['([a-z0-9-]+)', '", ANIM[ANIM.index('const POSES = ['):ANIM.index('];', ANIM.index('const POSES = ['))])
@@ -80,7 +80,7 @@ def grille(src, sortie, case):
 def main():
     if sys.argv[1:2] == ['--positions']:
         allure, pos = sys.argv[2], json.loads(sys.argv[3])
-        assert allure in 'fmn' and isinstance(pos, list) and len(pos) == 12 and all(len(p) == 4 for p in pos), 'positions : 12 × [x, y, l, h]'
+        assert allure in ('f', 'm') and isinstance(pos, list) and len(pos) == 12 and all(len(p) == 4 for p in pos), 'positions : 12 × [x, y, l, h]'
         code = open(CODE, encoding='utf-8').read()
         dessins = json.loads(MOTIF.search(code).group(1))
         dessins.setdefault('recompenses', {}).setdefault('positions', {})[allure] = [[round(float(v)) for v in p] for p in pos]
@@ -93,6 +93,8 @@ def main():
     plan = []
     for f in fichiers:
         c = comprendre(f)
+        if c and c[2] == 'n' and c[0] != 'grille':
+            print('✗ allure neutre abandonnée (28 nov. 2026), rien n\'est fait :', os.path.basename(f)); sys.exit(2)
         if not c:
             print('✗ nom inconnu, rien n\'est fait :', os.path.basename(f)); sys.exit(2)
         plan.append((f, c))

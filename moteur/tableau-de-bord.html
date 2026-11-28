@@ -690,12 +690,12 @@ function afficherClasse() {
     })();
   const zoneM = document.getElementById("mascotte-zone"), boxM = document.getElementById("box-mascotte");
   if (zoneM) zoneM.innerHTML =
-    (U.theme === "lycee" && U.mascottes ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
+    (U.theme === "lycee" && U.mascottes && U.mascottes.length > 1 ? `<p style="margin-top:14px"><label for="choix-mascotte"><b>Mascotte</b></label><br><select id="choix-mascotte" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
       U.mascottes.map(m => `<option value="${esc(m)}" ${m === U.mascotte ? "selected" : ""}>${esc(NOMS_MASCOTTES[m] || m)}</option>`).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">La part de socca qui accompagne {{PRENOM}} sur le site.</span></p>` +
       `<p class="enreg" id="enreg-mascotte" role="status" hidden></p>` : "") +
     (U.genresDessines && U.genresDessines.indexOf(U.theme) >= 0 ? `<p style="margin-top:14px"><label for="choix-genre"><b>Allure de la mascotte</b></label><br><select id="choix-genre" style="margin-top:6px;font-size:1rem;padding:8px 10px;border-radius:10px;border:2px solid var(--line);background:var(--card);color:var(--ink)">` +
-      [["auto", "Automatique"], ["f", "Au féminin"], ["m", "Au masculin"], ["n", "Neutre : la socca de toujours"]]
+      [["auto", "Automatique"], ["f", "Au féminin"], ["m", "Au masculin"]]
         .map(([v, t]) => { const manque = (v === "f" || v === "m") && U.genresDispo && U.genresDispo.indexOf(v) < 0;   // dessins pas encore prêts pour ce thème
           return `<option value="${v}" ${v === (U.genre || "auto") ? "selected" : ""} ${manque && v !== U.genre ? "disabled" : ""}>${esc(t + (manque ? " (dessins bientôt prêts)" : ""))}</option>`; }).join("") + `</select></p>` +
       `<p style="display:flex;gap:8px;align-items:center"><img class="apercu-mascotte" alt="" width="72" height="72"><span class="small">Choisis la mascotte dans laquelle {{PRENOM}} se reconnaît le mieux. Ce choix ne change que le dessin : les messages du site sont les mêmes pour tout le monde.</span></p>` +

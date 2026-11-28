@@ -1363,7 +1363,7 @@ function apiClasse(d) {
 /* ---------------- mascotte du lycée ----------------
    Au lycée, le parent choisit la tenue de la mascotte (Réglages, sous la classe) : <html data-mascotte="…">.
    Images : docs/themes/lycee-<mascotte>/ ; la première de la liste sert par défaut. */
-const MASCOTTES_LYCEE = ['gothique', 'rap'];
+const MASCOTTES_LYCEE = ['gothique'];   // tenue « rap » abandonnée le 28 nov. 2026 (trop de dessins à tenir) : un ancien choix retombe sur gothique
 function mascotte_() {
   const m = props_().getProperty('MASCOTTE');
   return MASCOTTES_LYCEE.indexOf(m) >= 0 ? m : MASCOTTES_LYCEE[0];
@@ -1390,9 +1390,9 @@ function apiMascotte(d) {
   return { ok: true, mascotte: m };
 }
 
-/* ---------------- allure de la mascotte : au féminin, au masculin ou neutre ----------------
-   Par défaut, devinée d'après le prénom (prénom inconnu ou porté par tous : neutre, la socca de toujours).
-   Le parent peut la changer dans Réglages (propriété GENRE : 'f', 'm', 'n' ; absente = automatique).
+/* ---------------- allure de la mascotte : au féminin ou au masculin (plus de neutre depuis le 28 nov. 2026) ----------------
+   Par défaut, devinée d'après le prénom (prénom mixte ou inconnu : choix stable tiré du prénom).
+   Le parent peut la changer dans Réglages (propriété GENRE : 'f', 'm' ; absente ou ancien 'n' = automatique).
    On ne parle que de la mascotte, jamais du genre de l'enfant ; les textes du site restent neutres.
    Le serveur pose <html data-genre="f|m"> seulement pour les thèmes dont les dessins existent
    (GENRES_DESSINES) : ailleurs, la mascotte ne change pas et le réglage n'est pas proposé.
@@ -1410,7 +1410,7 @@ const DESSINS_PRETS_ = {"poses":{"n":[],"f":["six-seven","moue","for-sure","je-m
 const POSES_DESSINEES = DESSINS_PRETS_.poses;
 const DESSINS_GENRE = { f: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'], m: ['petits', 'lecteurs', 'explorateurs', 'college', 'lycee', 'parent'] };
 /* mascottes de saison adaptées à chaque thème (classe) : docs/themes/saisons/<saison>-<thème>[-f|-m]/ (accueil, bravo),
-   <thème> = petits, lecteurs, explorateurs, college, lycee-gothique, lycee-rap, parent. Ajouter la saison ici une fois les images en ligne
+   <thème> = petits, lecteurs, explorateurs, college, lycee-gothique, parent. Ajouter la saison ici une fois les images en ligne
    (onglet « Mascottes » de la console pour les prompts). Sans dessin : la mascotte de saison de toujours (primaire) ou rien. */
 const SAISONS_THEMES = DESSINS_PRETS_.saisons;   // ex. { 'college-f': ['noel', 'hiver'] }
 function styleSaison_(cfg, page) {
@@ -1424,7 +1424,7 @@ function styleSaison_(cfg, page) {
 const SAISONS_GENRE = { f: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'], m: ['noel', 'hiver', 'paques', 'printemps', 'ete', 'rentree', 'automne', 'halloween'] };
 const GENRES_DESSINES = DESSINS_GENRE.f.concat(DESSINS_GENRE.m.filter(t => DESSINS_GENRE.f.indexOf(t) < 0));   // thèmes où le réglage est proposé
 function genreDessine_(theme, g) { return !!DESSINS_GENRE[g] && DESSINS_GENRE[g].indexOf(theme) >= 0; }
-const GENRES = ['auto', 'f', 'm', 'n'];
+const GENRES = ['auto', 'f', 'm'];   // plus de « neutre » depuis le 28 nov. 2026 : un ancien choix 'n' redevient automatique
 const PRENOMS_MIXTES_ = 'camille sacha sasha noa noah charlie eden alix claude dominique lou andrea andréa ange morgan yael yaël alex dany dani jessy jordan kim loan marley mael maël maé mae nael naël sam swann robin stéphane stephane leslie june ari elia élia'.split(' ');
 const PRENOMS_F_ = ('emma louise jade alice chloe chloé lina mila rose anna léa lea mia julia inès ines ambre zoé zoe léna lena juliette lou agathe jeanne iris eva éva romy nina luna victoria margaux margot manon sarah sara clara lana lola charlotte adèle adele alba louna lyna olivia capucine elena héloïse heloise mathilde ava jeanne anaïs anais apolline gabrielle valentine victoire elsa aya maya yasmine salomé salome céleste celeste lise lucie laura marie pauline justine camila diane hanna hannah emy nour assia sofia sophia marion lison sharon alicia amandine aurélie aurelie céline celine claire élise elise émilie emilie fanny isabelle julie léonie leonie maëlle maelle marine mélanie melanie morgane nathalie océane oceane sandrine sophie stéphanie stephanie valérie valerie virginie lilou maelys maëlys mélina melina nora rachel ruth sixtine thaïs thais violette suzanne gaïa gaia alma ninon constance garance albane bérénice berenice cassandre clémence clemence noémie noemie lisa liza giulia')
   .split(' ');
@@ -1432,17 +1432,18 @@ const PRENOMS_M_ = ('gabriel léo leo raphaël raphael louis arthur jules maël 
   .split(' ');
 function sansAccent_(s) { return String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, ''); }
 function genreDuPrenom_(prenom) {
-  // premier prénom seulement (« Marie-Lou » → « marie »), minuscules
+  // premier prénom seulement (« Marie-Lou » → « marie »), minuscules ; toujours 'f' ou 'm' (plus de neutre)
   const p = String(prenom || '').trim().toLowerCase().split(/[\s\-']/)[0];
-  if (!p || p.length < 2) return 'n';
   const pa = sansAccent_(p), dans = l => l.indexOf(p) >= 0 || l.map(sansAccent_).indexOf(pa) >= 0;
-  if (dans(PRENOMS_MIXTES_)) return 'n';
-  if (dans(PRENOMS_F_)) return 'f';
-  if (dans(PRENOMS_M_)) return 'm';
-  // terminaisons très marquées seulement ; dans le doute : neutre
-  if (/(ine|ette|elle|enne|anne|ia|ie|ina|lla)$/.test(pa)) return 'f';
-  if (/(ien|ard|ert|ric|ent|ois|aud|in|on|o)$/.test(pa)) return 'm';
-  return 'n';
+  if (p.length >= 2 && !dans(PRENOMS_MIXTES_)) {
+    if (dans(PRENOMS_F_)) return 'f';
+    if (dans(PRENOMS_M_)) return 'm';
+    if (/(ine|ette|elle|enne|anne|ia|ie|ina|lla)$/.test(pa)) return 'f';
+    if (/(ien|ard|ert|ric|ent|ois|aud|in|on|o)$/.test(pa)) return 'm';
+  }
+  // prénom mixte ou inconnu : choix stable tiré du prénom (le parent peut le changer dans Réglages)
+  let h = 0; for (const c of pa) h = (h * 31 + c.charCodeAt(0)) % 9973;
+  return h % 2 ? 'm' : 'f';
 }
 function genreReglage_() {
   const g = props_().getProperty('GENRE');

@@ -40,10 +40,6 @@ html[data-theme="lycee"][data-mascotte="gothique"] .m-accueil { background-image
 html[data-theme="lycee"][data-mascotte="gothique"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/bravo.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/encouragement.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique/reflexion.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/accueil.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/bravo.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/encouragement.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap/reflexion.webp"); }
 html[data-theme="parent"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/accueil.webp"); }
 html[data-theme="parent"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/bravo.webp"); }
 html[data-theme="parent"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/parent/encouragement.webp"); }
@@ -75,10 +71,6 @@ html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-accueil { 
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/bravo.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/encouragement.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-f/reflexion.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/accueil.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/bravo.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/encouragement.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="f"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-f/reflexion.webp"); }
 html[data-theme="petits"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/accueil.webp"); }
 html[data-theme="petits"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/bravo.webp"); }
 html[data-theme="petits"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/petits-m/encouragement.webp"); }
@@ -103,10 +95,6 @@ html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-accueil { 
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/bravo.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/encouragement.webp"); }
 html[data-theme="lycee"][data-mascotte="gothique"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-gothique-m/reflexion.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-accueil { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/accueil.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-bravo { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/bravo.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-encouragement { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/encouragement.webp"); }
-html[data-theme="lycee"][data-mascotte="rap"][data-genre="m"] .m-reflexion { background-image:url("https:\/\/leian.github.io/UNIVERSALQUIZ/themes/lycee-rap-m/reflexion.webp"); }
 
 /* ---- Petits : chaud, très rond, gros textes ---- */
 html[data-theme="petits"] { --bg:#fff4d6; --card:#ffffff; --ink:#3b2a14; --soft:#7a6440; --line:#ffd98a; }

@@ -3,8 +3,8 @@
 
   python3 outils/planche-references.py
 
-Une image par allure : docs/themes/reference/planche-f.png, planche-m.png, planche-n.png,
-16 cases nommées (Tête, 7 thèmes, 8 saisons). À relancer après chaque nouvelle mascotte publiée,
+Une image par allure : docs/themes/reference/planche-f.png, planche-m.png (plus de neutre),
+15 cases nommées (Tête, 6 thèmes, 8 saisons). À relancer après chaque nouvelle mascotte publiée,
 puis committer : ChatGPT ne peut pas ouvrir les liens, il ne voit que les images jointes.
 """
 from PIL import Image, ImageDraw, ImageFont
@@ -13,14 +13,14 @@ RACINE = os.path.join(os.path.dirname(__file__), '..')
 F = '/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf'
 font = ImageFont.truetype(F, 26) if os.path.exists(F) else ImageFont.load_default()
 TH = [('petits', 'Petits'), ('lecteurs', 'Lecteurs'), ('explorateurs', 'Explorateurs'), ('college', 'Collège'),
-      ('lycee-gothique', 'Lycée gothique'), ('lycee-rap', 'Lycée rap'), ('parent', 'Parent')]
+      ('lycee-gothique', 'Lycée gothique'), ('parent', 'Parent')]
 SA = [('noel', 'Noël'), ('hiver', 'Hiver'), ('paques', 'Pâques'), ('printemps', 'Printemps'), ('ete', 'Été'),
       ('rentree', 'Rentrée'), ('halloween', 'Halloween'), ('automne', 'Automne')]
 REF = {'f': 'socca-f-nouvelle.png', 'm': 'socca-m.png', 'n': 'socca-n.png'}
 TITRE = {'f': 'PLANCHE FÉMININ', 'm': 'PLANCHE MASCULIN', 'n': 'PLANCHE NEUTRE'}
 HAUT = 56
 C, L = 300, 44
-for a in 'fmn':
+for a in 'fm':   # plus de neutre (28 nov. 2026)
     suf = '' if a == 'n' else '-' + a
     t = lambda p: os.path.join(RACINE, 'docs', 'themes', p)
     cases = [('Tête', t('reference/' + REF[a]))] + [(n, t(k + suf + '/accueil.webp')) for k, n in TH] + \
