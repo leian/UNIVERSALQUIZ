@@ -30,7 +30,7 @@ if (!photos.length) { console.error('Aucune photo (.jpg, .png, .webp, .heic) dan
 
 // mêmes réglages que src/page-ajouter.html
 const MODELES = ['gemini-flash-latest', 'gemini-flash-lite-latest'];
-const demande = `Crée un quiz de révision de ${nb} questions${classe ? ' pour un élève de ' + classe : ''} à partir des photos de leçon jointes.`;
+const demande = `Crée un quiz de révision de ${nb} questions${classe ? ' pour un élève de ' + classe : ''} à partir des photos jointes (une leçon, ou une simple photo pour un quiz de découverte).`;
 const nbQuestions = t => (String(t).match(/^\s*[QVSGOACXNPK]\s*\|/gim) || []).length;
 
 async function appel(modeles, systeme, texte) {

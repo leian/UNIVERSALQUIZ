@@ -74,11 +74,12 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
 <main>
   <a class="lien-aide" href="https://soccaquiz.fr/aide.html#creer" target="_blank" rel="noopener" title="Aide" aria-label="Aide">?</a>
   <h1>➕ Créer un quiz</h1>
-  <p class="intro">Une leçon en photo, une IA : le quiz est prêt en 2 minutes.</p>
+  <p class="intro">Une leçon en photo, une IA : le quiz est prêt en 2 minutes. Une simple photo marche aussi (un plat, des animaux…).</p>
 
   <section class="etape">
     <h2><span class="num">1</span> Prends la leçon en photo</h2>
     <p>Une photo par page, bien droite et bien nette. Cadre seulement la leçon, sans la page d'à côté : l'IA en lit moins, ça va plus vite.</p>
+    <p class="petit">Pas de leçon sous la main ? Une simple photo suffit : une part de socca donne un quiz sur la cuisine niçoise, un chat et un chien un quiz sur les animaux de compagnie.</p>
     <p class="petit">Ne photographie ni le nom ni le visage de l'enfant.</p>
     <div class="ligne">
       <span id="classe-saisie"><label for="classe">Classe</label>
@@ -130,7 +131,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
     <div id="g-avec-cle" class="cache">
       <input type="file" id="g-photos" accept="image/*" multiple>
       <label class="choix" for="g-photos">📷 Choisir les photos</label>
-      <p class="petit">Cadre la leçon sans le nom de ton enfant ni celui de l'école.</p>
+      <p class="petit">Une leçon, ou une simple photo (un plat, des animaux…). Cadre sans le nom de ton enfant ni celui de l'école.</p>
       <div id="g-vignettes" class="vignettes"></div>
       <button class="btn" id="g-creer" type="button" disabled>✨ Créer le quiz avec Gemini</button>
       <p class="petit"><a href="#" id="g-changer">Changer de clé Gemini</a></p>
@@ -141,7 +142,7 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
   <section class="etape" id="autre-ia">
     <h2><span class="num">3</span> Ou avec une autre IA</h2>
     <ol class="ia-pas">
-      <li><b>Ouvre une IA</b>, joins les photos de la leçon (📎 ou +) et envoie : la demande est déjà écrite.
+      <li><b>Ouvre une IA</b>, joins les photos (📎 ou +) et envoie : la demande est déjà écrite.
         <div class="ias">
           <a class="btn leger ia" data-ia="https://claude.ai/new?q=" href="https://claude.ai/new" target="_blank" rel="noopener">Claude</a>
           <a class="btn leger ia" data-ia="https://chatgpt.com/?q=" href="https://chatgpt.com/" target="_blank" rel="noopener">ChatGPT</a>
@@ -214,12 +215,12 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     const classe = $('classe').value.trim() || (U.classe === 'adulte' ? 'adulte' : '');
     const pour = /^adultes?$/i.test(classe) ? ' pour un adulte' : classe ? ' pour un élève de ' + classe : '';
     const ex = EXERCICES[$('exercices').value] || '';
-    return `Crée un quiz de révision de ${$('nb').value} questions${pour} à partir des photos de leçon jointes` + (ex ? ' (' + ex + ')' : '');
+    return `Crée un quiz de révision de ${$('nb').value} questions${pour} à partir des photos jointes (une leçon, ou une simple photo pour un quiz de découverte)` + (ex ? ' (' + ex + ')' : '');
   };
   // ce que voit le parent dans l'IA : une seule phrase, les consignes sont lues sur la page
   const messageCourt = () => demande() + ', en suivant exactement les consignes de cette page : ' + URL_CONSIGNES +
-    '\nSi aucune photo n\'est jointe, réponds seulement « 📷 Envoie-moi les photos de la leçon. » Si tu ne peux pas ouvrir la page, réponds seulement « 📋 Colle-moi les consignes. »';
-  const messageComplet = () => demande() + '. Si aucune photo n\'est jointe, réponds seulement « 📷 Envoie-moi les photos de la leçon. »\n\n' + CONSIGNES;
+    '\nSi aucune photo n\'est jointe, réponds seulement « 📷 Envoie-moi une photo de la leçon ou du sujet. » Si tu ne peux pas ouvrir la page, réponds seulement « 📋 Colle-moi les consignes. »';
+  const messageComplet = () => demande() + '. Si aucune photo n\'est jointe, réponds seulement « 📷 Envoie-moi une photo de la leçon ou du sujet. »\n\n' + CONSIGNES;
   window.__consignes = { messageCourt, messageComplet };     // pour les tests
 
   const liensIA = Array.from(document.querySelectorAll('a.ia'));
@@ -336,7 +337,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
       const r = await appelJson(API_GEMINI.slice(0, -1) + '?pageSize=1', { headers: { 'x-goog-api-key': c } }, 30000);
       if (!r.ok) throw new Error(messageErreur(r));
       google.script.run
-        .withSuccessHandler(r => { $('g-enregistrer').disabled = false; if (r && r.erreur) { res.innerHTML = '<div class="ko">😕 ' + h(r.erreur) + '</div>'; return; } cle = c; $('g-cle').value = ''; etatGemini(); res.innerHTML = '<div class="ok">✅ Clé enregistrée. Choisis maintenant les photos de la leçon.</div>'; })
+        .withSuccessHandler(r => { $('g-enregistrer').disabled = false; if (r && r.erreur) { res.innerHTML = '<div class="ko">😕 ' + h(r.erreur) + '</div>'; return; } cle = c; $('g-cle').value = ''; etatGemini(); res.innerHTML = '<div class="ok">✅ Clé enregistrée. Choisis maintenant les photos.</div>'; })
         .withFailureHandler(e => { $('g-enregistrer').disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; })
         .apiGeminiCle({ cle: c });
     } catch (e) {
@@ -482,7 +483,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     if (creation || !photos.length) return;
     const res = $('g-resultat'), b = $('g-creer'), lot = photos.slice();
     creation = true; b.disabled = true; choixPhotos(false);
-    res.innerHTML = '<p class="petit" role="status">⏳ Gemini lit la leçon et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
+    res.innerHTML = '<p class="petit" role="status">⏳ Gemini lit les photos et prépare le quiz… (de 20 secondes à 1 minute, ne ferme pas la page)</p>';
     try {
       const texte = await demanderGemini(lot, demande() + '.', () => { res.innerHTML = '<p class="petit" role="status">🔎 Gemini relit chaque question pour vérifier qu\'elle porte bien sur la leçon… (encore quelques secondes)</p>'; });
       const r = await creer(texte, res, null);
