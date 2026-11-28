@@ -1209,9 +1209,9 @@ try {
   // mascotte de saison adaptée au thème (classe) : seulement si dessinée (SAISONS_THEMES), sinon rien de changé
   {
     const r = (await ev(`(function () { var cfg = { saison: 'noel', theme: 'college', mascotte: 'gothique', genreEffectif: 'f' };
-      var sans = styleSaison_(cfg, 'index'); SAISONS_THEMES['college-f'] = ['noel'];
+      var garde = SAISONS_THEMES['parent-f']; delete SAISONS_THEMES['parent-f']; var sans = styleSaison_(cfg, 'index'); SAISONS_THEMES['college-f'] = ['noel'];
       var avec = styleSaison_(cfg, 'index'), autre = styleSaison_({ saison: 'hiver', theme: 'college', genreEffectif: 'f' }, 'index'),
-        parent = styleSaison_(cfg, 'tableau-de-bord'); delete SAISONS_THEMES['college-f']; return [sans, avec, autre, parent]; })()`)).r;
+        parent = styleSaison_(cfg, 'tableau-de-bord'); delete SAISONS_THEMES['college-f']; if (garde) SAISONS_THEMES['parent-f'] = garde; return [sans, avec, autre, parent]; })()`)).r;
     ok(r[0] === '' && /saisons\/noel-college-f\/accueil\.webp/.test(r[1]) && /m-bravo/.test(r[1]) && r[2] === '' && r[3] === '',
       'saisons : mascotte de saison du thème et de l\'allure (noel-college-f) seulement quand elle est dessinée — ' + JSON.stringify(r));
   }
