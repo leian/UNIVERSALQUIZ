@@ -1,0 +1,50 @@
+T|Les spécialités niçoises|Connais-tu la cuisine nissarde ?|autre|🍽️|👨‍🍳
+## Les spécialités niçoises|🥘
+Q|Quelle spécialité est préparée à partir de pois chiches ?|La socca|La pissaladière|La trucha|La socca est une spécialité à base de pois chiches.
+S|Comment s'appelle la spécialité niçoise portant le nom d'une salade ?|Salade niçoise|La salade niçoise fait partie des spécialités locales.
+G|La daube à la [niçoise] est une spécialité locale.|Son nom rappelle la cuisine de Nice.
+Q|Quel nom désigne une tourte aux blettes ?|La tourte de blettes|La tourte de fèves|La tourte au miel|Ces tourtes portent le nom de leurs ingrédients.
+S|Quel mot complète le nom du pan niçois : pan … ?|Bagnat|Cette spécialité s'appelle le pan bagnat.
+Q|Quel type de fleurs retrouve-t-on dans les beignets niçois mentionnés ?|Les fleurs de courgette|Les fleurs de courge|Les fleurs de fève|Il s'agit des beignets de fleurs de courgette.
+G|Les petits choux [farcis] sont une spécialité niçoise.|Le mot farcis complète le nom de cette recette.
+S|Quel mot complète le nom de la soupe au … ?|Pistou|La soupe au pistou fait partie des recettes niçoises.
+Q|Comment s'appelle la spécialité niçoise dont le nom commence par pissala ?|La pissaladière|La panisse|La socca|La pissaladière est une spécialité de la cuisine niçoise.
+G|Les gnocchi [verts] constituent une des recettes de gnocchi mentionnées.|Il existe notamment des gnocchi verts dans la cuisine nissarde.
+## Les noms en niçois|💬
+A|Associe chaque spécialité à son nom en niçois.|La socca=La soca|Le pan bagnat=Lou pan bagnat|La salade niçoise=La salada nissarda|La soupe de poisson=La soupa de pei
+Q|Que signifie La doba à la nissarda ?|La daube à la niçoise|La salade niçoise|Les tripes à la niçoise|Doba signifie daube.
+S|Traduis La soupa au pistou en français.|Soupe au pistou|Soupa signifie soupe.
+G|En niçois, la salade se dit [salada].|Salada est le mot niçois pour salade.
+Q|Que désigne L'estocaficada ?|Le stockfish|Le pan bagnat|Le gratin de courge|L'estocaficada correspond au stockfish.
+S|Comment dit-on soupe en niçois ?|Soupa|Le mot soupa correspond au français soupe.
+Q|Que signifie La tourta ai fava ?|La tourte de fèves|La tourte de blettes|La tourte au miel|Fava désigne ici les fèves.
+G|Le mot niçois [tourta] signifie tourte.|Les deux mots se ressemblent.
+S|Traduis Lou mesclun en français.|Mesclun|Le nom mesclun est conservé en français.
+Q|Que signifie La tarta ai limoun ?|La tarte aux citrons|La tarte à la confiture|La tourte aux fèves|Limoun correspond aux citrons.
+## Les ingrédients et les recettes|🥬
+C|Classe les spécialités selon leur nom.|Soupes: Soupe au pistou;Soupe de poisson|Tourtes: Tourte de blettes;Tourte de fèves|Beignets: Beignets aux pommes-raisins secs;Beignets de fleurs de courgette
+S|Quel fruit accompagne les raisins secs dans les beignets mentionnés ?|Pommes|Ces beignets associent pommes et raisins secs.
+Q|Quels fruits secs accompagnent le miel dans une tourte niçoise ?|Les noix|Les raisins secs|Les amandes|Il s'agit de la tourte au miel et aux noix.
+G|Le tian de morue aux [poireaux] associe un poisson et un légume.|Les poireaux figurent dans le nom de cette recette.
+V|Il existe une spécialité niçoise appelée tourte de fèves.|V|La tourte de fèves appartient aux recettes niçoises mentionnées.
+S|Quel légume donne son nom au gratin de courge ?|Courge|La courge est mentionnée dans le nom du gratin.
+V|La tarte aux citrons porte le même nom que la tarte à la confiture.|F|Ce sont deux recettes distinctes.
+G|Les sardines [farcies] font partie des spécialités de poisson.|Cette recette porte le nom de sardines farcies.
+Q|Quel poisson donne son nom au tian aux poireaux ?|La morue|La sardine|L'anchois|Cette recette est le tian de morue aux poireaux.
+S|Quel ingrédient sucré est mentionné dans le nom des panisses frites au sucre ?|Sucre|Cette variante des panisses porte le nom de panisses frites au sucre.
+## Le vocabulaire de la cuisine nissarde|📚
+A|Relie chaque recette à son nom en niçois.|La daube à la niçoise=La doba à la nissarda|Le stockfish=L'estocaficada|La tourte de fèves=La tourta ai fava|La tarte aux citrons=La tarta ai limoun
+G|En niçois, le mot [pei] désigne le poisson dans le nom de la soupe de poisson.|La soupa de pei signifie la soupe de poisson.
+Q|Que signifie La tarta à la counfitura ?|La tarte à la confiture|La tarte aux citrons|La tourte de blettes|Counfitura signifie confiture.
+V|La trucha figure parmi les spécialités de la cuisine nissarde.|V|La trucha est bien une recette niçoise mentionnée.
+S|Quel mot niçois correspond à daube ?|Doba|Le nom niçois de la daube est doba.
+G|Les tripes à la niçoise se disent Li tripa à la [nissarda].|Nissarda correspond à niçoise.
+V|Le mot niçois tarta signifie soupe.|F|Tarta signifie tarte.
+S|Quel mot niçois correspond à confiture ?|Counfitura|On retrouve ce mot dans le nom de la tarte à la confiture.
+V|Le mot niçois salada signifie salade.|V|Salada correspond au mot français salade.
+V|Le mot niçois soupa signifie tourte.|F|Soupa signifie soupe, tandis que tourta signifie tourte.
+M|La socca est une spécialité niçoise à base de pois chiches.
+M|La cuisine nissarde comprend notamment la pissaladière, le pan bagnat, la trucha et les farcis.
+M|Salada signifie salade, soupa signifie soupe et doba signifie daube.
+M|Tourta signifie tourte et tarta signifie tarte.
+M|Les tourtes, les soupes et les beignets font partie du patrimoine culinaire niçois.
