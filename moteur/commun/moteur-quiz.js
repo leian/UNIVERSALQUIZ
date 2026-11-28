@@ -1235,6 +1235,7 @@
     if (!d) {
       d = document.createElement('div'); d.id = 'mq-quitter';
       d.innerHTML = '<div class="mq-q-boite" role="alertdialog" aria-modal="true" aria-labelledby="mq-q-titre" aria-describedby="mq-q-texte">' +
+        '<button type="button" class="mq-q-croix mq-q-non" aria-label="Fermer">×</button>' +
         '<p id="mq-q-titre" class="mq-q-titre">Quitter le quiz ?</p><p id="mq-q-texte">Ta partie en cours ne sera pas enregistrée.</p>' +
         '<div class="mq-q-btns"><button type="button" class="mq-q-non">Continuer</button><button type="button" class="mq-q-oui">Quitter</button></div></div>';
       document.body.appendChild(d);
@@ -1249,7 +1250,7 @@
       d.addEventListener('keydown', ev => { if (ev.key === 'Escape') fermerQuitter(); });
     }
     d.className = 'visible';
-    setTimeout(() => { const b = d.querySelector('.mq-q-non'); if (b) b.focus(); }, 30);
+    setTimeout(() => { const b = d.querySelector('.mq-q-btns .mq-q-non'); if (b) b.focus(); }, 30);
     return false;
   }
   // le lien « Espace parent » en bas de page (ajouté par le pont) : même confirmation (écouteur posé avant ceux du pont)

@@ -232,7 +232,7 @@ try {
     await page.locator('.barre-quiz a.btn-myquiz').click();
     await page.waitForTimeout(300);
     const resteQ = /page=quiz_Test_verifier/.test(page.url()) && await page.locator('#mq-quitter.visible').count() === 1;
-    await page.locator('#mq-quitter .mq-q-non').click();
+    await page.locator('#mq-quitter .mq-q-btns .mq-q-non').click();
     const continuer = await page.locator('#mq-quitter.visible').count() === 0 && /page=quiz_Test_verifier/.test(page.url());
     await page.locator('.barre-quiz a.btn-myquiz').click();
     await page.waitForTimeout(300);
@@ -466,7 +466,7 @@ try {
     await p2.evaluate(() => window.dispatchEvent(new Event('focus')));
     const barreP = await p2.locator('#barre-retour:not([hidden])').count() === 1;
     await c2.close();
-    ok(avant && pt.p.n === 2 && pt.p.types.every(t => t === 'image/jpeg') && pt.p.tailles.every(t => t > 0) && pt.p.text === pt.court && /Envoyé/.test(pt.info) && barreP,
+    ok(avant && pt.p.n === 2 && pt.p.types.every(t => t === 'image/jpeg') && pt.p.tailles.every(t => t > 0) && pt.p.text === pt.court && /Photos envoyées/.test(pt.info) && barreP,
       'autres IA : photos choisies sur la page, puis envoyées avec la demande par le menu Partager (JPEG réduits) ; liens vers les sites des IA repliés dessous ; « Coller et créer » au retour');
   }
   const reponseIA = 'Voici ton quiz :\n```json\n' + JSON.stringify({
@@ -540,6 +540,9 @@ try {
   await page.locator('#coller-creer').click();
   await page.locator('#resultat .ok').waitFor({ timeout: 5000 });
   ok(/3 questions/.test(await page.locator('#resultat').innerText()), 'bouton « Coller et créer » : quiz créé en un geste');
+  await page.waitForTimeout(700);
+  const jouerBrille = await page.evaluate(() => { const b = document.querySelector('#resultat a.brille'), r = b && b.getBoundingClientRect(); return !!b && r.top >= 0 && r.bottom <= innerHeight && getComputedStyle(b).animationName === 'brille'; });
+  ok(jouerBrille, 'quiz créé : l\'écran descend jusqu\'au bouton « Jouer au quiz », qui brille');
 
   // lignes D (faits) et R (exercices fabriqués) : le site écrit lui-même les questions
   await page.goto(BASE + '/exec?page=ajouter');
@@ -955,7 +958,11 @@ try {
   const prop = await page.evaluate(() => ({ t: document.querySelector('dialog.boite textarea').value, mail: (document.querySelector('dialog.boite a.btn') || {}).href || '' }));
   ok(/^T\|Listen and repeat\|/.test(prop.t) && /\nP\|Écoute, puis répète\.\|Hello, my name is Lana\./.test(prop.t) && /^mailto:soccaquiz@gmail\.com\?subject=Proposition/.test(prop.mail),
     'proposer un quiz : texte en lignes prêt à envoyer par mail à SoccaQuiz');
-  await page.keyboard.press('Escape');
+  {
+    const cx = await page.evaluate(() => { const c = document.querySelector('dialog.boite .croix'), r = c && c.getBoundingClientRect(), d = document.querySelector('dialog.boite').getBoundingClientRect(); return c ? [Math.round(r.right), Math.round(d.right), Math.round(r.top), Math.round(d.top)].join(',') : 'aucune'; });
+    await page.locator('dialog.boite .croix').click();
+    { const [a, b, c, d] = String(cx).split(',').map(Number); ok(a > b - 60 && c < d + 60 && await page.locator('dialog.boite[open]').count() === 0, 'fenêtres de l\'espace parent : croix en haut à droite, qui ferme la fenêtre — ' + cx); }
+  }
   // réception directe activée (docs/soccaquiz.json) : « Envoyer à SoccaQuiz » poste le quiz à la console de l'éditeur
   let recu = null;
   await page.route(/leian\.github\.io\/UNIVERSALQUIZ\/soccaquiz\.json/, r => r.fulfill({ status: 200, headers: { 'access-control-allow-origin': '*', 'content-type': 'application/json' }, body: JSON.stringify({ propositions: 'https://script.google.com/macros/s/AKfycbTESTtestTESTtest123/exec' }) }));

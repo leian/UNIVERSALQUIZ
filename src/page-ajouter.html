@@ -64,6 +64,12 @@ ol.ia-pas .ias{margin-top:8px}
 .ico-copie{display:inline-block;width:1.05em;height:1.05em;vertical-align:-.15em}
 button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accent);text-decoration:underline;cursor:pointer}
 @media (prefers-reduced-motion:reduce){.bloc-copier{animation:none;box-shadow:0 0 0 2px var(--accent)}}
+/* bouton « Jouer au quiz » qui brille après la création */
+@keyframes brille{0%,100%{box-shadow:0 0 0 0 rgba(212,160,23,.0),0 2px 6px rgba(0,0,0,.15)}50%{box-shadow:0 0 0 6px rgba(212,160,23,.45),0 0 22px 6px rgba(212,160,23,.55)}}
+a.btn.brille{animation:brille 1.6s ease-in-out infinite;position:relative;overflow:hidden}
+a.btn.brille::after{content:"";position:absolute;top:0;left:-60%;width:40%;height:100%;background:linear-gradient(100deg,transparent,rgba(255,255,255,.55),transparent);animation:reflet 2.4s ease-in-out infinite;pointer-events:none}
+@keyframes reflet{0%{left:-60%}60%,100%{left:130%}}
+@media (prefers-reduced-motion:reduce){a.btn.brille,a.btn.brille::after{animation:none}a.btn.brille{box-shadow:0 0 0 4px rgba(212,160,23,.6)}}
 .barre-retour{position:fixed;left:0;right:0;bottom:0;z-index:20;background:var(--card);border-top:2px solid var(--line);box-shadow:0 -6px 20px rgba(0,0,0,.12);padding:12px 16px calc(12px + env(safe-area-inset-bottom));text-align:center}
 .barre-retour .btn{font-size:1.1rem;padding:14px 22px}
 .barre-retour p{margin:6px 0 0}
@@ -148,7 +154,8 @@ button.lien{background:none;border:none;padding:0;font:inherit;color:var(--accen
           <label class="choix" for="p-photos">📷 Choisir les photos</label>
           <div id="p-vignettes" class="vignettes"></div>
           <button class="btn" id="partager" type="button" disabled>📤 Envoyer à une IA</button>
-          <p class="petit">Ton téléphone propose ses applis : choisis Claude, ChatGPT, Mistral, Grok ou Gemini (l'appli doit être installée), puis envoie. Si la case de l'IA est vide, fais un appui long puis « Coller » : la demande est aussi copiée.</p>
+          <p class="petit">Ton téléphone propose ses applis : choisis ChatGPT, Claude, Mistral, Grok ou Gemini (l'appli doit être installée).</p>
+          <p class="petit"><b>ChatGPT</b> reçoit les photos et la demande : il n'y a plus qu'à envoyer. <b>Claude, Mistral et Grok</b> ne gardent que les photos : la demande est copiée, fais un appui long dans la case du message, puis « Coller », et envoie.</p>
           <p class="petit" id="partage-info" aria-live="polite"></p>
         </div>
         <details class="petit" id="partage-autre"><summary>Ou ouvrir le site d'une IA et y joindre les photos</summary></details></li>
@@ -290,13 +297,24 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
         res.innerHTML = '<div class="ok"><p>🎉 Le quiz <b>' + h(r.titre) + '</b> est prêt' + (r.nb ? ' (' + r.nb + ' questions)' : '') + '.</p>' +
           (r.avertissements && r.avertissements.length ? '<p class="petit">' + r.avertissements.map(h).join('<br>') + '</p>' : '') +
           (r.aussi && r.aussi.length ? '<p>Ajouté aussi pour ' + r.aussi.map(h).join(', ') + '.</p>' : '') +
-          '<p><a class="btn" href="' + h(url) + '" target="_top">▶ Jouer au quiz</a></p>' +
+          '<p><a class="btn brille" href="' + h(url) + '" target="_top">▶ Jouer au quiz</a></p>' +
           '<p class="petit">Joue deux ou trois questions pour vérifier : l\'IA peut se tromper si une photo est floue.</p></div>';
         $('reponse').value = '';
+        montrerJouer(res);
         fini(r);
       })
       .withFailureHandler(e => { if (bouton) bouton.disabled = false; res.innerHTML = '<div class="ko">😕 ' + h(echecGoogle(e)) + '</div>'; fini(null); })
       .apiAjouterQuiz(texte, aussiCoches()));
+  }
+  // quiz créé : l'écran descend jusqu'au résultat et le bouton « Jouer » brille.
+  // Clavier d'abord fermé, défilement ensuite (un défilement pendant la fermeture du clavier fige les touchers sur Android).
+  function montrerJouer(res) {
+    const a = document.activeElement; if (a && /^(TEXTAREA|INPUT)$/.test(a.tagName)) a.blur();
+    setTimeout(() => {
+      const b = res.querySelector('a.brille'); if (!b) return;
+      try { b.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' }); } catch (e) { b.scrollIntoView(); }
+      try { b.focus({ preventScroll: true }); } catch (e) {}
+    }, 450);
   }
   // famille : le même quiz peut être ajouté aux autres enfants (frères et sœurs de la même classe…)
   const autres = ((window.__UQ && window.__UQ.famille) || []).filter(x => !x.ici);
@@ -407,7 +425,7 @@ V|La lave est de la roche fondue.|V|…</pre></div></li>
     try {
       if (navigator.canShare && !navigator.canShare(data)) throw Object.assign(new Error('refus'), { name: 'NotAllowedError' });
       await navigator.share(data);
-      info.textContent = '✅ Envoyé. Quand l\'IA a répondu, copie sa réponse et reviens ici.';
+      info.textContent = '✅ Photos envoyées. Case du message vide (Claude, Mistral, Grok) ? Appui long, « Coller », puis envoie. Quand l\'IA a répondu, copie sa réponse et reviens ici.';
     } catch (e) {
       if (e && e.name === 'AbortError') { partiIA = false; info.textContent = ''; return; }
       partiIA = false;

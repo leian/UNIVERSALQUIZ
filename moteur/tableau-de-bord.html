@@ -155,6 +155,7 @@ h2 .ic{color:var(--rouge);margin-right:6px}
 #boite-aide{position:relative}
 .boite .croix{position:absolute;top:8px;right:8px;width:40px;height:40px;border:0;border-radius:50%;background:transparent;color:var(--ink);font:400 26px/1 system-ui,sans-serif;cursor:pointer}
 .boite .croix:hover{background:color-mix(in srgb,var(--ink) 8%,transparent)}
+.boite>h3:first-of-type{padding-right:36px}
 #boite-aide label{display:block;font-weight:700;margin:10px 0 4px}
 #boite-aide input,#boite-aide textarea{width:100%;font:inherit;border:2px solid var(--line);border-radius:10px;background:var(--bg);color:var(--ink);padding:8px}
 #boite-aide textarea{min-height:130px;font:inherit}
@@ -783,12 +784,14 @@ function boite(html) {
     const d = document.createElement("dialog");
     d.className = "boite";
     d.innerHTML = html;
+    // toujours une croix en haut à droite pour fermer (même effet qu'« Annuler »)
+    if (!d.querySelector(".croix")) d.insertAdjacentHTML("afterbegin", '<button class="croix" type="button" aria-label="Fermer">×</button>');
     let rep = false;
     d.addEventListener("click", e => { const b = e.target.closest("button"); if (b) { rep = b.dataset.r === "oui"; d.close(); } else if (e.target === d) d.close(); });
     d.addEventListener("close", () => { d.remove(); if (avant && avant.isConnected && avant.focus) avant.focus(); ok(rep); });
     document.body.appendChild(d);
     if (d.showModal) d.showModal(); else d.setAttribute("open", "");
-    const f = d.querySelector("[data-r=non], button"); if (f) f.focus();
+    const f = d.querySelector("[data-r=non], button:not(.croix)") || d.querySelector("button"); if (f) f.focus();
   });
 }
 document.getElementById("liste-quiz").addEventListener("click", async e => {
@@ -1329,6 +1332,7 @@ var Sig = (() => {
     const d = document.createElement("dialog");
     d.className = "boite large";
     d.innerHTML = html;
+    if (!d.querySelector(".croix")) d.insertAdjacentHTML("afterbegin", '<button class="croix" type="button" data-fermer aria-label="Fermer">×</button>');
     d.addEventListener("click", e => { if (e.target.closest("[data-fermer]") || e.target === d) d.close(); });
     d.addEventListener("close", () => d.remove());
     document.body.appendChild(d);
